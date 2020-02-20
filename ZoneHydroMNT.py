@@ -18,7 +18,6 @@ import os
 from collections import defaultdict
 import itertools
 import click
-import click_log
 
 import numpy as np
 
@@ -33,130 +32,17 @@ import fiona
 import fiona.crs
 
 from fct.lib import terrain_analysis as ta
-from fct.algorithms.terrain.StreamToRaster import (
-    rasterize_linestring
+
+from console import (
+    success,
+    info,
+    important,
+    warning
 )
 
-import logging
-logger = logging.getLogger(__name__)
+from CalculateFlowDirection import RasterizeStream
 
-SUCCESS = 'green'
-INFO = 'cyan'
-WARNING = 'yellow'
-ERROR = 'red'
-
-ci = [-1, -1,  0,  1,  1,  1,  0, -1]
-cj = [ 0,  1,  1,  1,  0, -1, -1, -1]
-
-def StreamToRaster(template, nodata, shapefile, fill, cdzones, junctions=None):
-    """
-    Rastérisation du réseau hydrographique cartographié.
-    """
-
-    with rio.open(template) as ds:
-
-        raster = ds.read(1)
-        streams = np.zeros((ds.height, ds.width), dtype=np.uint32)
-        priorities = np.zeros((ds.height, ds.width), dtype=np.uint32)
-        out = np.full((ds.height, ds.width), fill, dtype=np.float32)
-
-        def isdata(px, py):
-            """
-            True if (py, px) is a valid pixel coordinate
-            """
-
-            return px >= 0 and py >= 0 and px < ds.width and py < ds.height
-
-        def set_data(row, col, gid, value, priority):
-            """
-            Set Pixel Value to Line Primary Field
-            """
-
-            current_priority = priorities[row, col]
-
-            if current_priority == 0 or priority < current_priority:
-                # Override with the smallest ID
-                streams[row, col] = gid
-                priorities[row, col] = priority
-                out[row, col] = value
-
-        with fiona.open(shapefile) as fs:
-
-            for feature in fs:
-
-                gid = feature['properties']['GID']
-                hack = feature['properties']['HACK']
-                cdzone = feature['properties']['CDZONEHYDR']
-                cdzoneidx = cdzones[cdzone]
-                geom = feature['geometry']['coordinates']
-                linestring = np.fliplr(ta.worldtopixel(np.float32(geom), ds.transform, gdal=False))
-
-                burn_on = False
-
-                for a, b in zip(linestring[:-1], linestring[1:]):
-                    for col, row in rasterize_linestring(a, b):
-                        if isdata(col, row) and raster[row, col] != nodata:
-                            for x in range(8):
-                                ix = row + ci[x]
-                                jx = col + cj[x]
-                                if not isdata(jx, ix) or raster[ix, jx] == nodata:
-                                    # on arrive au bord
-                                    # on laisse burn_on à sa valeur précédente
-                                    # si on était à l'extérieur, on n'écrit pas le pixel
-                                    # si on était à l'intérieur, on écrit le pixel
-                                    # qui est un potentiel exutoire
-                                    break
-                            else:
-                                # on n'est pas au bord
-                                burn_on = True
-                            if burn_on:
-                                set_data(row, col, gid, cdzoneidx, hack)
-                        else:
-                            burn_on = False
-
-                # a = linestring[-2]
-                # b = linestring[-1]
-                # for col, row in rasterize_linestring(a, b):
-                #     if isdata(col, row):
-                #         set_data(row, col, gid, cdzoneidx, hack)
-
-
-        if junctions is not None:
-
-            with fiona.open(shapefile) as fs:
-                for feature in fs:
-
-                    gid = feature['properties']['GID']
-                    hack = feature['properties']['HACK']
-                    geom = feature['geometry']['coordinates']
-                    linestring = np.fliplr(ta.worldtopixel(np.float32(geom), ds.transform, gdal=False))
-
-                    for i in range(linestring.shape[0]-1, -1, -1):
-
-                        px, py = linestring[i]
-
-                        if not isdata(px, py):
-                            continue
-
-                        if streams[py, px] == gid:
-                            junctions[py, px] = 1
-                            break
-
-        return out
-
-
-@click.command()
-@click_log.simple_verbosity_option(logger)
-@click.argument('bassin')
-@click.argument('zone')
-@click.option('--root', type=click.Path(True, False, True), default='/media/crousson/Backup/PRODUCTION/ZONEHYDR', help='Working Directory')
-@click.option('--output', default='ZONEHYDRO5M.shp', help='Output base filename')
-@click.option('--flowdir', default='FLOW.tif', help='Flow Direction filename')
-@click.option('--epsg', default=2154, help='Output Coordinate Reference System')
-@click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
-@click.option('--overwrite-flow', '-wf', 'overwrite_flow', default=False, help='Overwrite existing Flow Dir raster ?', is_flag=True)
-@click.option('--debug', '-g', default=False, help='Debug mode : output intermediate results', is_flag=True)
-def ExtractZoneHydro(bassin, zone, root, output, flowdir, epsg, overwrite, overwrite_flow, debug):
+def ExtractZoneHydro(bassin, zone, **options):
     """
     Re-délimitation des zones hydrographiques BDC à la résolution du MNT
 
@@ -166,98 +52,80 @@ def ExtractZoneHydro(bassin, zone, root, output, flowdir, epsg, overwrite, overw
     4. Vectorize le polygone correspondant à la zone indiquée
     """
 
-    logger.info('Processing zone %s' % zone)
-    logger.info('Working Directory = %s' % root)
+    root = options.get('workdir', '.')
+    overwrite = options.get('overwrite', False)
+    basename = options.get('output', 'ZONEHYDRO5M.shp')
+    flowdir = options.get('flowdir', 'FLOW.tif')
+    epsg = options.get('epsg', 2154)
+
+    info('Processing zone %s' % zone)
+    info('Working Directory = %s' % root)
 
     raster_template = os.path.join(root, bassin, zone, 'DEM5M.tif')
     stream_network = os.path.join(root, bassin, zone, 'StreamNetwork.shp')
-    outfilename = os.path.join(root, bassin, zone, output)
+    output = os.path.join(root, bassin, zone, basename)
 
-    if os.path.exists(outfilename) and not overwrite:
-        logger.warning('Output already exists : %s' % outfilename)
+    if os.path.exists(output) and not overwrite:
+        important('Output already exists : %s' % output)
         return
 
     feedback = ta.ConsoleFeedback()
-    ds = rio.open(raster_template)
+    
+    with rio.open(raster_template) as ds:
 
-    logger.info('Rasterize Stream Network')
+        info('Rasterize Stream Network')
 
-    cdzonecnt = itertools.count(1)
-    cdzones = defaultdict(lambda: next(cdzonecnt))
-    fill_value = 0
-    # burn_value = 1
-    junctions = np.zeros((ds.height, ds.width), dtype=np.uint8)
-    streams = StreamToRaster(raster_template, ds.nodata, stream_network, fill_value, cdzones, junctions)
+        elevations = ds.read(1)
+        transform = ds.transform
 
-    if debug:
+        cdzonecnt = itertools.count(1)
+        cdzones = defaultdict(lambda: next(cdzonecnt))
+        fill_value = 0
+        # burn_value = 1
+        junctions = np.zeros((ds.height, ds.width), dtype=np.uint8)
+        streams = RasterizeStream(elevations, ds.transform, ds.nodata, stream_network, fill_value, cdzones, junctions)
 
-        filename = os.path.join(root, bassin, zone, 'STREAMS.tif')
-        logger.debug('Write %s' % filename)
+    # filename = os.path.join(root, bassin, zone, 'STREAMS.tif')
+    # info('Write %s' % filename)
 
-        profile = ds.profile.copy()
-        profile.update(compress='deflate')
+    # profile = ds.profile.copy()
+    # profile.update(compress='deflate')
 
-        with rio.open(filename, 'w', **profile) as dst:
-            dst.write(streams, 1)
+    # with rio.open(filename, 'w', **profile) as dst:
+    #     dst.write(streams, 1)
 
-        filename = os.path.join(root, bassin, zone, 'JUNCTIONS.tif')
-        logger.debug(' Write %s' % filename)
+    # filename = os.path.join(root, bassin, zone, 'JUNCTIONS.tif')
+    # info(' Write %s' % filename)
 
-        profile.update(dtype=np.uint8, nodata=255, compress='deflate')
+    # profile.update(dtype=np.uint8, nodata=255, compress='deflate')
 
-        with rio.open(filename, 'w', **profile) as dst:
-            dst.write(junctions, 1)
+    # with rio.open(filename, 'w', **profile) as dst:
+    #     dst.write(junctions, 1)
 
     flow_raster = os.path.join(root, bassin, zone, flowdir)
 
-    if os.path.exists(flow_raster) and not overwrite_flow:
+    info('Read Flow Direction from %s' % flow_raster)
 
-        logger.info('Read Flow Direction from %s' % flow_raster)
+    with rio.open(flow_raster) as src:
+        flow = src.read(1)
 
-        with rio.open(flow_raster) as src:
-            flow = src.read(1)
-
-    else:
-
-        logger.info('Calculate Flow Direction')
-
-        elevations = ds.read(1)
-        zdelta = 0.0001
-        flow = ta.burnfill(
-            elevations,
-            streams,
-            junctions,
-            ds.nodata,
-            zdelta,
-            feedback=feedback)
-        feedback.setProgress(100)
-
-        logger.info('Save to %s' % flow_raster)
-
-        profile = ds.profile.copy()
-        profile.update(dtype=np.int16, nodata=-1, compress='deflate')
-
-        with rio.open(flow_raster, 'w', **profile) as dst:
-            dst.write(flow, 1)
-
-    logger.info('Calculate Watersheds')
+    info('Calculate Watersheds')
 
     watersheds = np.copy(streams)
     ta.watershed(flow, watersheds, fill_value, feedback)
     feedback.setProgress(100)
 
-    if debug:
 
-        filename = os.path.join(root, bassin, zone, 'WATERSHEDS.tif')
-        logger.debug('Write %s' % filename)
+    # filename = os.path.join(root, bassin, zone, 'WATERSHEDS.tif')
+    # info('Write %s' % filename)
 
-        profile = ds.profile.copy()
-        profile.update(dtype=np.int32, nodata=0, compress='deflate')
+    # profile = ds.profile.copy()
+    # profile.update(dtype=np.int32, nodata=0, compress='deflate')
 
-        with rio.open(filename, 'w', **profile) as dst:
-            dst.write(np.int32(watersheds), 1)
+    # with rio.open(filename, 'w', **profile) as dst:
+    #     dst.write(np.int32(watersheds), 1)
 
-    logger.info('Vectorize Polygons')
+    info('Vectorize Polygons')
 
     watersheds = sieve(np.int32(watersheds), 400)
 
@@ -271,14 +139,14 @@ def ExtractZoneHydro(bassin, zone, root, output, flowdir, epsg, overwrite, overw
 
     CdToZones = {v: k for k, v in cdzones.items()}
 
-    polygons = shapes(watersheds, (watersheds == cdzones[zone]), connectivity=8, transform=ds.transform)
+    polygons = shapes(watersheds, (watersheds == cdzones[zone]), connectivity=8, transform=transform)
     options = dict(
         driver='ESRI Shapefile',
         crs=crs,
         schema=schema
     )
 
-    with fiona.open(outfilename, 'w', **options) as dst:
+    with fiona.open(output, 'w', **options) as dst:
         for polygon, value in polygons:
             if value > 0:
                 geom = asShape(polygon).buffer(0.0)
@@ -290,7 +158,43 @@ def ExtractZoneHydro(bassin, zone, root, output, flowdir, epsg, overwrite, overw
                 }
                 dst.write(feature)
 
-    logger.info('Everything Ok')
+    success('Everything Ok')
+
+@click.group()
+def cli():
+    pass
+
+@cli.command()
+@click.argument('basin')
+@click.argument('zone')
+@click.option('--output', '-o', default='ZONEHYDRO5M.shp', help='Output filename')
+@click.option('--workdir', '-d', type=click.Path(True, False, True, resolve_path=True), default='.', help='Working Directory')
+@click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
+def zone(basin, zone, output, workdir, overwrite):
+    """
+    DOCME
+    """
+
+    ExtractZoneHydro(basin, zone, output=output, workdir=workdir, overwrite=overwrite)
+
+@cli.command()
+@click.argument('zonelist')
+@click.option('--output', '-o', default='ZONEHYDRO5M.shp', help='Output filename')
+@click.option('--workdir', '-d', type=click.Path(True, False, True, resolve_path=True), default='.', help='Working Directory')
+@click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
+def batch(zonelist, output, workdir, overwrite):
+    """
+    DOCME
+    """
+
+    with click.open_file(zonelist) as fp:
+        zones = [info.strip().split(' ') for info in fp]
+
+    with click.progressbar(zones) as progress:
+        for basin, zone in progress:
+            
+            click.echo('\r')
+            ExtractZoneHydro(basin, zone, output=output, workdir=workdir, overwrite=overwrite)
 
 if __name__ == '__main__':
-    ExtractZoneHydro()
+    cli()

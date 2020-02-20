@@ -18,7 +18,6 @@ import os
 from collections import defaultdict, Counter
 import itertools
 import click
-import click_log
 
 import numpy as np
 
