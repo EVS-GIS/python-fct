@@ -73,6 +73,11 @@ def DelineateZoneHydro(basin, zone, root, overwrite):
         feedback = ta.SilentFeedback()
         ta.watershed(flow, watersheds, fill_value, feedback)
 
+        profile = ds.profile.copy()
+        profile.update(compress='deflate', nodata=0, dtype=np.float32)
+        with rio.open(os.path.join(root, basin, zone, 'WATERSHEDS.tif'), 'w', **profile) as dst:
+            dst.write(watersheds, 1)
+
         watersheds = sieve(np.int32(watersheds), 400)
 
         CdToZones = {v: k for k, v in cdzones.items()}
@@ -105,23 +110,36 @@ def cli():
 @cli.command()
 @click.argument('basin')
 @click.argument('zone')
-@click.option('--root', '-d', type=click.Path(True, False, True, resolve_path=True), default='.', help='Working Directory')
+@click.option('--workdir', '-d', type=click.Path(True, False, True, resolve_path=True), default='.', help='Working Directory')
 @click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
-def zone(basin, zone, root, overwrite):
-    DelineateZoneHydro(basin, zone, root, overwrite)
+def zone(basin, zone, workdir, overwrite):
+    """
+    DOCME
+    """
+    
+    DelineateZoneHydro(basin, zone, workdir, overwrite)
 
 @cli.command()
 @click.argument('zonelist')
-@click.option('--root', '-d', type=click.Path(True, False, True, resolve_path=True), default='.', help='Working Directory')
+@click.option('--workdir', '-d', type=click.Path(True, False, True, resolve_path=True), default='.', help='Working Directory')
 @click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
-def batch(zonelist, root, overwrite):
+def batch(zonelist, workdir, overwrite):
+    """
+    DOCME
+    """
 
-    with open(zonelist) as fp:
+    with click.open_file(zonelist) as fp:
         zones = [info.strip().split(' ') for info in fp]
 
-    with click.progressbar(zones) as progress:
+    def display_item(item):
+        if item:
+            return item[1]
+        return '...'
+
+    with click.progressbar(zones, item_show_func=display_item) as progress:
         for basin, zone in progress:
-            DelineateZoneHydro(basin, zone, root, overwrite)
+
+            DelineateZoneHydro(basin, zone, workdir, overwrite)
 
 if __name__ == '__main__':
     cli()

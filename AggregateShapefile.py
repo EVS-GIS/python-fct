@@ -19,20 +19,21 @@ import os
 import fiona
 
 @click.command()
-@click.argument('zonelist')
 @click.argument('basename')
+@click.argument('zonelist')
 @click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
-@click.option('--output', '-o', default='OUTPUT.shp')
-def AggregateShapefile(zonelist, basename, overwrite, output):
+def AggregateShapefile(zonelist, basename, overwrite):
     """
     Aggregate shapefiles in subdirectories
     """
+
+    output = os.path.join('.', basename)
 
     if os.path.exists(output) and not overwrite:
         click.secho('Output already exists : %s' % output, fg='yellow')
         return
 
-    with open(zonelist) as fp:
+    with click.open_file(zonelist) as fp:
         zones = [info.strip().split(' ') for info in fp]
 
     dst = None
@@ -54,7 +55,7 @@ def AggregateShapefile(zonelist, basename, overwrite, output):
     def progress_status(item):
         if item is not None:
             return item[1]
-        return ''
+        return '...'
 
     with click.progressbar(zones, label='Aggregate features', item_show_func=progress_status) as progress:
         for bassin, zone in progress:

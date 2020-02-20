@@ -184,9 +184,9 @@ def cli():
 @cli.command()
 @click.argument('basin')
 @click.argument('zone')
-@click.option('--root', '-d', type=click.Path(True, False, True, resolve_path=True), default='.', help='Working Directory')
+@click.option('--workdir', '-d', type=click.Path(True, False, True, resolve_path=True), default='.', help='Working Directory')
 @click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
-def zone(basin, zone, root, overwrite):
+def zone(basin, zone, workdir, overwrite):
 
     output1 = os.path.join(basin, zone, 'ZONEHYDRO_ALL_OUTLETS.shp')
     output2 = os.path.join(basin, zone, 'ZONEHYDRO_OUTLET.shp')
@@ -198,22 +198,28 @@ def zone(basin, zone, root, overwrite):
             click.secho('Output already exists : %s' % output2, fg='yellow')
         return
 
-    count = FindPolygonOutlet(basin, zone, root, overwrite)
+    count = FindPolygonOutlet(basin, zone, workdir, overwrite)
 
     click.secho('Found %d outlets' % count, fg='green')
 
 @cli.command()
 @click.argument('zonelist')
-@click.option('--root', '-d', type=click.Path(True, False, True, resolve_path=True), default='.', help='Working Directory')
+@click.option('--workdir', '-d', type=click.Path(True, False, True, resolve_path=True), default='.', help='Working Directory')
 @click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
-def batch(zonelist, root, overwrite):
+def batch(zonelist, workdir, overwrite):
 
-    with open(zonelist) as fp:
+    with click.open_file(zonelist) as fp:
         zones = [info.strip().split(' ') for info in fp]
 
-    with click.progressbar(zones) as progress:
+    def display_item(item):
+        if item:
+            return item[1]
+        return '...'
+
+    with click.progressbar(zones, item_show_func=display_item) as progress:
         for basin, zone in progress:
-            FindPolygonOutlet(basin, zone, root, overwrite)
+            
+            FindPolygonOutlet(basin, zone, workdir, overwrite)
 
 if __name__ == '__main__':
     cli()

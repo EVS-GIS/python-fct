@@ -50,7 +50,7 @@ from console import (
 ci = [-1, -1,  0,  1,  1,  1,  0, -1]
 cj = [ 0,  1,  1,  1,  0, -1, -1, -1]
 
-def RasterizeStream(template, nodata, shapefile, fill, cdzones, junctions=None):
+def RasterizeStream(template, nodata, shapefile, fill, cdzones):
     """
     Rastérisation du réseau hydrographique cartographié.
     """
@@ -80,7 +80,7 @@ def RasterizeStream(template, nodata, shapefile, fill, cdzones, junctions=None):
                 # Override with the smallest ID
                 streams[row, col] = gid
                 priorities[row, col] = priority
-                out[row, col] = value
+                out[row, col] = gid
 
         with fiona.open(shapefile) as fs:
 
@@ -122,31 +122,41 @@ def RasterizeStream(template, nodata, shapefile, fill, cdzones, junctions=None):
                 #     if isdata(col, row):
                 #         set_data(row, col, gid, cdzoneidx, hack)
 
+        junctions = list()
 
-        if junctions is not None:
+        with fiona.open(shapefile) as fs:
+            for feature in fs:
 
-            with fiona.open(shapefile) as fs:
-                for feature in fs:
+                gid = feature['properties']['GID']
+                hack = feature['properties']['HACK']
+                geom = feature['geometry']['coordinates']
+                linestring = np.fliplr(ta.worldtopixel(np.float32(geom), ds.transform, gdal=False))
 
-                    gid = feature['properties']['GID']
-                    hack = feature['properties']['HACK']
-                    geom = feature['geometry']['coordinates']
-                    linestring = np.fliplr(ta.worldtopixel(np.float32(geom), ds.transform, gdal=False))
+                pixels = list()
 
-                    for i in range(linestring.shape[0]-1, -1, -1):
+                for a, b in zip(linestring[:-1], linestring[1:]):
+                    for col, row in rasterize_linestring(a, b):
+                        if isdata(col, row) and streams[row, col] == gid:
+                            pixels.append((row, col))
 
-                        px, py = linestring[i]
+                if pixels:
+                    py, px = pixels[-1]
+                    junctions.append((py, px, gid))
 
-                        if not isdata(px, py):
-                            continue
+                # for i in range(linestring.shape[0]-1, -1, -1):
 
-                        if streams[py, px] == gid:
-                            junctions[py, px] = 1
-                            break
+                #     px, py = linestring[i]
 
-        return out
+                #     if not isdata(px, py):
+                #         continue
 
-def CaclulateFlowDirection(bassin, zone, **options):
+                #     if streams[py, px] == gid:
+                #         junctions.append((py, px, gid))
+                #         break
+
+        return out, junctions
+
+def FlowJunctions(bassin, zone, **options):
     """
     Calcule le plan de drainage,
     en tenant compte du réseau hydrographique cartographié.
@@ -154,9 +164,8 @@ def CaclulateFlowDirection(bassin, zone, **options):
 
     root = options.get('workdir', '.')
     overwrite = options.get('overwrite', False)
-    basename = options.get('output', 'FLOW.tif')
-    output_streams = options.get('streams', False)
-    output_junctions = options.get('junctions', False)
+    basename = options.get('output', 'JUNCTIONS.shp')
+    epsg = options.get('epsg', 2154)
 
     info('Processing zone %s' % zone)
     info('Working Directory = %s' % root)
@@ -177,52 +186,33 @@ def CaclulateFlowDirection(bassin, zone, **options):
         cdzones = defaultdict(lambda: next(cdzonecnt))
         fill_value = 0
         # burn_value = 1
-        junctions = np.zeros((ds.height, ds.width), dtype=np.uint8)
-        streams = RasterizeStream(raster_template, ds.nodata, stream_network, fill_value, cdzones, junctions)
+        streams, junctions = RasterizeStream(raster_template, ds.nodata, stream_network, fill_value, cdzones)
 
-        if output_streams:
+        crs = fiona.crs.from_epsg(epsg)
+        schema = {
+            'geometry': 'Point',
+            'properties': [
+                ('CDZONEHYDR', 'str:4'),
+                ('STREAMID', 'int')
+            ]
+        }
+        options = dict(
+            driver='ESRI Shapefile',
+            crs=crs,
+            schema=schema
+        )
 
-            filename = os.path.join(root, bassin, zone, 'STREAMS.tif')
-            important('Write %s' % filename)
-
-            profile = ds.profile.copy()
-            profile.update(compress='deflate')
-
-            with rio.open(filename, 'w', **profile) as dst:
-                dst.write(streams, 1)
-
-        if output_junctions:
-
-            filename = os.path.join(root, bassin, zone, 'JUNCTIONS.tif')
-            important('Write %s' % filename)
-
-            profile = ds.profile.copy()
-            profile.update(dtype=np.uint8, nodata=255, compress='deflate')
-
-            with rio.open(filename, 'w', **profile) as dst:
-                dst.write(junctions, 1)
-
-        info('Calculate Flow Direction')
-
-        feedback = ta.ConsoleFeedback()
-        elevations = ds.read(1)
-        zdelta = 0.0001
-        flow = ta.burnfill(
-            elevations,
-            streams,
-            junctions,
-            ds.nodata,
-            zdelta,
-            feedback=feedback)
-        feedback.setProgress(100)
-
-        logger.info('Save to %s' % output)
-
-        profile = ds.profile.copy()
-        profile.update(dtype=np.int16, nodata=-1, compress='deflate')
-
-        with rio.open(output, 'w', **profile) as dst:
-            dst.write(flow, 1)
+        with fiona.open(output, 'w', **options) as dst:
+            for i, j, gid in junctions:
+                geom = {
+                    'type': 'Point',
+                    'coordinates': ds.xy(i, j)
+                }
+                props = {
+                    'CDZONEHYDR': zone,
+                    'STREAMID': gid
+                }
+                dst.write({'geometry': geom, 'properties': props})
 
 @click.group()
 def cli():
@@ -231,16 +221,16 @@ def cli():
 @cli.command()
 @click.argument('basin')
 @click.argument('zone')
-@click.option('--output', '-o', default='FLOW.tif', help='Output filename')
+@click.option('--output', '-o', default='JUNCTIONS.shp', help='Output filename')
 @click.option('--workdir', '-d', type=click.Path(True, False, True, resolve_path=True), default='.', help='Working Directory')
 @click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
 def zone(basin, zone, output, workdir, overwrite):
 
-    CaclulateFlowDirection(basin, zone, output=output, workdir=workdir, overwrite=overwrite)
+    FlowJunctions(basin, zone, output=output, workdir=workdir, overwrite=overwrite)
 
 @cli.command()
 @click.argument('zonelist')
-@click.option('--output', '-o', default='FLOW.tif', help='Output filename')
+@click.option('--output', '-o', default='JUNCTIONS.shp', help='Output filename')
 @click.option('--workdir', '-d', type=click.Path(True, False, True, resolve_path=True), default='.', help='Working Directory')
 @click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
 def batch(zonelist, output, workdir, overwrite):
@@ -252,7 +242,7 @@ def batch(zonelist, output, workdir, overwrite):
         for basin, zone in progress:
             
             click.echo('\r')
-            CaclulateFlowDirection(basin, zone, output=output, workdir=workdir, overwrite=overwrite)
+            FlowJunctions(basin, zone, output=output, workdir=workdir, overwrite=overwrite)
 
 if __name__ == '__main__':
     cli()
