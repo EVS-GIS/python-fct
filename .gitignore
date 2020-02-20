@@ -1,0 +1,17 @@
+*.pyc
+*.pyo
+*.c
+*.o
+*.so
+*.dll
+*.egg-info
+.doit.*
+python3/
+docs/algorithms/
+docs/workflows/
+alien/
+release/
+site/
+cython/terrain/*.cpp
+tests/testdata/*.aux.xml
+.DS_Store
