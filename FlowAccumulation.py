@@ -46,6 +46,8 @@ def CalculateFlowAccumulation(basin, zone, root, overwrite):
         with rio.open(output, 'w', **profile) as dst:
             dst.write(acc, 1)
 
+    return True
+
 @click.group()
 def cli():
     pass
@@ -59,14 +61,22 @@ def zone(basin, zone, workdir, overwrite):
     """
     DOCME
     """
-    
+
     CalculateFlowAccumulation(basin, zone, workdir, overwrite)
+
+def Starred(args):
+    """
+    Starred version of `function` for use with pool.imap_unordered()
+    """
+
+    return CalculateFlowAccumulation(*args)
 
 @cli.command()
 @click.argument('zonelist')
 @click.option('--workdir', '-d', type=click.Path(True, False, True, resolve_path=True), default='.', help='Working Directory')
 @click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
-def batch(zonelist, workdir, overwrite):
+@click.option('--processes', '-j', default=1, help="Execute j parallel processes")
+def batch(zonelist, workdir, overwrite, processes):
     """
     DOCME
     """
@@ -74,15 +84,32 @@ def batch(zonelist, workdir, overwrite):
     with click.open_file(zonelist) as fp:
         zones = [info.strip().split(' ') for info in fp]
 
-    def display_item(item):
-        if item:
-            return item[1]
-        return '...'
+    if processes > 1:
 
-    with click.progressbar(zones, item_show_func=display_item) as progress:
-        for basin, zone in progress:
+        from multiprocessing import Pool
 
-            CalculateFlowAccumulation(basin, zone, workdir, overwrite)
+        click.secho('Running %d processes ...' % processes, fg='yellow')
+        arguments = (tuple(z) + (workdir, overwrite) for z in zones)
+
+        with Pool(processes=processes) as pool:
+
+            pooled = pool.imap_unordered(Starred, arguments)
+            with click.progressbar(pooled, length=len(zones)) as progress:
+                for _ in progress:
+                    pass
+
+    else:
+
+        def display_item(item):
+            if item:
+                return item[1]
+            return '...'
+
+        with click.progressbar(zones, item_show_func=display_item) as progress:
+            for basin, zone in progress:
+
+                CalculateFlowAccumulation(basin, zone, workdir, overwrite)
+    
 
 if __name__ == '__main__':
     cli()

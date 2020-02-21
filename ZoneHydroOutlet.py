@@ -24,6 +24,7 @@ def riotogdal(transform):
     """
     RasterIO AffineTransform to GDAL GeoTransform tuple
     """
+
     return (
         transform.c,
         transform.a,
@@ -35,6 +36,7 @@ def riotogdal(transform):
 
 def FindPolygonOutlet(basin, zone, root, overwrite):
     """
+    DOCME
     """
 
     from fct.lib import terrain_analysis as ta
@@ -43,17 +45,18 @@ def FindPolygonOutlet(basin, zone, root, overwrite):
     import fiona
     from heapq import heapify, heappush, heappop
 
-    output1 = os.path.join(basin, zone, 'ZONEHYDRO_ALL_OUTLETS.shp')
-    output2 = os.path.join(basin, zone, 'ZONEHYDRO_OUTLET.shp')
+    output = os.path.join(basin, zone, 'ZONEHYDRO_OUTLETS.shp')
+    # output2 = os.path.join(basin, zone, 'ZONEHYDRO_OUTLET.shp')
     flow_raster = os.path.join(basin, zone, 'FLOW.tif')
     zone_shapefile = os.path.join(basin, zone, 'ZONEHYDRO_BDC.shp')
+    min_lca = 1e6 / 25
 
-    if (os.path.exists(output1) or os.path.exists(output2)) and not overwrite:
+    if os.path.exists(output) and not overwrite:
         # if os.path.exists(output1):
         #     click.secho('Output already exists : %s' % output1, fg='yellow')
         # if os.path.exists(output2):
         #     click.secho('Output already exists : %s' % output2, fg='yellow')
-        return
+        return 0
     
     with rio.open(flow_raster) as ds:
 
@@ -67,20 +70,16 @@ def FindPolygonOutlet(basin, zone, root, overwrite):
 
         rasterize(shapes(), fill=0, transform=ds.transform, out=mask)
 
-        with fiona.open(zone_shapefile) as fs:
-
-            driver = fs.driver
-            crs = fs.crs
-            geometries = [f['geometry']['coordinates'][0] for f in fs]
-
         outlets = list()
 
-        for k in range(len(geometries)):
+        with fiona.open(zone_shapefile) as fs:
 
-            geometry = np.float32(geometries[k])
-            outlets.extend(ta.polygon_outlets(geometry, flow, mask, riotogdal(ds.transform)))
+            for f in fs:
 
-        num_outlets = len(outlets)
+                driver = fs.driver
+                crs = fs.crs
+                geometry = np.float32(f['geometry']['coordinates'][0])
+                outlets.extend(ta.polygon_outlets(geometry, flow, mask, riotogdal(ds.transform)))
 
         def isdata(i, j):
             return i >= 0 and i < ds.height and j >=0 and j < ds.width
@@ -116,31 +115,33 @@ def FindPolygonOutlet(basin, zone, root, overwrite):
         queue = [(-lca, (i, j)) for (i, j), lca in outlets]
         outlets = list()
         heapify(queue)
-        count = 0
 
         while queue:
 
             lca, (i, j) = heappop(queue)
             lca = -lca
 
-            if lca / zone_area >= 0.005:
+            if outlets and lca < min_lca:
+                break
 
-                if outlet is None:
-                    outlet = (i, j)
-                    score = lca
-                else:
-                    o = common_outlet(outlet, (i, j), flow)
-                    if o is not None:
-                        outlet = o
-                        score += lca
+            # if lca / zone_area >= 0.005:
+
+            #     if outlet is None:
+            #         outlet = (i, j)
+            #         score = lca
+            #     else:
+            #         o = common_outlet(outlet, (i, j), flow)
+            #         if o is not None:
+            #             outlet = o
+            #             score += lca
 
             outlets.append(((i, j), lca))
 
-            count += 1
-            if count > 100:
-                break
+            # count += 1
+            # if count > 100:
+            #     break
 
-        with fiona.open(output1, 'w', **options) as dst:
+        with fiona.open(output, 'w', **options) as dst:
             for (i, j), lca in outlets:
 
                 geom = {
@@ -155,27 +156,27 @@ def FindPolygonOutlet(basin, zone, root, overwrite):
                 
                 dst.write({'geometry': geom, 'properties': props})
 
-        if outlet is not None:
+        # if outlet is not None:
 
-            with fiona.open(output2, 'w', **options) as dst:
+        #     with fiona.open(output2, 'w', **options) as dst:
                 
-                geom = {
-                    'type': 'Point',
-                    'coordinates': ds.xy(*outlet)
-                }
-                props = {
-                    'CDZONEHYDRO': zone,
-                    'DRAINAGE': score,
-                    'SCORE': score/zone_area*100
-                }
+        #         geom = {
+        #             'type': 'Point',
+        #             'coordinates': ds.xy(*outlet)
+        #         }
+        #         props = {
+        #             'CDZONEHYDRO': zone,
+        #             'DRAINAGE': score,
+        #             'SCORE': score/zone_area*100
+        #         }
                 
-                dst.write({'geometry': geom, 'properties': props})
+        #         dst.write({'geometry': geom, 'properties': props})
 
-        else:
+        # else:
 
-            click.secho('No outlet found for zone %s' % zone, fg='red')
+        #     click.secho('No outlet found for zone %s' % zone, fg='red')
 
-    return num_outlets
+    return len(outlets)
 
 @click.group()
 def cli():
@@ -188,15 +189,20 @@ def cli():
 @click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
 def zone(basin, zone, workdir, overwrite):
 
-    output1 = os.path.join(basin, zone, 'ZONEHYDRO_ALL_OUTLETS.shp')
-    output2 = os.path.join(basin, zone, 'ZONEHYDRO_OUTLET.shp')
+    output = os.path.join(basin, zone, 'ZONEHYDRO_OUTLETS.shp')
+    # output2 = os.path.join(basin, zone, 'ZONEHYDRO_OUTLET.shp')
 
-    if (os.path.exists(output1) or os.path.exists(output2)) and not overwrite:
-        if os.path.exists(output1):
-            click.secho('Output already exists : %s' % output1, fg='yellow')
-        if os.path.exists(output2):
-            click.secho('Output already exists : %s' % output2, fg='yellow')
-        return
+    # if (os.path.exists(output1) or os.path.exists(output2)) and not overwrite:
+    #     if os.path.exists(output1):
+    #         click.secho('Output already exists : %s' % output1, fg='yellow')
+    #     if os.path.exists(output2):
+    #         click.secho('Output already exists : %s' % output2, fg='yellow')
+    #     return
+
+
+    if os.path.exists(output) and not overwrite:
+        click.secho('Output already exists : %s' % output, fg='yellow')
+        return 
 
     count = FindPolygonOutlet(basin, zone, workdir, overwrite)
 

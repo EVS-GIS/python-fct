@@ -22,7 +22,7 @@ import numpy as np
 import itertools
 from collections import defaultdict
 
-def DelineateZoneHydro(basin, zone, root, overwrite):
+def DelineateZoneHydro(basin, zone, root, overwrite, usefixed=False):
     """
     """
 
@@ -37,7 +37,11 @@ def DelineateZoneHydro(basin, zone, root, overwrite):
 
     output = os.path.join(root, basin, zone, 'ZONEHYDRO_MNT.shp')
     flow_raster = os.path.join(root, basin, zone, 'FLOW.tif')
-    outlets_shapefile = os.path.join(root, 'ZONEHYDRO_OUTLET.shp')
+
+    if usefixed:
+        outlets_shapefile = os.path.join(root, 'ZONEHYDRO_FIXED_OUTLETS.shp')
+    else:
+        outlets_shapefile = os.path.join(root, 'ZONEHYDRO_OUTLETS.shp')
 
     if os.path.exists(output) and not overwrite:
         # click.secho('Output already exists : %s' % output, fg='yellow')
@@ -62,11 +66,18 @@ def DelineateZoneHydro(basin, zone, root, overwrite):
             for feature in fs:
                 
                 cdzone = feature['properties']['CDZONEHYDR']
-                idzone = cdzones[cdzone]
+                drainage = feature['properties']['DRAINAGE']
+
+                if drainage > 0 and drainage < 200000:
+                    continue
+
                 x, y = feature['geometry']['coordinates']
                 i, j = ds.index(x, y)
 
                 if isdata(i, j):
+                    
+                    print(cdzone)
+                    idzone = cdzones[cdzone]
                     watersheds[i, j] = idzone
 
         fill_value = 0
@@ -112,18 +123,28 @@ def cli():
 @click.argument('zone')
 @click.option('--workdir', '-d', type=click.Path(True, False, True, resolve_path=True), default='.', help='Working Directory')
 @click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
-def zone(basin, zone, workdir, overwrite):
+@click.option('--fixed/--no-fixed', default=False)
+def zone(basin, zone, workdir, overwrite, fixed):
     """
     DOCME
     """
     
-    DelineateZoneHydro(basin, zone, workdir, overwrite)
+    DelineateZoneHydro(basin, zone, workdir, overwrite, usefixed=fixed)
+
+def Starred(args):
+    """
+    Starred version of `function` for use with pool.imap_unordered()
+    """
+
+    return DelineateZoneHydro(*args)
 
 @cli.command()
 @click.argument('zonelist')
 @click.option('--workdir', '-d', type=click.Path(True, False, True, resolve_path=True), default='.', help='Working Directory')
 @click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
-def batch(zonelist, workdir, overwrite):
+@click.option('--fixed/--no-fixed', default=False)
+@click.option('--processes', '-j', default=1, help="Execute j parallel processes")
+def batch(zonelist, workdir, overwrite, fixed, processes):
     """
     DOCME
     """
@@ -131,15 +152,27 @@ def batch(zonelist, workdir, overwrite):
     with click.open_file(zonelist) as fp:
         zones = [info.strip().split(' ') for info in fp]
 
-    def display_item(item):
-        if item:
-            return item[1]
-        return '...'
+    # def display_item(item):
+    #     if item:
+    #         return item[1]
+    #     return '...'
 
-    with click.progressbar(zones, item_show_func=display_item) as progress:
-        for basin, zone in progress:
+    # with click.progressbar(zones, item_show_func=display_item) as progress:
+    #     for basin, zone in progress:
 
-            DelineateZoneHydro(basin, zone, workdir, overwrite)
+    #         DelineateZoneHydro(basin, zone, workdir, overwrite)
+
+    from multiprocessing import Pool
+
+    click.secho('Running %d processes ...' % processes, fg='yellow')
+    arguments = (tuple(z) + (workdir, overwrite, fixed) for z in zones)
+
+    with Pool(processes=processes) as pool:
+
+        pooled = pool.imap_unordered(Starred, arguments)
+        with click.progressbar(pooled, length=len(zones)) as progress:
+            for _ in progress:
+                pass
 
 if __name__ == '__main__':
     cli()
