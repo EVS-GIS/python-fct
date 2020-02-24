@@ -142,7 +142,7 @@ def RasterizeStream(raster, transform, nodata, shapefile, fill, cdzones, junctio
             # Override with the smallest ID
             streams[row, col] = gid
             priorities[row, col] = priority
-            out[row, col] = gid
+            out[row, col] = value
 
     with fiona.open(shapefile) as fs:
 

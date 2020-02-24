@@ -2,9 +2,7 @@
 # coding: utf-8
 
 """
-Dérive un réseau sous-maille
-à partir d'un carroyage et d'un plan de drainage
-de résolution différente
+DOCME
 
 ***************************************************************************
 *                                                                         *
@@ -18,8 +16,6 @@ de résolution différente
 
 import os
 import click
-import numpy as np
-from collections import defaultdict
 
 @click.command()
 @click.argument('zonelist')
@@ -27,9 +23,14 @@ from collections import defaultdict
 @click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
 def FixZoneHydroOutlet(zonelist, workdir, overwrite):
     """
-    DOCME
+    Recherche un exutoire cohérent entre les plans de drainage
+    qui se superposent d'une zone à l'autre,
+    c'est-à-dire un point qui soit sur le réseau théorique
+    de toutes les zones superposées,
+    en recherchant dans le voisinage du point déterminé à partir d'une seule zone.
     """
 
+    from collections import defaultdict
     import numpy as np
     import rasterio as rio
     import fiona
@@ -64,9 +65,20 @@ def FixZoneHydroOutlet(zonelist, workdir, overwrite):
 
     resx = 5.0
     resy = -5.0
-    dx = np.array([[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]])
-    dy = np.array([[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]]).T
-    neighborhood = np.array([resx*dx, resy*dy]).reshape(2,9).T
+    
+    def make_neighborhood(n):
+        """
+        Create a search neighborhood of size n x n.
+        Elements in neighborhood are on offset
+        in x and y in world coordinates.
+        """
+        k = n // 2
+        a = np.arange(-k, k+1)
+        dx = a.repeat(n).reshape(n, n).T
+        dy = a.repeat(n).reshape(n, n)
+        return np.array([resx*dx, resy*dy]).reshape(2, n**2).T
+    
+    neighborhood = make_neighborhood(5)
 
     min_value = 40000
     fixes = defaultdict(list)
@@ -84,8 +96,8 @@ def FixZoneHydroOutlet(zonelist, workdir, overwrite):
 
                 for current, (x, y, cdzonehydr, drainage) in enumerate(outlets):
 
-                    # if cdzonehydr == zone:
-                    #     continue
+                    if cdzonehydr == zone:
+                        continue
 
                     i, j = ds.index(x, y)
 
@@ -98,22 +110,34 @@ def FixZoneHydroOutlet(zonelist, workdir, overwrite):
                         try:
 
                             values = [
-                                (i, v)
-                                for i, v in enumerate(ds.sample(neighborhood + (x, y), 1))
+                                (k, v)
+                                for k, v in enumerate(ds.sample(neighborhood + (x, y), 1))
                                 if v >= min_value
                             ]
 
                             fixes[current].extend(values)
 
                         except IndexError:
-                            continue
 
-    schema = {'geometry': 'Point', 'properties': [('CDZONEHYDRO', 'str:4'), ('DRAINAGE', 'int'), ('FIXED', 'int:1')]}
+                            values = list()
+
+                            for k, (xk, yk) in enumerate(neighborhood + (x, y)):
+
+                                ik, jk = ds.index(xk, yk)
+                                if isdata(ik, jk):
+                                    v = next(ds.sample([(xk, yk)], 1))
+                                    values.append((k, v))
+
+                            fixes[current].extend(values)
+
+    schema = {
+        'geometry': 'Point',
+        'properties': [('CDZONEHYDRO', 'str:4'), ('DRAINAGE', 'int'), ('FIXED', 'int:1')]}
     options = dict(driver=driver, crs=crs, schema=schema)
 
     with fiona.open(output, 'w', **options) as dst:
 
-        fixed = 0
+        num_fixed = 0
 
         for current, (x, y, cdzonehydr, drainage) in enumerate(outlets):
 
@@ -125,23 +149,37 @@ def FixZoneHydroOutlet(zonelist, workdir, overwrite):
             if pixels:
 
                 xy = neighborhood + (x, y)
-                pixels = sorted([(v, i) for i, v in pixels.items()])
-                v0, i0 = pixels[-1]
-                x0, y0 = xy[i0]
+                pixels = reversed(sorted([(v, i) for i, v in pixels.items()]))
 
-                geom = {'type': 'Point', 'coordinates': [x0, y0]}
-                props = {'CDZONEHYDRO': cdzonehydr, 'DRAINAGE': drainage, 'FIXED': 1}
-                dst.write({'geometry': geom, 'properties': props})
+                acc_raster = os.path.join(workdir, cdzonehydr[0], cdzonehydr, 'FLOW_ACCUMULATION.tif')
 
-                fixed += 1
+                with rio.open(acc_raster) as ds:
+
+                    for vk, ik in pixels:
+
+                        xk, yk = xy[ik]
+                        value = next(ds.sample([(xk, yk)], 1))
+
+                        if value >= min_value:
+
+                            x, y = xk, yk
+                            fixed = 1
+                            num_fixed += 1
+                            break
+
+                    else:
+
+                        fixed = 0
 
             else:
 
-                geom = {'type': 'Point', 'coordinates': [x, y]}
-                props = {'CDZONEHYDRO': cdzonehydr, 'DRAINAGE': drainage, 'FIXED': 0}
-                dst.write({'geometry': geom, 'properties': props})
+                fixed = 0
 
-    click.secho('Fixed %d outlets' % fixed, fg='green')
+            geom = {'type': 'Point', 'coordinates': [x, y]}
+            props = {'CDZONEHYDRO': cdzonehydr, 'DRAINAGE': drainage, 'FIXED': fixed}
+            dst.write({'geometry': geom, 'properties': props})
+
+    click.secho('Fixed %d outlets' % num_fixed, fg='green')
 
 if __name__ == '__main__':
     FixZoneHydroOutlet()
