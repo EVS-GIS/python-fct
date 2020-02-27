@@ -61,6 +61,10 @@ def AggregateShapefile(zonelist, basename, overwrite):
         for bassin, zone in progress:
             
             shapefile = os.path.join(bassin, zone, basename)
+
+            if not os.path.exists(shapefile):
+                click.secho('\rMissing file : %s' % shapefile, fg='yellow')
+                continue
             
             with fiona.open(shapefile) as fs:
                 for feature in fs:

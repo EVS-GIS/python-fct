@@ -114,6 +114,7 @@ def FindPolygonOutlet(basin, zone, root, overwrite):
 
         queue = [(-lca, (i, j)) for (i, j), lca in outlets]
         outlets = list()
+        cum_area = 0
         heapify(queue)
 
         while queue:
@@ -121,7 +122,7 @@ def FindPolygonOutlet(basin, zone, root, overwrite):
             lca, (i, j) = heappop(queue)
             lca = -lca
 
-            if outlets and lca < min_lca:
+            if outlets and (lca < min_lca or cum_area > 0.95*zone_area):
                 break
 
             # if lca / zone_area >= 0.005:
@@ -136,6 +137,7 @@ def FindPolygonOutlet(basin, zone, root, overwrite):
             #             score += lca
 
             outlets.append(((i, j), lca))
+            cum_area += lca
 
             # count += 1
             # if count > 100:

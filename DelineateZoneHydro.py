@@ -22,7 +22,7 @@ import numpy as np
 import itertools
 from collections import defaultdict
 
-def DelineateZoneHydro(basin, zone, root, overwrite, usefixed=False):
+def DelineateZoneHydro(basin, zone, outlets_shapefile, root, overwrite):
     """
     """
 
@@ -37,11 +37,6 @@ def DelineateZoneHydro(basin, zone, root, overwrite, usefixed=False):
 
     output = os.path.join(root, basin, zone, 'ZONEHYDRO_MNT.shp')
     flow_raster = os.path.join(root, basin, zone, 'FLOW.tif')
-
-    if usefixed:
-        outlets_shapefile = os.path.join(root, 'ZONEHYDRO_FIXED_OUTLETS.shp')
-    else:
-        outlets_shapefile = os.path.join(root, 'ZONEHYDRO_OUTLETS.shp')
 
     if os.path.exists(output) and not overwrite:
         # click.secho('Output already exists : %s' % output, fg='yellow')
@@ -68,15 +63,15 @@ def DelineateZoneHydro(basin, zone, root, overwrite, usefixed=False):
                 cdzone = feature['properties']['CDZONEHYDR']
                 drainage = feature['properties']['DRAINAGE']
 
-                if drainage > 0 and drainage < 200000:
-                    continue
+                # if drainage > 0 and drainage < 200000:
+                #     continue
 
                 x, y = feature['geometry']['coordinates']
                 i, j = ds.index(x, y)
 
                 if isdata(i, j):
                     
-                    print(cdzone)
+                    # print(cdzone)
                     idzone = cdzones[cdzone]
                     watersheds[i, j] = idzone
 
@@ -89,7 +84,7 @@ def DelineateZoneHydro(basin, zone, root, overwrite, usefixed=False):
         with rio.open(os.path.join(root, basin, zone, 'WATERSHEDS.tif'), 'w', **profile) as dst:
             dst.write(watersheds, 1)
 
-        watersheds = sieve(np.int32(watersheds), 400)
+        watersheds = sieve(np.int32(watersheds), 40)
 
         CdToZones = {v: k for k, v in cdzones.items()}
 
@@ -121,15 +116,16 @@ def cli():
 @cli.command()
 @click.argument('basin')
 @click.argument('zone')
+@click.option('--outlets', default='ZONEHYDRO_OUTLETS.shp')
 @click.option('--workdir', '-d', type=click.Path(True, False, True, resolve_path=True), default='.', help='Working Directory')
 @click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
-@click.option('--fixed/--no-fixed', default=False)
-def zone(basin, zone, workdir, overwrite, fixed):
+def zone(basin, zone, outlets, workdir, overwrite):
     """
     DOCME
     """
     
-    DelineateZoneHydro(basin, zone, workdir, overwrite, usefixed=fixed)
+    outlets_shapefile = os.path.join(workdir, outlets)
+    DelineateZoneHydro(basin, zone, outlets_shapefile, workdir, overwrite)
 
 def Starred(args):
     """
@@ -140,14 +136,16 @@ def Starred(args):
 
 @cli.command()
 @click.argument('zonelist')
+@click.option('--outlets', default='ZONEHYDRO_OUTLETS.shp')
 @click.option('--workdir', '-d', type=click.Path(True, False, True, resolve_path=True), default='.', help='Working Directory')
 @click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
-@click.option('--fixed/--no-fixed', default=False)
 @click.option('--processes', '-j', default=1, help="Execute j parallel processes")
-def batch(zonelist, workdir, overwrite, fixed, processes):
+def batch(zonelist, outlets, workdir, overwrite, processes):
     """
     DOCME
     """
+
+    outlets_shapefile = os.path.join(workdir, outlets)
 
     with click.open_file(zonelist) as fp:
         zones = [info.strip().split(' ') for info in fp]
@@ -165,7 +163,7 @@ def batch(zonelist, workdir, overwrite, fixed, processes):
     from multiprocessing import Pool
 
     click.secho('Running %d processes ...' % processes, fg='yellow')
-    arguments = (tuple(z) + (workdir, overwrite, fixed) for z in zones)
+    arguments = (tuple(z) + (outlets_shapefile, workdir, overwrite) for z in zones)
 
     with Pool(processes=processes) as pool:
 
