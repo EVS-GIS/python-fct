@@ -19,14 +19,13 @@ de résolution différente
 import os
 import click
 import numpy as np
+import terrain_analysis as ta
+import rasterio as rio
 
 def CalculateFlowAccumulation(basin, zone, root, overwrite):
     """
     Calculate flow accumulation from D8 flow direction raster.
     """
-
-    from fct.lib import terrain_analysis as ta
-    import rasterio as rio
 
     output = os.path.join(root, basin, zone, 'FLOW_ACCUMULATION.tif')
     flow_raster = os.path.join(root, basin, zone, 'FLOW.tif')

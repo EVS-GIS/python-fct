@@ -1,25 +1,4 @@
-%%cython
-# distutils: language = c++
-# cython: c_string_type=str, c_string_encoding=ascii, embedsignature=True
-
-import cython
-import click
-cimport cython
-from libcpp.pair cimport pair
-from libcpp.deque cimport deque
-from libcpp.map cimport map
-from cython.operator cimport dereference, preincrement
-
-ctypedef pair[long, long] Pixel
-ctypedef pair[Pixel, long] ContributingPixel
-ctypedef map[Pixel, ContributingPixel] Graph
-ctypedef pair[Pixel, ContributingPixel]  GraphItem
-ctypedef map[Pixel, ContributingPixel].iterator GraphIterator
-ctypedef map[Pixel, int] Degree
-ctypedef map[Pixel, float] CumAreas
-ctypedef map[Pixel, bint] PixTracker
-ctypedef deque[Pixel] PixQueue
-# ctypedef deque[Pixel].iterator PixQueueIterator
+# coding: utf-8
 
 @cython.wraparound(False)
 @cython.boundscheck(False)

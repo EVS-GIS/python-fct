@@ -32,10 +32,8 @@ from shapely.geometry import asShape
 import fiona
 import fiona.crs
 
-from fct.lib import terrain_analysis as ta
-from fct.algorithms.terrain.StreamToRaster import (
-    rasterize_linestring
-)
+import terrain_analysis as ta
+from rasterize import rasterize_linestring
 
 import logging
 logger = logging.getLogger(__name__)

@@ -17,6 +17,11 @@ Calcule le plan de drainage en utilisant RichDEM
 import click
 import os
 
+import numpy as np
+import rasterio as rio
+import richdem as rd
+import terrain_analysis as ta
+
 SUCCESS = 'green'
 INFO = 'cyan'
 WARNING = 'yellow'
@@ -33,11 +38,6 @@ def RichFlow(bassin, zone, root, flowdir, overwrite):
     Calcule le plan de drainage en utilisant RichDEM :
     FillDepressions + ResolveFlats
     """
-
-    import numpy as np
-    import rasterio as rio
-    import richdem as rd
-    from fct.lib import terrain_analysis as ta
 
     raster_template = os.path.join(root, bassin, zone, 'DEM5M.tif')
     flow_raster = os.path.join(root, bassin, zone, flowdir)

@@ -31,7 +31,7 @@ from shapely.geometry import asShape
 import fiona
 import fiona.crs
 
-from fct.lib import terrain_analysis as ta
+import terrain_analysis as ta
 
 from console import (
     success,

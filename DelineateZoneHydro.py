@@ -22,18 +22,18 @@ import numpy as np
 import itertools
 from collections import defaultdict
 
+import terrain_analysis as ta
+import rasterio as rio
+from rasterio.features import (
+    shapes,
+    sieve
+)
+import fiona
+from shapely.geometry import asShape
+
 def DelineateZoneHydro(basin, zone, outlets_shapefile, root, overwrite):
     """
     """
-
-    from fct.lib import terrain_analysis as ta
-    import rasterio as rio
-    from rasterio.features import (
-        shapes,
-        sieve
-    )
-    import fiona
-    from shapely.geometry import asShape
 
     output = os.path.join(root, basin, zone, 'ZONEHYDRO_MNT.shp')
     flow_raster = os.path.join(root, basin, zone, 'FLOW.tif')

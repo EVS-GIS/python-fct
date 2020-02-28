@@ -30,10 +30,8 @@ import rasterio as rio
 import fiona
 import fiona.crs
 
-from fct.lib import terrain_analysis as ta
-from fct.algorithms.terrain.StreamToRaster import (
-    rasterize_linestring
-)
+import terrain_analysis as ta
+from rasterize import rasterize_linestring
 
 ci = [-1, -1,  0,  1,  1,  1,  0, -1]
 cj = [ 0,  1,  1,  1,  0, -1, -1, -1]

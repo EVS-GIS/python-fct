@@ -24,8 +24,10 @@ import fiona.crs
 import numpy as np
 from collections import namedtuple, defaultdict, Counter
 from heapq import heappush, heappop
-from _cython_magic_d41052aecd07adf803b4e562adb5a947 import graph_acc, flow_accumulation
 
+import richdem as rd
+from speedup import graph_acc, flow_accumulation
+import terrain_analysis as ta
 
 Tile = namedtuple('Tile', ('gid', 'row', 'col', 'x0', 'y0', 'i', 'j'))
 
@@ -49,9 +51,6 @@ def read_tile_index():
 read_tile_index()
 
 def FlowDirection(row, col):
-
-    import richdem as rd
-    from fct.lib import terrain_analysis as ta
 
     read_tile_index()
 
@@ -193,8 +192,9 @@ def FlowDirection(row, col):
             dst.write(flow[1:-1, 1:-1], 1)
 
 def Outlets(row, col):
-
-    from fct.lib import terrain_analysis as ta
+    """
+    DOCME
+    """
 
     crs = fiona.crs.from_epsg(2154)
     driver = 'ESRI Shapefile'
@@ -292,8 +292,9 @@ def Outlets(row, col):
     return cum_area
 
 def Accumulate():
-
-    from fct.lib import terrain_analysis as ta
+    """
+    DOCME
+    """
 
     # read_tile_index()
 
@@ -452,8 +453,9 @@ def FlowAccumulation(row, col):
             dst.write(out, 1)
 
 def StreamToFeature(row, col, min_drainage):
-
-    from fct.lib import terrain_analysis as ta
+    """
+    DOCME
+    """
 
     flow_raster = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_FLOW.tif' % (row, col))
     acc_raster = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_ACC.tif' % (row, col))

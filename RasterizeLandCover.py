@@ -18,6 +18,11 @@ Rastérization de la carte d'occupation du sol
 import click
 import os
 
+import numpy as np
+import rasterio as rio
+from rasterio.features import rasterize
+import fiona
+
 SUCCESS = 'green'
 INFO = 'cyan'
 WARNING = 'yellow'
@@ -33,11 +38,6 @@ def RasterizeLandCover(bassin, zone, root, overwrite):
     Rastérization de la carte d'occupation du sol
     à la résolution du MNT
     """
-
-    import numpy as np
-    import rasterio as rio
-    from rasterio.features import rasterize
-    import fiona
 
     click.secho('Processing zone %s' % zone, fg=SUCCESS)
     click.secho('Working Directory = %s' % root, fg=INFO)

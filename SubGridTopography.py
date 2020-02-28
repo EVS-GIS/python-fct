@@ -16,9 +16,14 @@ de résolution différente
 ***************************************************************************
 """
 
-import click
 import os
+from collections import defaultdict
 import numpy as np
+
+import click
+import fiona
+import rasterio as rio
+import terrain_analysis as ta
 
 SUCCESS = 'green'
 INFO = 'cyan'
@@ -97,9 +102,6 @@ def OutputNetworkNodes(outlets, graph, acc, hashes, ds, grid_shp, output, feedba
     """
     Write Outlets Shapefile
     """
-
-    from collections import defaultdict
-    import fiona
 
     reverse_graph = defaultdict(list)
     for a, b in graph.items():
@@ -186,8 +188,6 @@ def OutputLinks(input_shp, output):
     pour les représenter sous forme de flèche.
     """
 
-    import fiona
-
     with fiona.open(input_shp) as fs:
 
         schema = fs.schema.copy()
@@ -225,10 +225,6 @@ def SubGridTopography(basin, zone, root, overwrite, filename, flowdir, links, li
     à partir d'un carroyage et d'un plan de drainage
     de résolution différente
     """
-
-    import rasterio as rio
-    import fiona
-    from fct.lib import terrain_analysis as ta
 
     click.secho('Processing zone %s' % zone, fg=SUCCESS)
     click.secho('Working Directory = %s' % root, fg=INFO)

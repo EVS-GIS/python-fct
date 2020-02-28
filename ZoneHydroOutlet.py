@@ -17,8 +17,18 @@ de résolution différente
 """
 
 import os
-import click
+from heapq import (
+    heapify,
+    heappop
+)
+
 import numpy as np
+import click
+
+import fiona
+import rasterio as rio
+from rasterio.features import rasterize
+import terrain_analysis as ta
 
 def riotogdal(transform):
     """
@@ -38,12 +48,6 @@ def FindPolygonOutlet(basin, zone, root, overwrite):
     """
     DOCME
     """
-
-    from fct.lib import terrain_analysis as ta
-    import rasterio as rio
-    from rasterio.features import rasterize
-    import fiona
-    from heapq import heapify, heappush, heappop
 
     output = os.path.join(basin, zone, 'ZONEHYDRO_OUTLETS.shp')
     # output2 = os.path.join(basin, zone, 'ZONEHYDRO_OUTLET.shp')

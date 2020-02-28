@@ -34,6 +34,7 @@ import fiona.crs
 import numpy as np
 from collections import namedtuple, defaultdict
 from heapq import heappush, heappop
+import terrain_analysis as ta
 
 Tile = namedtuple('Tile', ('gid', 'row', 'col', 'x0', 'y0', 'i', 'j'))
 
@@ -177,8 +178,6 @@ def FillSinks(row, col, overwrite, quiet):
         if os.path.exists(output) and not overwrite:
             info('Output already exists: %s' % output)
             return 
-
-    from fct.lib import terrain_analysis as ta
 
     info('Processing tile (%02d, %02d)' % (row, col))
 
@@ -384,8 +383,6 @@ def spillover(overwrite):
     if os.path.exists(output) and not overwrite:
         click.secho('Output already exists: %s' % output, fg='yellow')
         return
-    
-    from fct.lib import terrain_analysis as ta
 
     read_tile_index()
 

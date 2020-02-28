@@ -1,0 +1,6 @@
+Click>=7.0
+cython
+doit
+rasterio>=1.0.22
+fiona>=1.8.6
+richdem>=1.18.1

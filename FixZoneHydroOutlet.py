@@ -16,6 +16,10 @@ DOCME
 
 import os
 import click
+from collections import defaultdict
+import numpy as np
+import rasterio as rio
+import fiona
 
 @click.command()
 @click.argument('zonelist')
@@ -29,11 +33,6 @@ def FixZoneHydroOutlet(zonelist, workdir, overwrite):
     de toutes les zones superposées,
     en recherchant dans le voisinage du point déterminé à partir d'une seule zone.
     """
-
-    from collections import defaultdict
-    import numpy as np
-    import rasterio as rio
-    import fiona
 
     output = os.path.join(workdir, 'ZONEHYDRO_FIXED_OUTLETS.shp')
     outlet_shapefile = os.path.join(workdir, 'ZONEHYDRO_OUTLETS.shp')
