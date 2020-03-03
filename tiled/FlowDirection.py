@@ -26,7 +26,7 @@ from collections import namedtuple, defaultdict, Counter
 from heapq import heappush, heappop
 
 import richdem as rd
-from speedup import graph_acc, flow_accumulation
+import speedup
 import terrain_analysis as ta
 
 Tile = namedtuple('Tile', ('gid', 'row', 'col', 'x0', 'y0', 'i', 'j'))
@@ -50,14 +50,11 @@ def read_tile_index():
 
 read_tile_index()
 
-def FlowDirection(row, col):
-
-    read_tile_index()
-
-    output = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_FLOW.tif' % (row, col))
-
-    def filename(row, col):
-        return os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_FILLED2.tif' % (row, col))
+def PadElevations(row, col, filename):
+    """
+    Assemble a 1-pixel padded elevation raster,
+    with borders from neighboring tiles.
+    """
 
     elevation_raster = filename(row, col)
 
@@ -132,7 +129,7 @@ def FlowDirection(row, col):
         
             other_raster = filename(i, j)
             with rio.open(other_raster) as ds2:
-                extended[0, 0] = np.asscalar(ds2.read(1, window=Window(width-1, height-1, 1, 1)))
+                extended[0, 0] = ds2.read(1, window=Window(width-1, height-1, 1, 1)).item()
 
         else:
 
@@ -146,7 +143,7 @@ def FlowDirection(row, col):
         
             other_raster = filename(i, j)
             with rio.open(other_raster) as ds2:
-                extended[-1, 0] = np.asscalar(ds2.read(1, window=Window(width-1, 0, 1, 1)))
+                extended[-1, 0] = ds2.read(1, window=Window(width-1, 0, 1, 1)).item()
 
         else:
 
@@ -160,7 +157,7 @@ def FlowDirection(row, col):
         
             other_raster = filename(i, j)
             with rio.open(other_raster) as ds2:
-                extended[0, -1] = np.asscalar(ds2.read(1, window=Window(0, height-1, 1, 1)))
+                extended[0, -1] = ds2.read(1, window=Window(0, height-1, 1, 1)).item()
 
         else:
 
@@ -174,16 +171,84 @@ def FlowDirection(row, col):
         
             other_raster = filename(i, j)
             with rio.open(other_raster) as ds2:
-                extended[-1, -1] = np.asscalar(ds2.read(1, window=Window(0, 0, 1, 1)))
+                extended[-1, -1] = ds2.read(1, window=Window(0, 0, 1, 1)).item()
 
         else:
 
             extended[-1, -1] = ds.nodata
 
-        extended = rd.rdarray(extended, no_data=ds.nodata)
-        rd.BreachDepressions(extended, True, 'D8')
+    return extended
+
+# def FlowDirection(row, col):
+
+#     read_tile_index()
+
+#     output = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_FLOW.tif' % (row, col))
+
+#     def filename(row, col):
+#         return os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_FILLED2.tif' % (row, col))
+
+#     with rio.open(filename(row, col)) as ds:
+
+#         extended = PadElevations(row, col, filename)
+
+#         extended = rd.rdarray(extended, no_data=ds.nodata)
+#         rd.BreachDepressions(extended, True, 'D8')
+#         rd.FillDepressions(extended, True, True, 'D8')
+#         flow = ta.flowdir(extended, ds.nodata)
+
+#         profile = ds.profile.copy()
+#         profile.update(compress='deflate', dtype=np.int16, nodata=-1)
+
+#         with rio.open(output, 'w', **profile) as dst:
+#             dst.write(flow[1:-1, 1:-1], 1)
+
+def FlowDirection(row, col):
+    """
+    DOCME
+    """
+
+    # TODO Burn mapped stream network
+
+    output = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_FLOW.tif' % (row, col))
+
+    def filename(row, col):
+        return os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_FILLED2.tif' % (row, col))
+
+    with rio.open(filename(row, col)) as ds:
+
+        padded = PadElevations(row, col, filename)
+
+        flow = ta.flowdir(padded, ds.nodata)
+        labels, outlets = speedup.flat_labels(flow, padded, ds.nodata)
+        notflowing = {k+1 for k, (i, j) in enumerate(outlets) if i == -1 and j == -1}
+
+        height, width = labels.shape
+        boxes = speedup.flat_boxes(labels)
+
+        borders = set()
+        for w, (mini, minj, maxi, maxj, count) in boxes.items():
+            if mini == 0 or minj == 0 or maxi == (height-1) or maxj == (width-1):
+                if w not in notflowing:
+                    borders.add(w)
+
+        @np.vectorize
+        def bordermask(x):
+            return x in borders
+
+        mask = bordermask(labels)
+        mask[1:-1, 1:-1] = False
+        padded = padded + np.max(padded)*mask
+
+        # flat_mask, flat_labels = ta.resolve_flat(padded, flow, ta.ConsoleFeedback())
+        # extended = rd.rdarray(flat_mask, no_data=0)
+        # rd.FillDepressions(extended, True, True, 'D8')
+        # ta.flat_mask_flowdir(flat_mask, flow, flat_labels)
+        extended = rd.rdarray(padded, no_data=ds.nodata)
+        # rd.BreachDepressions(extended, True, 'D8')
+        # rd.ResolveFlats(extended, True)
         rd.FillDepressions(extended, True, True, 'D8')
-        flow = ta.flowdir(extended, ds.nodata)
+        flow = ta.flowdir(padded, ds.nodata)
 
         profile = ds.profile.copy()
         profile.update(compress='deflate', dtype=np.int16, nodata=-1)
@@ -442,7 +507,7 @@ def FlowAccumulation(row, col):
                     i, j = ds.index(*feature['geometry']['coordinates'])
                     out[i, j] += feature['properties']['AREAKM2']
 
-        flow_accumulation(flow, out)
+        speedup.flow_accumulation(flow, out)
 
         click.secho('Save to %s' % output, fg='green')
 
@@ -481,14 +546,18 @@ def StreamToFeature(row, col, min_drainage):
 
         with fiona.open(output, 'w', **options ) as dst:
 
-            for current, (segment, head) in enumerate(ta.stream_to_feature(streams, flow, ta.ConsoleFeedback())):
+            with click.progressbar(speedup.stream_to_feature(streams, flow)) as progress:
 
-                coords = ta.pixeltoworld(np.fliplr(np.int32(segment)), ds.transform, gdal=False)
-                dst.write({
-                    'type': 'Feature',
-                    'geometry': {'type': 'LineString', 'coordinates': coords},
-                    'properties': {'GID': current, 'HEAD': 1 if head else 0}
-                })
+                for current, (segment, head) in enumerate(progress):
+
+                    coords = ta.pixeltoworld(np.fliplr(np.int32(segment)), ds.transform, gdal=False)
+                    dst.write({
+                        'type': 'Feature',
+                        'geometry': {'type': 'LineString', 'coordinates': coords},
+                        'properties': {'GID': current, 'HEAD': 1 if head else 0}
+                    })
+
+                    progress.update(1)
 
 def Starred(args):
     FlowDirection(*args)

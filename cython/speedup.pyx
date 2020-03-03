@@ -1,6 +1,19 @@
 # distutils: language = c++
 # cython: language_level=3, c_string_type=str, c_string_encoding=ascii, embedsignature=True
 
+"""
+DOCME
+
+***************************************************************************
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+***************************************************************************
+"""
+
 import cython
 import click
 cimport cython
@@ -14,6 +27,8 @@ from cpython cimport array
 from libcpp.deque cimport deque
 from libcpp.map cimport map
 from libcpp.pair cimport pair
+from libcpp.queue cimport priority_queue
+from libcpp.stack cimport stack
 from libcpp.vector cimport vector
 from cython.operator cimport dereference, preincrement
 
@@ -21,9 +36,15 @@ cdef extern from "<algorithm>" namespace "std":
     cdef T min[T](T a, T b) nogil
     cdef T max[T](T a, T b) nogil
 
+ctypedef short D8Flow
+
 ctypedef float ContributingArea
 ctypedef pair[int, int] Cell
+ctypedef stack[Cell] CellStack
 ctypedef deque[Cell] CellQueue
+ctypedef pair[float, Cell] ZCell
+ctypedef priority_queue[ZCell] ZPriorityQueue
+
 ctypedef unsigned int Label
 ctypedef pair[long, long] Pixel
 ctypedef pair[Pixel, long] ContributingPixel
@@ -65,3 +86,4 @@ cdef inline int ilog2(unsigned char x) nogil:
 include "Flats.pxi"
 include "FlowAccumulation.pxi"
 include "GraphAcc.pxi"
+include "Streams.pxi"

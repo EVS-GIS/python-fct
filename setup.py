@@ -23,7 +23,7 @@ extensions = [
 ]
 
 setup(
-    name='fct-scripts',
+    name='fct-cli',
     version='1.0.4',
     # packages=find_packages(),
     ext_modules=cythonize(extensions),

@@ -239,7 +239,7 @@ def FillSinks(row, col, overwrite, quiet):
     with rio.open(outputs['filled'], 'w', **profile) as dst:
         dst.write(filled, 1)
 
-    labels, graph = ta.watershed_labels(filled, nodata)
+    labels, graph, pit_regions = ta.watershed_labels(filled, nodata)
     labels = np.uint32(labels)
 
     step('Write labels and watershed graph')
@@ -524,7 +524,7 @@ def FinalizeTile(args):
 @click.option('--processes', '-j', default=1, help="Execute j parallel processes")
 def finalize(overwrite, processes):
     """
-    Ajuste l'altiude des dépressions en bordure de tuile,
+    Ajuste l'altitude des dépressions en bordure de tuile,
     et calcule la carte des dépressions
     (différentiel d'altitude avec le point de débordement)
     """

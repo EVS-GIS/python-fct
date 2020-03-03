@@ -1,10 +1,23 @@
-# coding: utf-8
+# -*- coding: utf-8 -*-
+
+"""
+Watershed Labeling with Depression Filling
+
+***************************************************************************
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+***************************************************************************
+"""
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
 cdef Cell grow_flat_region(
+    D8Flow[:, :] flow,
     float[:, :] elevations,
-    float[:, :] flats,
     float nodata,
     Label[:, :] labels,
     long height,
@@ -18,10 +31,11 @@ cdef Cell grow_flat_region(
     cdef:
 
         Cell c
-        int count = 0
-        long i, j, ix, jx, x
-        float flatz = nodata, outz = nodata
+        int count = 0, direction
+        long i, j, ix, jx
+        short x
         Cell outlet = Cell(-1, -1)
+        float z = nodata
 
     while not queue.empty():
 
@@ -31,50 +45,36 @@ cdef Cell grow_flat_region(
         i = c.first
         j = c.second
 
-        if flatz == nodata:
-            flatz = elevations[i, j]
-        elif elevations[i, j] < flatz:
-            flatz = elevations[i, j]
+        if z == nodata:
+            z = elevations[i, j]
 
         for x in range(8):
                     
             ix = i + ci[x]
             jx = j + cj[x]
 
-            if not ingrid(height, width, ix, jx) or flats[ix, jx] == nodata:
+            if not ingrid(height, width, ix, jx) or flow[ix, jx] == -1:
                 continue
 
             if labels[ix, jx] > 0:
                 continue
 
-            labels[ix, jx] = region_label
+            if flow[ix, jx] == 0:
 
-            if flats[ix, jx] > 0:
-
+                labels[ix, jx] = region_label
                 queue.push_back(Cell(ix, jx))
 
-            elif elevations[ix, jx] < flatz:
-
-                if outz == nodata:
-
-                    outlet = Cell(ix, jx)
-                    outz = elevations[ix, jx]
-                    count += 1
-
-                elif elevations[ix, jx] > outz:
-
-                    outlet = Cell(ix, jx)
-                    outz = elevations[ix, jx]
-                    count += 1
-
-    if count > 1:
-        click.echo('%d outlets for region %d' % (count, region_label))
+            elif elevations[ix, jx] == z:
+                
+                labels[ix, jx] = region_label
+                queue.push_back(Cell(ix, jx))
+                outlet = Cell(ix, jx)
 
     return outlet
 
 def flat_labels(
+        D8Flow[:, :] flow,
         float[:, :] elevations,
-        float[:, :] flats,
         float nodata,
         # float dx, float dy,
         # float minslope=1e-3,
@@ -83,7 +83,7 @@ def flat_labels(
 
     cdef:
 
-        long height = flats.shape[0], width = flats.shape[1]
+        long height = flow.shape[0], width = flow.shape[1]
         long i, j
         Label next_label = 1
         CellQueue pit
@@ -96,17 +96,17 @@ def flat_labels(
     for i in range(height):
         for j in range(width):
 
-            if flats[i, j] == nodata:
+            if flow[i, j] == -1:
                 continue
 
-            if flats[i, j] > 0 and labels[i, j] == 0:
+            if flow[i, j] == 0 and labels[i, j] == 0:
 
                 label = next_label
                 next_label += 1
                 labels[i, j] = label
 
                 pit.push_back(Cell(i, j))
-                outlet = grow_flat_region(elevations, flats, nodata, labels, height, width, label, pit)
+                outlet = grow_flat_region(flow, elevations, nodata, labels, height, width, label, pit)
                 outlets.push_back(outlet)
 
     return np.asarray(labels), outlets

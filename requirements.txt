@@ -3,4 +3,4 @@ cython
 doit
 rasterio>=1.0.22
 fiona>=1.8.6
-richdem>=1.18.1
+richdem>=0.3.4
