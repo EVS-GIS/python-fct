@@ -47,7 +47,7 @@ tile_index = dict()
 tile_height = 7150
 tile_width = 9800
 
-def read_tile_index():
+def read_tile_index(tile_shapefile=tile_shapefile):
 
     with fiona.open(tile_shapefile) as fs:
         for feature in fs:

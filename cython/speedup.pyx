@@ -11,15 +11,20 @@ cimport numpy
 import array
 from cpython cimport array
 
-from libcpp.pair cimport pair
 from libcpp.deque cimport deque
 from libcpp.map cimport map
+from libcpp.pair cimport pair
+from libcpp.vector cimport vector
 from cython.operator cimport dereference, preincrement
+
+cdef extern from "<algorithm>" namespace "std":
+    cdef T min[T](T a, T b) nogil
+    cdef T max[T](T a, T b) nogil
 
 ctypedef float ContributingArea
 ctypedef pair[int, int] Cell
 ctypedef deque[Cell] CellQueue
-
+ctypedef unsigned int Label
 ctypedef pair[long, long] Pixel
 ctypedef pair[Pixel, long] ContributingPixel
 ctypedef map[Pixel, ContributingPixel] Graph
@@ -57,5 +62,6 @@ cdef inline int ilog2(unsigned char x) nogil:
 
     return r
 
+include "Flats.pxi"
 include "FlowAccumulation.pxi"
 include "GraphAcc.pxi"

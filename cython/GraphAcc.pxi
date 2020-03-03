@@ -2,7 +2,35 @@
 
 @cython.wraparound(False)
 @cython.boundscheck(False)
-def graph_acc(dict graph_in):
+def graph_acc(dict graph_in, float coeff=25e-6):
+    """
+    Calculate cumulative drained areas
+    for each pixel represented in the input graph ;
+    the input represents the connection between outlet pixels
+    and inlet pixels at tile borders.
+
+    Parameters
+    ----------
+
+    graph_in: dict
+        outlet pixel -> destination pixel + received contributing area
+        (tile, i, j) -> (tile, ti, tj, area)
+        pixel: triple (int, int, int) = (tile id, pixel row, pixel column)
+        rows and columns reference the global dataset
+        area: local contributing area in pixel count, ie.
+        the area drained by the outlet pixel _within_ the tile it belongs to.
+
+    coeff: float
+        coefficient to use to convert contributing areas in pixel count
+        to real world surfaces in km^2
+
+    Returns
+    -------
+
+    areas: dict
+        pixel (row, col) -> cumulative drained area in km^2
+        rows and columns reference the global dataset
+    """
 
     cdef:
 
@@ -59,9 +87,9 @@ def graph_acc(dict graph_in):
                 indegree[pixel] -= 1
 
                 if areas.count(pixel) > 0:
-                    areas[pixel] += area*25e-6 # convert to km^2
+                    areas[pixel] += area*coeff # convert to km^2
                 else:
-                    areas[pixel] = area*25e-6 # convert to km^2
+                    areas[pixel] = area*coeff # convert to km^2
 
                 if indegree[pixel] == 0:
                     queue.push_back(pixel)
