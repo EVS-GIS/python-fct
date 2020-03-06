@@ -9,11 +9,11 @@ Before:
 # Fill Depressions and Label Watersheds
 python PreProcessing.py batch -j 4
 python PreProcessing.py boxes
-python PreProcessing.py spillover
-python PreProcessing.py finalize -j 2
+python PreProcessing.py spillover -w
+python PreProcessing.py finalize -j 2 -w
 python FlowDirection.py batch -j 4 -w
-python FlowDirection.py aggregate
-python StreamNetwork.py areas
+python FlowDirection.py aggregate -w
+python StreamNetwork.py areas -w
 python StreamNetwork.py batch -j 4 -w
-python StreamNetwork.py aggregate
+python StreamNetwork.py aggregate -w
 ```

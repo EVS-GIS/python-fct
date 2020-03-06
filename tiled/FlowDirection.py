@@ -251,26 +251,31 @@ def FlowDirection(row, col):
 
         WallFlats(padded, ds.nodata)
 
-        # flow = ta.flowdir(padded, ds.nodata)
-        # labels, outlets = speedup.flat_labels(flow, padded, ds.nodata)
-        # notflowing = {k+1 for k, (i, j) in enumerate(outlets) if i == -1 and j == -1}
+        # ***********************************************************************
+        # Wall flowing border flats
 
-        # height, width = labels.shape
-        # boxes = speedup.flat_boxes(labels)
+        flow = ta.flowdir(padded, ds.nodata)
+        labels, outlets = speedup.flat_labels(flow, padded, ds.nodata)
+        notflowing = {k+1 for k, (i, j) in enumerate(outlets) if i == -1 and j == -1}
 
-        # borders = set()
-        # for w, (mini, minj, maxi, maxj, count) in boxes.items():
-        #     if mini == 0 or minj == 0 or maxi == (height-1) or maxj == (width-1):
-        #         if w not in notflowing:
-        #             borders.add(w)
+        height, width = labels.shape
+        boxes = speedup.flat_boxes(labels)
 
-        # @np.vectorize
-        # def bordermask(x):
-        #     return x in borders
+        borders = set()
+        for w, (mini, minj, maxi, maxj, count) in boxes.items():
+            if mini == 0 or minj == 0 or maxi == (height-1) or maxj == (width-1):
+                if w not in notflowing:
+                    borders.add(w)
 
-        # mask = bordermask(labels)
-        # mask[1:-1, 1:-1] = False
-        # padded = padded + np.max(padded)*mask
+        @np.vectorize
+        def bordermask(x):
+            return x in borders
+
+        mask = bordermask(labels)
+        mask[1:-1, 1:-1] = False
+        padded[mask] = np.max(padded)
+        
+        # ***********************************************************************
 
         # flat_mask, flat_labels = ta.resolve_flat(padded, flow, ta.ConsoleFeedback())
         # extended = rd.rdarray(flat_mask, no_data=0)
