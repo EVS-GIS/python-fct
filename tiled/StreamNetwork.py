@@ -64,6 +64,7 @@ def CreateOutletsGraph():
             with rio.open(flow_raster) as ds:
 
                 flow = ds.read(1)
+                height, width = flow.shape
 
                 with fiona.open(inlet_shapefile) as fs:
                     for feature in fs:
@@ -82,6 +83,36 @@ def CreateOutletsGraph():
                         loci, locj = ds.index(*feature['geometry']['coordinates'])
                         locti, loctj = ta.outlet(flow, loci, locj)
                         ti, tj = rge.index(*ds.xy(locti, loctj))
+
+                        if (locti, loctj) == (loci, locj):
+                            continue
+                        
+                        if ti >= 0 and tj >= 0:
+                            graph[(tile, i, j)] = (tile, ti, tj, 0)
+                            indegree[(tile, ti, tj)] += 1
+
+                with fiona.open(filename('exterior-inlets')) as fs:
+                    for feature in fs:
+
+                        loci, locj = ds.index(*feature['geometry']['coordinates'])
+
+                        if not all([loci >= 0, loci < height, locj >= 0, locj < width]):
+                            continue
+
+                        # connect exterior->inlet
+
+                        i, j = rge.index(*feature['geometry']['coordinates'])
+                        area = feature['properties']['AREAKM2']
+                        graph[(-2, 0, 0)] = (tile, i, j, area)
+                        indegree[(tile, i, j)] += 1
+
+                        # connect inlet->tile outlet
+
+                        locti, loctj = ta.outlet(flow, loci, locj)
+                        ti, tj = rge.index(*ds.xy(locti, loctj))
+
+                        if (locti, loctj) == (loci, locj):
+                            continue
                         
                         if ti >= 0 and tj >= 0:
                             graph[(tile, i, j)] = (tile, ti, tj, 0)
@@ -203,12 +234,19 @@ def FlowAccumulation(row, col):
 
         flow = ds.read(1)
         out = np.full_like(flow, 25e-6, dtype=np.float32)
+        height, width = flow.shape
 
         with fiona.open(inlet_shapefile) as fs:
             with click.progressbar(fs) as progress:
                 for feature in progress:
 
                     i, j = ds.index(*feature['geometry']['coordinates'])
+                    out[i, j] += feature['properties']['AREAKM2']
+
+        with fiona.open(filename('exterior-inlets')) as fs:
+            for feature in fs:
+                i, j = ds.index(*feature['geometry']['coordinates'])
+                if all([i >= 0, i < height, j >= 0, j < width]):
                     out[i, j] += feature['properties']['AREAKM2']
 
         speedup.flow_accumulation(flow, out)
@@ -319,6 +357,17 @@ def batch(overwrite, processes, quiet):
         with click.progressbar(pooled, length=len(tile_index)) as progress:
             for _ in progress:
                 click.echo('\r')
+
+@cli.command()
+@click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
+def areas(overwrite):
+    InletAreas()
+
+
+@cli.command()
+@click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
+def aggregate(overwrite):
+    AggregateStreams()
 
 if __name__ == '__main__':
     cli()

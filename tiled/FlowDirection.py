@@ -4,13 +4,9 @@
 """
 Sequence :
 
-0. Fill Sinks and Map Flats (*)
 1. FlowDirection (*)
 2. Outlets (*)
 3. AggregateOutlets
-4. Accumulate/Resolve Acc Graph/InletAreas
-5. FlowAccumulation (*)
-6. StreamToFeature (*)
 
 (*) Possibly Parallel Steps
 
@@ -199,6 +195,46 @@ def PadElevations(row, col):
 #         with rio.open(output, 'w', **profile) as dst:
 #             dst.write(flow[1:-1, 1:-1], 1)
 
+def WallFlats(padded, nodata):
+
+    ci = [ -1, -1,  0,  1,  1,  1,  0, -1 ]
+    cj = [  0,  1,  1,  1,  0, -1, -1, -1 ]
+
+    height, width = padded.shape
+    zwall = np.max(padded)
+    fixed = 0
+
+    flow = ta.flowdir(padded, nodata)
+
+    # top and bottom
+    for ik in [0, height-1]:
+        for jk in range(width):
+            direction = flow[ik, jk]
+            if direction != -1 and direction != 0:
+                n = int(np.log2(direction))
+                i = ik + ci[n]
+                j = jk + cj[n]
+                if all([i >= 0, i < height, j >= 0, j < width]):
+                    if flow[i, j] == 0 and padded[ik, jk] > padded[i, j]:
+                        padded[ik, jk] = zwall
+                        fixed += 1
+
+    # left and right
+    for jk in [0, width-1]:
+        for ik in range(height):
+            direction = flow[ik, jk]
+            if direction != -1 and direction != 0:
+                n = int(np.log2(direction))
+                i = ik + ci[n]
+                j = jk + cj[n]
+                if all([i >= 0, i < height, j >= 0, j < width]):
+                    if flow[i, j] == 0 and padded[ik, jk] > padded[i, j]:
+                        padded[ik, jk] = zwall
+                        fixed += 1
+
+    return fixed
+
+
 def FlowDirection(row, col):
     """
     DOCME
@@ -212,6 +248,8 @@ def FlowDirection(row, col):
     with rio.open(elevation_raster) as ds:
 
         padded = PadElevations(row, col)
+
+        WallFlats(padded, ds.nodata)
 
         # flow = ta.flowdir(padded, ds.nodata)
         # labels, outlets = speedup.flat_labels(flow, padded, ds.nodata)
@@ -317,7 +355,7 @@ def Outlets(row, col):
                 dj = 0
 
             tiles[(row+di, col+dj)].append(current)
-                
+
                 # target = tile_index[(row+di, col+dj)].gid
                 # (i, j), area = outlets[current]
                 # x, y = ds.xy(i, j)
@@ -457,6 +495,11 @@ def batch(overwrite, processes, quiet):
         with click.progressbar(pooled, length=len(tile_index)) as progress:
             for _ in progress:
                 click.echo('\r')
+
+@cli.command()
+@click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
+def aggregate(overwrite):
+    AggregateOutlets()
 
 if __name__ == '__main__':
     cli()

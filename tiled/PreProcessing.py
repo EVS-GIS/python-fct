@@ -172,7 +172,7 @@ def ExtractAndPatchTile(row, col, overwrite, quiet):
     with rio.open(outputs['patched'], 'w', **profile) as dst:
         dst.write(dem1, 1)
 
-def FillSinks(row, col, overwrite, quiet):
+def FillDepressions(row, col, overwrite, quiet):
     """
     1ère étape du calcul du plan de drainage global :
 
@@ -357,6 +357,8 @@ def resolve(graph, nodata):
             zlink = graph[(l1, l2)]
 
             if zlink < minz:
+                # minz += epsilon
+                # zlink = minz
                 zlink = minz + epsilon
                 # flatz[link] = min(zlink, flatz.get(link, float('inf')))
                 # zlink = z
@@ -400,7 +402,7 @@ def tile(row, col, overwrite, quiet):
     tel que défini dans `TILES.shp`
     """
     
-    FillSinks(row, col, overwrite, quiet)
+    FillDepressions(row, col, overwrite, quiet)
     # ExtractAndPatchTile(row, col, overwrite, quiet)
 
 
@@ -409,7 +411,7 @@ def Starred(args):
     Starred version of `function` for use with pool.imap_unordered()
     """
 
-    return FillSinks(*args)
+    return FillDepressions(*args)
     # return ExtractAndPatchTile(*args)
 
 @cli.command()
@@ -501,6 +503,21 @@ def FixBorderFlats(directed, graph, row, col, epsilon=0.002):
 
                         fixed += 1
 
+                    # elif not isupstream(other_watershed, watershed):
+
+                    #     other_downstream, other_minz = directed[other_watershed]
+
+                    #     if minz < other_minz:
+                    #         w2, w1 = watershed, other_watershed
+                    #     else:
+                    #         w1, w2 = watershed, other_watershed
+
+                    #     for link in graph_index[w1]:
+                    #         w2, w3 = sorted([w1, link])
+                    #         graph[(w2, w3)] = max(graph[(w2, w3)], minz+epsilon)
+
+                    #     fixed += 1
+
     def inspectcorner(di, dj, side):
 
         nonlocal fixed
@@ -533,6 +550,21 @@ def FixBorderFlats(directed, graph, row, col, epsilon=0.002):
 
                 fixed += 1
 
+            # elif not isupstream(other_watershed, watershed):
+
+            #     other_downstream, other_minz = directed[other_watershed]
+
+            #     if minz < other_minz:
+            #         w2, w1 = watershed, other_watershed
+            #     else:
+            #         w1, w2 = watershed, other_watershed
+
+            #     for link in graph_index[w1]:
+            #         w2, w3 = sorted([w1, link])
+            #         graph[(w2, w3)] = max(graph[(w2, w3)], minz+epsilon)
+
+            #     fixed += 1
+
     inspectborder(-1, 0, 0) # top
     inspectborder(0, 1, 1) # right
     inspectborder(1, 0, 2) # bottom
@@ -562,13 +594,13 @@ def spillover(overwrite):
 
     tile_index = tileindex()
 
-    def tiledatafn(row, col):
-        return filename('graph', row=row, col=col)
+    click.secho('Build spillover graph', fg='cyan')
 
     graph = dict()
     nodata = -99999.0
 
-    click.secho('Build spillover graph', fg='cyan')
+    def tiledatafn(row, col):
+        return filename('graph', row=row, col=col)
 
     with click.progressbar(tile_index) as progress:
         for row, col in progress:
@@ -580,10 +612,30 @@ def spillover(overwrite):
 
     click.secho('Resolve Watershed\'s Minimum Z', fg='cyan')
 
-    nodata = -99999.0
     directed = resolve(graph, nodata)
-    minz = [watershed + (directed[watershed][1],) for watershed in directed]
 
+    was_fixed = float('inf')
+    iterations = 0
+    max_iterations = 5
+    
+    while was_fixed > 0 and iterations < max_iterations:
+
+        fixed = 0
+        
+        for row, col in tile_index:
+            fixed += FixBorderFlats(directed, graph, row, col)
+        
+        directed = resolve(graph, nodata)
+        
+        if fixed > was_fixed:
+            break
+        
+        was_fixed = fixed
+        iterations += 1
+
+    click.secho('Fixed border flats elevations with %d iterations' % iterations, fg='green')
+
+    minz = [watershed + (directed[watershed][1],) for watershed in directed]
     np.savez(output, minz=np.array(minz))
 
     click.secho('Saved to : %s' % output, fg='green')
