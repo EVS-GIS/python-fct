@@ -2,7 +2,17 @@
 # coding: utf-8
 
 """
-DOCME
+Sequence :
+
+0. Fill Sinks and Map Flats (*)
+1. FlowDirection (*)
+2. Outlets (*)
+3. AggregateOutlets
+4. Accumulate/Resolve Acc Graph/InletAreas
+5. FlowAccumulation (*)
+6. StreamToFeature (*)
+
+(*) Possibly Parallel Steps
 
 ***************************************************************************
 *                                                                         *
@@ -16,6 +26,7 @@ DOCME
 
 import click
 import os
+import glob
 import rasterio as rio
 from rasterio.windows import Window
 from rasterio.warp import Resampling
@@ -29,34 +40,19 @@ import richdem as rd
 import speedup
 import terrain_analysis as ta
 
-Tile = namedtuple('Tile', ('gid', 'row', 'col', 'x0', 'y0', 'i', 'j'))
+from config import tileindex, filename
 
-BDA = '/media/crousson/Backup/REFERENTIELS/IGN/BDALTI_25M/BDALTI25M.tif'
-RGE = '/media/crousson/Backup/REFERENTIELS/IGN/RGEALTI/2017/RGEALTI.tif'
-
-workdir = '/media/crousson/Backup/PRODUCTION/RGEALTI/TILES'
-tile_shapefile = '/media/crousson/Backup/PRODUCTION/RGEALTI/TILES.shp'
-tile_index = dict()
 tile_height = 7150
 tile_width = 9800
 
-def read_tile_index():
-
-    with fiona.open(tile_shapefile) as fs:
-        for feature in fs:
-            row = feature['properties']['I']
-            col = feature['properties']['J']
-            tile_index[(row, col)] = Tile(*feature['properties'].values())
-
-read_tile_index()
-
-def PadElevations(row, col, filename):
+def PadElevations(row, col):
     """
     Assemble a 1-pixel padded elevation raster,
     with borders from neighboring tiles.
     """
 
-    elevation_raster = filename(row, col)
+    tile_index = tileindex()
+    elevation_raster = filename('filled', row=row, col=col)
 
     with rio.open(elevation_raster) as ds:
 
@@ -71,7 +67,7 @@ def PadElevations(row, col, filename):
 
         if (i, j) in tile_index:
         
-            other_raster = filename(i, j)
+            other_raster = filename('filled', row=i, col=j)
             with rio.open(other_raster) as ds2:
                 extended[0, 1:-1] = ds2.read(1, window=Window(0, height-1, width, 1)).reshape(width)
 
@@ -85,7 +81,7 @@ def PadElevations(row, col, filename):
 
         if (i, j) in tile_index:
         
-            other_raster = filename(i, j)
+            other_raster = filename('filled', row=i, col=j)
             with rio.open(other_raster) as ds2:
                 extended[-1, 1:-1] = ds2.read(1, window=Window(0, 0, width, 1)).reshape(width)
 
@@ -99,7 +95,7 @@ def PadElevations(row, col, filename):
 
         if (i, j) in tile_index:
         
-            other_raster = filename(i, j)
+            other_raster = filename('filled', row=i, col=j)
             with rio.open(other_raster) as ds2:
                 extended[1:-1, 0] = ds2.read(1, window=Window(width-1, 0, 1, height)).reshape(height)
 
@@ -113,7 +109,7 @@ def PadElevations(row, col, filename):
 
         if (i, j) in tile_index:
         
-            other_raster = filename(i, j)
+            other_raster = filename('filled', row=i, col=j)
             with rio.open(other_raster) as ds2:
                 extended[1:-1, -1] = ds2.read(1, window=Window(0, 0, 1, height)).reshape(height)
 
@@ -127,7 +123,7 @@ def PadElevations(row, col, filename):
 
         if (i, j) in tile_index:
         
-            other_raster = filename(i, j)
+            other_raster = filename('filled', row=i, col=j)
             with rio.open(other_raster) as ds2:
                 extended[0, 0] = ds2.read(1, window=Window(width-1, height-1, 1, 1)).item()
 
@@ -141,7 +137,7 @@ def PadElevations(row, col, filename):
 
         if (i, j) in tile_index:
         
-            other_raster = filename(i, j)
+            other_raster = filename('filled', row=i, col=j)
             with rio.open(other_raster) as ds2:
                 extended[-1, 0] = ds2.read(1, window=Window(width-1, 0, 1, 1)).item()
 
@@ -155,7 +151,7 @@ def PadElevations(row, col, filename):
 
         if (i, j) in tile_index:
         
-            other_raster = filename(i, j)
+            other_raster = filename('filled', row=i, col=j)
             with rio.open(other_raster) as ds2:
                 extended[0, -1] = ds2.read(1, window=Window(0, height-1, 1, 1)).item()
 
@@ -169,7 +165,7 @@ def PadElevations(row, col, filename):
 
         if (i, j) in tile_index:
         
-            other_raster = filename(i, j)
+            other_raster = filename('filled', row=i, col=j)
             with rio.open(other_raster) as ds2:
                 extended[-1, -1] = ds2.read(1, window=Window(0, 0, 1, 1)).item()
 
@@ -210,35 +206,33 @@ def FlowDirection(row, col):
 
     # TODO Burn mapped stream network
 
-    output = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_FLOW.tif' % (row, col))
+    elevation_raster = filename('filled', row=row, col=col)
+    output = filename('flow', row=row, col=col)
 
-    def filename(row, col):
-        return os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_FILLED2.tif' % (row, col))
+    with rio.open(elevation_raster) as ds:
 
-    with rio.open(filename(row, col)) as ds:
+        padded = PadElevations(row, col)
 
-        padded = PadElevations(row, col, filename)
+        # flow = ta.flowdir(padded, ds.nodata)
+        # labels, outlets = speedup.flat_labels(flow, padded, ds.nodata)
+        # notflowing = {k+1 for k, (i, j) in enumerate(outlets) if i == -1 and j == -1}
 
-        flow = ta.flowdir(padded, ds.nodata)
-        labels, outlets = speedup.flat_labels(flow, padded, ds.nodata)
-        notflowing = {k+1 for k, (i, j) in enumerate(outlets) if i == -1 and j == -1}
+        # height, width = labels.shape
+        # boxes = speedup.flat_boxes(labels)
 
-        height, width = labels.shape
-        boxes = speedup.flat_boxes(labels)
+        # borders = set()
+        # for w, (mini, minj, maxi, maxj, count) in boxes.items():
+        #     if mini == 0 or minj == 0 or maxi == (height-1) or maxj == (width-1):
+        #         if w not in notflowing:
+        #             borders.add(w)
 
-        borders = set()
-        for w, (mini, minj, maxi, maxj, count) in boxes.items():
-            if mini == 0 or minj == 0 or maxi == (height-1) or maxj == (width-1):
-                if w not in notflowing:
-                    borders.add(w)
+        # @np.vectorize
+        # def bordermask(x):
+        #     return x in borders
 
-        @np.vectorize
-        def bordermask(x):
-            return x in borders
-
-        mask = bordermask(labels)
-        mask[1:-1, 1:-1] = False
-        padded = padded + np.max(padded)*mask
+        # mask = bordermask(labels)
+        # mask[1:-1, 1:-1] = False
+        # padded = padded + np.max(padded)*mask
 
         # flat_mask, flat_labels = ta.resolve_flat(padded, flow, ta.ConsoleFeedback())
         # extended = rd.rdarray(flat_mask, no_data=0)
@@ -261,28 +255,35 @@ def Outlets(row, col):
     DOCME
     """
 
+    tile_index = tileindex()
+
     crs = fiona.crs.from_epsg(2154)
-    driver = 'ESRI Shapefile'
+    driver = 'GeoJSON'
     schema = {
         'geometry': 'Point',
         'properties': [
             ('TILE', 'int'),
             ('LCA', 'int'),
-            ('FROM', 'int'),
-            ('FROMX', 'float'),
-            ('FROMY', 'float')]
+            ('TO', 'int'),
+            ('TOX', 'float'),
+            ('TOY', 'float'),
+            ('Z', 'float'),
+            ('TOZ', 'float')
+        ]
     }
-    options = dict(driver=driver, crs=crs, schema=schema)
+    options = dict(driver='ESRI Shapefile', crs=crs, schema=schema)
 
     # read_tile_index()
 
-    flow_raster = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_FLOW.tif' % (row, col))
-
-    def output_filename(row, col):
-        return os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_INLETS.shp' % (row, col))
+    flow_raster = filename('flow', row=row, col=col)
 
     gid = tile_index[(row, col)].gid
     tiles = defaultdict(list)
+
+    def readz(trow, tcol, x, y):
+
+        with rio.open(filename('filled', row=trow, col=tcol)) as src:
+            return float(next(src.sample([(x, y)], 1)))
 
     with rio.open(flow_raster) as ds:
 
@@ -291,6 +292,9 @@ def Outlets(row, col):
         mask = np.ones_like(flow, dtype=np.uint8)
         outlets, targets = ta.tile_outlets(flow, mask)
 
+        output = filename('outlets', row=row, col=col)
+
+        # with fiona.open(output, 'w', **options) as dst:
         for current, (ti, tj) in enumerate(targets):
 
             top = (ti < 0)
@@ -313,9 +317,41 @@ def Outlets(row, col):
                 dj = 0
 
             tiles[(row+di, col+dj)].append(current)
+                
+                # target = tile_index[(row+di, col+dj)].gid
+                # (i, j), area = outlets[current]
+                # x, y = ds.xy(i, j)
+                # tx, ty = ds.xy(ti, tj)
+                # outlet_z = readz(row, col, x, y)
+                # target_z = readz(row+di, col+dj, tx, ty)
+
+                # geom = {'type': 'Point', 'coordinates': [x, y]}
+                # props = {
+                #     'TILE': gid,
+                #     'LCA': area,
+                #     'TO': target,
+                #     'TOX': tx,
+                #     'TOY': ty,
+                #     'Z': outlet_z,
+                #     'TOZ': target_z
+                # }
+
+                # dst.write({'geometry': geom, 'properties': props})
 
         cum_area = 0
         skipped = 0
+
+        schema = {
+            'geometry': 'Point',
+            'properties': [
+                ('TILE', 'int'),
+                ('LCA', 'int'),
+                ('FROM', 'int'),
+                ('FROMX', 'float'),
+                ('FROMY', 'float')
+            ]
+        }
+        options = dict(driver=driver, crs=crs, schema=schema)
 
         for trow, tcol in tiles:
 
@@ -324,14 +360,14 @@ def Outlets(row, col):
                 continue
 
             target = tile_index[(trow, tcol)].gid
-            output = output_filename(trow, tcol)
+            output = filename('inlets', row=trow, col=tcol, gid=gid)
 
-            if os.path.exists(output):
-                mode = 'a'
-            else:
-                mode = 'w'
+            # if os.path.exists(output):
+            #     mode = 'a'
+            # else:
+            #     mode = 'w'
 
-            with fiona.open(output, mode, **options) as dst:
+            with fiona.open(output, 'w', **options) as dst:
                 for idx in tiles[(trow, tcol)]:
 
                     (i, j), area = outlets[idx]
@@ -356,96 +392,13 @@ def Outlets(row, col):
     click.secho('Tile (%02d, %02d) Coverage = %.1f %%' % (row, col, (cum_area / (height*width) * 100)), fg='green')
     return cum_area
 
-def Accumulate():
+def AggregateOutlets():
     """
-    DOCME
+    Aggregate ROW_COL_INLETS_ORIGIN.geojson files
+    into one ROW_COL_INLETS.shp shapefile
     """
 
-    # read_tile_index()
-
-    def inlet_filename(row, col):
-        return os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_INLETS.shp' % (row, col))
-
-    def flow_filename(row, col):
-        return os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_FLOW.tif' % (row, col))
-
-    click.secho('Build outlets graph', fg='cyan')
-
-    graph = dict()
-    indegree = Counter()
-
-    rge = rio.open(RGE)
-
-    with click.progressbar(tile_index) as progress:
-        for row, col in progress:
-
-            tile = tile_index[(row, col)].gid
-            inlet_shapefile = inlet_filename(row, col)
-            flow_raster = flow_filename(row, col)
-
-            with rio.open(flow_raster) as ds:
-
-                flow = ds.read(1)
-
-                with fiona.open(inlet_shapefile) as fs:
-                    for feature in fs:
-
-                        # connect outlet->inlet
-
-                        from_tile = feature['properties']['FROM']
-                        area = feature['properties']['LCA']
-                        from_i, from_j = rge.index(feature['properties']['FROMX'], feature['properties']['FROMY'])
-                        i, j = rge.index(*feature['geometry']['coordinates'])
-                        graph[(from_tile, from_i, from_j)] = (tile, i, j, area)
-                        indegree[(tile, i, j)] += 1
-
-                        # connect inlet->tile outlet
-
-                        ti, tj = ta.outlet(flow, i, j)
-                        
-                        if ti >= 0 and tj >= 0:
-                            graph[(tile, i, j)] = (tile, ti, tj, 0)
-                            indegree[(tile, ti, tj)] += 1
-
-    rge.close()
-
-    click.secho('Created graph with %d nodes' % len(graph), fg='green')
-    click.secho('Accumulate areas', fg='cyan')
-
-    return graph, indegree
-
-    # queue = [pixel for pixel in graph if indegree[pixel] == 0]
-    # areas = defaultdict(lambda: 0)
-    # seen = set()
-
-    # with click.progressbar(length=len(indegree)) as progress:
-    
-    #     while queue:
-
-    #         tile, i, j = queue.pop(0)
-
-    #         if (tile, i, j) in seen:
-    #             continue
-
-    #         progress.update(1)
-    #         seen.add((tile, i, j))
-
-    #         if (tile, i, j) in graph:
-
-    #             tile, i, j, area = graph[(tile, i, j)]
-    #             areas[(tile, i, j)] += area*25e-6 # convert to km^2
-    #             indegree[(tile, i, j)] -= 1
-
-    #             if indegree[(tile, i, j)] == 0:
-    #                 queue.append((tile, i, j))
-
-    # return areas
-
-
-def InletAreas(graph, indegree, areas):
-    """
-    DOCME
-    """
+    tile_index = tileindex()
 
     crs = fiona.crs.from_epsg(2154)
     driver = 'ESRI Shapefile'
@@ -456,133 +409,31 @@ def InletAreas(graph, indegree, areas):
             ('LCA', 'int'),
             ('FROM', 'int'),
             ('FROMX', 'float'),
-            ('FROMY', 'float'),
-            ('AREAKM2', 'float')]
+            ('FROMY', 'float')
+        ]
     }
     options = dict(driver=driver, crs=crs, schema=schema)
-
-    def inlet_filename(row, col):
-        return os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_INLETS.shp' % (row, col))
-
-    def output_filename(row, col):
-        return os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_INLET_AREAS.shp' % (row, col))
-
-    rge = rio.open(RGE)
 
     with click.progressbar(tile_index) as progress:
         for row, col in progress:
 
-            tile = tile_index[(row, col)].gid
-            index = {key[1:]: areas.get(key[1:], 0) for key in graph.keys() | indegree.keys() if key[0] == tile}
+            output = filename('inlets-agg', row=row, col=col)
 
-            with fiona.open(inlet_filename(row, col)) as fs:
-                with fiona.open(output_filename(row, col), 'w', **options) as dst:
+            with fiona.open(output, 'w', **options) as dst:
 
-                    for feature in fs:
-
-                        i, j = rge.index(*feature['geometry']['coordinates'])
-                        assert((i, j) in index)
-                        feature['properties']['AREAKM2'] = index[(i, j)]
-                        dst.write(feature)
-
-    rge.close()
-
-def FlowAccumulation(row, col):
-
-    tile = tile_index[(row, col)].gid
-
-    flow_raster = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_FLOW.tif' % (row, col))
-    inlet_shapefile = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_INLET_AREAS.shp' % (row, col))
-    output = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_ACC.tif' % (row, col))
-
-    with rio.open(flow_raster) as ds:
-
-        flow = ds.read(1)
-        out = np.full_like(flow, 25e-6, dtype=np.float32)
-
-        with fiona.open(inlet_shapefile) as fs:
-            with click.progressbar(fs) as progress:
-                for feature in progress:
-
-                    i, j = ds.index(*feature['geometry']['coordinates'])
-                    out[i, j] += feature['properties']['AREAKM2']
-
-        speedup.flow_accumulation(flow, out)
-
-        click.secho('Save to %s' % output, fg='green')
-
-        profile = ds.profile.copy()
-        profile.update(compress='deflate', nodata=0, dtype=np.float32)
-
-        with rio.open(output, 'w', **profile) as dst:
-            dst.write(out, 1)
-
-def StreamToFeature(row, col, min_drainage):
-    """
-    DOCME
-    """
-
-    flow_raster = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_FLOW.tif' % (row, col))
-    acc_raster = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_ACC.tif' % (row, col))
-    output = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_RHT.shp' % (row, col))
-
-    driver='ESRI Shapefile'
-    schema = {
-        'geometry': 'LineString',
-        'properties': [
-            ('GID', 'int'),
-            ('HEAD', 'int')
-        ]
-    }
-    crs = fiona.crs.from_epsg(2154)
-    options = dict(driver=driver, crs=crs, schema=schema)
-
-    with rio.open(flow_raster) as ds:
-
-        flow = ds.read(1)
-
-        with rio.open(acc_raster) as ds2:
-            streams = np.int16(ds2.read(1) > min_drainage)
-
-        with fiona.open(output, 'w', **options ) as dst:
-
-            with click.progressbar(speedup.stream_to_feature(streams, flow)) as progress:
-
-                for current, (segment, head) in enumerate(progress):
-
-                    coords = ta.pixeltoworld(np.fliplr(np.int32(segment)), ds.transform, gdal=False)
-                    dst.write({
-                        'type': 'Feature',
-                        'geometry': {'type': 'LineString', 'coordinates': coords},
-                        'properties': {'GID': current, 'HEAD': 1 if head else 0}
-                    })
-
-                    progress.update(1)
+                for name in glob.glob(filename('inlets-pat', row=row, col=col)):
+                    with fiona.open(name) as fs:
+                        
+                        for feature in fs:
+                            dst.write(feature)
 
 def Starred(args):
     FlowDirection(*args)
-    # Outlets(*args)
+    Outlets(*args)
 
 @click.group()
 def cli():
     pass
-
-@cli.command()
-def outlets():
-    """
-    DOCME
-    """
-
-    read_tile_index()
-    coverage = 0
-    
-    with click.progressbar(tile_index) as progress:
-        for row, col in progress:
-            area = Outlets(row, col)
-            coverage += (area / (tile_height*tile_width))
-
-    click.secho('Total coverage : %.1f %%' % (coverage/len(tile_index)*100))
-
 
 @cli.command()
 @click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
@@ -595,7 +446,7 @@ def batch(overwrite, processes, quiet):
 
     from multiprocessing import Pool
 
-    # read_tile_index()
+    tile_index = tileindex()
 
     click.secho('Running %d processes ...' % processes, fg='yellow')
     arguments = (tuple(key) for key in tile_index)

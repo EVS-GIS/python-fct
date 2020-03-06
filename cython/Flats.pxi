@@ -66,8 +66,11 @@ cdef Cell grow_flat_region(
 
             elif elevations[ix, jx] == z:
                 
-                labels[ix, jx] = region_label
-                queue.push_back(Cell(ix, jx))
+                # Outlet is conceptually part of the flat,
+                # put possibly belongs to multiple flats
+                
+                # labels[ix, jx] = region_label
+                # queue.push_back(Cell(ix, jx))
                 outlet = Cell(ix, jx)
 
     return outlet

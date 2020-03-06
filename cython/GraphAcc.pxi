@@ -35,7 +35,7 @@ def graph_acc(dict graph_in, float coeff=25e-6):
     cdef:
 
         long tile, i, j, t, ti, tj
-        long area
+        long area, count = 0
         Graph graph
         GraphItem item
         Degree indegree
@@ -59,6 +59,8 @@ def graph_acc(dict graph_in, float coeff=25e-6):
         else:
             indegree[target] += 1
 
+        count += 1
+
     it = graph.begin()
     while it != graph.end():
         item = dereference(it)
@@ -66,7 +68,7 @@ def graph_acc(dict graph_in, float coeff=25e-6):
             queue.push_back(item.first)
         preincrement(it)
 
-    with click.progressbar(length=len(indegree)) as progress:
+    with click.progressbar(length=count) as progress:
     
         while not queue.empty():
 
@@ -82,16 +84,16 @@ def graph_acc(dict graph_in, float coeff=25e-6):
             if graph.count(pixel) > 0:
 
                 value = graph[pixel]
-                pixel = value.first
+                target = value.first
                 area = value.second
-                indegree[pixel] -= 1
+                indegree[target] -= 1
 
-                if areas.count(pixel) > 0:
-                    areas[pixel] += area*coeff # convert to km^2
+                if areas.count(target) > 0:
+                    areas[target] += areas[pixel] + area*coeff # convert to km^2
                 else:
-                    areas[pixel] = area*coeff # convert to km^2
+                    areas[target] = areas[pixel] + area*coeff # convert to km^2
 
-                if indegree[pixel] == 0:
-                    queue.push_back(pixel)
+                if indegree[target] == 0:
+                    queue.push_back(target)
 
-    return areas
+    return areas, indegree

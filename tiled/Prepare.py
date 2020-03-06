@@ -14,6 +14,13 @@
 - construit le graphe de connection
   entre bassins versants contigus
 
+Séquence :
+
+1. Extract and Path DEM
+2. Fill Sinks and Label Flats
+3. Resolve Global Spillover Graph
+4. Apply Spillover Elevations and Map Flats
+
 ***************************************************************************
 *                                                                         *
 *   This program is free software; you can redistribute it and/or modify  *
@@ -26,6 +33,7 @@
 
 import click
 import os
+import glob
 import rasterio as rio
 from rasterio.windows import Window
 from rasterio.warp import Resampling
@@ -35,28 +43,50 @@ import numpy as np
 from collections import namedtuple, defaultdict
 from heapq import heappush, heappop
 import terrain_analysis as ta
+from config import tileindex, filename, fileset, workdir
 
-Tile = namedtuple('Tile', ('gid', 'row', 'col', 'x0', 'y0', 'i', 'j'))
-
-BDA = '/media/crousson/Backup/REFERENTIELS/IGN/BDALTI_25M/BDALTI25M.tif'
-RGE = '/media/crousson/Backup/REFERENTIELS/IGN/RGEALTI/2017/RGEALTI.tif'
-
-workdir = '/media/crousson/Backup/PRODUCTION/RGEALTI/TILES'
-tile_shapefile = '/media/crousson/Backup/PRODUCTION/RGEALTI/TILES.shp'
-tile_index = dict()
 tile_height = 7150
 tile_width = 9800
 
-def read_tile_index(tile_shapefile=tile_shapefile):
-
-    with fiona.open(tile_shapefile) as fs:
-        for feature in fs:
-            row = feature['properties']['I']
-            col = feature['properties']['J']
-            tile_index[(row, col)] = Tile(*feature['properties'].values())
-
 def silent(msg):
     pass
+
+def TileExtendedBoundingBox(row, col, expand=20):
+
+    template = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_PATCHED.tif' % (row, col))
+    output = os.path.join(workdir, '../TILEBOXES.shp')
+
+    crs = fiona.crs.from_epsg(2154)
+    driver = 'ESRI Shapefile'
+    schema = {
+        'geometry': 'Polygon',
+        'properties': [
+            ('TILE', 'int')
+        ]
+    }
+    options = dict(driver=driver, crs=crs, schema=schema)
+
+    tile_index = tileindex()
+
+    with rio.open(template) as ds:
+
+        gid = tile_index[(row, col)].gid
+        height, width = ds.shape
+        xmin, ymax = ds.xy(-expand, -expand)
+        xmax, ymin = ds.xy(height+expand, width+expand)
+
+        box = [[xmin, ymin], [xmin, ymax], [xmax, ymax], [xmax, ymin], [xmin, ymin]]
+        geom = {'type': 'Polygon', 'coordinates': [box]}
+        props = {'TILE': gid}
+
+        if os.path.exists(output):
+            mode = 'a'
+        else:
+            mode = 'w'
+
+        with fiona.open(output, mode, **options) as dst:
+            feature = {'geometry': geom, 'properties': props}
+            dst.write(feature)
 
 def ExtractAndPatchTile(row, col, overwrite, quiet):
     """
@@ -72,6 +102,10 @@ def ExtractAndPatchTile(row, col, overwrite, quiet):
     - construit le graphe de connection
       entre bassins versants contigus
     """
+
+    tile_index = tileindex()
+    RGE = filename('rge', 'input')
+    BDA = filename('bda', 'input')
     
     if (row, col) not in tile_index:
         return
@@ -152,15 +186,15 @@ def FillSinks(row, col, overwrite, quiet):
     - construit le graphe de connection
       entre bassins versants contigus
     """
+
+    tile_index = tileindex()
+    RGE = filename('rge', 'input')
+    BDA = filename('bda', 'input')
     
     if (row, col) not in tile_index:
         return
 
-    outputs = dict()
-    outputs['patched'] = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_PATCHED.tif' % (row, col))
-    outputs['filled'] = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_FILLED.tif' % (row, col))
-    outputs['label'] = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_LABELS.tif' % (row, col))
-    outputs['graph'] = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_GRAPH.npz' % (row, col))
+    outputs = fileset(['prefilled', 'labels', 'graph'], row=row, col=col)
 
     if quiet:
         
@@ -183,64 +217,77 @@ def FillSinks(row, col, overwrite, quiet):
 
     tile = tile_index[(row, col)]
 
+    with rio.open(filename('patched', row=row, col=col)) as ds:
+
+        profile = ds.profile.copy()
+        nodata = ds.nodata
+        elevations = ds.read(1)
+
     step('Read and patch elevations')
 
-    with rio.open(RGE) as ds:
+    # with rio.open(RGE) as ds:
 
-        nodata = ds.nodata
-        profile = ds.profile.copy()
-        dst_transform = ds.transform * ds.transform.translation(col*tile_width, row*tile_height)
+    #     nodata = ds.nodata
+    #     profile = ds.profile.copy()
+    #     dst_transform = ds.transform * ds.transform.translation(col*tile_width, row*tile_height)
 
-        window1 = Window(tile.col, tile.row, tile_width, tile_height)
-        dem1 = ds.read(1, window=window1)
+    #     window1 = Window(tile.col, tile.row, tile_width, tile_height)
+    #     dem1 = ds.read(1, window=window1)
 
-        with rio.open(BDA) as ds2:
+    #     with rio.open(BDA) as ds2:
 
-            i2, j2 = ds2.index(*ds.xy(window1.row_off, window1.col_off))
-            window2 = Window(j2, i2, tile_width//5, tile_height//5)
+    #         i2, j2 = ds2.index(*ds.xy(window1.row_off, window1.col_off))
+    #         window2 = Window(j2, i2, tile_width//5, tile_height//5)
             
-            dem2 = ds2.read(1, resampling=Resampling.bilinear, out_shape=dem1.shape,
-                boundless=True, fill_value=ds2.nodata, window=window2)
+    #         dem2 = ds2.read(1, resampling=Resampling.bilinear, out_shape=dem1.shape,
+    #             boundless=True, fill_value=ds2.nodata, window=window2)
             
-            mask = (dem1 == ds.nodata) & (dem2 != ds2.nodata)
-            dem1[mask] = dem2[mask]
-            del mask
+    #         mask = (dem1 == ds.nodata) & (dem2 != ds2.nodata)
+    #         dem1[mask] = dem2[mask]
+    #         del mask
 
-    del dem2
+    # del dem2
 
-    profile.update(
-        compress='deflate',
-        transform=dst_transform,
-        height=tile_height,
-        width=tile_width
-    )
+    # profile.update(
+    #     compress='deflate',
+    #     transform=dst_transform,
+    #     height=tile_height,
+    #     width=tile_width
+    # )
 
-    with rio.open(outputs['patched'], 'w', **profile) as dst:
-        dst.write(dem1, 1)
+    # with rio.open(outputs['patched'], 'w', **profile) as dst:
+    #     dst.write(dem1, 1)
 
-    step('Fill depressions')
+    # step('Fill depressions')
 
-    dx = dy = 5.0
-    filled = ta.fillsinks2(dem1, nodata, dx, dy, 0)
-    del dem1
+    # dx = dy = 5.0
+    # filled = ta.fillsinks2(dem1, nodata, dx, dy, 0)
+    # del dem1
+
+    # step('Write filled DEM')
+
+    # profile.update(
+    #     compress='deflate',
+    #     tiled='yes',
+    #     transform=dst_transform,
+    #     height=tile_height,
+    #     width=tile_width
+    # )
+
+    step('Label flats')
+
+    labels, graph, seeds = ta.watershed_labels(elevations, nodata)
+    labels = np.uint32(labels)
 
     step('Write filled DEM')
 
     profile.update(
         compress='deflate',
-        tiled='yes',
-        transform=dst_transform,
-        height=tile_height,
-        width=tile_width
+        tiled='yes'
     )
 
-    step('Label flats')
-
-    with rio.open(outputs['filled'], 'w', **profile) as dst:
-        dst.write(filled, 1)
-
-    labels, graph, pit_regions = ta.watershed_labels(filled, nodata)
-    labels = np.uint32(labels)
+    with rio.open(outputs['prefilled'], 'w', **profile) as dst:
+        dst.write(elevations, 1)
 
     step('Write labels and watershed graph')
 
@@ -248,21 +295,18 @@ def FillSinks(row, col, overwrite, quiet):
         compress='deflate',
         tiled='yes',
         dtype=np.uint32,
-        nodata=0,
-        transform=dst_transform,
-        height=tile_height,
-        width=tile_width)
+        nodata=0)
 
-    with rio.open(outputs['label'], 'w', **profile) as dst:
+    with rio.open(outputs['labels'], 'w', **profile) as dst:
         dst.write(labels, 1)
 
     np.savez(
         outputs['graph'],
         z=np.array([
-            filled[0, :],
-            filled[:, -1],
-            np.flip(filled[-1, :], axis=0),
-            np.flip(filled[:, 0], axis=0)]),
+            elevations[0, :],
+            elevations[:, -1],
+            np.flip(elevations[-1, :], axis=0),
+            np.flip(elevations[:, 0], axis=0)]),
         labels=np.array([
             labels[0, :],
             labels[:, -1],
@@ -278,7 +322,7 @@ def resolve(graph, nodata):
     for all watersheds.
     """
 
-    # epsilon = 0.001
+    epsilon = 0.002
 
     graph_index = defaultdict(list)
     for l1, l2 in graph.keys():
@@ -286,19 +330,23 @@ def resolve(graph, nodata):
         graph_index[l2].append(l1)
 
     exterior = (-1,1)
-    queue = [(nodata, exterior)]
+    queue = [(nodata, exterior, None)]
     seen = set()
-    minimum_z = list()
+    # minimum_z = list()
     # flats = list()
     # flatz = dict()
+    directed = dict()
 
     while queue:
 
-        z, watershed = heappop(queue)
+        minz, watershed, downstream = heappop(queue)
         if watershed in seen:
             continue
 
-        minimum_z.append((z, watershed))
+        if downstream is not None:
+            directed[watershed] = (downstream, minz)
+
+        # minimum_z.append((z, watershed))
         seen.add(watershed)
         # if watershed in flatz and flatz[watershed] < z:
         #     flats.append(watershed)
@@ -308,19 +356,38 @@ def resolve(graph, nodata):
             l1, l2 = sorted((watershed, link))
             zlink = graph[(l1, l2)]
 
-            if zlink < z:
-                # zlink = z + epsilon
+            if zlink < minz:
+                zlink = minz + epsilon
                 # flatz[link] = min(zlink, flatz.get(link, float('inf')))
-                zlink = z
+                # zlink = z
 
-            heappush(queue, (zlink, link))
+            heappush(queue, (zlink, link, watershed))
 
     # return minimum_z, flats
-    return minimum_z
+    return directed
 
 @click.group()
 def cli():
     pass
+
+@cli.command()
+def boxes():
+    """
+    Generate tile extended bounding boxes
+    """
+
+    tile_index = tileindex()
+
+    output = os.path.join(workdir, '../TILEBOXES.shp')
+
+    if os.path.exists(output):
+        for filename in glob.glob(os.path.join(workdir, '../TILEBOXES.*')):
+            if os.path.exists(filename):
+                os.unlink(filename)
+
+    with click.progressbar(tile_index) as progress:
+        for row, col in progress:
+            TileExtendedBoundingBox(row, col, 20)
 
 @cli.command()
 @click.argument('row', type=int)
@@ -333,7 +400,6 @@ def tile(row, col, overwrite, quiet):
     tel que défini dans `TILES.shp`
     """
     
-    read_tile_index()
     FillSinks(row, col, overwrite, quiet)
     # ExtractAndPatchTile(row, col, overwrite, quiet)
 
@@ -357,7 +423,7 @@ def batch(overwrite, processes, quiet):
 
     from multiprocessing import Pool
 
-    read_tile_index()
+    tile_index = tileindex()
 
     click.secho('Running %d processes ...' % processes, fg='yellow')
     arguments = (tuple(key) + (overwrite, quiet) for key in tile_index)
@@ -369,6 +435,116 @@ def batch(overwrite, processes, quiet):
             for _ in progress:
                 click.echo('\r')
 
+def FixBorderFlats(directed, graph, row, col, epsilon=0.002):
+
+    tile_index = tileindex()
+    tile = tile_index[(row, col)].gid
+
+    graph_index = defaultdict(list)
+    for l1, l2 in graph.keys():
+        graph_index[l1].append(l2)
+        graph_index[l2].append(l1)
+
+    fixed = 0
+
+    def read_data(i, j):
+        return np.load(filename("graph", row=i, col=j), allow_pickle=True)
+
+    def isupstream(origin, target):
+
+        current = origin
+        while current in directed:
+            current = directed[current][0]
+            if current == target:
+                return True
+        return False
+
+    data = read_data(row, col)
+
+    def inspectborder(di, dj, side):
+
+        nonlocal fixed
+
+        if (row+di, col+dj) not in tile_index:
+            return
+
+        other_side = (side + 2) % 4
+        other_data = read_data(row+di, col+dj)
+
+        other_tile = tile_index[(row+di, col+dj)].gid
+        elevations = data['z'][side]
+        other_elevations = np.flip(other_data['z'][other_side])
+        labels = data['labels'][side]
+        other_labels = np.flip(other_data['labels'][other_side])
+        width = len(elevations)
+
+        for k in range(width):
+
+            label = labels[k]
+            watershed = (tile, label)
+            downstream, minz = directed[watershed]
+
+            for s in range(-1, 2):
+
+                if (k+s) < 0 or (k+s) >= width:
+                    continue
+                
+                if abs(other_elevations[k+s] - minz) < epsilon:
+                
+                    other_watershed = (other_tile, other_labels[k+s])
+                    
+                    if isupstream(watershed, other_watershed):
+                
+                        for link in graph_index[watershed]:
+                            w1, w2 = sorted([watershed, link])
+                            graph[(w1, w2)] = max(graph[(w1, w2)], minz+epsilon)
+
+                        fixed += 1
+
+    def inspectcorner(di, dj, side):
+
+        nonlocal fixed
+
+        if (row+di, col+dj) not in tile_index:
+            return
+
+        other_side = (side + 2) % 4
+        other_data = read_data(row+di, col+dj)
+
+        other_tile = tile_index[(row+di, col+dj)].gid
+        elevations = data['z'][side]
+        other_elevations = other_data['z'][other_side]
+        labels = data['labels'][side]
+        other_labels = other_data['labels'][other_side]
+
+        label = labels[0]
+        watershed = (tile, label)
+        downstream, minz = directed[watershed]
+
+        if abs(other_elevations[0] - minz) < epsilon:
+                
+            other_watershed = (other_tile, other_labels[0])
+            
+            if isupstream(watershed, other_watershed):
+        
+                for link in graph_index[watershed]:
+                    w1, w2 = sorted([watershed, link])
+                    graph[(w1, w2)] = max(graph[(w1, w2)], minz+epsilon)
+
+                fixed += 1
+
+    inspectborder(-1, 0, 0) # top
+    inspectborder(0, 1, 1) # right
+    inspectborder(1, 0, 2) # bottom
+    inspectborder(0, -1, 3) # left
+
+    inspectcorner(-1, -1, 0) # top-left
+    inspectcorner(-1, 1, 1) # top-right
+    inspectcorner(1, 1, 2) # bottom-right
+    inspectcorner(1, -1, 3) # bottom-left
+
+    return fixed
+
 @cli.command()
 @click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
 # @click.option('--processes', '-j', default=1, help="Execute j parallel processes")
@@ -379,15 +555,15 @@ def spillover(overwrite):
     entre les différentes tuiles
     """
 
-    output = os.path.join(workdir, 'MINIMUMZ.npz')
+    output = filename('spillover')
     if os.path.exists(output) and not overwrite:
         click.secho('Output already exists: %s' % output, fg='yellow')
         return
 
-    read_tile_index()
+    tile_index = tileindex()
 
     def tiledatafn(row, col):
-        return os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_GRAPH.npz' % (row, col))
+        return filename('graph', row=row, col=col)
 
     graph = dict()
     nodata = -99999.0
@@ -405,10 +581,10 @@ def spillover(overwrite):
     click.secho('Resolve Watershed\'s Minimum Z', fg='cyan')
 
     nodata = -99999.0
-    minimum_z = resolve(graph, nodata)
-    index = [(t, w, z) for z, (t, w) in minimum_z]
+    directed = resolve(graph, nodata)
+    minz = [watershed + (directed[watershed][1],) for watershed in directed]
 
-    np.savez(output, minz=np.array(index))
+    np.savez(output, minz=np.array(minz))
 
     click.secho('Saved to : %s' % output, fg='green')
 
@@ -424,23 +600,20 @@ def FinalizeTile(args):
 
     row, col, tile_id, overwrite = args
 
-    minz_file = os.path.join(workdir, 'MINIMUMZ.npz')    
+    minz_file = filename('spillover')
     minimum_z = np.load(minz_file)['minz']
 
-    index = {(int(t), int(w)): z for t, w, z in minimum_z}
+    index = {int(w): z for t, w, z in minimum_z if int(t) == tile_id}
 
     # with click.progressbar(tile_index) as progress:
     #     for row, col in progress:
 
     # tile_id = tile_index[(row, col)].gid
 
-    reference_raster = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_PATCHED.tif' % (row, col))
-    filled_raster = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_FILLED.tif' % (row, col))
-    label_raster = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_LABELS.tif' % (row, col))
-    outputs = dict(
-        filled=os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_FILLED2.tif' % (row, col)),
-        flats = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_FLATS.tif' % (row, col))
-    )
+    reference_raster = filename('patched', row=row, col=col)
+    filled_raster = filename('prefilled', row=row, col=col)
+    label_raster = filename('labels', row=row, col=col)
+    outputs = fileset(['filled', 'flats'], row=row, col=col)
 
     def info(msg):
         click.secho(msg, fg='yellow')
@@ -470,7 +643,7 @@ def FinalizeTile(args):
             """
             if x == 0:
                 return nodata
-            return index[(tile_id, x)]
+            return index[x]
 
         # def minimumz(labels):
         #     """
@@ -531,7 +704,7 @@ def finalize(overwrite, processes):
 
     from multiprocessing import Pool
 
-    read_tile_index()
+    tile_index = tileindex()
 
     arguments = (tuple(key) + (tile_index[key].gid, overwrite) for key in tile_index)
 
