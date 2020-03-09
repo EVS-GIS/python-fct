@@ -150,3 +150,29 @@ def flat_boxes(Label[:, :] labels):
                     count[label] += 1
 
     return {l: (mini[l], minj[l], maxi[l], maxj[l], count[l]) for l in dict(mini)}
+
+def label_areas(Label[:, :] labels):
+    """
+    Count pixels by label
+    """
+
+    cdef:
+
+        long height = labels.shape[0], width = labels.shape[1]
+        long i, j
+        Label label
+        map[Label, unsigned int] areas
+
+    with nogil:
+
+        for i in range(height):
+            for j in range(width):
+
+                label = labels[i, j]
+
+                if areas.count(label) > 0:
+                    areas[label] += 1
+                else:
+                    areas[label] = 1
+
+    return areas
