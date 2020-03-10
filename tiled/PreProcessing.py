@@ -317,21 +317,19 @@ def FillDepressions(row, col, overwrite, quiet):
         graph=np.array(list(graph.items()))
     )
 
-def resolve(graph, nodata):
+def ResolveMinimumZ(graph, nodata, epsilon=0.002):
     """
     Walk over spillover graph from minimum z to maximum z,
     and calculate the minimum outlet elevation
     for all watersheds.
     """
 
-    epsilon = 0.002
-
     graph_index = defaultdict(list)
     for l1, l2 in graph.keys():
         graph_index[l1].append(l2)
         graph_index[l2].append(l1)
 
-    exterior = (-1,1)
+    exterior = (-1, 1)
     queue = [(nodata, exterior, None)]
     seen = set()
     # minimum_z = list()
@@ -439,7 +437,7 @@ def batch(overwrite, processes, quiet):
             for _ in progress:
                 click.echo('\r')
 
-def WatershedAreas():
+def WatershedUnitAreas():
 
     tile_index = tileindex()
     areas = defaultdict(lambda: 0)
@@ -548,7 +546,7 @@ def CheckConnectedFlats(directed, graph, graph_index, epsilon=0.001):
 
     return fixed, extra_links
 
-def CheckBorderFlats(directed, graph, row, col, extra_links, epsilon=0.002):
+def CheckBorderFlats(directed, graph, row, col, dlinks, ulinks, epsilon=0.001):
 
     tile_index = tileindex()
     tile = tile_index[(row, col)].gid
@@ -557,6 +555,9 @@ def CheckBorderFlats(directed, graph, row, col, extra_links, epsilon=0.002):
     for l1, l2 in graph.keys():
         graph_index[l1].append(l2)
         graph_index[l2].append(l1)
+
+    dlinks = dict()
+    ulinks = dict()
 
     def read_data(i, j):
         return np.load(filename("graph", row=i, col=j), allow_pickle=True)
@@ -571,11 +572,8 @@ def CheckBorderFlats(directed, graph, row, col, extra_links, epsilon=0.002):
         return False
 
     data = read_data(row, col)
-    fixed = 0
 
     def inspectborder(di, dj, side):
-
-        nonlocal fixed
 
         if (row+di, col+dj) not in tile_index:
             return
@@ -600,32 +598,39 @@ def CheckBorderFlats(directed, graph, row, col, extra_links, epsilon=0.002):
 
                 if (k+s) < 0 or (k+s) >= width:
                     continue
-                
-                if abs(other_elevations[k+s] - minz) < epsilon:
 
-                    other_watershed = (other_tile, other_labels[k+s])
+                other_watershed = (other_tile, other_labels[k+s])
+                other_downstream, other_minz = directed[other_watershed]
+                other_z = max(other_elevations[k+s], other_minz)
+                
+                if abs(other_z - minz) < epsilon:
                     
                     if isupstream(watershed, other_watershed):
                 
-                        for link in graph_index[watershed]:
-                            v1, v2 = sorted([watershed, link])
-                            graph[(v1, v2)] = max(graph[(v1, v2)], minz+epsilon)
+                        # for link in graph_index[watershed]:
+                        #     v1, v2 = sorted([watershed, link])
+                        #     graph[(v1, v2)] = max(graph[(v1, v2)], minz+epsilon)
 
-                        fixed += 1
+                        # fixed += 1
+
+                        if (watershed, other_watershed) in dlinks:
+                            minz = max(minz+epsilon, dlinks[watershed, other_watershed])
+                        else:
+                            minz = minz+epsilon
+
+                        dlinks[watershed, other_watershed] = minz
 
                     elif not isupstream(other_watershed, watershed):
 
                         w1, w2 = sorted([watershed, other_watershed])
 
-                        if (w1, w2) in extra_links:
-                            extra_links[w1, w2] = max(extra_links[w1, w2], minz, other_elevations[k+s])
+                        if (w1, w2) in ulinks:
+                            ulinks[w1, w2] = max(ulinks[w1, w2], minz, other_z)
                         else:
-                            extra_links[w1, w2] = max(minz, other_elevations[k+s])
+                            ulinks[w1, w2] = max(minz, other_z)
 
 
     def inspectcorner(di, dj, side):
-
-        nonlocal fixed
 
         if (row+di, col+dj) not in tile_index:
             return
@@ -641,28 +646,36 @@ def CheckBorderFlats(directed, graph, row, col, extra_links, epsilon=0.002):
 
         label = labels[0]
         watershed = (tile, label)
+        other_watershed = (other_tile, other_labels[0])
         downstream, minz = directed[watershed]
+        other_downstream, other_minz = directed[other_watershed]
+        other_z = max(other_elevations[0], other_minz)
 
-        if abs(other_elevations[0] - minz) < epsilon:
-                
-            other_watershed = (other_tile, other_labels[0])
+        if abs(other_z - minz) < epsilon:
             
             if isupstream(watershed, other_watershed):
         
-                for link in graph_index[watershed]:
-                    v1, v2 = sorted([watershed, link])
-                    graph[(v1, v2)] = max(graph[(v1, v2)], minz+epsilon)
+                # for link in graph_index[watershed]:
+                #     v1, v2 = sorted([watershed, link])
+                #     graph[(v1, v2)] = max(graph[(v1, v2)], minz+epsilon)
 
-                fixed += 1
+                # fixed += 1
+
+                if (watershed, other_watershed) in dlinks:
+                    minz = max(minz+epsilon, dlinks[watershed, other_watershed])
+                else:
+                    minz = minz+epsilon
+
+                dlinks[watershed, other_watershed] = minz
 
             elif not isupstream(other_watershed, watershed):
 
                 w1, w2 = sorted([watershed, other_watershed])
 
-                if (w1, w2) in extra_links:
-                    extra_links[w1, w2] = max(extra_links[w1, w2], minz, other_elevations[0])
+                if (w1, w2) in ulinks:
+                    ulinks[w1, w2] = max(ulinks[w1, w2], minz, other_z)
                 else:
-                    extra_links[w1, w2] = max(minz, other_elevations[0])
+                    ulinks[w1, w2] = max(minz, other_z)
 
     inspectborder(-1, 0, 0) # top
     inspectborder(0, 1, 1) # right
@@ -674,7 +687,77 @@ def CheckBorderFlats(directed, graph, row, col, extra_links, epsilon=0.002):
     inspectcorner(1, 1, 2) # bottom-right
     inspectcorner(1, -1, 3) # bottom-left
 
-    return fixed
+    return dlinks, ulinks
+
+def ResolveFlatLinks(directed, dlinks, ulinks, areas):
+
+    # Build reverse (downstream to upstream) multi-graph
+    graph = defaultdict(list)
+
+    for watershed in directed:
+        downstream, z = directed[watershed]
+        graph[downstream].append((watershed, z))
+
+    for upstream, downstream in dlinks:
+        z = dlinks[upstream, downstream]
+        graph[downstream].append((upstream, z))
+
+    for w1, w2 in ulinks:
+        
+        z = ulinks[w1, w2]
+        area1 = areas[w1]
+        area2 = areas[w2]
+        
+        if area2 > area1:
+            w1, w2 = w2, w1
+            graph[w1].append((w2, z))
+
+    # First pass :
+    # Calculate minimum z for each watershed
+
+    exterior = (-1, 1)
+    queue = [exterior]
+    resolved = dict()
+
+    while queue:
+
+        current = queue.pop(0)
+
+        for upstream, z in graph[current]:
+
+            if upstream in resolved:
+                u, zu = resolved[upstream]
+                if zu >= z:
+                    continue
+            
+            resolved[upstream] = (current, z)
+            queue.append(upstream)
+
+    # Second pass
+    # ensure epsilon gradient between watersheds
+
+    graph = defaultdict(list)
+
+    for watershed in resolved:
+        downstream, z  = resolved[watershed]
+        graph[downstream].append((watershed, z))
+
+    queue = [(exterior, None)]
+    epsilon = 0.001
+
+    while queue:
+
+        current, current_z = queue.pop(0)
+
+        for upstream, z in graph[current]:
+            
+            if current_z is not None and (z - current_z) < epsilon:
+                z = current_z + epsilon
+            
+            resolved[upstream] = (current, z)
+            queue.append((upstream, z))
+
+    return resolved
 
 @cli.command()
 @click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
@@ -717,7 +800,7 @@ def spillover(overwrite):
     #     graph_index[l2].append(l1)
 
     # directed = resolve(graph, nodata)
-    # unitareas = WatershedAreas()
+    # unitareas = WatershedUnitAreas()
 
     # areas = WatershedCumulativeAreas(directed, unitareas)
     # fixed, extra_links = CheckConnectedFlats(directed, graph, graph_index)
@@ -735,21 +818,26 @@ def spillover(overwrite):
     #         v1, v2 = sorted([w1, link])
     #         graph[(v1, v2)] = max(graph[(v1, v2)], minz)
 
-    directed = resolve(graph, nodata)
+    directed = ResolveMinimumZ(graph, nodata)
+    unitareas = WatershedUnitAreas()
+    areas = WatershedCumulativeAreas(directed, unitareas)
 
     was_fixed = float('inf')
     iterations = 0
     max_iterations = 5
-    extra_links = dict()
+    dlinks = dict()
+    ulinks = dict()
     
     while was_fixed > 0 and iterations < max_iterations:
 
         fixed = 0
         
         for row, col in tile_index:
-            fixed += CheckBorderFlats(directed, graph, row, col, extra_links)
+            CheckBorderFlats(directed, graph, row, col, dlinks, ulinks)
         
-        directed = resolve(graph, nodata)
+        # directed = ResolveMinimumZ(graph, nodata)
+        directed = ResolveFlatLinks(directed, dlinks, ulinks, areas)
+        fixed = len(dlinks) + len(ulinks)
         
         if fixed > was_fixed:
             break
