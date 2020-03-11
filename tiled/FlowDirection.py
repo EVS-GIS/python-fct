@@ -41,14 +41,14 @@ from config import tileindex, filename
 tile_height = 7150
 tile_width = 9800
 
-def PadElevations(row, col):
+def PadElevations(row, col, dataset='filled'):
     """
     Assemble a 1-pixel padded elevation raster,
     with borders from neighboring tiles.
     """
 
     tile_index = tileindex()
-    elevation_raster = filename('filled', row=row, col=col)
+    elevation_raster = filename(dataset, row=row, col=col)
 
     with rio.open(elevation_raster) as ds:
 
@@ -63,7 +63,7 @@ def PadElevations(row, col):
 
         if (i, j) in tile_index:
         
-            other_raster = filename('filled', row=i, col=j)
+            other_raster = filename(dataset, row=i, col=j)
             with rio.open(other_raster) as ds2:
                 extended[0, 1:-1] = ds2.read(1, window=Window(0, height-1, width, 1)).reshape(width)
 
@@ -77,7 +77,7 @@ def PadElevations(row, col):
 
         if (i, j) in tile_index:
         
-            other_raster = filename('filled', row=i, col=j)
+            other_raster = filename(dataset, row=i, col=j)
             with rio.open(other_raster) as ds2:
                 extended[-1, 1:-1] = ds2.read(1, window=Window(0, 0, width, 1)).reshape(width)
 
@@ -91,7 +91,7 @@ def PadElevations(row, col):
 
         if (i, j) in tile_index:
         
-            other_raster = filename('filled', row=i, col=j)
+            other_raster = filename(dataset, row=i, col=j)
             with rio.open(other_raster) as ds2:
                 extended[1:-1, 0] = ds2.read(1, window=Window(width-1, 0, 1, height)).reshape(height)
 
@@ -105,7 +105,7 @@ def PadElevations(row, col):
 
         if (i, j) in tile_index:
         
-            other_raster = filename('filled', row=i, col=j)
+            other_raster = filename(dataset, row=i, col=j)
             with rio.open(other_raster) as ds2:
                 extended[1:-1, -1] = ds2.read(1, window=Window(0, 0, 1, height)).reshape(height)
 
@@ -119,7 +119,7 @@ def PadElevations(row, col):
 
         if (i, j) in tile_index:
         
-            other_raster = filename('filled', row=i, col=j)
+            other_raster = filename(dataset, row=i, col=j)
             with rio.open(other_raster) as ds2:
                 extended[0, 0] = ds2.read(1, window=Window(width-1, height-1, 1, 1)).item()
 
@@ -133,7 +133,7 @@ def PadElevations(row, col):
 
         if (i, j) in tile_index:
         
-            other_raster = filename('filled', row=i, col=j)
+            other_raster = filename(dataset, row=i, col=j)
             with rio.open(other_raster) as ds2:
                 extended[-1, 0] = ds2.read(1, window=Window(width-1, 0, 1, 1)).item()
 
@@ -147,7 +147,7 @@ def PadElevations(row, col):
 
         if (i, j) in tile_index:
         
-            other_raster = filename('filled', row=i, col=j)
+            other_raster = filename(dataset, row=i, col=j)
             with rio.open(other_raster) as ds2:
                 extended[0, -1] = ds2.read(1, window=Window(0, height-1, 1, 1)).item()
 
@@ -161,7 +161,7 @@ def PadElevations(row, col):
 
         if (i, j) in tile_index:
         
-            other_raster = filename('filled', row=i, col=j)
+            other_raster = filename(dataset, row=i, col=j)
             with rio.open(other_raster) as ds2:
                 extended[-1, -1] = ds2.read(1, window=Window(0, 0, 1, 1)).item()
 
@@ -247,7 +247,8 @@ def FlowDirection(row, col):
 
     with rio.open(elevation_raster) as ds:
 
-        padded = PadElevations(row, col)
+        # padded = PadElevations(row, col, 'filled')
+        padded = PadElevations(row, col, 'resolved')
 
         WallFlats(padded, ds.nodata)
 
@@ -277,8 +278,14 @@ def FlowDirection(row, col):
 
         # ***********************************************************************
 
+        # Option 1
+        # extended = rd.rdarray(padded, no_data=ds.nodata)
+        # rd.FillDepressions(extended, True, True, 'D8')
+        # flow = ta.flowdir(padded, ds.nodata)
+
+        # Option 2
         flow = ta.flowdir(padded, ds.nodata)
-        flat_mask, flat_labels = ta.resolve_flat(padded, flow, ta.ConsoleFeedback())
+        flat_mask, flat_labels = ta.resolve_flat(padded, flow)
         ta.flat_mask_flowdir(flat_mask, flow, flat_labels)
 
         # extended = rd.rdarray(flat_mask, no_data=0)
@@ -338,9 +345,9 @@ def Outlets(row, col):
         mask = np.ones_like(flow, dtype=np.uint8)
         outlets, targets = ta.tile_outlets(flow, mask)
 
-        output = filename('outlets', row=row, col=col)
-
+        # output = filename('outlets', row=row, col=col)
         # with fiona.open(output, 'w', **options) as dst:
+        
         for current, (ti, tj) in enumerate(targets):
 
             top = (ti < 0)
@@ -485,7 +492,7 @@ def cli():
 @click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
 @click.option('--processes', '-j', default=1, help="Execute j parallel processes")
 @click.option('--quiet/--no-quiet', '-q', default=True, help='Suppress message output ?')
-def batch(overwrite, processes, quiet):
+def flow(overwrite, processes, quiet):
     """
     Calcule toutes les tuiles définies dans `TILES.shp`
     """

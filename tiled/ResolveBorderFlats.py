@@ -12,7 +12,8 @@ import fiona
 import terrain_analysis as ta
 import speedup
 
-from areas import WatershedUnitAreas, WatershedCumulativeAreas
+from FlowDirection import PadElevations
+from Areas import WatershedUnitAreas, WatershedCumulativeAreas
 from config import tileindex, filename
 
 def LabelBorderFlats(row, col, **kwargs):
@@ -22,22 +23,30 @@ def LabelBorderFlats(row, col, **kwargs):
 
     # elevation_raster = filename('filled', row=row, col=col)
     label_raster = filename('labels', row=row, col=col)
+    nodata = -99999.0
 
     # with rio.open(elevation_raster) as ds:
 
     elevations = PadElevations(row, col)
-    flow = ta.flowdir(elevations)
+    flow = ta.flowdir(elevations, nodata)
     flat_labels = speedup.borderflat_labels(flow, elevations)
 
     with rio.open(label_raster) as ds:
 
-        labels = ds.read(1)
-        elevations = elevations[1:-1, 1:-1]
-        flat_labels = flat_labels[1:-1, 1:-1]
+        labels = np.zeros_like(flow, dtype=np.uint32)
+        labels[1:-1, 1:-1] = ds.read(1)
+        
         flatmask = (flat_labels > 0)
         flatindex = np.max(labels)
         labels[flatmask] = flatindex + flat_labels[flatmask]
         graph = speedup.label_graph(labels, flow, elevations)
+
+        # click.secho('\r\n(%d, %d) -> %d, %d' % (row, col, flatindex, np.max(flat_labels)), fg='green')
+
+        elevations = elevations[1:-1, 1:-1]
+        # flat_labels = flat_labels[1:-1, 1:-1]
+        # flow = flow[1:-1, 1:-1]
+        labels = labels[1:-1, 1:-1]
 
         profile = ds.profile.copy()
         output = filename('flat_labels', row=row, col=col)
@@ -127,7 +136,10 @@ def ConnectTiles(row, col, **kwargs):
             z = elevations[k]
             watershed = (tile.gid, label)
             
-            for s in range(-1:2):
+            for s in range(-1, 2):
+
+                if (k+s) < 0 or (k+s) >= width:
+                    continue
 
                 other_label = other_labels[k+s]
                 other_z = other_elevations[k+s]
@@ -289,6 +301,7 @@ def EnsureEpsilonGradient(directed, ulinks, areas, epsilon=.001):
     exterior = (-1, 1)
     nodata = -99999.0
     resolved = dict()
+    discovered = set()
 
     queue = [(exterior, nodata)]
 
@@ -296,13 +309,23 @@ def EnsureEpsilonGradient(directed, ulinks, areas, epsilon=.001):
 
         watershed, z = queue.pop(0)
 
+        if watershed in discovered:
+            continue
+
+        discovered.add(watershed)
+
         for upstream, upz in upgraph[watershed]:
             
             if upz - z < epsilon:
                 upz = z + epsilon
-                resolved[upstream] = (watershed, upz)
             
-            queue.append((upstream, upz))
+            if upstream in resolved:
+                if upz > resolved[upstream][1]:
+                    resolved[upstream] = (watershed, upz)
+                    queue.append((upstream, upz))
+            else:
+                resolved[upstream] = (watershed, upz)
+                queue.append((upstream, upz))
 
     return resolved
 
@@ -313,28 +336,27 @@ def ResolveFlatSpillover():
 
     graph = BuildFlatSpilloverGraph()
     directed, ulinks = ResolveMinimumZ(graph)
-    unitareas = WatershedUnitAreas()
+    unitareas = WatershedUnitAreas('flat_labels')
     areas = WatershedCumulativeAreas(directed, unitareas)
     resolved = EnsureEpsilonGradient(directed, ulinks, areas)
 
-    output = filename('resolved_minz')
-    minz = [watershed + (directed[watershed][1],) for watershed in resolved]
+    output = filename('flat_spillover')
+    minz = [watershed + (resolved[watershed][1],) for watershed in resolved]
     np.savez(output, minz=np.array(minz))
 
     click.secho('Saved to : %s' % output, fg='green')
 
 def ApplyMinimumZ(row, col, **kwargs):
-    
-        """
+    """
     Ajuste l'altitude des dépressions en bordure de tuile,
     et calcule la carte des dépressions
     (différentiel d'altitude avec le point de débordement)
     """
 
-    tile_index = tile_index()
+    tile_index = tileindex()
     tile = tile_index[row, col]
 
-    minz_file = filename('resolved_minz')
+    minz_file = filename('flat_spillover')
     minimum_z = np.load(minz_file)['minz']
 
     index = {int(w): z for t, w, z in minimum_z if int(t) == tile.gid}
@@ -375,7 +397,7 @@ def ApplyMinimumZ(row, col, **kwargs):
 
         elevations = ds.read(1)
         filled = np.maximum(elevations, minz)
-        filled[dem == nodata] = nodata
+        filled[elevations == nodata] = nodata
 
         del elevations
         del minz

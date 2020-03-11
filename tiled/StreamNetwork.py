@@ -103,8 +103,8 @@ def CreateOutletsGraph():
 
                         i, j = rge.index(*feature['geometry']['coordinates'])
                         area = feature['properties']['AREAKM2']
-                        graph[(-2, 0, 0)] = (tile, i, j, area)
-                        indegree[(tile, i, j)] += 1
+                        # graph[(-2, i, j)] = (tile, i, j, area)
+                        # indegree[(tile, i, j)] += 1
 
                         # connect inlet->tile outlet
 
@@ -115,7 +115,7 @@ def CreateOutletsGraph():
                             continue
                         
                         if ti >= 0 and tj >= 0:
-                            graph[(tile, i, j)] = (tile, ti, tj, 0)
+                            graph[(tile, i, j)] = (tile, ti, tj, area)
                             indegree[(tile, ti, tj)] += 1
 
     rge.close()
@@ -339,7 +339,7 @@ def cli():
 @click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
 @click.option('--processes', '-j', default=1, help="Execute j parallel processes")
 @click.option('--quiet/--no-quiet', '-q', default=True, help='Suppress message output ?')
-def batch(overwrite, processes, quiet):
+def accumulate(overwrite, processes, quiet):
     """
     Calcule toutes les tuiles définies dans `TILES.shp`
     """

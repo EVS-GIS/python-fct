@@ -75,6 +75,8 @@ cdef Cell grow_flat_region(
 
     return outlet
 
+@cython.wraparound(False)
+@cython.boundscheck(False)
 def flat_labels(
         D8Flow[:, :] flow,
         float[:, :] elevations,
@@ -114,6 +116,8 @@ def flat_labels(
 
     return np.asarray(labels), outlets
 
+@cython.wraparound(False)
+@cython.boundscheck(False)
 def flat_boxes(Label[:, :] labels):
     """
     DOCME
@@ -151,6 +155,8 @@ def flat_boxes(Label[:, :] labels):
 
     return {l: (mini[l], minj[l], maxi[l], maxj[l], count[l]) for l in dict(mini)}
 
+@cython.wraparound(False)
+@cython.boundscheck(False)
 def label_areas(Label[:, :] labels):
     """
     Count pixels by label
@@ -177,7 +183,8 @@ def label_areas(Label[:, :] labels):
 
     return areas
     
-
+@cython.wraparound(False)
+@cython.boundscheck(False)
 def borderflat_labels(
         D8Flow[:, :] flow,
         float[:, :] elevations,
@@ -200,12 +207,8 @@ def borderflat_labels(
     for i in range(height):
         for j in range(width):
 
-            if i > 0 and i < height-1:
-                if j != 0 and j != width-1:
-                    continue
-
-            if j > 0 and j < width-1:
-                if i != 0 and i != height-1:
+            if i > 1 and i < height-2:
+                if j > 1 and j < width-2:
                     continue
 
             if flow[i, j] == 0:
@@ -254,6 +257,8 @@ def borderflat_labels(
 
     return np.asarray(labels)
 
+@cython.wraparound(False)
+@cython.boundscheck(False)
 def label_graph(
         Label[:, :] labels, 
         D8Flow[:, :] flow,
@@ -315,7 +320,7 @@ def label_graph(
             if not ingrid(height, width, ix, jx):
                 continue
 
-            if labels[ix, jx] == label:
+            if labels[ix, jx] == label or labels[ix, jx] == exterior:
                 continue
 
             link = LabelPair(label, labels[ix, jx])
