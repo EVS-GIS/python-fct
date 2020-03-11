@@ -336,3 +336,57 @@ def label_graph(
                 graph[link] = z
 
     return graph
+
+@cython.wraparound(False)
+@cython.boundscheck(False)
+def count_deadcells(D8Flow[:, :] flow):
+    """
+    Count invalid pixels in a flow direction raster.
+
+    A pixel is invalid if :
+
+    - it points to a pixel that points back to it (self loop)
+    - it does not flow (flow = 0) but is not surrounded by at least
+      one nodata pixel, indicating an unresolved depression
+    """
+
+    cdef:
+
+        long height = flow.shape[0], width = flow.shape[1]
+        long i, j, ix, jx
+        D8Flow direction
+        short x
+        long loops = 0, noflows = 0
+
+    with nogil:
+
+        for i in range(height):
+            for j in range(width):
+
+                direction = flow[i, j]
+
+                if direction == -1:
+                    continue
+
+                if direction == 0:
+
+                    for x in range(8):
+                        ix = i + ci[x]
+                        jx = j + cj[x]
+                        if ingrid(height, width, ix, jx):
+                            if flow[ix, jx] == -1:
+                                break
+                    else:
+                        noflows += 1
+
+                    continue
+
+                x = ilog2(direction)
+                ix = i + ci[x]
+                jx = j + cj[x]
+
+                if ingrid(height, width, ix, jx):
+                    if flow[ix, jx] == upward[x]:
+                        loops += 1
+
+    return loops, noflows

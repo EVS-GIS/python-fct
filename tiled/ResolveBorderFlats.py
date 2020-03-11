@@ -197,7 +197,7 @@ def BuildFlatSpilloverGraph():
 
     return graph
 
-def ResolveMinimumZ(graph, epsilon=0.001):
+def ResolveMinimumZ(graph, epsilon=0.0005):
     """
     DOCME
     """
@@ -249,7 +249,7 @@ def ResolveMinimumZ(graph, epsilon=0.001):
 
     return directed, ulinks
 
-def EnsureEpsilonGradient(directed, ulinks, areas, epsilon=.001):
+def EnsureEpsilonGradient(directed, ulinks, areas, epsilon=.0005):
     """
     DOCME
     """
@@ -282,11 +282,13 @@ def EnsureEpsilonGradient(directed, ulinks, areas, epsilon=.001):
 
         if isupstream(w1, w2):
         
-            upgraph[w2].append((w1, z))
+            z1 = directed[w1][1]
+            upgraph[w2].append((w1, max(z, z1)))
         
         elif isupstream(w2, w1):
             
-            upgraph[w1].append((w2, z))
+            z2 = directed[w2][1]
+            upgraph[w1].append((w2, max(z, z2)))
         
         else:
         
@@ -294,38 +296,42 @@ def EnsureEpsilonGradient(directed, ulinks, areas, epsilon=.001):
             area2 = areas[w2]
             
             if area1 > area2:
-                upgraph[w2].append((w1, z))
+                z1 = directed[w1][1]
+                upgraph[w2].append((w1, max(z, z1)))
             else:
-                upgraph[w1].append((w2, z))
+                z2 = directed[w2][1]
+                upgraph[w1].append((w2, max(z, z2)))
 
     exterior = (-1, 1)
     nodata = -99999.0
     resolved = dict()
-    discovered = set()
 
-    queue = [(exterior, nodata)]
+    queue = [(nodata, exterior, None)]
+    updated = 0
 
     while queue:
 
-        watershed, z = queue.pop(0)
+        minz, watershed, downstream = heappop(queue)
 
-        if watershed in discovered:
+        if watershed in resolved:
+
+            res_downstream, res_minz = resolved[watershed]
+
+            if minz - res_minz < epsilon:
+                minz = res_minz + epsilon
+                resolved[watershed] = (res_downstream, minz)
+                updated += 1
+
             continue
 
-        discovered.add(watershed)
+        resolved[watershed] = (downstream, minz)
 
         for upstream, upz in upgraph[watershed]:
             
-            if upz - z < epsilon:
-                upz = z + epsilon
+            if upz - minz < epsilon:
+                upz = minz + epsilon
             
-            if upstream in resolved:
-                if upz > resolved[upstream][1]:
-                    resolved[upstream] = (watershed, upz)
-                    queue.append((upstream, upz))
-            else:
-                resolved[upstream] = (watershed, upz)
-                queue.append((upstream, upz))
+            heappush(queue, (upz, upstream, watershed))
 
     return resolved
 

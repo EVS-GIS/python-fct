@@ -102,9 +102,9 @@ def CreateOutletsGraph():
                         # connect exterior->inlet
 
                         i, j = rge.index(*feature['geometry']['coordinates'])
-                        area = feature['properties']['AREAKM2']
-                        # graph[(-2, i, j)] = (tile, i, j, area)
-                        # indegree[(tile, i, j)] += 1
+                        area = feature['properties']['AREAKM2'] / 25e-6
+                        graph[(-2, i-1, j-1)] = (tile, i, j, area)
+                        indegree[(tile, i, j)] += 1
 
                         # connect inlet->tile outlet
 
@@ -115,7 +115,7 @@ def CreateOutletsGraph():
                             continue
                         
                         if ti >= 0 and tj >= 0:
-                            graph[(tile, i, j)] = (tile, ti, tj, area)
+                            graph[(tile, i, j)] = (tile, ti, tj, 0)
                             indegree[(tile, ti, tj)] += 1
 
     rge.close()
@@ -243,11 +243,11 @@ def FlowAccumulation(row, col):
                     i, j = ds.index(*feature['geometry']['coordinates'])
                     out[i, j] += feature['properties']['AREAKM2']
 
-        with fiona.open(filename('exterior-inlets')) as fs:
-            for feature in fs:
-                i, j = ds.index(*feature['geometry']['coordinates'])
-                if all([i >= 0, i < height, j >= 0, j < width]):
-                    out[i, j] += feature['properties']['AREAKM2']
+        # with fiona.open(filename('exterior-inlets')) as fs:
+        #     for feature in fs:
+        #         i, j = ds.index(*feature['geometry']['coordinates'])
+        #         if all([i >= 0, i < height, j >= 0, j < width]):
+        #             out[i, j] += feature['properties']['AREAKM2']
 
         speedup.flow_accumulation(flow, out)
 
