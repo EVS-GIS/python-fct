@@ -176,3 +176,158 @@ def label_areas(Label[:, :] labels):
                     areas[label] = 1
 
     return areas
+    
+
+def borderflat_labels(
+        D8Flow[:, :] flow,
+        float[:, :] elevations,
+        Label[:, :] labels = None):
+
+    cdef:
+
+        long height = flow.shape[0], width = flow.shape[1]
+        long i, j, ix, jx
+        float z
+        short x
+        Label label
+        Label next_label = 1
+        CellQueue queue
+        Cell cell
+
+    if labels is None:
+        labels = np.zeros((height, width), dtype=np.uint32)
+
+    for i in range(height):
+        for j in range(width):
+
+            if i > 0 and i < height-1:
+                if j != 0 and j != width-1:
+                    continue
+
+            if j > 0 and j < width-1:
+                if i != 0 and i != height-1:
+                    continue
+
+            if flow[i, j] == 0:
+
+                queue.push_back(Cell(i, j))
+                z = elevations[i, j]
+                label = labels[i, j]
+
+                if label > 0:
+                    continue
+
+                # Check (i, j) is not just an outlet to nodata
+                # it must have a neighbor with same z
+
+                for x in range(8):
+                    ix = i + ci[x]
+                    jx = j + cj[x]
+                    if ingrid(height, width, ix, jx):
+                        if elevations[ix, jx] == z:
+                            break
+                else:
+                    continue
+
+                label = next_label
+                next_label += 1
+
+                while not queue.empty():
+
+                    cell = queue.front()
+                    queue.pop_front()
+
+                    ix = cell.first
+                    jx = cell.second
+
+                    if not ingrid(height, width, ix, jx):
+                        continue
+                    if labels[ix, jx] != 0:
+                        continue
+                    if elevations[ix, jx] != z:
+                        continue
+
+                    labels[ix, jx] = label
+
+                    for x in range(8):
+                        queue.push_back(Cell(ix+ci[x], jx+cj[x]))
+
+    return np.asarray(labels)
+
+def label_graph(
+        Label[:, :] labels, 
+        D8Flow[:, :] flow,
+        float[:, :] elevations):
+
+    cdef:
+
+        long height = flow.shape[0], width = flow.shape[1]
+        long i, j, ix, jx
+        map[LabelPair, float] graph
+
+        D8Flow direction
+        short x
+        Label label
+        Label exterior = 0
+        LabelPair link
+        float z
+
+    for i in range(height):
+        for j in range(width):
+
+            direction = flow[i, j]
+
+            if direction == -1:
+                # NODATA
+                for x in range(8):
+
+                    ix = i + ci[x]
+                    jx = j + cj[x]
+                    
+                    if ingrid(height, width, ix, jx):
+                    
+                        label = labels[ix, jx]
+
+                        if label == exterior:
+                            continue
+
+                        link = LabelPair(label, exterior)
+                        z = elevations[ix, jx]
+                    
+                        if graph.count(link) > 0:
+                            graph[link] = min[float](z, graph[link])
+                        else:
+                            graph[link] = z
+                
+                continue
+
+            if direction == 0:
+                # NOFLOW
+                continue
+
+            label = labels[i, j]
+            z = elevations[i, j]
+
+            x = ilog2(direction)
+            ix = i + ci[x]
+            jx = j + cj[x]
+
+            if not ingrid(height, width, ix, jx):
+                continue
+
+            if labels[ix, jx] == label:
+                continue
+
+            link = LabelPair(label, labels[ix, jx])
+            # z is always greater than elevations[ix, jx]
+            # linkz = max[float](z, elevations[ix, jx])
+
+            if graph.count(link) > 0:
+
+                graph[link] = min[float](z, graph[link])
+
+            else:
+
+                graph[link] = z
+
+    return graph

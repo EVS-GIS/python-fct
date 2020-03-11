@@ -437,55 +437,6 @@ def batch(overwrite, processes, quiet):
             for _ in progress:
                 click.echo('\r')
 
-def WatershedUnitAreas():
-
-    tile_index = tileindex()
-    areas = defaultdict(lambda: 0)
-
-    with click.progressbar(tile_index) as progress:
-        for row, col in progress:
-
-            tile = tile_index[row, col].gid
-            label_raster = filename('labels', row=row, col=col)
-
-            with rio.open(label_raster) as ds:
-        
-                labels = ds.read(1)
-                this_areas = speedup.label_areas(labels)
-                areas.update({(tile, w): area for w, area in this_areas.items()})
-
-    return areas
-
-def WatershedCumulativeAreas(directed, unitareas):
-
-    areas = unitareas.copy()
-    indegree = Counter()
-
-    for watershed in directed:
-
-        downstream, minz = directed[watershed]
-        indegree[downstream] += 1
-
-    queue = [w for w in directed if indegree[w] == 0]
-
-    while queue:
-
-        watershed = queue.pop(0)
-
-        if watershed not in directed:
-            continue
-
-        downstream, minz = directed[watershed]
-
-        areas[downstream] = areas[downstream] + areas[watershed]
-
-        indegree[downstream] -= 1
-
-        if indegree[downstream] == 0:
-            queue.append(downstream)
-
-    return areas
-
 def CheckConnectedFlats(directed, graph, graph_index, epsilon=0.001):
 
     extra_links = dict()
@@ -819,33 +770,33 @@ def spillover(overwrite):
     #         graph[(v1, v2)] = max(graph[(v1, v2)], minz)
 
     directed = ResolveMinimumZ(graph, nodata)
-    unitareas = WatershedUnitAreas()
-    areas = WatershedCumulativeAreas(directed, unitareas)
+    # unitareas = WatershedUnitAreas()
+    # areas = WatershedCumulativeAreas(directed, unitareas)
 
-    was_fixed = float('inf')
-    iterations = 0
-    max_iterations = 5
-    dlinks = dict()
-    ulinks = dict()
+    # was_fixed = float('inf')
+    # iterations = 0
+    # max_iterations = 5
+    # dlinks = dict()
+    # ulinks = dict()
     
-    while was_fixed > 0 and iterations < max_iterations:
+    # while was_fixed > 0 and iterations < max_iterations:
 
-        fixed = 0
+    #     fixed = 0
         
-        for row, col in tile_index:
-            CheckBorderFlats(directed, graph, row, col, dlinks, ulinks)
+    #     for row, col in tile_index:
+    #         CheckBorderFlats(directed, graph, row, col, dlinks, ulinks)
         
-        # directed = ResolveMinimumZ(graph, nodata)
-        directed = ResolveFlatLinks(directed, dlinks, ulinks, areas)
-        fixed = len(dlinks) + len(ulinks)
+    #     # directed = ResolveMinimumZ(graph, nodata)
+    #     directed = ResolveFlatLinks(directed, dlinks, ulinks, areas)
+    #     fixed = len(dlinks) + len(ulinks)
         
-        if fixed > was_fixed:
-            break
+    #     if fixed > was_fixed:
+    #         break
         
-        was_fixed = fixed
-        iterations += 1
+    #     was_fixed = fixed
+    #     iterations += 1
 
-    click.secho('Fixed border flats elevations with %d iterations' % iterations, fg='green')
+    # click.secho('Fixed border flats elevations with %d iterations' % iterations, fg='green')
 
     minz = [watershed + (directed[watershed][1],) for watershed in directed]
     np.savez(output, minz=np.array(minz))

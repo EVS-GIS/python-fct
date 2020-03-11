@@ -46,6 +46,7 @@ ctypedef pair[float, Cell] ZCell
 ctypedef priority_queue[ZCell] ZPriorityQueue
 
 ctypedef unsigned int Label
+ctypedef pair[Label, Label] LabelPair
 ctypedef pair[long, long] Pixel
 ctypedef pair[Pixel, long] ContributingPixel
 ctypedef map[Pixel, ContributingPixel] Graph
