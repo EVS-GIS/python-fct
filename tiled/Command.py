@@ -2,12 +2,16 @@
 # coding: utf-8
 
 """
-DOCME
+Command Line Interface Tools for Tiled Processing of Large DEM
 """
 
+import os
+import glob
 from functools import wraps
 from multiprocessing import Pool
 import click
+
+from config import tileindex, workdir
 
 def starcall(args):
     """
@@ -17,9 +21,9 @@ def starcall(args):
     fun = args[0]
     return fun(*args[1:-1], **args[-1])
 
-def batch(group, tilefun, name=None):
+def parallel(group, tilefun, name=None):
     """
-    Define a new Click command within `group` as a Multiprocessing wrapper.
+    Define a new command within `group` as a Multiprocessing wrapper.
     This command will process tiles in parallel
     using function `tilefun`.
     """
@@ -65,12 +69,13 @@ def batch(group, tilefun, name=None):
     return decorate
 
 overwritable = click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
-
-
-from config import tileindex
+quiet_opt = click.option('--quiet/--no-quiet', '-q', default=False, help='Suppress message output ?')
 
 @click.group()
 def cli():
+    """
+    Tiled Processing of Large DEM
+    """
     pass
 
 # def TestTile(row, col, delta, **kwargs):
@@ -79,7 +84,7 @@ def cli():
 #     print(os.getpid(), row, col, delta)
 #     time.sleep(1)
 
-# @batch(cli, TestTile)
+# @parallel(cli, TestTile)
 # @click.option('--delta', default=-1.0)
 # def test():
 #     """
@@ -90,9 +95,23 @@ def cli():
 #         tiles[0, i] = i
 #     return tiles
 
-from Burn import BurnTile
+@cli.group()
+def prepare():
+    """
+    First-pass DEM Reconditioning
+    """
+    pass
 
-@batch(cli, BurnTile)
+from Burn import BurnTile
+from PreProcessing import (
+    TileExtendedBoundingBox,
+    ExtractAndPatchTile,
+    FillDepressions,
+    Spillover,
+    ApplyFlatZ
+)
+
+@parallel(prepare, BurnTile)
 @overwritable
 @click.option('--delta', default=-1.0)
 def burn():
@@ -101,11 +120,59 @@ def burn():
     """
     return tileindex()
 
-from BorderFlats import (
-    LabelBorderFlats,
-    ResolveFlatSpillover,
-    ApplyMinimumZ
-)
+@parallel(prepare, ExtractAndPatchTile)
+@overwritable
+@quiet_opt
+def patch():
+    """
+    Extract and Patch DEM Tiles
+    """
+    return tileindex()
+
+@prepare.command()
+@click.option('--padding', default=20, help='Number of pixels of padding')
+def boxes(padding):
+    """
+    Calculate Padded Tile Bounding Boxes
+    """
+    tile_index = tileindex()
+
+    output = os.path.join(workdir(), '../TILEBOXES.shp')
+
+    if os.path.exists(output):
+        for filename in glob.glob(os.path.join(workdir(), '../TILEBOXES.*')):
+            if os.path.exists(filename):
+                os.unlink(filename)
+
+    with click.progressbar(tile_index) as progress:
+        for row, col in progress:
+            TileExtendedBoundingBox(row, col, padding)
+
+@parallel(prepare, FillDepressions)
+@overwritable
+@quiet_opt
+def fill():
+    """
+    Priority-Flood Depressions Filling
+    """
+    return tileindex()
+
+@prepare.command()
+@overwritable
+def spillover(overwrite):
+    """
+    Build Spillover Graph and Resolve Watersheds' Minimum Z
+    """
+    Spillover(overwrite)
+
+@parallel(prepare, ApplyFlatZ)
+@overwritable
+def applyz():
+    """
+    Raise Flat Regions to their Minimum Z
+    (Flat Filling)
+    """
+    return tileindex()
 
 @cli.group()
 def flats():
@@ -114,7 +181,13 @@ def flats():
     """
     pass
 
-@batch(flats, LabelBorderFlats)
+from BorderFlats import (
+    LabelBorderFlats,
+    ResolveFlatSpillover,
+    ApplyMinimumZ
+)
+
+@parallel(flats, LabelBorderFlats)
 def labelflats():
     """
     Label tile border flats
@@ -132,18 +205,13 @@ def flatspillover(epsilon):
     """
     ResolveFlatSpillover(epsilon)
 
-@batch(flats, ApplyMinimumZ)
+@parallel(flats, ApplyMinimumZ)
 @overwritable
 def applyminz():
     """
     Apply flat spillover minimum Z to DEM tiles
     """
     return tileindex()
-
-from FlowDirection import (
-    FlowDirection,
-    AggregateOutlets,
-)
 
 @cli.group()
 def flow():
@@ -152,7 +220,12 @@ def flow():
     """
     pass
 
-@batch(flow, FlowDirection, 'calculate')
+from FlowDirection import (
+    FlowDirection,
+    AggregateOutlets,
+)
+
+@parallel(flow, FlowDirection, 'calculate')
 def flowdir():
     """
     Calculate Flow Direction Tiles
@@ -166,19 +239,19 @@ def aggregate_outlets():
     """
     AggregateOutlets()
 
-from StreamNetwork import (
-    InletAreas,
-    FlowAccumulation,
-    StreamToFeature,
-    AggregateStreams
-)
-
 @cli.group()
 def drainage():
     """
     Accumulation Raster and Stream Network Processing
     """
     pass
+
+from StreamNetwork import (
+    InletAreas,
+    FlowAccumulation,
+    StreamToFeature,
+    AggregateStreams
+)
 
 @drainage.command()
 def inletareas():
@@ -187,14 +260,14 @@ def inletareas():
     """
     InletAreas()
 
-@batch(drainage, FlowAccumulation)
+@parallel(drainage, FlowAccumulation)
 def accumulate():
     """
     Calculate Accumulation Raster Tiles
     """
     return tileindex()
 
-@batch(drainage, StreamToFeature)
+@parallel(drainage, StreamToFeature)
 @click.option('--min_drainage', '-a', default=5.0, help='Minimum Drainage Area in km²')
 def vectorize():
     """

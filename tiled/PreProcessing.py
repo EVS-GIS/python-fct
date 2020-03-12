@@ -31,17 +31,17 @@ Séquence :
 ***************************************************************************
 """
 
-import click
 import os
-import glob
+from collections import defaultdict
+from heapq import heappush, heappop
+import numpy as np
+
+import click
 import rasterio as rio
 from rasterio.windows import Window
 from rasterio.warp import Resampling
 import fiona
 import fiona.crs
-import numpy as np
-from collections import namedtuple, defaultdict, Counter
-from heapq import heappush, heappop
 
 import terrain_analysis as ta
 import speedup
@@ -53,10 +53,10 @@ tile_width = 9800
 def silent(msg):
     pass
 
-def TileExtendedBoundingBox(row, col, expand=20):
+def TileExtendedBoundingBox(row, col, padding=20):
 
-    template = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_PATCHED.tif' % (row, col))
-    output = os.path.join(workdir, '../TILEBOXES.shp')
+    template = filename('patched', row=row, col=col)
+    output = os.path.join(workdir(), '../TILEBOXES.shp')
 
     crs = fiona.crs.from_epsg(2154)
     driver = 'ESRI Shapefile'
@@ -74,8 +74,8 @@ def TileExtendedBoundingBox(row, col, expand=20):
 
         gid = tile_index[(row, col)].gid
         height, width = ds.shape
-        xmin, ymax = ds.xy(-expand, -expand)
-        xmax, ymin = ds.xy(height+expand, width+expand)
+        xmin, ymax = ds.xy(-padding, -padding)
+        xmax, ymin = ds.xy(height+padding, width+padding)
 
         box = [[xmin, ymin], [xmin, ymax], [xmax, ymax], [xmax, ymin], [xmin, ymin]]
         geom = {'type': 'Polygon', 'coordinates': [box]}
@@ -368,75 +368,6 @@ def ResolveMinimumZ(graph, nodata, epsilon=0.002):
     # return minimum_z, flats
     return directed
 
-@click.group()
-def cli():
-    pass
-
-@cli.command()
-def boxes():
-    """
-    Generate tile extended bounding boxes
-    """
-
-    tile_index = tileindex()
-
-    output = os.path.join(workdir, '../TILEBOXES.shp')
-
-    if os.path.exists(output):
-        for filename in glob.glob(os.path.join(workdir, '../TILEBOXES.*')):
-            if os.path.exists(filename):
-                os.unlink(filename)
-
-    with click.progressbar(tile_index) as progress:
-        for row, col in progress:
-            TileExtendedBoundingBox(row, col, 20)
-
-@cli.command()
-@click.argument('row', type=int)
-@click.argument('col', type=int)
-@click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
-@click.option('--quiet/--no-quiet', '-q', default=False, help='Suppress message output ?')
-def tile(row, col, overwrite, quiet):
-    """
-    Calcule la tuile de coordonnées (ROW, COL)
-    tel que défini dans `TILES.shp`
-    """
-    
-    FillDepressions(row, col, overwrite, quiet)
-    # ExtractAndPatchTile(row, col, overwrite, quiet)
-
-
-def Starred(args):
-    """
-    Starred version of `function` for use with pool.imap_unordered()
-    """
-
-    return FillDepressions(*args)
-    # return ExtractAndPatchTile(*args)
-
-@cli.command()
-@click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
-@click.option('--processes', '-j', default=1, help="Execute j parallel processes")
-@click.option('--quiet/--no-quiet', '-q', default=True, help='Suppress message output ?')
-def batch(overwrite, processes, quiet):
-    """
-    Calcule toutes les tuiles définies dans `TILES.shp`
-    """
-
-    from multiprocessing import Pool
-
-    tile_index = tileindex()
-
-    click.secho('Running %d processes ...' % processes, fg='yellow')
-    arguments = (tuple(key) + (overwrite, quiet) for key in tile_index)
-
-    with Pool(processes=processes) as pool:
-
-        pooled = pool.imap_unordered(Starred, arguments)
-        with click.progressbar(pooled, length=len(tile_index)) as progress:
-            for _ in progress:
-                click.echo('\r')
-
 def CheckConnectedFlats(directed, graph, graph_index, epsilon=0.001):
 
     extra_links = dict()
@@ -710,11 +641,7 @@ def ResolveFlatLinks(directed, dlinks, ulinks, areas):
 
     return resolved
 
-@cli.command()
-@click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
-# @click.option('--processes', '-j', default=1, help="Execute j parallel processes")
-# @click.option('--quiet/--no-quiet', '-q', default=True, help='Suppress message output ?')
-def spillover(overwrite):
+def Spillover(overwrite):
     """
     Calcule le graph de débordement
     entre les différentes tuiles
@@ -807,19 +734,22 @@ def spillover(overwrite):
     # np.savez(os.path.join(workdir, 'FLATS.npz'), flats=np.asarray(flats))
 
 # def FinalizeTile(row, col, tile_id, overwrite):
-def FinalizeTile(args):
+def ApplyFlatZ(row, col, **kwargs):
     """
     Ajuste l'altitude des dépressions en bordure de tuile,
     et calcule la carte des dépressions
     (différentiel d'altitude avec le point de débordement)
     """
 
-    row, col, tile_id, overwrite = args
+    overwrite = kwargs.get('overwrite', False)
+
+    tile_index = tileindex()
+    tile = tile_index[row, col]
 
     minz_file = filename('spillover')
     minimum_z = np.load(minz_file)['minz']
 
-    index = {int(w): z for t, w, z in minimum_z if int(t) == tile_id}
+    index = {int(w): z for t, w, z in minimum_z if int(t) == tile.gid}
 
     # with click.progressbar(tile_index) as progress:
     #     for row, col in progress:
@@ -907,41 +837,3 @@ def FinalizeTile(args):
 
         with rio.open(outputs['flats'], 'w', **profile) as dst:
             dst.write(flats, 1)
-
-@cli.command()
-@click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
-@click.option('--processes', '-j', default=1, help="Execute j parallel processes")
-def finalize(overwrite, processes):
-    """
-    Ajuste l'altitude des dépressions en bordure de tuile,
-    et calcule la carte des dépressions
-    (différentiel d'altitude avec le point de débordement)
-    """
-
-    from multiprocessing import Pool
-
-    tile_index = tileindex()
-
-    arguments = (tuple(key) + (tile_index[key].gid, overwrite) for key in tile_index)
-
-    with Pool(processes=processes) as pool:
-
-        pooled = pool.imap_unordered(FinalizeTile, arguments)
-        with click.progressbar(pooled, length=len(tile_index)) as progress:
-            for _ in progress:
-                click.echo('\r')               
-
-# from options import batch
-
-# @batch(cli)
-# def finalize(args):
-#     """
-#     Ajuste l'altitude des dépressions en bordure de tuile,
-#     et calcule la carte des dépressions
-#     (différentiel d'altitude avec le point de débordement)
-#     """
-
-#     FinalizeTile(*args)
-
-if __name__ == '__main__':
-    cli()
