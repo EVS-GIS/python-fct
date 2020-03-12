@@ -390,3 +390,35 @@ def count_deadcells(D8Flow[:, :] flow):
                         loops += 1
 
     return loops, noflows
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def minimumz(Label[:, :] labels, map[Label, float] zmap, float nodata, float[:, :] out=None):
+    """
+    Map labels to minimum elevation
+    """
+
+    cdef:
+
+        long height = labels.shape[0], width = labels.shape[1]
+        long i, j
+        Label label
+
+    if out is None:
+        out = np.zeros((height, width), dtype=np.float32)
+
+    with nogil:
+
+        for i in range(height):
+            for j in range(width):
+
+                label = labels[i, j]
+
+                if label == 0:
+                    out[i, j] = nodata
+                elif zmap.count(label) == 0:
+                    out[i, j] = nodata
+                else:
+                    out[i, j] = zmap[label]
+
+    return np.asarray(out)

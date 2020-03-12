@@ -675,45 +675,24 @@ def ApplyFlatZ(row, col, **kwargs):
 
     index = {int(w): z for t, w, z in minimum_z if int(t) == tile.gid}
 
-    # with click.progressbar(tile_index) as progress:
-    #     for row, col in progress:
-
-    # tile_id = tile_index[(row, col)].gid
-
-    reference_raster = filename('patched', row=row, col=col)
     filled_raster = filename('prefilled', row=row, col=col)
     label_raster = filename('labels', row=row, col=col)
-    outputs = fileset(['filled', 'flats'], row=row, col=col)
+    output = filename('filled', row=row, col=col)
 
     def info(msg):
         click.secho(msg, fg='yellow')
 
-    for output in outputs.values():
-        if os.path.exists(output) and not overwrite:
-            info('Output already exists: %s' % output)
-            return
+    if os.path.exists(output) and not overwrite:
+        info('Output already exists: %s' % output)
+        return
 
     with rio.open(filled_raster) as ds:
 
         dem = ds.read(1)
-        nodata = ds.nodata
         profile = ds.profile.copy()
 
         with rio.open(label_raster) as ds2:
             labels = ds2.read(1)
-
-        @np.vectorize
-        def minimumz(x):
-            """
-            Map watershed to its minimum elevation
-
-            %time minz = minimumz(labels)
-            CPU times: user 13.3 s, sys: 1.46 s, total: 14.7 s
-            Wall time: 16.9 s
-            """
-            if x == 0:
-                return nodata
-            return index[x]
 
         # def minimumz(labels):
         #     """
@@ -733,31 +712,35 @@ def ApplyFlatZ(row, col, **kwargs):
 
         #     return minz
 
-        try:
-            minz = np.float32(minimumz(labels))
-        except KeyError:
-            click.secho('Error while processing tile (%d, %d)' % (row, col))
-            return
+        # @np.vectorize
+        # def minimumz(x):
+        #     """
+        #     Map watershed to its minimum elevation
 
+        #     %time minz = minimumz(labels)
+        #     CPU times: user 13.3 s, sys: 1.46 s, total: 14.7 s
+        #     Wall time: 16.9 s
+        #     """
+        #     if x == 0:
+        #         return ds.nodata
+        #     return index[x]
+
+        # try:
+        #     minz = np.float32(minimumz(labels))
+        # except KeyError:
+        #     click.secho('Error while processing tile (%d, %d)' % (row, col))
+        #     return
+
+        # %timeit minimumz(labels)
+        # 26 µs ± 250 ns per loop (mean ± std. dev. of 7 runs, 10000 loops each)
+        # %timeit speedup.minimumz(labels, index, nodata)
+        # 7.9 µs ± 52 ns per loop (mean ± std. dev. of 7 runs, 100000 loops each)
+
+        minz = speedup.minimumz(labels, index, ds.nodata)
         filled = np.maximum(dem, minz)
-        filled[dem == nodata] = nodata
-
-        del dem
-        del minz
-
-        with rio.open(reference_raster) as ds2:
-            reference = ds2.read(1)
-
-        flats = filled - reference
-
-        del reference
-
-        flats[filled == nodata] = nodata
+        filled[dem == ds.nodata] = ds.nodata
 
         profile.update(compress='deflate')
 
-        with rio.open(outputs['filled'], 'w', **profile) as dst:
+        with rio.open(output, 'w', **profile) as dst:
             dst.write(filled, 1)
-
-        with rio.open(outputs['flats'], 'w', **profile) as dst:
-            dst.write(flats, 1)
