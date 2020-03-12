@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # coding: utf-8
 
 """
@@ -288,18 +287,14 @@ def StreamToFeature(row, col, min_drainage):
 
         with fiona.open(output, 'w', **options ) as dst:
 
-            with click.progressbar(speedup.stream_to_feature(streams, flow)) as progress:
+            for current, (segment, head) in enumerate(speedup.stream_to_feature(streams, flow)):
 
-                for current, (segment, head) in enumerate(progress):
-
-                    coords = ta.pixeltoworld(np.fliplr(np.int32(segment)), ds.transform, gdal=False)
-                    dst.write({
-                        'type': 'Feature',
-                        'geometry': {'type': 'LineString', 'coordinates': coords},
-                        'properties': {'GID': current, 'HEAD': 1 if head else 0}
-                    })
-
-                    progress.update(1)
+                coords = ta.pixeltoworld(np.fliplr(np.int32(segment)), ds.transform, gdal=False)
+                dst.write({
+                    'type': 'Feature',
+                    'geometry': {'type': 'LineString', 'coordinates': coords},
+                    'properties': {'GID': current, 'HEAD': 1 if head else 0}
+                })
 
 def AggregateStreams():
 
@@ -326,48 +321,3 @@ def AggregateStreams():
                     for feature in fs:
                         feature['properties']['GID'] = next(gid)
                         dst.write(feature)
-
-def Starred(args):
-    FlowAccumulation(*args)
-    StreamToFeature(*(tuple(args) + (5.0,)))
-
-@click.group()
-def cli():
-    pass
-
-@cli.command()
-@click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
-@click.option('--processes', '-j', default=1, help="Execute j parallel processes")
-@click.option('--quiet/--no-quiet', '-q', default=True, help='Suppress message output ?')
-def accumulate(overwrite, processes, quiet):
-    """
-    Calcule toutes les tuiles définies dans `TILES.shp`
-    """
-
-    from multiprocessing import Pool
-
-    tile_index = tileindex()
-
-    click.secho('Running %d processes ...' % processes, fg='yellow')
-    arguments = (tuple(key) for key in tile_index)
-
-    with Pool(processes=processes) as pool:
-
-        pooled = pool.imap_unordered(Starred, arguments)
-        with click.progressbar(pooled, length=len(tile_index)) as progress:
-            for _ in progress:
-                click.echo('\r')
-
-@cli.command()
-@click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
-def areas(overwrite):
-    InletAreas()
-
-
-@cli.command()
-@click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
-def aggregate(overwrite):
-    AggregateStreams()
-
-if __name__ == '__main__':
-    cli()

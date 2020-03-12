@@ -1,8 +1,6 @@
-#!/usr/bin/env python
 # coding: utf-8
 
 from collections import defaultdict, Counter
-from functools import wraps
 import numpy as np
 import click
 
@@ -153,93 +151,3 @@ def BurnTile(row, col, delta=-1.0, **kwargs):
 
         with rio.open(output, 'w', **profile) as dst:
             dst.write(elevations, 1)
-
-def starcall(args):
-    """
-    Invoke first arg function with all other arguments.
-    """
-
-    fun = args[0]
-    return fun(*args[1:-1], **args[-1])
-
-def batch(group, tilefun):
-    """
-    Define a new Click command within `group` as a Multiprocessing wrapper.
-    This command will process tiles in parallel
-    using function `tilefun`.
-    """
-
-    def decorate(fun):
-        """
-        Decorator function
-        """
-
-        @group.command()
-        @click.option('--processes', '-j', default=1, help="Execute j parallel processes")
-        @click.option('--progress', '-p', default=False, help="Display progress bar", is_flag=True)
-        @wraps(fun)
-        def decorated(processes, progress, **kwargs):
-            """
-            Multiprocessing wrapper
-            See https://stackoverflow.com/questions/8804830/python-multiprocessing-picklingerror-cant-pickle-type-function
-            """
-
-            from multiprocessing import Pool
-
-            click.secho('Running %d processes ...' % processes, fg='yellow')
-
-            tile_index = fun()
-            arguments = ([tilefun, row, col, kwargs] for row, col in tile_index)
-
-            with Pool(processes=processes) as pool:
-
-                pooled = pool.imap_unordered(starcall, arguments)
-
-                if progress:
-
-                    with click.progressbar(pooled, length=len(tile_index)) as bar:
-                        for _ in bar:
-                            click.echo('\n\r')
-
-                else:
-
-                    for _ in pooled:
-                        pass
-
-        return decorated
-
-    return decorate
-
-@click.group()
-def cli():
-    pass
-
-# def TestTile(row, col, delta, **kwargs):
-#     import os
-#     import time
-#     print(os.getpid(), row, col, delta)
-#     time.sleep(1)
-
-# @batch(cli, TestTile)
-# @click.option('--delta', default=-1.0)
-# def test():
-#     """
-#     Print arguments and exit
-#     """
-#     tiles = dict()
-#     for i in range(10):
-#         tiles[0, i] = i
-#     return tiles
-
-@batch(cli, BurnTile)
-@click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
-@click.option('--delta', default=-1.0)
-def burn():
-    """
-    Burn Stream Network
-    """
-    return tileindex()
-
-
-if __name__ == '__main__':
-    cli()

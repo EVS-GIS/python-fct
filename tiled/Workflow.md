@@ -12,13 +12,14 @@ python PreProcessing.py patch -j 4
 python PreProcessing.py boxes
 python PreProcessing.py spillover -w
 python PreProcessing.py finalize -j 2 -w
-python ResolveBorderFlats.py labelflats
-python ResolveBorderFlats.py resolve
-python ResolveBorderFlats.py applyminz
-python FlowDirection.py flow -j 4 -w
-python FlowDirection.py aggregate -w
-python StreamNetwork.py areas -w
-python StreamNetwork.py accumulate -j 4 -w
-python StreamNetwork.py aggregate -w
+python Command.py flats labelflats -j 4 -p
+python Command.py flats spillover
+python Command.py flats applyminz -j 4 -p
+python Command.py flow calculate -j 4 -p
+python Command.py flow aggregate
+python Command.py drainage inletareas
+python Command.py drainage accumulate -j 4 -p
+python Command.py drainage vectorize -j 4 -p -a 5.0
+python Command.py drainage aggregate
 # watersheds
 ```

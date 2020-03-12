@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # coding: utf-8
 
 """
@@ -235,7 +234,7 @@ def WallFlats(padded, nodata):
     return fixed
 
 
-def FlowDirection(row, col):
+def FlowDirection(row, col, **kwargs):
     """
     DOCME
     """
@@ -479,42 +478,3 @@ def AggregateOutlets():
                         
                         for feature in fs:
                             dst.write(feature)
-
-def Starred(args):
-    FlowDirection(*args)
-    Outlets(*args)
-
-@click.group()
-def cli():
-    pass
-
-@cli.command()
-@click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
-@click.option('--processes', '-j', default=1, help="Execute j parallel processes")
-@click.option('--quiet/--no-quiet', '-q', default=True, help='Suppress message output ?')
-def flow(overwrite, processes, quiet):
-    """
-    Calcule toutes les tuiles définies dans `TILES.shp`
-    """
-
-    from multiprocessing import Pool
-
-    tile_index = tileindex()
-
-    click.secho('Running %d processes ...' % processes, fg='yellow')
-    arguments = (tuple(key) for key in tile_index)
-
-    with Pool(processes=processes) as pool:
-
-        pooled = pool.imap_unordered(Starred, arguments)
-        with click.progressbar(pooled, length=len(tile_index)) as progress:
-            for _ in progress:
-                click.echo('\r')
-
-@cli.command()
-@click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
-def aggregate(overwrite):
-    AggregateOutlets()
-
-if __name__ == '__main__':
-    cli()
