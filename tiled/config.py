@@ -6,7 +6,7 @@ from collections import namedtuple
 import click
 import fiona
 
-Tile = namedtuple('Tile', ('gid', 'row', 'col', 'x0', 'y0', 'i', 'j'))
+Tile = namedtuple('Tile', ('gid', 'row', 'col', 'x0', 'y0'))
 
 __options__ = None
 __tileindex__ = None
@@ -38,6 +38,13 @@ def config(configfile=None):
 
     return options
 
+def parameter(key):
+    """
+    Configuration defined parameter
+    """
+    options = config()
+    return options.get(key)
+
 def tileindex():
     """
     Populate tile index from shapefile
@@ -54,9 +61,10 @@ def tileindex():
 
     with fiona.open(shapefile) as fs:
         for feature in fs:
-            row = feature['properties']['I']
-            col = feature['properties']['J']
-            index[(row, col)] = Tile(*feature['properties'].values())
+            props = feature['properties']
+            values = [props[k] for k in ('GID', 'ROW', 'COL', 'X0', 'Y0')]
+            tile = Tile(*values)
+            index[(tile.row, tile.col)] = tile
 
     __tileindex__ = index
 

@@ -11,7 +11,7 @@ from functools import wraps
 from multiprocessing import Pool
 import click
 
-from config import tileindex, workdir
+from config import tileindex, workdir, filename
 
 def starcall(args):
     """
@@ -96,6 +96,84 @@ def cli():
 #     return tiles
 
 @cli.group()
+def tileset():
+    """
+    Manage tile dataset defined in config.ini
+    """
+    pass
+
+@tileset.command()
+@click.argument('source')
+@click.argument('destination')
+@click.option('--ext', '-e', default=False, is_flag=True, help='Glob extension')
+@overwritable
+def rename(source, destination, ext, overwrite):
+    """
+    Rename tile dataset
+    """
+
+    for row, col in tileindex():
+
+        src = filename(source, row=row, col=col)
+        dest = filename(destination, row=row, col=col)
+
+        if not os.path.exists(src):
+            click.echo('Not found %s' % os.path.basename(src))
+            continue
+
+        if ext:
+
+            src = os.path.splitext(src)[0]
+            dest = os.path.splitext(dest)[0]
+
+            for name in glob.glob(src + '.*'):
+
+                extension = os.path.splitext(name)[1]
+
+                if os.path.exists(dest + extension) and not overwrite:
+                    click.secho('Not overwriting %s' % dest)
+                    continue
+
+                os.rename(src + extension, dest + extension)
+
+        else:
+
+            if os.path.exists(dest) and not overwrite:
+                click.echo('Not overwriting %s' % dest)
+                return
+
+            os.rename(src, dest)
+
+@tileset.command()
+@click.argument('name')
+@click.option('--ext', '-e', default=False, is_flag=True, help='Glob extension')
+def delete(name, ext):
+    """
+    Delete tile dataset
+    """
+
+    if not click.confirm('Delete tile dataset %s ?' % name):
+        return
+
+    for row, col in tileindex():
+
+        src = filename(name, row=row, col=col)
+
+        if not os.path.exists(src):
+            click.echo('Not found %s' % os.path.basename(src))
+            continue
+
+        if ext:
+
+            src = os.path.splitext(src)[0]
+            for match in glob.glob(src + '.*'):
+                os.unlink(match)
+
+        else:
+
+            os.unlink(src)
+
+@cli.group()
 def prepare():
     """
     First-pass DEM Reconditioning
@@ -140,9 +218,9 @@ def boxes(padding):
     output = os.path.join(workdir(), '../TILEBOXES.shp')
 
     if os.path.exists(output):
-        for filename in glob.glob(os.path.join(workdir(), '../TILEBOXES.*')):
-            if os.path.exists(filename):
-                os.unlink(filename)
+        for name in glob.glob(os.path.join(workdir(), '../TILEBOXES.*')):
+            if os.path.exists(name):
+                os.unlink(name)
 
     with click.progressbar(tile_index) as progress:
         for row, col in progress:

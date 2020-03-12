@@ -44,14 +44,14 @@ def CreateOutletsGraph():
     """
 
     tile_index = tileindex()
-    RGE = filename('rge', 'input')
+    DEM = filename('dem', 'input')
 
     click.secho('Build outlets graph', fg='cyan')
 
     graph = dict()
     indegree = Counter()
 
-    rge = rio.open(RGE)
+    dem = rio.open(DEM)
 
     with click.progressbar(tile_index) as progress:
         for row, col in progress:
@@ -72,8 +72,8 @@ def CreateOutletsGraph():
 
                         from_tile = feature['properties']['FROM']
                         area = feature['properties']['LCA']
-                        from_i, from_j = rge.index(feature['properties']['FROMX'], feature['properties']['FROMY'])
-                        i, j = rge.index(*feature['geometry']['coordinates'])
+                        from_i, from_j = dem.index(feature['properties']['FROMX'], feature['properties']['FROMY'])
+                        i, j = dem.index(*feature['geometry']['coordinates'])
                         graph[(from_tile, from_i, from_j)] = (tile, i, j, area)
                         indegree[(tile, i, j)] += 1
 
@@ -81,7 +81,7 @@ def CreateOutletsGraph():
 
                         loci, locj = ds.index(*feature['geometry']['coordinates'])
                         locti, loctj = ta.outlet(flow, loci, locj)
-                        ti, tj = rge.index(*ds.xy(locti, loctj))
+                        ti, tj = dem.index(*ds.xy(locti, loctj))
 
                         if (locti, loctj) == (loci, locj):
                             continue
@@ -100,7 +100,7 @@ def CreateOutletsGraph():
 
                         # connect exterior->inlet
 
-                        i, j = rge.index(*feature['geometry']['coordinates'])
+                        i, j = dem.index(*feature['geometry']['coordinates'])
                         area = feature['properties']['AREAKM2'] / 25e-6
                         graph[(-2, i-1, j-1)] = (tile, i, j, area)
                         indegree[(tile, i, j)] += 1
@@ -108,7 +108,7 @@ def CreateOutletsGraph():
                         # connect inlet->tile outlet
 
                         locti, loctj = ta.outlet(flow, loci, locj)
-                        ti, tj = rge.index(*ds.xy(locti, loctj))
+                        ti, tj = dem.index(*ds.xy(locti, loctj))
 
                         if (locti, loctj) == (loci, locj):
                             continue
@@ -117,7 +117,7 @@ def CreateOutletsGraph():
                             graph[(tile, i, j)] = (tile, ti, tj, 0)
                             indegree[(tile, ti, tj)] += 1
 
-    rge.close()
+    dem.close()
 
     click.secho('Created graph with %d nodes' % len(graph), fg='green')
 
@@ -158,7 +158,7 @@ def TileInletAreas(row, col, graph, indegree, areas):
     """
 
     tile_index = tileindex()
-    RGE = filename('rge', 'input')
+    DEM = filename('dem', 'input')
 
     crs = fiona.crs.from_epsg(2154)
     driver = 'ESRI Shapefile'
@@ -171,7 +171,7 @@ def TileInletAreas(row, col, graph, indegree, areas):
     }
     options = dict(driver=driver, crs=crs, schema=schema)
 
-    rge = rio.open(RGE)
+    dem = rio.open(DEM)
 
     tile = tile_index[(row, col)].gid
     cum_areas = defaultdict(lambda: 0.0)
@@ -185,20 +185,20 @@ def TileInletAreas(row, col, graph, indegree, areas):
     # with fiona.open(inlet_filename(row, col)) as fs:
     #     for feature in fs:
             
-    #         i, j = rge.index(*feature['geometry']['coordinates'])
+    #         i, j = dem.index(*feature['geometry']['coordinates'])
     #         assert((i, j) in index)
 
     with fiona.open(filename('inlet-areas', row=row, col=col), 'w', **options) as dst:
         for i, j in cum_areas:
 
-            x, y = rge.xy(i, j)
+            x, y = dem.xy(i, j)
             area = cum_areas[(i, j)]
             geom = {'type': 'Point', 'coordinates': [x, y]}
             props = {'TILE': tile, 'AREAKM2': area}
             feature = {'geometry': geom, 'properties': props}
             dst.write(feature)
 
-    rge.close()
+    dem.close()
 
 
 def InletAreas():

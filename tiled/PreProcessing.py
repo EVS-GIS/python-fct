@@ -45,10 +45,7 @@ import fiona.crs
 
 import terrain_analysis as ta
 import speedup
-from config import tileindex, filename, fileset, workdir
-
-tile_height = 7150
-tile_width = 9800
+from config import tileindex, filename, fileset, workdir, parameter
 
 def silent(msg):
     pass
@@ -56,7 +53,7 @@ def silent(msg):
 def TileExtendedBoundingBox(row, col, padding=20):
 
     template = filename('patched', row=row, col=col)
-    output = os.path.join(workdir(), '../TILEBOXES.shp')
+    output = os.path.join(workdir(), 'TILEBOXES.shp')
 
     crs = fiona.crs.from_epsg(2154)
     driver = 'ESRI Shapefile'
@@ -92,31 +89,21 @@ def TileExtendedBoundingBox(row, col, padding=20):
 
 def ExtractAndPatchTile(row, col, overwrite, quiet):
     """
-    1ère étape du calcul du plan de drainage global :
-
-    - remplit les zones NODATA du MNT de résolution 5 m (RGE Alti 5 m)
-      avec les valeurs interpolées de la BD Alti 25 m
-
-    - identifie et numérote les bassins versants
-      et les zones continues de même altitude,
-      avec remplissage des creux
-
-    - construit le graphe de connection
-      entre bassins versants contigus
+    Remplit les zones NODATA du MNT de résolution 5 m (RGE Alti 5 m)
+    avec les valeurs interpolées de la BD Alti 25 m
     """
 
     tile_index = tileindex()
-    RGE = filename('rge', 'input')
-    BDA = filename('bda', 'input')
+    DEM = filename('dem', 'input')
+    LOWRES = filename('dem2', 'input')
+
+    tile_height = int(parameter('input.height'))
+    tile_width = int(parameter('input.width'))
     
     if (row, col) not in tile_index:
         return
 
-    outputs = dict()
-    outputs['patched'] = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_PATCHED.tif' % (row, col))
-    # outputs['filled'] = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_FILLED.tif' % (row, col))
-    # outputs['label'] = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_LABELS.tif' % (row, col))
-    # outputs['graph'] = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_GRAPH.npz' % (row, col))
+    output = filename('patched', row=row, col=col)
 
     if quiet:
         
@@ -130,27 +117,27 @@ def ExtractAndPatchTile(row, col, overwrite, quiet):
         def step(msg):
             click.secho(msg, fg='yellow')
 
-    for output in outputs.values():
-        if os.path.exists(output) and not overwrite:
-            info('Output already exists: %s' % output)
-            return 
+    if os.path.exists(output) and not overwrite:
+        info('Output already exists: %s' % output)
+        return 
 
-    info('Processing tile (%02d, %02d)' % (row, col))
+    # info('Processing tile (%02d, %02d)' % (row, col))
 
     tile = tile_index[(row, col)]
 
-    step('Read and patch elevations')
+    # step('Read and patch elevations')
 
-    with rio.open(RGE) as ds:
+    with rio.open(DEM) as ds:
 
-        nodata = ds.nodata
+        row_offset, col_offset = ds.index(tile.x0, tile.y0)
+
         profile = ds.profile.copy()
         dst_transform = ds.transform * ds.transform.translation(col*tile_width, row*tile_height)
 
-        window1 = Window(tile.col, tile.row, tile_width, tile_height)
+        window1 = Window(col_offset, row_offset, tile_width, tile_height)
         dem1 = ds.read(1, window=window1)
 
-        with rio.open(BDA) as ds2:
+        with rio.open(LOWRES) as ds2:
 
             i2, j2 = ds2.index(*ds.xy(window1.row_off, window1.col_off))
             window2 = Window(j2, i2, tile_width//5, tile_height//5)
@@ -171,28 +158,18 @@ def ExtractAndPatchTile(row, col, overwrite, quiet):
         width=tile_width
     )
 
-    with rio.open(outputs['patched'], 'w', **profile) as dst:
+    with rio.open(output, 'w', **profile) as dst:
         dst.write(dem1, 1)
 
 def FillDepressions(row, col, overwrite, quiet):
     """
-    1ère étape du calcul du plan de drainage global :
-
-    - remplit les zones NODATA du MNT de résolution 5 m (RGE Alti 5 m)
-      avec les valeurs interpolées de la BD Alti 25 m
-
-    - identifie et numérote les bassins versants
-      et les zones continues de même altitude,
-      avec remplissage des creux
-
-    - construit le graphe de connection
-      entre bassins versants contigus
+    Identifie et numérote les bassins versants
+    et les zones continues de même altitude,
+    avec remplissage des creux
     """
 
     tile_index = tileindex()
-    RGE = filename('rge', 'input')
-    BDA = filename('bda', 'input')
-    
+
     if (row, col) not in tile_index:
         return
 
@@ -217,64 +194,11 @@ def FillDepressions(row, col, overwrite, quiet):
 
     info('Processing tile (%02d, %02d)' % (row, col))
 
-    tile = tile_index[(row, col)]
-
     with rio.open(filename('patched', row=row, col=col)) as ds:
 
         profile = ds.profile.copy()
         nodata = ds.nodata
         elevations = ds.read(1)
-
-    step('Read and patch elevations')
-
-    # with rio.open(RGE) as ds:
-
-    #     nodata = ds.nodata
-    #     profile = ds.profile.copy()
-    #     dst_transform = ds.transform * ds.transform.translation(col*tile_width, row*tile_height)
-
-    #     window1 = Window(tile.col, tile.row, tile_width, tile_height)
-    #     dem1 = ds.read(1, window=window1)
-
-    #     with rio.open(BDA) as ds2:
-
-    #         i2, j2 = ds2.index(*ds.xy(window1.row_off, window1.col_off))
-    #         window2 = Window(j2, i2, tile_width//5, tile_height//5)
-            
-    #         dem2 = ds2.read(1, resampling=Resampling.bilinear, out_shape=dem1.shape,
-    #             boundless=True, fill_value=ds2.nodata, window=window2)
-            
-    #         mask = (dem1 == ds.nodata) & (dem2 != ds2.nodata)
-    #         dem1[mask] = dem2[mask]
-    #         del mask
-
-    # del dem2
-
-    # profile.update(
-    #     compress='deflate',
-    #     transform=dst_transform,
-    #     height=tile_height,
-    #     width=tile_width
-    # )
-
-    # with rio.open(outputs['patched'], 'w', **profile) as dst:
-    #     dst.write(dem1, 1)
-
-    # step('Fill depressions')
-
-    # dx = dy = 5.0
-    # filled = ta.fillsinks2(dem1, nodata, dx, dy, 0)
-    # del dem1
-
-    # step('Write filled DEM')
-
-    # profile.update(
-    #     compress='deflate',
-    #     tiled='yes',
-    #     transform=dst_transform,
-    #     height=tile_height,
-    #     width=tile_width
-    # )
 
     step('Label flats')
 

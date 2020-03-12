@@ -35,10 +35,7 @@ import richdem as rd
 import speedup
 import terrain_analysis as ta
 
-from config import tileindex, filename
-
-tile_height = 7150
-tile_width = 9800
+from config import tileindex, filename, parameter
 
 def PadElevations(row, col, dataset='filled'):
     """

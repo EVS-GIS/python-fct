@@ -5,9 +5,22 @@ import fiona
 import fiona.crs
 import numpy as np
 
+from config import filename, parameter
 
-crs = fiona.crs.from_epsg(2154)
-schema = {'geometry': 'Polygon', 'properties': [('GID', 'int'), ('ROW', 'int'), ('COL', 'int')]}
+tile_height = int(parameter('input.height'))
+tile_width = int(parameter('input.width'))
+srs = int(parameter('input.srs'))
+
+crs = fiona.crs.from_epsg(srs)
+schema = {
+    'geometry': 'Polygon',
+    'properties': [
+        ('GID', 'int'),
+        ('ROW', 'int'),
+        ('COL', 'int'),
+        ('X0', 'float'),
+        ('Y0', 'float')
+    ]}
 driver = 'ESRI Shapefile'
 options = dict(crs=crs, driver=driver, schema=schema)
 
@@ -24,16 +37,16 @@ with rio.open(RGE) as ds:
     current = 0
 
     height, width = ds.shape
-    tile_height = height // 20
-    tile_width = width // 10
+    # tile_height = height // 20
+    # tile_width = width // 10
 
-    with fiona.open('/media/crousson/Backup/PRODUCTION/RGEALTI/TILES.shp', 'w', **options) as dst:
+    with fiona.open('/media/crousson/Backup/PRODUCTION/RGEALTI/RATILES.shp', 'w', **options) as dst:
         for i in range(0, height, tile_height):
             for j in range(0, width, tile_width):
                 w = Window(j, i, tile_width, tile_height)
-                dem = ds.read(1, window=w)
-                if np.count_nonzero(dem == ds.nodata) == tile_width*tile_height:
-                    continue
+                # dem = ds.read(1, window=w)
+                # if np.count_nonzero(dem == ds.nodata) == tile_width*tile_height:
+                #     continue
                 box = asPolygon(w, ds)
                 geom = {'type': 'Polygon', 'coordinates': [box]}
                 props = {'GID': current, 'ROW': i // tile_height, 'COL': j // tile_width, 'X0': box[0][0], 'Y0': box[0][1]}
