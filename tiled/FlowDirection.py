@@ -53,7 +53,7 @@ def PadElevations(row, col, dataset='filled'):
     with rio.open(elevation_raster) as ds:
 
         height, width = ds.shape
-        extended = np.zeros((height+2, width+2), dtype=np.float32)
+        extended = np.zeros((height+2, width+2), dtype=ds.dtypes[0])
 
         extended[1:-1, 1:-1] = ds.read(1)
 
@@ -347,7 +347,7 @@ def Outlets(row, col):
 
         # output = filename('outlets', row=row, col=col)
         # with fiona.open(output, 'w', **options) as dst:
-        
+
         for current, (ti, tj) in enumerate(targets):
 
             top = (ti < 0)

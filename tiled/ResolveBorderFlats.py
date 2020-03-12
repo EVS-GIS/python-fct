@@ -305,9 +305,32 @@ def EnsureEpsilonGradient(directed, ulinks, areas, epsilon=.0005):
     exterior = (-1, 1)
     nodata = -99999.0
     resolved = dict()
+    reverse = defaultdict(list)
 
     queue = [(nodata, exterior, None)]
-    updated = 0
+    raised = 0
+
+    def propagate(origin, minz):
+
+        seen = set()
+        queue = [(origin, minz)]
+
+        while queue:
+
+            watershed, minz = queue.pop(0)
+            
+            if watershed in seen:
+                continue
+
+            seen.add(watershed)
+            downstream, z = resolved[watershed]
+
+            if z - minz < epsilon:
+                z = minz + epsilon
+                resolved[watershed] = (downstream, z)
+
+            for upstream in reverse[watershed]:
+                queue.append((upstream, z))
 
     while queue:
 
@@ -315,16 +338,17 @@ def EnsureEpsilonGradient(directed, ulinks, areas, epsilon=.0005):
 
         if watershed in resolved:
 
-            res_downstream, res_minz = resolved[watershed]
+            res_minz = resolved[watershed][1]
 
             if minz - res_minz < epsilon:
-                minz = res_minz + epsilon
-                resolved[watershed] = (res_downstream, minz)
-                updated += 1
+                # minz = res_minz + epsilon
+                propagate(watershed, minz)
+                raised += 1
 
             continue
 
         resolved[watershed] = (downstream, minz)
+        reverse[downstream].append(watershed)
 
         for upstream, upz in upgraph[watershed]:
             
@@ -333,18 +357,24 @@ def EnsureEpsilonGradient(directed, ulinks, areas, epsilon=.0005):
             
             heappush(queue, (upz, upstream, watershed))
 
+    click.secho('Raised %d links' % raised, fg='yellow')
+
     return resolved
 
-def ResolveFlatSpillover():
+def ResolveFlatSpillover(epsilon=0.0005):
     """
     DOCME
     """
 
+    click.secho('Build Spillover Graph', fg='cyan')
     graph = BuildFlatSpilloverGraph()
-    directed, ulinks = ResolveMinimumZ(graph)
+    click.secho('Resolve Minimum Z', fg='cyan')
+    directed, ulinks = ResolveMinimumZ(graph, epsilon=epsilon)
+    click.secho('Calculate Watershed Areas', fg='cyan')
     unitareas = WatershedUnitAreas('flat_labels')
     areas = WatershedCumulativeAreas(directed, unitareas)
-    resolved = EnsureEpsilonGradient(directed, ulinks, areas)
+    click.secho('Ensure epsilon Gradient : %f m' % epsilon, fg='cyan')
+    resolved = EnsureEpsilonGradient(directed, ulinks, areas, epsilon=epsilon)
 
     output = filename('flat_spillover')
     minz = [watershed + (resolved[watershed][1],) for watershed in resolved]
