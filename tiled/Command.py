@@ -101,7 +101,7 @@ def burn():
     """
     return tileindex()
 
-from ResolveBorderFlats import (
+from BorderFlats import (
     LabelBorderFlats,
     ResolveFlatSpillover,
     ApplyMinimumZ
