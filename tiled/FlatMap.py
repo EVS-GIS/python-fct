@@ -19,8 +19,10 @@ def FlatDepth(row, col, **kwargs):
     after DEM depression filling
     """
 
+    from scipy.ndimage.morphology import binary_closing
+
     reference_raster = filename('dem', row=row, col=col)
-    filled_raster = filename('prefilled', row=row, col=col)
+    filled_raster = filename('filled', row=row, col=col)
     output = filename('flats', row=row, col=col)
     overwrite = kwargs.get('overwrite', False)
 
@@ -34,9 +36,26 @@ def FlatDepth(row, col, **kwargs):
 
         with rio.open(filled_raster) as ds2:
             filled = ds2.read(1)
+            flow = ta.flowdir(filled, ds2.nodata)
 
         filled = filled - reference
         filled[reference == ds.nodata] = ds.nodata
+        
+        # mask = np.uint8(flow == 0)
+        # structure = np.array([
+        #     [0, 0, 1, 0, 0],
+        #     [0, 1, 1, 1, 0],
+        #     [1, 1, 1, 1, 1],
+        #     [0, 1, 1, 1, 0],
+        #     [0, 0, 1, 0, 0]], dtype=np.uint8)
+        # # structure = np.array([
+        # #     [0, 1, 0],
+        # #     [1, 1, 1],
+        # #     [0, 1, 0]], dtype=np.uint8)
+        # mask =  np.uint8(binary_closing(mask, structure=structure, iterations=2))
+        # filled[mask == 0] = ds.nodata
+
+        filled[flow != 0] = ds.nodata
 
         profile = ds.profile.copy()
         profile.update(compress='deflate')
@@ -55,7 +74,9 @@ def FlatMap(row, col, min_drainage, **kwargs):
         255: No-data
     """
 
-    dem_raster = filename('prefilled', row=row, col=col)
+    from scipy.ndimage.morphology import binary_closing
+
+    dem_raster = filename('filled', row=row, col=col)
     flow_raster = filename('flow', row=row, col=col)
     acc_raster = filename('acc', row=row, col=col)
     output = filename('flatmap', row=row, col=col)
@@ -66,30 +87,73 @@ def FlatMap(row, col, min_drainage, **kwargs):
         flats = np.uint8(flow == 0)
         del flow
         
-        # sieve/closing
+        # Sieve/Morphological Closing
 
-        sieve(flats, 400)
+        # structure = np.array([[0, 1, 0],[1, 1, 1],[0, 1, 0]], dtype=np.uint8)
+        structure = np.array([
+            [0, 0, 1, 0, 0],
+            [0, 1, 1, 1, 0],
+            [1, 1, 1, 1, 1],
+            [0, 1, 1, 1, 0],
+            [0, 0, 1, 0, 0]], dtype=np.uint8)
+        flats =  np.uint8(binary_closing(flats, structure=structure, iterations=2))
+        flats = sieve(flats, 800)
 
-        # 1 = flat, 2 = not flat
-        flats = 2 - np.float32(flats)
-        
-        # continuity with stream network derived from acc
+        # Continuity with stream network derived from acc
 
-        with rio.open(acc_raster) as ds2:
+        method = 1
 
-            mask = (ds2.read(1) >= min_drainage)
-            out = np.zeros_like(mask, dtype=np.float32)
-            out[mask] = 1
-            flats[mask] = 1
-            del mask
+        if method == 1:
 
-        with rio.open(flow_raster) as ds2:
-            flow = ds2.read(1)
+            # Method 1 Watershed max
 
-        ta.watershed_max(flow, out, flats, fill_value=0, feedback=None)
-        out = np.uint8(out)
-        out[(flats == 1.0) & (out == 2)] = 3
-        out[flow == -1] = 255
+            # 1 = flat, 2 = not flat
+            flats = 2 - np.float32(flats)
+
+            with rio.open(acc_raster) as ds2:
+
+                mask = (ds2.read(1) >= min_drainage)
+                out = np.zeros_like(mask, dtype=np.float32)
+                out[mask] = 1
+                # flats[mask] = 1
+
+            with rio.open(flow_raster) as ds2:
+                flow = ds2.read(1)
+
+            ta.watershed_max(flow, out, flats, fill_value=0, feedback=None)
+
+            out = np.uint8(out)
+            out[mask] = flats[mask]
+
+            out[out == 2] = 3
+            out[(flats == 1) & (out == 3)] = 2
+            out[flow == -1] = 255
+
+        elif method == 2:
+
+            # Method 2 Shortest Max
+
+            # 1 = stream, 2 = flat, 3 = not flat
+            flats = 3 - np.float32(flats)
+
+            with rio.open(acc_raster) as ds2:
+
+                mask = (ds2.read(1) >= min_drainage)
+                out = np.zeros_like(mask, dtype=np.float32)
+                # out[mask] = 1
+                flats[mask] = 1
+
+            ta.shortest_max(flats, 0, 1, out=out, feedback=ta.ConsoleFeedback())
+
+            out = np.uint8(out) - 1
+            out[mask] = flats[mask] - 1
+
+            out[out == 2] = 3
+            out[(flats == 2) & (out == 3)] = 2
+
+        # End Method Options
+
+        speedup.spread_connected(out, 1)
 
         profile = ds.profile.copy()
         profile.update(compress='deflate', dtype=np.uint8, nodata=255)

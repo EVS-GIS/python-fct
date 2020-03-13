@@ -397,7 +397,7 @@ def ApplyMinimumZ(row, col, **kwargs):
     index = {int(w): z for t, w, z in minimum_z if int(t) == tile.gid}
     del minimum_z
 
-    filled_raster = filename('prefilled', row=row, col=col)
+    filled_raster = filename('filled', row=row, col=col)
     label_raster = filename('flat_labels', row=row, col=col)
     output = filename('resolved', row=row, col=col)
 

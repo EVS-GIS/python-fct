@@ -194,7 +194,7 @@ def FillDepressions(row, col, overwrite, quiet):
 
     info('Processing tile (%02d, %02d)' % (row, col))
 
-    with rio.open(filename('patched', row=row, col=col)) as ds:
+    with rio.open(filename('dem', row=row, col=col)) as ds:
 
         profile = ds.profile.copy()
         nodata = ds.nodata
@@ -735,6 +735,10 @@ def ApplyFlatZ(row, col, **kwargs):
         # 26 µs ± 250 ns per loop (mean ± std. dev. of 7 runs, 10000 loops each)
         # %timeit speedup.minimumz(labels, index, nodata)
         # 7.9 µs ± 52 ns per loop (mean ± std. dev. of 7 runs, 100000 loops each)
+        # speedup.minimumz(labels, index, ds.nodata)
+        # CPU times: user 1.3 s, sys: 64 ms, total: 1.36 s
+        # Wall time: 1.36 s
+
 
         minz = speedup.minimumz(labels, index, ds.nodata)
         filled = np.maximum(dem, minz)
