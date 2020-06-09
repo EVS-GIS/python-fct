@@ -23,6 +23,7 @@ import click
 import os
 import glob
 import rasterio as rio
+from rasterio.features import rasterize
 from rasterio.windows import Window
 from rasterio.warp import Resampling
 import fiona
@@ -231,7 +232,7 @@ def WallFlats(padded, nodata):
     return fixed
 
 
-def FlowDirection(row, col, **kwargs):
+def FlowDirection(row, col, overwrite, **kwargs):
     """
     DOCME
     """
@@ -240,6 +241,10 @@ def FlowDirection(row, col, **kwargs):
 
     elevation_raster = filename('filled', row=row, col=col)
     output = filename('flow', row=row, col=col)
+
+    if os.path.exists(output) and not overwrite:
+        click.secho('Output already exists: %s' % output, fg='yellow')
+        return
 
     with rio.open(elevation_raster) as ds:
 
@@ -293,13 +298,26 @@ def FlowDirection(row, col, **kwargs):
         # rd.FillDepressions(extended, True, True, 'D8')
         # flow = ta.flowdir(padded, ds.nodata)
 
+        flow = flow[1:-1, 1:-1]
+
+        with fiona.open(filename('exterior-domain', 'input')) as fs:
+            mask = rasterize(
+                [f['geometry'] for f in fs],
+                out_shape=flow.shape,
+                transform=ds.transform,
+                fill=0,
+                default_value=1,
+                dtype='uint8')
+
+        flow[mask == 1] = -1
+
         profile = ds.profile.copy()
         profile.update(compress='deflate', dtype=np.int16, nodata=-1)
 
         with rio.open(output, 'w', **profile) as dst:
-            dst.write(flow[1:-1, 1:-1], 1)
+            dst.write(flow, 1)
 
-def Outlets(row, col):
+def Outlets(row, col, verbose=False):
     """
     DOCME
     """
@@ -409,7 +427,7 @@ def Outlets(row, col):
                 continue
 
             target = tile_index[(trow, tcol)].gid
-            output = filename('inlets', row=trow, col=tcol, gid=gid)
+            output = filename('inlets-t', row=trow, col=tcol, gid=gid)
 
             # if os.path.exists(output):
             #     mode = 'a'
@@ -437,8 +455,10 @@ def Outlets(row, col):
 
                     dst.write({'geometry': geom, 'properties': props})
 
-    click.secho('\nSkipped %d outlets' % skipped, fg='yellow')
-    click.secho('Tile (%02d, %02d) Coverage = %.1f %%' % (row, col, (cum_area / (height*width) * 100)), fg='green')
+    if verbose:
+        click.secho('\nSkipped %d outlets' % skipped, fg='yellow')
+        click.secho('Tile (%02d, %02d) Coverage = %.1f %%' % (row, col, (cum_area / (height*width) * 100)), fg='green')
+
     return cum_area
 
 def AggregateOutlets():
@@ -466,7 +486,7 @@ def AggregateOutlets():
     with click.progressbar(tile_index) as progress:
         for row, col in progress:
 
-            output = filename('inlets-agg', row=row, col=col)
+            output = filename('inlets', row=row, col=col)
 
             with fiona.open(output, 'w', **options) as dst:
 

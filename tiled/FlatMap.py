@@ -21,7 +21,7 @@ def FlatDepth(row, col, **kwargs):
 
     from scipy.ndimage.morphology import binary_closing
 
-    reference_raster = filename('dem', row=row, col=col)
+    reference_raster = filename('tiled', row=row, col=col)
     filled_raster = filename('filled', row=row, col=col)
     output = filename('flats', row=row, col=col)
     overwrite = kwargs.get('overwrite', False)

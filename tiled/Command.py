@@ -11,7 +11,55 @@ from functools import wraps
 from multiprocessing import Pool
 import click
 
-from config import tileindex, workdir, filename
+import time
+from datetime import datetime, timedelta
+from config import tileindex, workdir, filename, parameter
+
+def command_info(command, ntiles, nprocesses=1):
+
+    start_time = time.time()
+    tileset = parameter('workspace.tileset')
+    workdir = parameter('workspace.workdir')
+
+    click.secho('Command        : %s' % command, fg='green')
+    click.secho('Version        : %s' % '1.0.5')
+    
+    click.secho('Tileset        : %s' % tileset)
+    click.secho('# of tiles     : %d' % ntiles)
+    click.secho('Work Directory : %s' % workdir)
+
+    click.secho('Start time     : %s' % datetime.fromtimestamp(start_time))
+    if nprocesses > 1:
+        click.secho('Running %d parallel processes' % nprocesses, fg='yellow')
+
+    return start_time
+
+def aggregate(group, name=None):
+    """
+    Define a new aggregate command within `group`.
+    """
+
+    def decorate(fun):
+
+        @group.command(name)
+        @wraps(fun)
+        def decorated(*args, **kwargs):
+
+            tile_index = tileindex()
+            start_time = command_info(name or fun.__name__, len(tile_index))
+
+            fun(*args, **kwargs)
+
+            elapsed = time.time() - start_time
+            cpu_time = time.process_time()
+            
+            click.secho('Done', fg='green')
+            click.secho('Elapsed time    : %s' % timedelta(seconds=elapsed))
+            click.secho('Processing time : %s' % timedelta(seconds=cpu_time))
+
+        return decorated
+
+    return decorate
 
 def starcall(args):
     """
@@ -43,9 +91,9 @@ def parallel(group, tilefun, name=None):
             See https://stackoverflow.com/questions/8804830/python-multiprocessing-picklingerror-cant-pickle-type-function
             """
 
-            click.secho('Running %d processes ...' % processes, fg='yellow')
-
             tile_index = fun()
+            start_time = command_info(name or fun.__name__, len(tile_index), processes)
+
             arguments = ([tilefun, row, col, kwargs] for row, col in tile_index)
 
             with Pool(processes=processes) as pool:
@@ -64,11 +112,19 @@ def parallel(group, tilefun, name=None):
                     for _ in pooled:
                         pass
 
+            elapsed = time.time() - start_time
+            # cpu_time = time.process_time()
+
+            click.secho('Done', fg='green')
+            click.secho('Elapsed time: %s' % timedelta(seconds=elapsed))
+            # click.secho('CPU time: %s' % timedelta(seconds=cpu_time))
+
         return decorated
 
     return decorate
 
 overwritable = click.option('--overwrite', '-w', default=False, help='Overwrite existing output ?', is_flag=True)
+verbosable = click.option('--verbose', '-v', default=False, help='Print verbose messages ?', is_flag=True)
 quiet_opt = click.option('--quiet/--no-quiet', '-q', default=False, help='Suppress message output ?')
 
 @click.group()
@@ -95,6 +151,71 @@ def cli():
 #         tiles[0, i] = i
 #     return tiles
 
+@cli.command()
+def citation():
+
+    click.secho('Fluvial Corridor Toolbox', fg='green')
+    click.secho('Description ...')
+    click.secho('Version ...')
+    click.secho('Cite me ...')
+    click.secho('GitHub Link ...')
+
+@cli.group()
+def fileset():
+    """
+    Manage filesets with ancillary files, eg. shapefiles
+    """
+    pass
+
+@fileset.command('rename')
+@click.argument('source')
+@click.argument('destination')
+@overwritable
+def rename_fileset(source, destination, overwrite):
+    """
+    Rename fileset
+    """
+
+    src = filename(source)
+    dest = filename(destination)
+
+    if not os.path.exists(src):
+        click.echo('Not found %s' % os.path.basename(src))
+        return
+
+    src = os.path.splitext(src)[0]
+    dest = os.path.splitext(dest)[0]
+
+    for name in glob.glob(src + '.*'):
+
+        extension = os.path.splitext(name)[1]
+
+        if os.path.exists(dest + extension) and not overwrite:
+            click.secho('Not overwriting %s' % dest)
+            return
+
+        os.rename(src + extension, dest + extension)
+
+@fileset.command('delete')
+@click.argument('name')
+def delete_fileset(name):
+    """
+    Delete fileset
+    """
+
+    if not click.confirm('Delete tile dataset %s ?' % name):
+        return
+
+    src = filename(name)
+
+    if not os.path.exists(src):
+        click.echo('Not found %s' % os.path.basename(src))
+        return
+
+    src = os.path.splitext(src)[0]
+    for match in glob.glob(src + '.*'):
+        os.unlink(match)
+
 @cli.group()
 def tileset():
     """
@@ -102,12 +223,12 @@ def tileset():
     """
     pass
 
-@tileset.command()
+@tileset.command('rename')
 @click.argument('source')
 @click.argument('destination')
 @click.option('--ext', '-e', default=False, is_flag=True, help='Glob extension')
 @overwritable
-def rename(source, destination, ext, overwrite):
+def rename_tileset(source, destination, ext, overwrite):
     """
     Rename tile dataset
     """
@@ -144,7 +265,7 @@ def rename(source, destination, ext, overwrite):
 
             os.rename(src, dest)
 
-@tileset.command()
+@tileset.command('delete')
 @click.argument('name')
 @click.option('--ext', '-e', default=False, is_flag=True, help='Glob extension')
 def delete(name, ext):
@@ -199,9 +320,10 @@ def burn():
     return tileindex()
 
 @parallel(prepare, ExtractAndPatchTile)
+@verbosable
 @overwritable
-@quiet_opt
-def patch():
+@click.option('--smooth', default=5, help='Smooth window')
+def mktiles():
     """
     Extract and Patch DEM Tiles
     """
@@ -227,15 +349,15 @@ def boxes(padding):
             TileExtendedBoundingBox(row, col, padding)
 
 @parallel(prepare, FillDepressions)
+@verbosable
 @overwritable
-@quiet_opt
 def fill():
     """
     Priority-Flood Depressions Filling
     """
     return tileindex()
 
-@prepare.command()
+@aggregate(prepare)
 @overwritable
 def spillover(overwrite):
     """
@@ -265,6 +387,8 @@ from BorderFlats import (
     ApplyMinimumZ
 )
 
+from FlatMap import FlatDepth
+
 @parallel(flats, LabelBorderFlats)
 def labelflats():
     """
@@ -272,7 +396,7 @@ def labelflats():
     """
     return tileindex()
 
-@flats.command('spillover')
+@aggregate(flats, 'spillover')
 @click.option('--epsilon', '-e', default=0.0005, help='epsilon gradient')
 def flatspillover(epsilon):
     """
@@ -291,6 +415,16 @@ def applyminz():
     """
     return tileindex()
 
+@parallel(flats, FlatDepth)
+@overwritable
+def depthmap():
+    """
+    Calculate raster map
+    of how much flat cells have been raised
+    after DEM depression filling
+    """
+    return tileindex()
+
 @cli.group()
 def flow():
     """
@@ -300,17 +434,27 @@ def flow():
 
 from FlowDirection import (
     FlowDirection,
+    Outlets,
     AggregateOutlets,
 )
 
 @parallel(flow, FlowDirection, 'calculate')
+@overwritable
 def flowdir():
     """
     Calculate Flow Direction Tiles
     """
     return tileindex()
 
-@flow.command('aggregate')
+@parallel(flow, Outlets, 'outlets')
+@verbosable
+def extract_outlets():
+    """
+    Extract Tiles' Outlets from Flow Direction
+    """
+    return tileindex()
+
+@aggregate(flow, 'aggregate')
 def aggregate_outlets():
     """
     Aggregate Tile Outlets
@@ -328,22 +472,40 @@ from StreamNetwork import (
     InletAreas,
     FlowAccumulation,
     StreamToFeature,
+    NoFlowPixels,
+    AggregateNoFlowPixels,
     AggregateStreams
 )
 
-@drainage.command()
-def inletareas():
+@aggregate(drainage, 'dispatch')
+def dispatch():
     """
-    Calculate Tiles Inlets Drainage Contribution
+    Dispatch Drainage Contribution accross Tiles
     """
     InletAreas()
 
 @parallel(drainage, FlowAccumulation)
+@overwritable
 def accumulate():
     """
     Calculate Accumulation Raster Tiles
     """
     return tileindex()
+
+@parallel(drainage, NoFlowPixels)
+@click.option('--min_drainage', '-a', default=5.0, help='Minimum Drainage Area in km²')
+def noflow():
+    """
+    Find Problematic No Flow Pixels on Stream Network
+    """
+    return tileindex()
+
+@aggregate(drainage, 'aggregate-noflow')
+def aggregate_noflow():
+    """
+    Aggregate No Flow Shapefiles
+    """
+    AggregateNoFlowPixels()
 
 @parallel(drainage, StreamToFeature)
 @click.option('--min_drainage', '-a', default=5.0, help='Minimum Drainage Area in km²')
@@ -353,7 +515,7 @@ def vectorize():
     """
     return tileindex()
 
-@drainage.command('aggregate')
+@aggregate(drainage, 'aggregate')
 def aggregate_streams():
     """
     Aggregate Stream Network

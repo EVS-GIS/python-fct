@@ -38,6 +38,7 @@ import numpy as np
 
 import click
 import rasterio as rio
+from rasterio.features import rasterize
 from rasterio.windows import Window
 from rasterio.warp import Resampling
 import fiona
@@ -87,11 +88,13 @@ def TileExtendedBoundingBox(row, col, padding=20):
             feature = {'geometry': geom, 'properties': props}
             dst.write(feature)
 
-def ExtractAndPatchTile(row, col, overwrite, quiet):
+def ExtractAndPatchTile(row, col, overwrite, verbose=False, smooth=5):
     """
     Remplit les zones NODATA du MNT de résolution 5 m (RGE Alti 5 m)
     avec les valeurs interpolées de la BD Alti 25 m
     """
+
+    from scipy.ndimage import uniform_filter as ndfilter
 
     tile_index = tileindex()
     DEM = filename('dem', 'input')
@@ -103,19 +106,19 @@ def ExtractAndPatchTile(row, col, overwrite, quiet):
     if (row, col) not in tile_index:
         return
 
-    output = filename('patched', row=row, col=col)
+    output = filename('tiled', row=row, col=col)
 
-    if quiet:
-        
-        info = step = silent
-    
-    else:
+    if verbose:
 
         def info(msg):
             click.secho(msg, fg='cyan')
 
         def step(msg):
             click.secho(msg, fg='yellow')
+
+    else:
+
+        info = step = silent
 
     if os.path.exists(output) and not overwrite:
         info('Output already exists: %s' % output)
@@ -132,24 +135,48 @@ def ExtractAndPatchTile(row, col, overwrite, quiet):
         row_offset, col_offset = ds.index(tile.x0, tile.y0)
 
         profile = ds.profile.copy()
-        dst_transform = ds.transform * ds.transform.translation(col*tile_width, row*tile_height)
+        dst_transform = ds.transform * ds.transform.translation(col_offset, row_offset)
 
-        window1 = Window(col_offset, row_offset, tile_width, tile_height)
-        dem1 = ds.read(1, window=window1)
+        window1 = Window(col_offset - smooth, row_offset - smooth, tile_width + 2*smooth, tile_height+2*smooth)
+        dem1 = ds.read(1, window=window1, boundless=True, fill_value=ds.nodata)
 
         with rio.open(LOWRES) as ds2:
 
             i2, j2 = ds2.index(*ds.xy(window1.row_off, window1.col_off))
             window2 = Window(j2, i2, tile_width//5, tile_height//5)
-            
-            dem2 = ds2.read(1, resampling=Resampling.bilinear, out_shape=dem1.shape,
-                boundless=True, fill_value=ds2.nodata, window=window2)
-            
+
+            dem2 = ds2.read(1, window=window2, boundless=True, fill_value=ds2.nodata,
+                            resampling=Resampling.bilinear,
+                            out_shape=dem1.shape)
+
             mask = (dem1 == ds.nodata) & (dem2 != ds2.nodata)
             dem1[mask] = dem2[mask]
             del mask
 
-    del dem2
+        del dem2
+
+        if smooth > 0:
+            out = ndfilter(dem1, smooth)
+            mask = ndfilter(np.uint8(dem1 != ds.nodata), smooth)
+            out[mask < 1] = dem1[mask < 1]
+            out[mask == 0] = ds.nodata
+            out = out[smooth:-smooth, smooth:-smooth]
+            del mask
+        else:
+            out = dem1
+
+    del dem1
+
+    with fiona.open(filename('exterior-domain', 'input')) as fs:
+        mask = rasterize(
+            [f['geometry'] for f in fs],
+            out_shape=out.shape,
+            transform=dst_transform,
+            fill=0,
+            default_value=1,
+            dtype='uint8')
+
+    out[(out == ds.nodata) & (mask == 1)] = 9000.0
 
     profile.update(
         compress='deflate',
@@ -159,9 +186,52 @@ def ExtractAndPatchTile(row, col, overwrite, quiet):
     )
 
     with rio.open(output, 'w', **profile) as dst:
-        dst.write(dem1, 1)
+        dst.write(out, 1)
 
-def FillDepressions(row, col, overwrite, quiet):
+def MeanFilter(row, col, overwrite, verbose=False, size=5):
+    """
+    Smooth elevations by applying a mean filter on a square window of size `size`
+    """
+
+    from scipy.ndimage import uniform_filter as ndfilter
+    from FlowDirection import PadElevations
+
+    tile_index = tileindex()
+
+    if (row, col) not in tile_index:
+        return
+
+    output = filename('smoothed', row=row, col=col)
+    
+    if verbose:
+
+        def info(msg):
+            click.secho(msg, fg='cyan')
+
+        def step(msg):
+            click.secho(msg, fg='yellow')
+
+    else:
+
+        info = step = silent
+
+    if os.path.exists(output) and not overwrite:
+        info('Output already exists: %s' % output)
+        return
+
+    with rio.open(filename('tiled', row=row, col=col)) as ds:
+
+        data = ds.read(1)
+        out = ndfilter(data, size)
+        out[data == ds.nodata] = ds.nodata
+
+        profile = ds.profile.copy()
+
+        with rio.open(output, 'w', **profile) as dst:
+            dst.write(data, 1)
+
+
+def FillDepressions(row, col, overwrite, verbose=False):
     """
     Identifie et numérote les bassins versants
     et les zones continues de même altitude,
@@ -175,17 +245,17 @@ def FillDepressions(row, col, overwrite, quiet):
 
     outputs = fileset(['prefilled', 'labels', 'graph'], row=row, col=col)
 
-    if quiet:
-        
-        info = step = silent
-    
-    else:
+    if verbose:
 
         def info(msg):
             click.secho(msg, fg='cyan')
 
         def step(msg):
             click.secho(msg, fg='yellow')
+
+    else:
+
+        info = step = silent
 
     for output in outputs.values():
         if os.path.exists(output) and not overwrite:
@@ -194,7 +264,7 @@ def FillDepressions(row, col, overwrite, quiet):
 
     info('Processing tile (%02d, %02d)' % (row, col))
 
-    with rio.open(filename('dem', row=row, col=col)) as ds:
+    with rio.open(filename('tiled', row=row, col=col)) as ds:
 
         profile = ds.profile.copy()
         nodata = ds.nodata
@@ -590,7 +660,7 @@ def Spillover(overwrite):
         for row, col in progress:
         
             # click.secho('Processing tile (%d, %d)' % (row, col), fg='cyan')
-            this_graph = ta.connect_tile(row, col, nodata, tile_index, tiledatafn)
+            this_graph = speedup.connect_tile(row, col, nodata, tile_index, tiledatafn)
             graph.update({k: this_graph[k] for k in this_graph.keys() - graph.keys()})
             graph.update({k: min(graph[k], this_graph[k]) for k in graph.keys() & this_graph.keys()})
 

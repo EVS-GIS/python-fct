@@ -1,5 +1,6 @@
 # coding: utf-8
 
+import os
 from collections import defaultdict, Counter
 from functools import wraps
 import numpy as np
@@ -381,7 +382,7 @@ def ResolveFlatSpillover(epsilon=0.0005):
 
     click.secho('Saved to : %s' % output, fg='green')
 
-def ApplyMinimumZ(row, col, **kwargs):
+def ApplyMinimumZ(row, col, overwrite, **kwargs):
     """
     Ajuste l'altitude des dépressions en bordure de tuile,
     et calcule la carte des dépressions
@@ -391,15 +392,19 @@ def ApplyMinimumZ(row, col, **kwargs):
     tile_index = tileindex()
     tile = tile_index[row, col]
 
+    filled_raster = filename('filled', row=row, col=col)
+    label_raster = filename('flat_labels', row=row, col=col)
+    output = filename('resolved', row=row, col=col)
+
+    if os.path.exists(output) and not overwrite:
+        click.secho('Output already exists: %s' % output, fg='yellow')
+        return
+
     minz_file = filename('flat_spillover')
     minimum_z = np.load(minz_file)['minz']
 
     index = {int(w): z for t, w, z in minimum_z if int(t) == tile.gid}
     del minimum_z
-
-    filled_raster = filename('filled', row=row, col=col)
-    label_raster = filename('flat_labels', row=row, col=col)
-    output = filename('resolved', row=row, col=col)
 
     with rio.open(filled_raster) as ds:
 

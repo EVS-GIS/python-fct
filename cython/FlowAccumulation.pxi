@@ -2,6 +2,41 @@
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
+def calc_inflow(short[:,:] flow, unsigned char[:, :] inflow = None):
+    """
+    Calculate cell's inflow degree
+    """
+
+    cdef:
+
+        long height = flow.shape[0], width = flow.shape[1]
+        short nodata = -1, noflow = 0
+        long i, j, ix, jx
+        short direction
+
+    if inflow is None:
+        inflow = np.zeros((height, width), dtype=np.uint8)
+
+    with nogil:
+        for i in range(height):
+            for j in range(width):
+
+                direction = flow[i, j]
+
+                if direction == nodata or direction == noflow:
+                    continue
+
+                x = ilog2(direction)
+                ix = i + ci[x]
+                jx = j + cj[x]
+
+                if ingrid(height, width, ix, jx):
+                    inflow[ix, jx] += 1
+
+    return inflow
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
 def flow_accumulation(short[:,:] flow, ContributingArea[:, :] out=None):
     """ Flow accumulation from D8 flow direction.
 
@@ -29,8 +64,8 @@ def flow_accumulation(short[:,:] flow, ContributingArea[:, :] out=None):
         short nodata = -1, noflow = 0
         long i, j, ix, jx, count
         int x
-        signed char[:, :] inflow
-        signed char inflowij
+        unsigned char[:, :] inflow
+        unsigned char inflowij
         short direction
         long ncells = 0
         Cell cell
@@ -42,38 +77,13 @@ def flow_accumulation(short[:,:] flow, ContributingArea[:, :] out=None):
     if out is None:
         out = np.ones((height, width), dtype=np.float32)
 
-    inflow = np.zeros((height, width), dtype=np.int8)
-
-    click.echo('Find source cells ...')
-    # progress = click.progressbar(length=width*height)
-
-    # with nogil:
-
-    for i in range(height):
-        for j in range(width):
-
-            direction = flow[i, j]
-
-            if direction == nodata or direction == noflow:
-                continue
-
-            x = ilog2(direction)
-            ix = i + ci[x]
-            jx = j + cj[x]
-
-            if ingrid(height, width, ix, jx):
-                inflow[ix, jx] += 1
-
-        # progress.update(1)
+    inflow = calc_inflow(flow)
 
     for i in range(height):
         for j in range(width):
 
             if inflow[i, j] == 0:
                 queue.push_back(Cell(i, j))
-
-    click.echo('Accumulate ...')
-    # progress = click.progressbar(length=width*height)
 
     while not queue.empty():
 
@@ -84,7 +94,7 @@ def flow_accumulation(short[:,:] flow, ContributingArea[:, :] out=None):
 
         direction = flow[i, j]
 
-        if direction == nodata and direction == noflow:
+        if direction == nodata or direction == noflow:
             continue
 
         x = ilog2(direction)

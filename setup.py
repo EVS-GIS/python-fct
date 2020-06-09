@@ -24,7 +24,7 @@ extensions = [
 
 setup(
     name='fct-cli',
-    version='1.0.4',
+    version='1.0.5',
     # packages=find_packages(),
     ext_modules=cythonize(extensions),
     include_package_data=True,

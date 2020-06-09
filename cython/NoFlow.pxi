@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Vectorize Stream Features
+Find problematic noflow cells on stream network.
 
 ***************************************************************************
 *                                                                         *
@@ -15,47 +15,52 @@ Vectorize Stream Features
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def stream_to_feature(
+def noflow(
     short[:, :] streams,
     short[:, :] flow):
     """
-    Extract Stream Segments
-
-    Parameters
-    ----------
-
-    streams: array-like
-        Rasterized stream network, same shape as `elevations`,
-        with stream cells >= 1
-
-    flow: array-like
-        D8 Flow direction raster (ndim=2)
-
-    Returns
-    -------
-
-    List of stream segments in pixel coordinates.
+    Find problematic noflow cells on stream network.
+    Returns a sequence of (row, col) pixel tuples
     """
 
     cdef:
 
         long height = flow.shape[0], width = flow.shape[1]
-        long i, j, current
-        int x, di, dj
+        long i, j, i0, j0
+
         short direction
-        bint head
-
-        char[:, :] inflow
-        char inflowij
-
+        unsigned char[:, :] inflow
+        unsigned char inflowij
         CellStack stack
         Cell c
-        list segment
+
+        CellSequence notflowing
 
         short FLOW_NODATA = -1
         short NO_FLOW = 0
 
-    inflow = np.zeros((height, width), dtype=np.int8)
+    # Find No-Flow pixels
+
+    for i in range(height):
+        for j in range(width):
+
+            if flow[i, j] == NO_FLOW and streams[i, j] > 0:
+
+                for x in range(8):
+
+                    ix = i + ci[x]
+                    jx = j + cj[x]
+
+                    if ingrid(height, width, ix, jx) and flow[ix, jx] == FLOW_NODATA:
+                        break
+
+                else:
+                
+                    notflowing.push_back(Cell(i, j))
+
+    # Find Loops (Re-entrant flow)
+
+    inflow = np.zeros((height, width), dtype=np.uint8)
 
     for i in range(height):
         for j in range(width):
@@ -86,11 +91,11 @@ def stream_to_feature(
 
         c = stack.top()
         stack.pop()
-        i = c.first
-        j = c.second
+        i0 = c.first
+        j0 = c.second
 
-        segment = [(j, i)]
-        head = inflow[i, j] == 0
+        i = i0
+        j = j0
         direction = flow[i, j]
 
         while not (direction == FLOW_NODATA or direction == NO_FLOW):
@@ -99,8 +104,9 @@ def stream_to_feature(
             di, dj = ci[x], cj[x]
             i, j = i+di, j+dj
 
-            # segment.push_back(Cell(i, j))
-            segment.append((j, i))
+            if (i == i0) and (j == j0):
+                notflowing.push_back(Cell(i0, j0))
+                break
 
             if ingrid(height, width, i, j) and inflow[i, j] == 1:
 
@@ -110,4 +116,4 @@ def stream_to_feature(
 
                 break
 
-        yield np.array(segment), head
+    return notflowing

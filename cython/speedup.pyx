@@ -40,6 +40,7 @@ ctypedef short D8Flow
 
 ctypedef float ContributingArea
 ctypedef pair[int, int] Cell
+ctypedef vector[Cell] CellSequence
 ctypedef stack[Cell] CellStack
 ctypedef deque[Cell] CellQueue
 ctypedef pair[float, Cell] ZCell
@@ -84,8 +85,10 @@ cdef inline int ilog2(unsigned char x) nogil:
 
     return r
 
+include "WatershedGraph.pxi"
 include "Flats.pxi"
 include "FlowAccumulation.pxi"
 include "GraphAcc.pxi"
 include "Streams.pxi"
 include "Raster.pxi"
+include "NoFlow.pxi"
