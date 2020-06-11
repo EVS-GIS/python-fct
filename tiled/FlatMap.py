@@ -11,7 +11,7 @@ import terrain_analysis as ta
 import speedup
 
 from config import tileindex, filename
-from PreProcessing import ReadDEMTile
+from tileio import ReadRasterTile
 
 def FlatDepth(row, col, min_drainage=5.0, **kwargs):
     """
@@ -37,7 +37,7 @@ def FlatDepth(row, col, min_drainage=5.0, **kwargs):
     with rio.open(filled_raster) as ds:
 
         # reference = ds.read(1)
-        reference = ReadDEMTile(row, col)
+        reference, transform, nodata = ReadRasterTile(row, col, 'dem', 'dem2')
         filled = ds.read(1)
         
         flow = ta.flowdir(filled, ds.nodata)

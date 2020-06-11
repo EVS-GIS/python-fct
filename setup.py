@@ -29,9 +29,11 @@ setup(
     ext_modules=cythonize(extensions),
     include_package_data=True,
     install_requires=[
-        'Click>=7.0',
+        'numpy>=1.18',
+        'scipy>=1.4',
         'rasterio>=1.0.22',
-        'fiona>=1.8.6'
+        'fiona>=1.8.6',
+        'Click>=7.0'
     ],
 #     entry_points='''
 # [console_scripts]

@@ -37,136 +37,7 @@ import speedup
 import terrain_analysis as ta
 
 from config import tileindex, filename, parameter
-
-def PadElevations(row, col, dataset='filled'):
-    """
-    Assemble a 1-pixel padded elevation raster,
-    with borders from neighboring tiles.
-    """
-
-    tile_index = tileindex()
-    elevation_raster = filename(dataset, row=row, col=col)
-
-    with rio.open(elevation_raster) as ds:
-
-        height, width = ds.shape
-        extended = np.zeros((height+2, width+2), dtype=ds.dtypes[0])
-
-        extended[1:-1, 1:-1] = ds.read(1)
-
-        # top
-        i = row-1
-        j = col
-
-        if (i, j) in tile_index:
-        
-            other_raster = filename(dataset, row=i, col=j)
-            with rio.open(other_raster) as ds2:
-                extended[0, 1:-1] = ds2.read(1, window=Window(0, height-1, width, 1)).reshape(width)
-
-        else:
-
-            extended[0, 1:-1] = ds.nodata
-
-        # bottom
-        i = row+1
-        j = col
-
-        if (i, j) in tile_index:
-        
-            other_raster = filename(dataset, row=i, col=j)
-            with rio.open(other_raster) as ds2:
-                extended[-1, 1:-1] = ds2.read(1, window=Window(0, 0, width, 1)).reshape(width)
-
-        else:
-
-            extended[-1, 1:-1] = ds.nodata
-
-        # left
-        i = row
-        j = col-1
-
-        if (i, j) in tile_index:
-        
-            other_raster = filename(dataset, row=i, col=j)
-            with rio.open(other_raster) as ds2:
-                extended[1:-1, 0] = ds2.read(1, window=Window(width-1, 0, 1, height)).reshape(height)
-
-        else:
-
-            extended[1:-1, 0] = ds.nodata
-
-        # right
-        i = row
-        j = col+1
-
-        if (i, j) in tile_index:
-        
-            other_raster = filename(dataset, row=i, col=j)
-            with rio.open(other_raster) as ds2:
-                extended[1:-1, -1] = ds2.read(1, window=Window(0, 0, 1, height)).reshape(height)
-
-        else:
-
-            extended[1:-1, -1] = ds.nodata
-
-        # top-left
-        i = row-1
-        j = col-1
-
-        if (i, j) in tile_index:
-        
-            other_raster = filename(dataset, row=i, col=j)
-            with rio.open(other_raster) as ds2:
-                extended[0, 0] = ds2.read(1, window=Window(width-1, height-1, 1, 1)).item()
-
-        else:
-
-            extended[0, 0] = ds.nodata
-
-        # bottom-left
-        i = row+1
-        j = col-1
-
-        if (i, j) in tile_index:
-        
-            other_raster = filename(dataset, row=i, col=j)
-            with rio.open(other_raster) as ds2:
-                extended[-1, 0] = ds2.read(1, window=Window(width-1, 0, 1, 1)).item()
-
-        else:
-
-            extended[-1, 0] = ds.nodata
-
-        # top-right
-        i = row-1
-        j = col+1
-
-        if (i, j) in tile_index:
-        
-            other_raster = filename(dataset, row=i, col=j)
-            with rio.open(other_raster) as ds2:
-                extended[0, -1] = ds2.read(1, window=Window(0, height-1, 1, 1)).item()
-
-        else:
-
-            extended[0, -1] = ds.nodata
-
-        # bottom-right
-        i = row+1
-        j = col+1
-
-        if (i, j) in tile_index:
-        
-            other_raster = filename(dataset, row=i, col=j)
-            with rio.open(other_raster) as ds2:
-                extended[-1, -1] = ds2.read(1, window=Window(0, 0, 1, 1)).item()
-
-        else:
-
-            extended[-1, -1] = ds.nodata
-
-    return extended
+from tileio import ReadRasterTile, PadRaster
 
 # def FlowDirection(row, col):
 
@@ -179,12 +50,12 @@ def PadElevations(row, col, dataset='filled'):
 
 #     with rio.open(filename(row, col)) as ds:
 
-#         extended = PadElevations(row, col, filename)
+#         padded = PadElevations(row, col, filename)
 
-#         extended = rd.rdarray(extended, no_data=ds.nodata)
-#         rd.BreachDepressions(extended, True, 'D8')
-#         rd.FillDepressions(extended, True, True, 'D8')
-#         flow = ta.flowdir(extended, ds.nodata)
+#         padded = rd.rdarray(padded, no_data=ds.nodata)
+#         rd.BreachDepressions(padded, True, 'D8')
+#         rd.FillDepressions(padded, True, True, 'D8')
+#         flow = ta.flowdir(padded, ds.nodata)
 
 #         profile = ds.profile.copy()
 #         profile.update(compress='deflate', dtype=np.int16, nodata=-1)
@@ -234,88 +105,98 @@ def WallFlats(padded, nodata):
 
 def FlowDirection(row, col, overwrite, **kwargs):
     """
-    DOCME
+    Resolve flats drainage direction and
+    calculate D8 flow direction from adjusted elevations.
     """
 
-    # TODO Burn mapped stream network
-
-    elevation_raster = filename('filled', row=row, col=col)
+    # elevation_raster = filename('filled', row=row, col=col)
     output = filename('flow', row=row, col=col)
 
     if os.path.exists(output) and not overwrite:
         click.secho('Output already exists: %s' % output, fg='yellow')
         return
 
-    with rio.open(elevation_raster) as ds:
+    # with rio.open(elevation_raster) as ds:
 
-        # padded = PadElevations(row, col, 'filled')
-        padded = PadElevations(row, col, 'resolved')
+    # padded = PadRaster(row, col, 'filled')
+    padded, profile = PadRaster(row, col, 'resolved')
+    transform = profile['transform']
+    nodata = profile['nodata']
 
-        WallFlats(padded, ds.nodata)
+    WallFlats(padded, nodata)
 
-        # ***********************************************************************
-        # Wall flowing border flats
+    # ***********************************************************************
+    # Wall flowing border flats
 
-        # flow = ta.flowdir(padded, ds.nodata)
-        # labels, outlets = speedup.flat_labels(flow, padded, ds.nodata)
-        # notflowing = {k+1 for k, (i, j) in enumerate(outlets) if i == -1 and j == -1}
+    # flow = ta.flowdir(padded, ds.nodata)
+    # labels, outlets = speedup.flat_labels(flow, padded, ds.nodata)
+    # notflowing = {k+1 for k, (i, j) in enumerate(outlets) if i == -1 and j == -1}
 
-        # height, width = labels.shape
-        # boxes = speedup.flat_boxes(labels)
+    # height, width = labels.shape
+    # boxes = speedup.flat_boxes(labels)
 
-        # borders = set()
-        # for w, (mini, minj, maxi, maxj, count) in boxes.items():
-        #     if mini == 0 or minj == 0 or maxi == (height-1) or maxj == (width-1):
-        #         if w not in notflowing:
-        #             borders.add(w)
+    # borders = set()
+    # for w, (mini, minj, maxi, maxj, count) in boxes.items():
+    #     if mini == 0 or minj == 0 or maxi == (height-1) or maxj == (width-1):
+    #         if w not in notflowing:
+    #             borders.add(w)
 
-        # @np.vectorize
-        # def bordermask(x):
-        #     return x in borders
+    # @np.vectorize
+    # def bordermask(x):
+    #     return x in borders
 
-        # mask = bordermask(labels)
-        # mask[1:-1, 1:-1] = False
-        # padded[mask] = np.max(padded)
+    # mask = bordermask(labels)
+    # mask[1:-1, 1:-1] = False
+    # padded[mask] = np.max(padded)
 
-        # ***********************************************************************
+    # ***********************************************************************
 
-        # Option 1
-        # extended = rd.rdarray(padded, no_data=ds.nodata)
-        # rd.FillDepressions(extended, True, True, 'D8')
-        # flow = ta.flowdir(padded, ds.nodata)
+    # Option 1
+    # extended = rd.rdarray(padded, no_data=ds.nodata)
+    # rd.FillDepressions(extended, True, True, 'D8')
+    # flow = ta.flowdir(padded, ds.nodata)
 
-        # Option 2
-        flow = ta.flowdir(padded, ds.nodata)
-        flat_mask, flat_labels = ta.resolve_flat(padded, flow)
-        ta.flat_mask_flowdir(flat_mask, flow, flat_labels)
+    # Option 2
+    flow = ta.flowdir(padded, nodata)
+    flat_mask, flat_labels = ta.resolve_flat(padded, flow)
+    ta.flat_mask_flowdir(flat_mask, flow, flat_labels)
 
-        # extended = rd.rdarray(flat_mask, no_data=0)
-        # rd.FillDepressions(extended, True, True, 'D8')
-        
-        # extended = rd.rdarray(padded, no_data=ds.nodata)
-        # # rd.BreachDepressions(extended, True, 'D8')
-        # # rd.ResolveFlats(extended, True)
-        # rd.FillDepressions(extended, True, True, 'D8')
-        # flow = ta.flowdir(padded, ds.nodata)
+    # extended = rd.rdarray(flat_mask, no_data=0)
+    # rd.FillDepressions(extended, True, True, 'D8')
 
-        flow = flow[1:-1, 1:-1]
+    # extended = rd.rdarray(padded, no_data=ds.nodata)
+    # # rd.BreachDepressions(extended, True, 'D8')
+    # # rd.ResolveFlats(extended, True)
+    # rd.FillDepressions(extended, True, True, 'D8')
+    # flow = ta.flowdir(padded, ds.nodata)
 
-        with fiona.open(filename('exterior-domain', 'input')) as fs:
-            mask = rasterize(
-                [f['geometry'] for f in fs],
-                out_shape=flow.shape,
-                transform=ds.transform,
-                fill=0,
-                default_value=1,
-                dtype='uint8')
+    with fiona.open(filename('exterior-domain', 'input')) as fs:
+        mask = rasterize(
+            [f['geometry'] for f in fs],
+            out_shape=flow.shape,
+            transform=transform,
+            fill=0,
+            default_value=1,
+            dtype='uint8')
 
-        flow[mask == 1] = -1
+    flow[mask == 1] = -1
 
-        profile = ds.profile.copy()
-        profile.update(compress='deflate', dtype=np.int16, nodata=-1)
+    # noout = float(parameter('input.noout'))
+    # with rio.open(filename('tiled', row=row, col=col)) as ds2:
+    #     flow[ds2.read(1) == noout] = -1
 
-        with rio.open(output, 'w', **profile) as dst:
-            dst.write(flow, 1)
+    # profile = ds.profile.copy()
+    flow = flow[1:-1, 1:-1]
+    height, width = flow.shape
+    transform = transform * transform.translation(1, 1)
+    profile.update(
+        height=height, width=width,
+        dtype=np.int16,
+        nodata=-1,
+        transform=transform)
+
+    with rio.open(output, 'w', **profile) as dst:
+        dst.write(flow, 1)
 
 def Outlets(row, col, verbose=False):
     """

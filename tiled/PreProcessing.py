@@ -40,7 +40,6 @@ import click
 import rasterio as rio
 from rasterio.features import rasterize
 from rasterio.windows import Window
-from rasterio.warp import Resampling
 import fiona
 import fiona.crs
 
@@ -48,6 +47,7 @@ import terrain_analysis as ta
 import speedup
 
 from config import tileindex, filename, fileset, workdir, parameter
+from tileio import ReadRasterTile
 from Burn import BurnTile
 
 def silent(msg):
@@ -90,37 +90,6 @@ def TileExtendedBoundingBox(row, col, padding=20):
             feature = {'geometry': geom, 'properties': props}
             dst.write(feature)
 
-def ReadDEMTile(row, col, padding=0):
-
-    tile_index = tileindex()
-    tile = tile_index[row, col]
-
-    DEM = filename('dem', 'input')
-    LOWRES = filename('dem2', 'input')
-    tile_height = int(parameter('input.height')) + 2*padding
-    tile_width = int(parameter('input.width')) + 2*padding
-
-    with rio.open(DEM) as ds:
-
-        row_offset, col_offset = ds.index(tile.x0, tile.y0)
-
-        window1 = Window(col_offset - padding, row_offset - padding, tile_width, tile_height)
-        elevations = ds.read(1, window=window1, boundless=True, fill_value=ds.nodata)
-
-        with rio.open(LOWRES) as ds2:
-
-            i2, j2 = ds2.index(*ds.xy(window1.row_off, window1.col_off))
-            window2 = Window(j2, i2, tile_width//5, tile_height//5)
-
-            dem2 = ds2.read(1, window=window2, boundless=True, fill_value=ds2.nodata,
-                            resampling=Resampling.bilinear,
-                            out_shape=elevations.shape)
-
-            mask = (elevations == ds.nodata) & (dem2 != ds2.nodata)
-            elevations[mask] = dem2[mask]
-    
-    return elevations
-
 def ExtractAndPatchTile(row, col, overwrite, verbose=False, smooth=5):
     """
     Remplit les zones NODATA du MNT de résolution 5 m (RGE Alti 5 m)
@@ -135,6 +104,7 @@ def ExtractAndPatchTile(row, col, overwrite, verbose=False, smooth=5):
 
     tile_height = int(parameter('input.height'))
     tile_width = int(parameter('input.width'))
+    noout = float(parameter('input.noout'))
     
     if (row, col) not in tile_index:
         return
@@ -156,50 +126,51 @@ def ExtractAndPatchTile(row, col, overwrite, verbose=False, smooth=5):
 
     if os.path.exists(output) and not overwrite:
         info('Output already exists: %s' % output)
-        return 
+        return
 
     # info('Processing tile (%02d, %02d)' % (row, col))
     # step('Read and patch elevations')
 
-    with rio.open(DEM) as ds:
+    # with rio.open(DEM) as ds:
 
-        row_offset, col_offset = ds.index(tile.x0, tile.y0)
+        # row_offset, col_offset = ds.index(tile.x0, tile.y0)
 
-        elevations = ReadDEMTile(row, col, smooth)
+    elevations, profile = ReadRasterTile(row, col, 'dem', 'dem2', padding=smooth)
+    transform = profile['transform']
+    nodata = profile['nodata']
 
-        if smooth > 0:
-            out = ndfilter(elevations, smooth)
-            mask = ndfilter(np.uint8(elevations != ds.nodata), smooth)
-            out[mask < 1] = elevations[mask < 1]
-            out[mask == 0] = ds.nodata
-            out = out[smooth:-smooth, smooth:-smooth]
-            del mask
-        else:
-            out = elevations
+    if smooth > 0:
+        out = ndfilter(elevations, smooth)
+        mask = ndfilter(np.uint8(elevations != nodata), smooth)
+        out[mask < 1] = elevations[mask < 1]
+        out[mask == 0] = nodata
+        out = out[smooth:-smooth, smooth:-smooth]
+        del mask
+    else:
+        out = elevations
 
-        dst_transform = ds.transform * ds.transform.translation(col_offset, row_offset)
+    with fiona.open(filename('exterior-domain', 'input')) as fs:
+        mask = rasterize(
+            [f['geometry'] for f in fs],
+            out_shape=out.shape,
+            transform=transform,
+            fill=0,
+            default_value=1,
+            dtype='uint8')
 
-        with fiona.open(filename('exterior-domain', 'input')) as fs:
-            mask = rasterize(
-                [f['geometry'] for f in fs],
-                out_shape=out.shape,
-                transform=dst_transform,
-                fill=0,
-                default_value=1,
-                dtype='uint8')
+    out[(out == nodata) & (mask == 1)] = noout
 
-        out[(out == ds.nodata) & (mask == 1)] = 9000.0
+    # profile = ds.profile.copy()
+    # profile.update(
+    #     compress='deflate',
+    #     transform=transform,
+    #     height=tile_height,
+    #     width=tile_width,
+    #     nodata=nodata
+    # )
 
-        profile = ds.profile.copy()
-        profile.update(
-            compress='deflate',
-            transform=dst_transform,
-            height=tile_height,
-            width=tile_width
-        )
-
-        with rio.open(output, 'w', **profile) as dst:
-            dst.write(out, 1)
+    with rio.open(output, 'w', **profile) as dst:
+        dst.write(out, 1)
 
 def MeanFilter(row, col, overwrite, verbose=False, size=5):
     """
@@ -207,7 +178,6 @@ def MeanFilter(row, col, overwrite, verbose=False, size=5):
     """
 
     from scipy.ndimage import uniform_filter as ndfilter
-    from FlowDirection import PadElevations
 
     tile_index = tileindex()
 
@@ -256,6 +226,7 @@ def FillDepressions(row, col, burn=-1.0, overwrite=False, verbose=False):
     if (row, col) not in tile_index:
         return
 
+    noout = float(parameter('input.noout'))
     outputs = fileset(['prefilled', 'labels', 'graph'], row=row, col=col)
 
     if verbose:
@@ -289,7 +260,7 @@ def FillDepressions(row, col, burn=-1.0, overwrite=False, verbose=False):
 
     step('Label flats')
 
-    labels, graph, seeds = ta.watershed_labels(elevations, nodata)
+    labels, graph = ta.watershed_labels(elevations, nodata, noout)
     labels = np.uint32(labels)
 
     step('Write filled DEM')

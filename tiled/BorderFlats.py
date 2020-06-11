@@ -12,7 +12,7 @@ import fiona
 import terrain_analysis as ta
 import speedup
 
-from FlowDirection import PadElevations
+from tileio import PadRaster
 from Areas import WatershedUnitAreas, WatershedCumulativeAreas
 from config import tileindex, filename
 
@@ -23,11 +23,11 @@ def LabelBorderFlats(row, col, **kwargs):
 
     # elevation_raster = filename('filled', row=row, col=col)
     label_raster = filename('labels', row=row, col=col)
-    nodata = -99999.0
 
     # with rio.open(elevation_raster) as ds:
 
-    elevations = PadElevations(row, col)
+    elevations, profile = PadRaster(row, col)
+    nodata = profile['nodata']
     flow = ta.flowdir(elevations, nodata)
     flat_labels = speedup.borderflat_labels(flow, elevations)
 

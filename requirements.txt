@@ -1,6 +1,8 @@
-Click>=7.0
+numpy>=1.18
+scipy>=1.4
 cython
 doit
 rasterio>=1.0.22
 fiona>=1.8.6
 richdem>=0.3.4
+Click>=7.0
