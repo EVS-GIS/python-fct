@@ -46,7 +46,9 @@ import fiona.crs
 
 import terrain_analysis as ta
 import speedup
+
 from config import tileindex, filename, fileset, workdir, parameter
+from Burn import BurnTile
 
 def silent(msg):
     pass
@@ -88,6 +90,37 @@ def TileExtendedBoundingBox(row, col, padding=20):
             feature = {'geometry': geom, 'properties': props}
             dst.write(feature)
 
+def ReadDEMTile(row, col, padding=0):
+
+    tile_index = tileindex()
+    tile = tile_index[row, col]
+
+    DEM = filename('dem', 'input')
+    LOWRES = filename('dem2', 'input')
+    tile_height = int(parameter('input.height')) + 2*padding
+    tile_width = int(parameter('input.width')) + 2*padding
+
+    with rio.open(DEM) as ds:
+
+        row_offset, col_offset = ds.index(tile.x0, tile.y0)
+
+        window1 = Window(col_offset - padding, row_offset - padding, tile_width, tile_height)
+        elevations = ds.read(1, window=window1, boundless=True, fill_value=ds.nodata)
+
+        with rio.open(LOWRES) as ds2:
+
+            i2, j2 = ds2.index(*ds.xy(window1.row_off, window1.col_off))
+            window2 = Window(j2, i2, tile_width//5, tile_height//5)
+
+            dem2 = ds2.read(1, window=window2, boundless=True, fill_value=ds2.nodata,
+                            resampling=Resampling.bilinear,
+                            out_shape=elevations.shape)
+
+            mask = (elevations == ds.nodata) & (dem2 != ds2.nodata)
+            elevations[mask] = dem2[mask]
+    
+    return elevations
+
 def ExtractAndPatchTile(row, col, overwrite, verbose=False, smooth=5):
     """
     Remplit les zones NODATA du MNT de résolution 5 m (RGE Alti 5 m)
@@ -106,6 +139,7 @@ def ExtractAndPatchTile(row, col, overwrite, verbose=False, smooth=5):
     if (row, col) not in tile_index:
         return
 
+    tile = tile_index[row, col]
     output = filename('tiled', row=row, col=col)
 
     if verbose:
@@ -125,68 +159,47 @@ def ExtractAndPatchTile(row, col, overwrite, verbose=False, smooth=5):
         return 
 
     # info('Processing tile (%02d, %02d)' % (row, col))
-
-    tile = tile_index[(row, col)]
-
     # step('Read and patch elevations')
 
     with rio.open(DEM) as ds:
 
         row_offset, col_offset = ds.index(tile.x0, tile.y0)
 
-        profile = ds.profile.copy()
-        dst_transform = ds.transform * ds.transform.translation(col_offset, row_offset)
-
-        window1 = Window(col_offset - smooth, row_offset - smooth, tile_width + 2*smooth, tile_height+2*smooth)
-        dem1 = ds.read(1, window=window1, boundless=True, fill_value=ds.nodata)
-
-        with rio.open(LOWRES) as ds2:
-
-            i2, j2 = ds2.index(*ds.xy(window1.row_off, window1.col_off))
-            window2 = Window(j2, i2, tile_width//5, tile_height//5)
-
-            dem2 = ds2.read(1, window=window2, boundless=True, fill_value=ds2.nodata,
-                            resampling=Resampling.bilinear,
-                            out_shape=dem1.shape)
-
-            mask = (dem1 == ds.nodata) & (dem2 != ds2.nodata)
-            dem1[mask] = dem2[mask]
-            del mask
-
-        del dem2
+        elevations = ReadDEMTile(row, col, smooth)
 
         if smooth > 0:
-            out = ndfilter(dem1, smooth)
-            mask = ndfilter(np.uint8(dem1 != ds.nodata), smooth)
-            out[mask < 1] = dem1[mask < 1]
+            out = ndfilter(elevations, smooth)
+            mask = ndfilter(np.uint8(elevations != ds.nodata), smooth)
+            out[mask < 1] = elevations[mask < 1]
             out[mask == 0] = ds.nodata
             out = out[smooth:-smooth, smooth:-smooth]
             del mask
         else:
-            out = dem1
+            out = elevations
 
-    del dem1
+        dst_transform = ds.transform * ds.transform.translation(col_offset, row_offset)
 
-    with fiona.open(filename('exterior-domain', 'input')) as fs:
-        mask = rasterize(
-            [f['geometry'] for f in fs],
-            out_shape=out.shape,
+        with fiona.open(filename('exterior-domain', 'input')) as fs:
+            mask = rasterize(
+                [f['geometry'] for f in fs],
+                out_shape=out.shape,
+                transform=dst_transform,
+                fill=0,
+                default_value=1,
+                dtype='uint8')
+
+        out[(out == ds.nodata) & (mask == 1)] = 9000.0
+
+        profile = ds.profile.copy()
+        profile.update(
+            compress='deflate',
             transform=dst_transform,
-            fill=0,
-            default_value=1,
-            dtype='uint8')
+            height=tile_height,
+            width=tile_width
+        )
 
-    out[(out == ds.nodata) & (mask == 1)] = 9000.0
-
-    profile.update(
-        compress='deflate',
-        transform=dst_transform,
-        height=tile_height,
-        width=tile_width
-    )
-
-    with rio.open(output, 'w', **profile) as dst:
-        dst.write(out, 1)
+        with rio.open(output, 'w', **profile) as dst:
+            dst.write(out, 1)
 
 def MeanFilter(row, col, overwrite, verbose=False, size=5):
     """
@@ -231,7 +244,7 @@ def MeanFilter(row, col, overwrite, verbose=False, size=5):
             dst.write(data, 1)
 
 
-def FillDepressions(row, col, overwrite, verbose=False):
+def FillDepressions(row, col, burn=-1.0, overwrite=False, verbose=False):
     """
     Identifie et numérote les bassins versants
     et les zones continues de même altitude,
@@ -268,7 +281,11 @@ def FillDepressions(row, col, overwrite, verbose=False):
 
         profile = ds.profile.copy()
         nodata = ds.nodata
-        elevations = ds.read(1)
+
+        if burn < 0:
+            elevations = ds.read(1)
+        else:
+            elevations = BurnTile('tiled', row, col, burn)
 
     step('Label flats')
 

@@ -240,11 +240,12 @@ def FlowAccumulation(row, col, overwrite):
         out = np.full_like(flow, 25e-6, dtype=np.float32)
         height, width = flow.shape
 
-        with fiona.open(inlet_shapefile) as fs:
-            for feature in fs:
+        if os.path.exists(inlet_shapefile):
+            with fiona.open(inlet_shapefile) as fs:
+                for feature in fs:
 
-                i, j = ds.index(*feature['geometry']['coordinates'])
-                out[i, j] += feature['properties']['AREAKM2']
+                    i, j = ds.index(*feature['geometry']['coordinates'])
+                    out[i, j] += feature['properties']['AREAKM2']
 
         # with fiona.open(filename('exterior-inlets')) as fs:
         #     for feature in fs:

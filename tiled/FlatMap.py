@@ -11,35 +11,41 @@ import terrain_analysis as ta
 import speedup
 
 from config import tileindex, filename
+from PreProcessing import ReadDEMTile
 
-def FlatDepth(row, col, **kwargs):
+def FlatDepth(row, col, min_drainage=5.0, **kwargs):
     """
     Calculate raster map
     of how much flat cells have been raised
     after DEM depression filling
     """
 
-    from scipy.ndimage.morphology import binary_closing
+    # from scipy.ndimage.morphology import binary_closing
 
-    reference_raster = filename('tiled', row=row, col=col)
+    # reference_raster = filename('tiled', row=row, col=col)
     filled_raster = filename('filled', row=row, col=col)
+    # flow_raster = filename('flow', row=row, col=col)
+    # acc_raster = filename('acc', row=row, col=col)
+    # labels_raster = filename('flat_labels', row=row, col=col)
     output = filename('flats', row=row, col=col)
     overwrite = kwargs.get('overwrite', False)
 
     if os.path.exists(output) and not overwrite:
-        click.secho('Output already exists: %s' % output, fg='yellow')
+        # click.secho('Output already exists: %s' % output, fg='yellow')
         return
 
-    with rio.open(reference_raster) as ds:
+    with rio.open(filled_raster) as ds:
 
-        reference = ds.read(1)
+        # reference = ds.read(1)
+        reference = ReadDEMTile(row, col)
+        filled = ds.read(1)
+        
+        flow = ta.flowdir(filled, ds.nodata)
+        labels, _ = speedup.flat_labels(flow, filled, ds.nodata)
+        depth = filled - reference
 
-        with rio.open(filled_raster) as ds2:
-            filled = ds2.read(1)
-            flow = ta.flowdir(filled, ds2.nodata)
-
-        filled = filled - reference
-        filled[reference == ds.nodata] = ds.nodata
+        # filled = filled - reference
+        # filled[reference == ds.nodata] = ds.nodata
         
         # mask = np.uint8(flow == 0)
         # structure = np.array([
@@ -55,13 +61,13 @@ def FlatDepth(row, col, **kwargs):
         # mask =  np.uint8(binary_closing(mask, structure=structure, iterations=2))
         # filled[mask == 0] = ds.nodata
 
-        filled[flow != 0] = ds.nodata
+        depth[(reference == ds.nodata) | (labels == 0)] = ds.nodata
 
         profile = ds.profile.copy()
         profile.update(compress='deflate')
 
         with rio.open(output, 'w', **profile) as dst:
-            dst.write(filled, 1)
+            dst.write(depth, 1)
 
 def FlatMap(row, col, min_drainage, **kwargs):
     """

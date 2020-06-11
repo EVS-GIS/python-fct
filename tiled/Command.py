@@ -15,22 +15,59 @@ import time
 from datetime import datetime, timedelta
 from config import tileindex, workdir, filename, parameter
 
-def command_info(command, ntiles, nprocesses=1):
+def pretty_time_delta(delta):
+    """
+    See https://gist.github.com/thatalextaylor/7408395
+    """
+
+    days, seconds = divmod(int(delta), 86400)
+    hours, seconds = divmod(seconds, 3600)
+    minutes, seconds = divmod(seconds, 60)
+
+    if days > 0:
+        return '%d d %d h %d min %.0f s' % (days, hours, minutes, seconds)
+    elif hours > 0:
+        return '%d h %d min %.0f s' % (hours, minutes, seconds)
+    elif minutes > 0:
+        return '%d min %d s' % (minutes, seconds)
+    else:
+        return '%.1f s' % (delta,)
+
+def command_info(command, ntiles, kwargs):
 
     start_time = time.time()
     tileset = parameter('workspace.tileset')
     workdir = parameter('workspace.workdir')
 
+    processes = kwargs.get('processes', 0)
+    overwrite = kwargs.get('overwrite', False)
+
     click.secho('Command        : %s' % command, fg='green')
-    click.secho('Version        : %s' % '1.0.5')
-    
+    click.secho('FCT version    : %s' % '1.0.5')
+
     click.secho('Tileset        : %s' % tileset)
     click.secho('# of tiles     : %d' % ntiles)
-    click.secho('Work Directory : %s' % workdir)
+    click.secho('Tile Directory : %s' % workdir)
+    
+    parameters = {
+        k: v for k, v in kwargs.items()
+        if k not in ['progress', 'overwrite', 'processes', 'verbose', 'tile']
+    }
+
+    if parameters:
+        click.secho('--  Parameters :')
+        for param, value in parameters.items():
+            click.secho('%14s : %s' % (param, value), fg='cyan')
+
+    if processes == 1:
+        click.echo('Run single process')
+    elif processes > 1:
+        click.secho('Run %d parallel processes' % processes, fg='yellow')
+
+    if overwrite:
+        click.secho('Overwrite existing files', fg='yellow')
 
     click.secho('Start time     : %s' % datetime.fromtimestamp(start_time))
-    if nprocesses > 1:
-        click.secho('Running %d parallel processes' % nprocesses, fg='yellow')
 
     return start_time
 
@@ -46,16 +83,12 @@ def aggregate(group, name=None):
         def decorated(*args, **kwargs):
 
             tile_index = tileindex()
-            start_time = command_info(name or fun.__name__, len(tile_index))
+            start_time = command_info(name or fun.__name__, len(tile_index), kwargs)
 
             fun(*args, **kwargs)
 
             elapsed = time.time() - start_time
-            cpu_time = time.process_time()
-            
-            click.secho('Done', fg='green')
-            click.secho('Elapsed time    : %s' % timedelta(seconds=elapsed))
-            click.secho('Processing time : %s' % timedelta(seconds=cpu_time))
+            click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
 
         return decorated
 
@@ -82,42 +115,55 @@ def parallel(group, tilefun, name=None):
         """
 
         @group.command(name)
+        @click.option('--tile', type=(int, int), default=(None, None), help='Process only one tile')
         @click.option('--processes', '-j', default=1, help="Execute j parallel processes")
         @click.option('--progress', '-p', default=False, help="Display progress bar", is_flag=True)
         @wraps(fun)
-        def decorated(processes, progress, **kwargs):
+        def decorated(**kwargs):
             """
             Multiprocessing wrapper
             See https://stackoverflow.com/questions/8804830/python-multiprocessing-picklingerror-cant-pickle-type-function
             """
 
             tile_index = fun()
-            start_time = command_info(name or fun.__name__, len(tile_index), processes)
+            tile = kwargs['tile']
+            processes = kwargs['processes']
+            progress = kwargs['progress']
+            start_time = command_info(name or fun.__name__, len(tile_index), kwargs)
 
-            arguments = ([tilefun, row, col, kwargs] for row, col in tile_index)
+            kwargs = {k: v for k, v in kwargs.items() if k not in ('progress', 'processes', 'tile')}
 
-            with Pool(processes=processes) as pool:
+            if tile != (None, None):
 
-                pooled = pool.imap_unordered(starcall, arguments)
+                row, col = tile
+                if (row, col) in tile_index:
+                    click.secho('Processing tile (%d, %d)' % (row, col), fg='cyan')
+                    tilefun(row, col, **kwargs)
+                else:
+                    click.secho('No such tile (%d, %d)' % (row, col), fg='red')
 
-                if progress:
+            else:
 
-                    with click.progressbar(pooled, length=len(tile_index)) as bar:
-                        for _ in bar:
-                            # click.echo('\n\r')
+                arguments = ([tilefun, row, col, kwargs] for row, col in tile_index)
+
+                with Pool(processes=processes) as pool:
+
+                    pooled = pool.imap_unordered(starcall, arguments)
+
+                    if progress:
+
+                        with click.progressbar(pooled, length=len(tile_index)) as bar:
+                            for _ in bar:
+                                # click.echo('\n\r')
+                                pass
+
+                    else:
+
+                        for _ in pooled:
                             pass
 
-                else:
-
-                    for _ in pooled:
-                        pass
-
             elapsed = time.time() - start_time
-            # cpu_time = time.process_time()
-
-            click.secho('Done', fg='green')
-            click.secho('Elapsed time: %s' % timedelta(seconds=elapsed))
-            # click.secho('CPU time: %s' % timedelta(seconds=cpu_time))
+            click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
 
         return decorated
 
@@ -349,8 +395,9 @@ def boxes(padding):
             TileExtendedBoundingBox(row, col, padding)
 
 @parallel(prepare, FillDepressions)
-@verbosable
+@click.option('--burn', '-b', default=-1.0, help='Burn delta >= 0 (in meters)')
 @overwritable
+@verbosable
 def fill():
     """
     Priority-Flood Depressions Filling

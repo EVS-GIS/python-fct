@@ -167,7 +167,7 @@ def FixNoFlow(x0, y0, min_drainage=5.0, fix=False):
 
     return ds.xy(i, j)
 
-def test():
+def test(fix=False):
 
     noflow = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/NOFLOW_RGE5M_ALL.shp'
     targets = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/NOFLOW_TARGETS.shp'
@@ -179,7 +179,7 @@ def test():
                 for f in progress:
                     x, y = f['geometry']['coordinates']
                     try:
-                        tox, toy = FixNoFlow(x, y, fix=True)
+                        tox, toy = FixNoFlow(x, y, fix=fix)
                         f['geometry']['coordinates'] = [tox, toy]
                         dst.write(f)
                     except ValueError as e:
