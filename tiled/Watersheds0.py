@@ -14,17 +14,23 @@ Watershed Analysis
 """
 
 import os
-import numpy as np
-import rasterio as rio
-import fiona
-from config import tileindex, filename, parameter
-import click
-
 import itertools
 from operator import itemgetter
+from multiprocessing import Pool
 
+import numpy as np
+import click
+
+import rasterio as rio
+from rasterio import features
+import fiona
+import fiona.crs
+from shapely.geometry import asShape
+
+from config import tileindex, filename, parameter
+from Command import starcall
 import terrain_analysis as ta
-
+import speedup
 from tileio import PadRaster
 
 origin_x = float('inf')
@@ -32,9 +38,19 @@ origin_y = float('-inf')
 size_x = 5.0*int(parameter('input.width'))
 size_y = 5.0*int(parameter('input.height'))
 
-for tile in tileindex().values():
-    origin_x = min(origin_x, tile.x0)
-    origin_y = max(origin_y, tile.y0)
+def iniitalize():
+    """
+    DOCME
+    """
+
+    global origin_x
+    global origin_y
+
+    for tile in tileindex().values():
+        origin_x = min(origin_x, tile.x0)
+        origin_y = max(origin_y, tile.y0)
+
+iniitalize()
 
 def xy2tile(x, y):
     """
@@ -63,7 +79,7 @@ def border(height, width):
             yield i, j
         offset = 0
 
-def Watershed(row, col, wid, seeds):
+def Watershed(row, col, seeds, wid=1, tmp=''):
     """
     seeds: (x, y, value, distance)
     """
@@ -86,7 +102,8 @@ def Watershed(row, col, wid, seeds):
     pixels = ta.worldtopixel(np.array([coord(seed) for seed in seeds], dtype='float32'), transform, gdal=False)
     values = np.array([value(seed) for seed in seeds], dtype='float32')
     out[pixels[:, 0], pixels[:, 1]] = values
-    ta.watershed(flow, out, 0)
+    # ta.watershed(flow, out, 0)
+    speedup.watershed(flow, out, 0)
 
     spillover = list()
     for i, j in border(height, width):
@@ -125,11 +142,100 @@ def Watershed(row, col, wid, seeds):
     transform = transform * transform.translation(1, 1)
     profile.update(dtype='float32', height=height, width=width, transform=transform, nodata=0)
 
-    with rio.open(destination, 'w', **profile) as dst:
+    with rio.open(destination + tmp, 'w', **profile) as dst:
         dst.write(out, 1)
 
-    return spillover
+    return spillover, destination + tmp
 
+def VectorizeTile(wid, row, col):
+    """
+    DOCME
+    """
+
+    rasterfile = filename('watershed-u', row=row, col=col, wid=wid)
+
+    if os.path.exists(rasterfile):
+
+        with rio.open(rasterfile) as ds:
+            watershed = ds.read(1)
+            transform = ds.transform
+
+        polygons = features.shapes(
+            watershed,
+            connectivity=4,
+            transform=transform)
+
+        return [polygon for polygon, value in polygons if value == 1], row, col
+
+    else:
+
+        return [], row, col
+
+def Vectorize(wid, processes=1):
+    """
+    DOCME
+    """
+
+    output = filename('watershed', wid=wid)
+
+    epsg = 2154
+    schema = {
+        'geometry': 'Polygon',
+        'properties': [
+            ('WATID', 'int:4'),
+            ('ROW', 'int:3'),
+            ('COL', 'int:3')
+        ]
+    }
+    crs = fiona.crs.from_epsg(epsg)
+
+    options = dict(
+            driver='ESRI Shapefile',
+            crs=crs,
+            schema=schema
+        )
+
+    if processes == 1:
+
+        with fiona.open(output, 'w', **options) as dst:
+            with click.progressbar(tileindex()) as bar:
+                for row, col in bar:
+                    polygons, _, _ = VectorizeTile(wid, row, col)
+                    for polygon in polygons:
+                        geom = asShape(polygon).buffer(0.0)
+                        feature = {
+                            'geometry': geom.__geo_interface__,
+                            'properties': {
+                                'WATID': wid,
+                                'ROW': row,
+                                'COL': col
+                            }
+                        }
+                        dst.write(feature)
+
+    else:
+
+        kwargs = dict()
+        arguments = [(VectorizeTile, wid, row, col, kwargs) for row, col in tileindex()]
+
+        with fiona.open(output, 'w', **options) as dst:
+            with Pool(processes=processes) as pool:
+
+                pooled = pool.imap_unordered(starcall, arguments)
+                with click.progressbar(pooled, length=len(arguments)) as bar:
+
+                    for polygons, row, col in bar:
+                        for polygon in polygons:
+                            geom = asShape(polygon).buffer(0.0)
+                            feature = {
+                                'geometry': geom.__geo_interface__,
+                                'properties': {
+                                    'WATID': wid,
+                                    'ROW': row,
+                                    'COL': col
+                                }
+                            }
+                            dst.write(feature)
 
 def print_spillover_tiles(spillover):
 
@@ -137,20 +243,7 @@ def print_spillover_tiles(spillover):
     tiles = set([tile(s) for s in spillover])
     print(tiles)
 
-def test():
-
-    # River Ain
-    x = 869165.0
-    y = 6523885.0
-    row, col = xy2tile(x, y)
-    print(row, col)
-    wid = 1
-
-    seeds = [(x, y, 1)]
-    spillover = Watershed(row, col, wid, seeds)
-    return spillover
-
-def step(spillover, wid=1):
+def step(spillover, wid=1, processes=1):
 
     xy = itemgetter(0, 1)
     value = itemgetter(2)
@@ -160,10 +253,74 @@ def step(spillover, wid=1):
     tiles = itertools.groupby(spillover, key=tile)
 
     g_spillover = list()
+    tmpfiles = list()
 
-    for (row, col), seeds in tiles:
-        seeds = [xy(seed) + (value(seed),) for seed in seeds]
-        t_spillover = Watershed(row, col, wid, seeds)
-        g_spillover.extend(t_spillover)
+    if processes == 1:
+
+        for (row, col), seeds in tiles:
+            seeds = [xy(seed) + (value(seed),) for seed in seeds]
+            t_spillover, tmpfile = Watershed(row, col, seeds, wid=wid, tmp='.tmp')
+            g_spillover.extend(t_spillover)
+            tmpfiles.append(tmpfile)
+
+        for tmpfile in tmpfiles:
+            os.rename(tmpfile, tmpfile.replace('.tif.tmp', '.tif'))
+
+    else:
+
+        kwargs = {'tmp': '.tmp', 'wid': wid}
+        arguments = list()
+
+        for (row, col), seeds in tiles:
+            seeds = [xy(seed) + (value(seed),) for seed in seeds]
+            arguments.append((Watershed, row, col, seeds, kwargs))
+
+        with Pool(processes=processes) as pool:
+
+            pooled = pool.imap_unordered(starcall, arguments)
+            for t_spillover, tmpfile in pooled:
+                g_spillover.extend(t_spillover)
+                tmpfiles.append(tmpfile)
+
+            # with click.progressbar(pooled, length=len(arguments)) as bar:
+            #     for t_spillover in bar:
+            #         g_spillover.extend(t_spillover)
+
+        for tmpfile in tmpfiles:
+            os.rename(tmpfile, tmpfile.replace('.tif.tmp', '.tif'))
 
     return g_spillover
+
+@click.command()
+@click.option('--processes', '-j', default=1)
+@click.option('--wid', '-w', default=1)
+def test(processes=1, wid=1):
+
+    # River Ain
+    # x = 869165.0
+    # y = 6523885.0
+
+    # River Rhone
+    x = 849265.0
+    y = 6250190.0
+    row, col = xy2tile(x, y)
+
+    seeds = [(x, y, 1, row, col)]
+    count = 0
+    tile = itemgetter(3, 4)
+
+    click.secho('Watershed ID = %d' % wid, fg='cyan')
+    click.secho('Run %d processes' % processes, fg='yellow')
+
+    while seeds:
+
+        seeds = step(seeds, wid, processes)
+
+        count += 1
+        tiles = set([tile(s) for s in seeds])
+        click.echo('Step %02d -- %d spillovers, %d tiles' % (count, len(seeds), len(tiles)))
+
+    click.secho('Ok', fg='green')
+
+if __name__ == '__main__':
+    test()
