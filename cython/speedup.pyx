@@ -46,6 +46,9 @@ ctypedef deque[Cell] CellQueue
 ctypedef pair[float, Cell] ZCell
 ctypedef priority_queue[ZCell] ZPriorityQueue
 
+ctypedef pair[float, Cell] ShortestEntry
+ctypedef priority_queue[ShortestEntry] ShortestQueue
+
 ctypedef unsigned int Label
 ctypedef pair[Label, Label] LabelPair
 ctypedef pair[long, long] Pixel
@@ -93,3 +96,5 @@ include "Streams.pxi"
 include "Raster.pxi"
 include "NoFlow.pxi"
 include "Watershed.pxi"
+include "ValleyBottomFlow.pxi"
+include "ValleyBottomShortest.pxi"
