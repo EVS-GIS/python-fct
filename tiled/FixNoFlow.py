@@ -52,6 +52,12 @@ def FixNoFlow(x0, y0, min_drainage=5.0, fix=False):
     ds = None
     profile = None
 
+
+    flow_raster1 = '/var/local/fct/RMC/FLOW_RGE5M_TILES.vrt'
+    acc_raster1 = '/var/local/fct/RMC/ACC_RGE5M_TILES.vrt'
+    flow1ds = rio.open(flow_raster1)
+    acc1ds = rio.open(acc_raster1)
+    
     flow_raster2 = '/var/local/fct/RMC/FLOW_RGE5M_TILES2.vrt'
     acc_raster2 = '/var/local/fct/RMC/ACC_RGE5M_TILES2.vrt'
     flow2ds = rio.open(flow_raster2)
@@ -77,15 +83,34 @@ def FixNoFlow(x0, y0, min_drainage=5.0, fix=False):
         acc_raster1 = filename('acc', row=row, col=col)
 
         with rio.open(acc_raster1) as ds:
-            streams1 = ds.read(1) > min_drainage
+            acc1_data = ds.read(1)
 
         with rio.open(flow_raster1) as ds:
             profile = ds.profile.copy()
-            flow1 = ds.read(1)
+            flow1_data = ds.read(1)
             height, width = flow1.shape
 
     def intile(i, j):
          return all([i >= 0, i < height, j >= 0, j < width])
+
+    def flow1(i, j):
+
+        if intile(i, j):
+            return flow1_data[i, j]
+        
+        x, y = ds.xy(i, j)
+        return int(next(flow1ds.sample([(x, y)], 1)))
+
+    def acc1(i, j):
+
+        if intile(i, j):
+            return acc1_data[i, j]
+        
+        x, y = ds.xy(i, j)
+        return float(next(acc1ds.sample([(x, y)], 1)))
+
+    def streams1(i, j):
+        return acc1(i, j) > min_drainage
 
     def flow2(i, j):
         x, y = ds.xy(i, j)
@@ -110,36 +135,36 @@ def FixNoFlow(x0, y0, min_drainage=5.0, fix=False):
 
     while not streams2(i, j):
 
+        # TODO handle confluence, select max upstream acc
+
+        max_acck = min_drainage
+        max_ijk = None
+
         for k in range(8):
 
-            ix, jx = i + ci[k], j + cj[k]
-            if intile(ix, jx) and flow1[ix, jx] == upward[k] and streams1[ix, jx]:
-                i, j = ix, jx
-                break
+            ik, jk = i + ci[k], j + cj[k]
+            
+            if flow1(ik, jk) == upward[k]:
+                acck = acc1(ik, jk)
+                if acck > max_acck:
+                    max_acck = acck
+                    max_ijk = (ik, jk)
+
+        if max_ijk is not None:
+
+            i, j = max_ijk
+
+            if not intile(i, j):
+                x, y = ds.xy(i, j)
+                row, col = xy2tile(x, y)
+                read_tile(row, col)
+                i, j = ds.index(x, y)
 
         else:
 
-            dsx = ds
+            raise ValueError('No match for (%f, %f)' % (x0, y0))
 
-            for k in range(8):
-
-                ix, jx = i + ci[k], j + cj[k]
-                if not intile(ix, jx):
-                    x, y = dsx.xy(ix, jx)
-                    rowx, colx = xy2tile(x, y)
-                    if not (rowx == row and colx == col):
-                        row, col = rowx, colx
-                        read_tile(row, col)
-                    ix, jx = ds.index(x, y)
-                    if flow1[ix, jx] == upward[k] and streams1[ix, jx]:
-                        i, j = ix, jx
-                        break
-
-            else:
-
-                raise ValueError('No match for (%f, %f)' % (x0, y0))
-
-    while streams1[i, j]:
+    while streams1(i, j):
 
         direction = flow2(i, j)
         if direction == -1 or direction == 0:
@@ -157,7 +182,7 @@ def FixNoFlow(x0, y0, min_drainage=5.0, fix=False):
             read_tile(row, col)
             i, j = ds.index(x, y)
 
-    while not streams1[i, j]:
+    while not streams1(i, j):
 
         direction = flow2(i, j)
         if direction == -1 or direction == 0:
@@ -177,6 +202,8 @@ def FixNoFlow(x0, y0, min_drainage=5.0, fix=False):
 
     write_tile(row, col)
 
+    flow1ds.close()
+    acc1ds.close()
     flow2ds.close()
     acc2ds.close()
 

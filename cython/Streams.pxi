@@ -17,7 +17,7 @@ Vectorize Stream Features
 @cython.wraparound(False)
 def stream_to_feature(
     short[:, :] streams,
-    short[:, :] flow):
+    D8Flow[:, :] flow):
     """
     Extract Stream Segments
 
@@ -42,7 +42,7 @@ def stream_to_feature(
         long height = flow.shape[0], width = flow.shape[1]
         long i, j, current
         int x, di, dj
-        short direction
+        D8Flow direction
         bint head
 
         char[:, :] inflow
@@ -52,8 +52,8 @@ def stream_to_feature(
         Cell c
         list segment
 
-        short FLOW_NODATA = -1
-        short NO_FLOW = 0
+        D8Flow FLOW_NODATA = -1
+        D8Flow NO_FLOW = 0
 
     inflow = np.zeros((height, width), dtype=np.int8)
 
