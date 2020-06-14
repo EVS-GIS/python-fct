@@ -85,7 +85,7 @@ def test():
         height, width = elevations.shape
 
         def intile(i, j):
-         return all([i >= 0, i < height, j >= 0, j < width])
+            return all([i >= 0, i < height, j >= 0, j < width])
 
         def mk_reference():
 
@@ -139,8 +139,8 @@ def test():
         speedup.valley_bottom_shortest(reference, elevations, ds.nodata, distance, 1000.0)
         
         relative = elevations - reference
-        relative[(reference == ds.nodata) | (relative > 15.0)] = ds.nodata
         distance[(reference == ds.nodata) | (relative > 15.0)] = ds.nodata
+        relative[(reference == ds.nodata) | (relative > 15.0)] = ds.nodata
 
         with rio.open(output_relative_shortest, 'w', **profile) as dst:
             dst.write(relative, 1)
