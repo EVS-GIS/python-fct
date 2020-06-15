@@ -88,6 +88,7 @@ cdef inline int ilog2(unsigned char x) nogil:
 
     return r
 
+include "Filters.pxi"
 include "WatershedGraph.pxi"
 include "Flats.pxi"
 include "FlowAccumulation.pxi"
@@ -99,3 +100,4 @@ include "Watershed.pxi"
 include "ValleyBottomFlow.pxi"
 include "ValleyBottomShortest.pxi"
 include "Shortest.pxi"
+include "RasterBuffer.pxi"
