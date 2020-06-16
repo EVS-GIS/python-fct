@@ -33,6 +33,7 @@ def noflow(
         unsigned char inflowij
         CellStack stack
         Cell c
+        short x
 
         CellSequence notflowing
 

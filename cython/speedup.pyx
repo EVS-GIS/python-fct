@@ -35,11 +35,12 @@ from cython.operator cimport dereference, preincrement
 cdef extern from "<algorithm>" namespace "std":
     cdef T min[T](T a, T b) nogil
     cdef T max[T](T a, T b) nogil
+    cdef void nth_element[T](T first, T nth, T last) nogil
 
 ctypedef short D8Flow
-
 ctypedef float ContributingArea
 ctypedef pair[int, int] Cell
+
 ctypedef vector[Cell] CellSequence
 ctypedef stack[Cell] CellStack
 ctypedef deque[Cell] CellQueue
