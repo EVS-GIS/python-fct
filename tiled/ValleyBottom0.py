@@ -98,6 +98,7 @@ def TileValleyBottom(axis, row, col, seeds):
                 relative = ds.read(1)
                 reference = elevations - relative
                 reference[relative == ds.nodata] = nodata
+                del relative
 
     if reference is None:
         reference = np.full_like(elevations, nodata)
@@ -246,9 +247,10 @@ def CropAndScale(axis, tiles, processes=1):
 
     if processes == 1:
 
-        for row, col in tiles:
-            for rasterfile, scale in rasters(row, col):
-                CropAndScaleRasterTile(rasterfile, scale)
+        with click.progressbar(tiles) as processing:
+            for row, col in processing:
+                for rasterfile, scale in rasters(row, col):
+                    CropAndScaleRasterTile(rasterfile, scale)
 
     else:
 
@@ -268,6 +270,8 @@ def CropAndScale(axis, tiles, processes=1):
 
 def ValleyBottom(axis, processes=1):
 
+    output = os.path.join(workdir, 'AX%03d_TILES.csv' % axis)
+
     g_tiles = set()
     tile = itemgetter(4, 5)
     count = 0
@@ -279,10 +283,16 @@ def ValleyBottom(axis, processes=1):
         tiles = set([tile(s) for s in seeds])
         g_tiles.update(tiles)
         count += 1
-        click.echo('Step %02d -- %d spillovers, %d tiles' % (count, len(seeds), len(tiles)))
+        click.echo('Step %02d -- %d tiles, %d spillovers' % (count, len(tiles), len(seeds)))
 
         seeds = ValleyBottomIteration(seeds, axis, processes)
 
     click.echo('Done after %d iterations' % count)
 
+    click.secho('Crop and scale output tiles', fg='cyan')
     CropAndScale(axis, g_tiles, processes)
+
+    click.secho('Save axis tiles list', fg='cyan')
+    with open(output, 'w') as fp:
+        for row, col in sorted(g_tiles):
+            fp.write('%d,%d,%d\n' % (axis, row, col))

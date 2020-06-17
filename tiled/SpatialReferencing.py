@@ -14,10 +14,12 @@ Measure along Reference Axis, Space Discretization
 ***************************************************************************
 """
 
+import os
 import math
 import click
 import numpy as np
 from operator import itemgetter
+from collections import defaultdict
 
 import rasterio as rio
 from rasterio import features
@@ -31,6 +33,8 @@ from tileio import ReadRasterTile
 from rasterize import rasterize_linestring, rasterize_linestringz
 import terrain_analysis as ta
 import speedup
+
+workdir = '/media/crousson/Backup/TESTS/TuilesAin'
 
 def nearest_value_and_distance(refpixels, domain, nodata):
     """
@@ -99,16 +103,14 @@ def nearest_value_and_distance(refpixels, domain, nodata):
 
     return values, distance
 
-def test():
+def SpatialReference(axis, row, col, mdelta=200.0):
 
-    row = 5
-    col = 7
-    valley_bottom_rasterfile = '/media/crousson/Backup/WORK/TestAin/AIN_RELZ_FLOW_05_07.tif'
-    refaxis_shapefile = '/media/crousson/Backup/WORK/TestAin/AIN_AXREF_05_07.shp'
-    output_distance = '/media/crousson/Backup/WORK/TestAin/AIN_AXIS_DISTANCE_05_07.tif'
-    output_measure = '/media/crousson/Backup/WORK/TestAin/AIN_AXIS_MEASURE_05_07.tif'
-    output_dgo = '/media/crousson/Backup/WORK/TestAin/AIN_DGO_05_07.tif'
-    output_dgo_shapefile = '/media/crousson/Backup/WORK/TestAin/AIN_DGO_05_07.shp'
+    valley_bottom_rasterfile = os.path.join(workdir, 'AX%03d_FLOW_RELZ_%02d_%02d.tif' % (axis, row, col))
+    refaxis_shapefile = os.path.join(workdir, 'AX%03d_REFAXIS.shp' %axis)
+    output_distance = os.path.join(workdir, 'AX%03d_AXIS_DISTANCE_%02d_%02d.tif' % (axis, row, col))
+    output_measure = os.path.join(workdir, 'AX%03d_AXIS_MEASURE_%02d_%02d.tif' % (axis, row, col))
+    output_dgo = os.path.join(workdir, 'AX%03d_DGO_%02d_%02d.tif' % (axis, row, col))
+    output_dgo_shapefile = os.path.join(workdir, 'AX%03d_DGO_%02d_%02d.shp' % (axis, row, col))
 
     with rio.open(valley_bottom_rasterfile) as ds:
 
@@ -123,15 +125,25 @@ def test():
 
         click.echo('Map Stream Network')
 
-        def intile(i, j):
-            return all([i >= 0, i < height, j >= 0, j < width])
+        def accept(i, j):
+            return all([i >= -height, i < 2*height, j >= -width, j < 2*width])
 
         coord = itemgetter(0, 1)
+
+        mmin = float('inf')
+        mmax = float('-inf')
 
         with fiona.open(refaxis_shapefile) as fs:
             for feature in fs:
 
                 m0 = feature['properties']['M0']
+                length = feature['properties']['LENGTH']
+
+                if m0 < mmin:
+                    mmin = m0
+
+                if m0 + length > mmax:
+                    mmax = m0 + length
 
                 coordinates = np.array([
                     coord(p) + (m0,) for p in reversed(feature['geometry']['coordinates'])
@@ -145,7 +157,7 @@ def test():
 
                 for a, b in zip(coordinates[:-1], coordinates[1:]):
                     for i, j, m in rasterize_linestringz(a, b):
-                        if intile(i, j):
+                        if accept(i, j):
                             # distance[i, j] = 0
                             # measure[i, j] = m
                             refaxis_pixels.append((i, j, m))
@@ -157,6 +169,12 @@ def test():
 
         # ta.shortest_distance(axr, ds.nodata, startval=1, distance=distance, feedback=ta.ConsoleFeedback())
         # ta.shortest_ref(axr, ds.nodata, startval=1, fillval=0, out=measure, feedback=ta.ConsoleFeedback())
+
+        if not refaxis_pixels:
+            return []
+
+        mmin = math.floor(mmin / mdelta) * mdelta
+        mmax = math.ceil(mmax / mdelta) * mdelta
 
         click.echo('Calculate Measure & Distance Raster')
 
@@ -183,7 +201,7 @@ def test():
 
         click.echo('Create DGOs')
 
-        breaks = np.arange(444e3, 499e3, 200)
+        breaks = np.arange(mmin, mmax, mdelta)
         dgo = np.int32(np.digitize(measure, breaks))
         dgo_measures = np.round(0.5 * (breaks + np.roll(breaks, 1)), 1)
 
@@ -219,36 +237,43 @@ def test():
         crs = fiona.crs.from_epsg(2154)
         options = dict(driver='ESRI Shapefile', crs=crs, schema=schema)
         count = 0
+        dgos = list()
 
         with fiona.open(output_dgo_shapefile, 'w', **options) as fst:
             for polygon, gid in polygons:
+                
                 geom = asShape(polygon).buffer(0.0)
+                measure = float(dgo_measures[int(gid)])
                 feature = {
                     'geometry': geom.__geo_interface__,
                     'properties': {
                         'GID': int(gid),
                         'ROW': row,
                         'COL': col,
-                        'M': float(dgo_measures[int(gid)])
+                        'M': measure
                     }
                 }
+                
                 fst.write(feature)
                 count += 1
 
-        click.echo('Created %d DGOs' % count)
-        click.echo('DGO Range = %d - %d' % (1, len(breaks)))
-        click.echo('Measure Range =  %.0f - %.0f' % (np.min(breaks), np.max(breaks)))
+                dgos.append((measure, int(gid), axis, row, col))
 
-def test_relz():
+        # click.echo('Created %d DGOs' % count)
+        # click.echo('DGO Range = %d - %d' % (1, len(breaks)))
+        # click.echo('Measure Range =  %.0f - %.0f' % (np.min(breaks), np.max(breaks)))
 
-    row = 5
-    col = 7
+        return dgos
+
+def DistanceAndHeightAboveNearestDrainage(axis, row, col):
+
     elevation_raster = filename('tiled', row=row, col=col)
-    valley_bottom_rasterfile = '/media/crousson/Backup/WORK/TestAin/AIN_RELZ_FLOW_05_07.tif'
-    network_shapefile = '/media/crousson/Backup/WORK/TestAin/AIN_RHT_05_07.shp'
+    valley_bottom_rasterfile = os.path.join(workdir, 'AX%03d_FLOW_RELZ_%02d_%02d.tif' % (axis, row, col))
+    network_shapefile = os.path.join(workdir, 'RHT_AXIS_TILED.shp')
+    # network_shapefile = '/media/crousson/Backup/WORK/TestAin/AIN_RHT_05_07.shp'
     # network_shapefile = '/media/crousson/Backup/WORK/TestAin/AIN_RHT_SMOOTH_05_07.shp'
-    output_relative_z = '/media/crousson/Backup/WORK/TestAin/AIN_RELZ_NEAREST_05_07.tif'
-    output_stream_distance = '/media/crousson/Backup/WORK/TestAin/AIN_NEARESTDIST_05_07.tif'
+    output_relative_z = os.path.join(workdir, 'AX%03d_NEAREST_RELZ_%02d_%02d.tif' % (axis, row, col))
+    output_stream_distance = os.path.join(workdir, 'AX%03d_NEAREST_DISTANCE_%02d_%02d.tif' % (axis, row, col))
 
     with rio.open(valley_bottom_rasterfile) as ds:
 
@@ -262,10 +287,19 @@ def test_relz():
 
         click.echo('Map Stream Network')
 
-        def intile(i, j):
-            return all([i >= 0, i < height, j >= 0, j < width])
+        def accept(feature):
+            
+            properties = feature['properties']
+            return all([
+                properties['AXH'] == axis,
+                properties['ROW'] == row,
+                properties['COL'] == col
+            ])
 
-        coord = itemgetter(0, 1)
+        def accept_pixel(i, j):
+            return all([i >= -height, i < 2*height, j >= -width, j < 2*width])
+
+        coord = itemgetter(0, 1, 2)
         unique = set()
 
         with rio.open(elevation_raster) as ds2:
@@ -274,20 +308,22 @@ def test_relz():
         with fiona.open(network_shapefile) as fs:
             for feature in fs:
 
-                coordinates = np.array([
-                    coord(p) for p in feature['geometry']['coordinates']
-                ], dtype='float32')
+                if accept(feature):
 
-                pixels = ta.worldtopixel(coordinates, ds.transform, gdal=False)
+                    coordinates = np.array([
+                        coord(p) for p in feature['geometry']['coordinates']
+                    ], dtype='float32')
 
-                for a, b in zip(pixels[:-1], pixels[1:]):
-                    for i, j in rasterize_linestring(a, b):
-                        if intile(i, j) and (i, j) not in unique:
-                            # distance[i, j] = 0
-                            # measure[i, j] = m
-                            z = elevations[i, j]
-                            refaxis_pixels.append((i, j, z))
-                            unique.add((i, j))
+                    coordinates[:, :2] = ta.worldtopixel(coordinates[:, :2], ds.transform, gdal=False)
+
+                    for a, b in zip(coordinates[:-1], coordinates[1:]):
+                        for i, j, z in rasterize_linestringz(a, b):
+                            if accept_pixel(i, j) and (i, j) not in unique:
+                                # distance[i, j] = 0
+                                # measure[i, j] = m
+                                # z = elevations[i, j]
+                                refaxis_pixels.append((i, j, z))
+                                unique.add((i, j))
 
         # output_rasterized_ref = '/media/crousson/Backup/WORK/TestAin/AIN_RASTERIZEDREF_05_07.shp'
         # schema = {
@@ -307,6 +343,8 @@ def test_relz():
         #         properties = {'GID': k, 'I': i, 'J': j, 'Z': float(z)}
         #         fst.write({'geometry': geom, 'properties': properties})
 
+        if not refaxis_pixels:
+            return
 
         click.echo('Calculate Reference & Distance Raster')
 
@@ -333,17 +371,16 @@ def test_relz():
         with rio.open(output_relative_z, 'w', **profile) as dst:
             dst.write(relative, 1)
 
-def map_ref_points(points):
+def MapReferencePoints(axis, row, col, points):
 
-    row = 5
-    col = 7
     elevation_raster = filename('tiled', row=row, col=col)
-    valley_bottom_rasterfile = '/media/crousson/Backup/WORK/TestAin/AIN_RELZ_FLOW_05_07.tif'
+    valley_bottom_rasterfile = os.path.join(workdir, 'AX%03d_FLOW_RELZ_%02d_%02d.tif' % (axis, row, col))
+    network_shapefile = os.path.join(workdir, 'RHT_AXIS_TILED.shp')
     # refaxis_shapefile = '/media/crousson/Backup/WORK/TestAin/AIN_AXREF_05_07.shp'
-    network_shapefile = '/media/crousson/Backup/WORK/TestAin/AIN_RHT_05_07.shp'
+    # network_shapefile = '/media/crousson/Backup/WORK/TestAin/AIN_RHT_05_07.shp'
     # network_shapefile = '/media/crousson/Backup/WORK/TestAin/AIN_RHT_SMOOTH_05_07.shp'
 
-    output = '/media/crousson/Backup/WORK/TestAin/AIN_TESTPOINTS_05_07.shp'
+    output = os.path.join(workdir, 'AX%03d_REFPOINTS_%02d_%02d.tif' % (axis, row, col))
 
     with rio.open(valley_bottom_rasterfile) as ds:
 
@@ -447,13 +484,81 @@ def map_ref_points(points):
                 }
                 fst.write(feature)
 
-if __name__ == '__main__':
-    test()
-    test_relz()
-    map_ref_points([
-        (888067, 6561917),
-        (903433, 6590772),
-        (905057, 6593619),
-        (903460, 6590613),
-        (901024, 6583392)
-    ])
+# if __name__ == '__main__':
+#     test()
+#     test_relz()
+#     map_ref_points([
+#         (888067, 6561917),
+#         (903433, 6590772),
+#         (905057, 6593619),
+#         (903460, 6590613),
+#         (901024, 6583392)
+#     ])
+
+def testDGOs():
+
+    axis = 1044
+    units = defaultdict(list)
+
+    tilefile = os.path.join(workdir, 'AX%03d_TILES.csv' % axis)
+    with open(tilefile) as fp:
+        tiles = [tuple(int(x) for x in line.split(',')) for line in fp]
+
+    with click.progressbar(tiles) as bar:
+        for axis, row, col in bar:
+
+            for measure, gid, _, _, _ in SpatialReference(axis, row, col):
+                units[axis, measure].append((gid, row, col))
+
+            # DistanceAndHeightAboveNearestDrainage(axis, row, col)
+
+    return units
+
+def testHAND():
+
+    axis = 1044
+
+    tilefile = os.path.join(workdir, 'AX%03d_TILES.csv' % axis)
+    with open(tilefile) as fp:
+        tiles = [tuple(int(x) for x in line.split(',')) for line in fp]
+
+    with click.progressbar(tiles) as bar:
+        for axis, row, col in bar:
+
+            DistanceAndHeightAboveNearestDrainage(axis, row, col)
+
+def AggregateDGOs():
+
+    axis = 1044
+    output = os.path.join(workdir, 'AX%03d_DGO_PARTS.shp' % axis)
+
+    schema = {
+        'geometry': 'Polygon',
+        'properties': [
+            ('GID', 'int'),
+            ('AXIS', 'int:4'),
+            ('ROW', 'int:3'),
+            ('COL', 'int:3'),
+            ('M', 'float:10.2')
+        ]
+    }
+    crs = fiona.crs.from_epsg(2154)
+    options = dict(driver='ESRI Shapefile', crs=crs, schema=schema)
+
+    tilefile = os.path.join(workdir, 'AX%03d_TILES.csv' % axis)
+    with open(tilefile) as fp:
+        tiles = [tuple(int(x) for x in line.split(',')) for line in fp]
+
+    with fiona.open(output, 'w', **options) as dst:
+        with click.progressbar(tiles) as bar:
+
+            for axis, row, col in bar:
+
+                shapefile = os.path.join(workdir, 'AX%03d_DGO_%02d_%02d.shp' % (axis, row, col))
+                if os.path.exists(shapefile):
+
+                    with fiona.open(shapefile) as fs:
+
+                        for feature in fs:
+                            feature['properties'].update(AXIS=axis)
+                            dst.write(feature)
