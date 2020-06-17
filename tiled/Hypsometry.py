@@ -5,8 +5,13 @@ from collections import defaultdict
 from multiprocessing import Pool
 import click
 
+from rasterio import features
+import fiona
+import fiona.crs
+from shapely.geometry import asShape
+
 from config import tileindex, filename
-from PreProcessing import ReadDEMTile
+from tileio import ReadRasterTile, DownsampleRasterTile
 from Command import starcall
 import speedup
 
@@ -15,8 +20,8 @@ def TileMinMax(row, col):
     Returns (minz, maxz) for tile (row, col)
     """
 
-    nodata = -99999.0
-    elevations = ReadDEMTile(row, col)
+    elevations, profile = ReadRasterTile(row, col, 'dem')
+    nodata = profile['nodata']
     elevations = elevations[elevations != nodata]
     
     if elevations.size == 0:
@@ -55,8 +60,8 @@ def TileHypsometry(row, col, zbins):
     # TODO
     # use optional mask
 
-    elevations = ReadDEMTile(row, col)
-    nodata = -99999.0
+    elevations, profile = ReadRasterTile(row, col, 'dem')
+    nodata = profile['nodata']
 
     binned = np.digitize(elevations, zbins)
     binned[elevations == nodata] = 0
@@ -76,6 +81,7 @@ def TileHypsometry(row, col, zbins):
 
 def Hypsometry(processes=1, **kwargs):
     """
+    DOCME
     """
 
     tile_index = tileindex()
@@ -97,6 +103,64 @@ def Hypsometry(processes=1, **kwargs):
                 areas.update({k: areas[k] + 25.0e-6*t_areas[k] for k in t_areas})
 
     return zbins, np.array([areas[k] for k in range(0, zbins.size)])
+
+def TileElevationContour(row, col, breaks, resample_factor=1):
+    """
+    DOCME
+    """
+
+    elevations, profile = DownsampleRasterTile(row, col, 'dem50', None, resample_factor)
+    # nodata = profile['nodata']
+    transform = profile['transform']
+
+    binned = np.uint8(np.digitize(elevations, breaks))
+    binned = features.sieve(binned, 400)
+    polygons = features.shapes(
+        binned,
+        binned != 0,
+        connectivity=4,
+        transform=transform)
+
+    return [(polygon, value, row, col) for polygon, value in polygons if value > 0]
+
+def ElevationContour(breaks, processes=1, **kwargs):
+    """
+    DOCME
+    """
+
+    tile_index = tileindex()
+    arguments = ([TileElevationContour, row, col, breaks, kwargs] for row, col in tile_index)
+    output = '/media/crousson/Backup/PRODUCTION/HYPSOMETRY/RMC_CONTOURS.shp'
+
+    driver = 'ESRI Shapefile'
+    crs = fiona.crs.from_epsg(2154)
+    schema = {
+        'geometry': 'Polygon',
+        'properties': [
+            ('ROW', 'int:4'),
+            ('COL', 'int:4'),
+            ('VALUE', 'int'),
+            ('Z', 'float:10.0')
+        ]
+    }
+    options = dict(driver=driver, crs=crs, schema=schema)
+
+    with fiona.open(output, 'w', **options) as dst:
+        with Pool(processes=processes) as pool:
+
+            pooled = pool.imap_unordered(starcall, arguments)
+
+            with click.progressbar(pooled, length=len(tile_index)) as processing:
+                for result in processing:
+
+                    for polygon, value, row, col in result:
+                        z = breaks[int(value)-1]
+                        geom = asShape(polygon).buffer(0.0)
+                        properties = {'ROW': row, 'COL': col, 'VALUE': value, 'Z': z}
+                        dst.write({
+                            'geometry': geom.__geo_interface__,
+                            'properties': properties
+                        })
 
 def plot_hypsometry(zbins, areas):
 
@@ -170,11 +234,21 @@ def plot_hypsometry(zbins, areas):
 
     return fig
 
+def replot(filename):
+
+    data = np.load(filename, allow_pickle=True)
+    zbins = data['zbins']
+    areas = data['areas']
+    fig = plot_hypsometry(zbins, areas)
+    fig.show()
+    return fig
+
 def test():
 
     zbins, areas = Hypsometry(6)
     fig = plot_hypsometry(zbins, areas)
     fig.show()
+    click.pause()
 
 if __name__ == '__main__':
     test()

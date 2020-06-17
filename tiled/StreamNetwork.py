@@ -277,7 +277,9 @@ def StreamToFeature(row, col, min_drainage):
         'geometry': 'LineString',
         'properties': [
             ('GID', 'int'),
-            ('HEAD', 'int')
+            ('HEAD', 'int:1'),
+            ('ROW', 'int:4'),
+            ('COL', 'int:4')
         ]
     }
     crs = fiona.crs.from_epsg(2154)
@@ -298,7 +300,12 @@ def StreamToFeature(row, col, min_drainage):
                 dst.write({
                     'type': 'Feature',
                     'geometry': {'type': 'LineString', 'coordinates': coords},
-                    'properties': {'GID': current, 'HEAD': 1 if head else 0}
+                    'properties': {
+                        'GID': current,
+                        'HEAD': 1 if head else 0,
+                        'ROW': row,
+                        'COL': col
+                    }
                 })
 
 def NoFlowPixels(row, col, min_drainage):
@@ -312,8 +319,8 @@ def NoFlowPixels(row, col, min_drainage):
         'geometry': 'Point',
         'properties': [
             ('GID', 'int'),
-            ('ROW', 'int'),
-            ('COL', 'int')
+            ('ROW', 'int:4'),
+            ('COL', 'int:4')
         ]
     }
     crs = fiona.crs.from_epsg(2154)
@@ -406,3 +413,187 @@ def AggregateStreams():
                     for feature in fs:
                         feature['properties']['GID'] = next(gid)
                         dst.write(feature)
+
+def AggregateStreamSegments():
+
+    source = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/RHT_RGE5M.gpkg'
+    layer = 'RHT_RGE5M_ALL'
+    output = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/RHT_RGE5M_REGROUP.shp'
+
+    graph = dict()
+    indegree = Counter()
+
+    with fiona.open(source, layer=layer) as fs:
+
+        length = len(fs)
+
+        with click.progressbar(fs) as processing:
+            for feature in processing:
+
+                a = feature['properties']['NODEA']
+                b = feature['properties']['NODEB']
+                axis = feature['properties']['AXIS']
+                row = feature['properties']['ROW']
+                col = feature['properties']['COL']
+
+                graph[a] = [b, (axis, row, col), feature['id']]
+                indegree[b] += 1
+
+        # schema['properties'].update(GID='int')
+        driver = 'ESRI Shapefile'
+        options = dict(driver=driver, crs=fs.crs, schema=fs.schema)
+
+        def getgroup(node):
+
+            if node in graph:
+                return graph[node][1]
+
+            return None
+
+        def group_iterator():
+
+            stack = [node for node in graph if indegree[node] == 0]
+            processed = set()
+
+            while stack:
+
+                node = stack.pop(0)
+
+                if not node in graph:
+                    continue
+
+                if node in processed:
+                    continue
+
+                processed.add(node)
+                current_nodes = [node]
+
+                # move to downstream node
+                node, current_group, _ = graph[node]
+
+                while getgroup(node) == current_group:
+
+                    current_nodes.append(node)
+                    indegree[node] -= 1
+                    processed.add(node)
+
+                    # move to downstream node
+                    node = graph[node][0]
+
+                # add terminal node to current track
+                current_nodes.append(node)
+                yield current_group, current_nodes
+
+                # append node to stack for further processing
+                # in case we reached a confluence
+                # or a split between two tiles
+
+                indegree[node] -= 1
+                if indegree[node] == 0:
+                    stack.append(node)
+
+        def group_iterator_reverse():
+            """
+            Would it be easier to write the iterator in the reverse order ?
+            """
+
+            reverse_graph = defaultdict(list)
+            outdegree = Counter()
+
+            for a, (b, group, fid) in graph.items():
+                reverse_graph[b].append((a, group, fid))
+                outdegree[a] += 1
+
+            stack = list()
+            seen_edges = set()
+
+            for node in reverse_graph:
+                if outdegree[node] == 0:
+                    for upstream, group, _ in reverse_graph[node]:
+                        stack.append((node, group))
+
+            while stack:
+
+                node, current_group = stack.pop()
+                current_nodes = [node]
+
+                while node is not None:
+
+                    next_node = None
+
+                    for upstream, group, _ in reverse_graph[node]:
+ 
+                        if group == current_group:
+                            current_nodes.append(upstream)
+                            seen_edges.add((upstream, group))
+                            next_node = upstream
+                        else:
+                            if (node, group) not in seen_edges:
+                                stack.append((node, group))
+                                seen_edges.add((node, group))
+
+                    node = next_node
+
+                yield current_group, list(reversed(current_nodes))
+
+        feature_count = 0
+
+        with fiona.open(output, 'w', **options) as dst:
+
+            with click.progressbar(group_iterator(), length=length) as processing:
+                for current, (group, nodes) in enumerate(processing):
+
+                    # axis, row, col = group
+                    a = nodes[0]
+                    b = nodes[-1]
+                    coordinates = list()
+
+                    _, _, fid = graph[a]
+                    feature = fs.get(fid)
+                    properties = feature['properties']
+                    coordinates = feature['geometry']['coordinates']
+                    feature_count += 1
+
+                    for node in nodes[1:-1]:
+
+                        _, _, fid = graph[node]
+                        feature = fs.get(fid)
+                        coordinates.extend(feature['geometry']['coordinates'][1:])
+                        feature_count += 1
+
+                        # try:
+                        #     _, _, _, segment = graph[node]
+                        #     coordinates.extend(segment[1:])
+                        # except KeyError:
+                        #     pass
+
+                    geometry = {
+                        'type': 'LineString',
+                        'coordinates': coordinates
+                    }
+
+                    properties.update(GID=current, NODEB=b)
+                    feature = dict(geometry=geometry, properties=properties)
+
+                    dst.write(feature)
+                    processing.update(len(nodes)-1)
+
+    assert(feature_count == length)
+
+def VerifyAggregateSegments():
+
+    output = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/RHT_RGE5M_REGROUP.shp'
+    counts = Counter()
+
+    with fiona.open(output) as fs:
+        with click.progressbar(fs) as processing:
+            for feature in processing:
+                axis = feature['properties']['AXIS']
+                row = feature['properties']['ROW']
+                col = feature['properties']['COL']
+                group = (axis, row, col)
+                counts[group] += 1
+
+    many = [group for group in counts if counts[group] > 1]
+
+    print(len(many))

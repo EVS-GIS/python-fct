@@ -14,6 +14,7 @@ Input/Output Routines
 """
 
 import os
+import math
 import numpy as np
 import rasterio as rio
 from rasterio.windows import Window
@@ -45,6 +46,64 @@ def ReadRasterTile(row, col, dataset1, dataset2=None, padding=0):
             transform=transform,
             height=tile_height,
             width=tile_width)
+
+        if dataset2:
+
+            file2 = filename(dataset2, 'input')
+
+            with rio.open(file2) as ds2:
+
+                i2, j2 = ds2.index(*ds.xy(window1.row_off, window1.col_off))
+                window2 = Window(j2, i2, tile_width//xres, tile_height//yres)
+
+                data2 = ds2.read(
+                    1,
+                    window=window2, boundless=True, fill_value=ds2.nodata,
+                    resampling=Resampling.bilinear,
+                    out_shape=data.shape)
+
+                mask = (data == ds.nodata) & (data2 != ds2.nodata)
+                data[mask] = data2[mask]
+
+    return data, profile
+
+def DownsampleRasterTile(row, col, dataset1, dataset2=None, factor=2):
+
+    tile_index = tileindex()
+    tile = tile_index[row, col]
+
+    file1 = filename(dataset1, 'input')
+    # tile_height = int(parameter('input.height'))
+    # tile_width = int(parameter('input.width'))
+    # xres = float(parameter('input.xres'))
+    # yres = float(parameter('input.yres'))
+
+    tile_height = tile_width = 800
+    xres = yres = 49.950637774860638
+
+    height = math.ceil(tile_height / factor)
+    width = math.ceil(tile_width / factor)
+
+    with rio.open(file1) as ds:
+
+        row_offset, col_offset = ds.index(tile.x0, tile.y0)
+        window1 = Window(col_offset, row_offset, tile_width, tile_height)
+
+        data = ds.read(
+            1, window=window1,
+            boundless=True, fill_value=ds.nodata,
+            out_shape=(height, width))
+
+        transform = ds.transform * ds.transform.translation(col_offset, row_offset) * \
+            ds.transform.scale(
+                tile_width / width,
+                tile_height / height)
+
+        profile = ds.profile.copy()
+        profile.update(
+            transform=transform,
+            height=height,
+            width=width)
 
         if dataset2:
 
