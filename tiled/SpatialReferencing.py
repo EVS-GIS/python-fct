@@ -106,7 +106,7 @@ def nearest_value_and_distance(refpixels, domain, nodata):
 def SpatialReference(axis, row, col, mdelta=200.0):
 
     valley_bottom_rasterfile = os.path.join(workdir, 'AX%03d_FLOW_RELZ_%02d_%02d.tif' % (axis, row, col))
-    refaxis_shapefile = os.path.join(workdir, 'AX%03d_REFAXIS.shp' %axis)
+    refaxis_shapefile = os.path.join(workdir, 'AX%03d_REFAXIS.shp' % axis)
     output_distance = os.path.join(workdir, 'AX%03d_AXIS_DISTANCE_%02d_%02d.tif' % (axis, row, col))
     output_measure = os.path.join(workdir, 'AX%03d_AXIS_MEASURE_%02d_%02d.tif' % (axis, row, col))
     output_dgo = os.path.join(workdir, 'AX%03d_DGO_%02d_%02d.tif' % (axis, row, col))
@@ -191,7 +191,7 @@ def SpatialReference(axis, row, col, mdelta=200.0):
         # Option 2, nearest using KD Tree
 
         measure, distance = nearest_value_and_distance(
-            np.array(refaxis_pixels),
+            np.flip(np.array(refaxis_pixels), axis=0),
             valley_bottom,
             ds.nodata)
 
@@ -199,11 +199,7 @@ def SpatialReference(axis, row, col, mdelta=200.0):
         distance[valley_bottom == ds.nodata] = ds.nodata
         measure[valley_bottom == ds.nodata] = ds.nodata
 
-        click.echo('Create DGOs')
-
-        breaks = np.arange(mmin, mmax, mdelta)
-        dgo = np.int32(np.digitize(measure, breaks))
-        dgo_measures = np.round(0.5 * (breaks + np.roll(breaks, 1)), 1)
+        click.echo('Write output')
 
         profile = ds.profile.copy()
 
@@ -212,6 +208,12 @@ def SpatialReference(axis, row, col, mdelta=200.0):
 
         with rio.open(output_measure, 'w', **profile) as dst:
             dst.write(measure, 1)
+
+        click.echo('Create DGOs')
+
+        breaks = np.arange(mmin, mmax, mdelta)
+        dgo = np.int32(np.digitize(measure, breaks))
+        dgo_measures = np.round(0.5 * (breaks + np.roll(breaks, 1)), 1)
 
         profile.update(nodata=0, dtype='int32')
         with rio.open(output_dgo, 'w', **profile) as dst:
@@ -229,6 +231,7 @@ def SpatialReference(axis, row, col, mdelta=200.0):
             'geometry': 'Polygon',
             'properties': [
                 ('GID', 'int'),
+                ('AXIS', 'int:4'),
                 ('ROW', 'int:3'),
                 ('COL', 'int:3'),
                 ('M', 'float:10.2')
@@ -248,6 +251,7 @@ def SpatialReference(axis, row, col, mdelta=200.0):
                     'geometry': geom.__geo_interface__,
                     'properties': {
                         'GID': int(gid),
+                        'AXIS': axis,
                         'ROW': row,
                         'COL': col,
                         'M': measure
@@ -290,11 +294,7 @@ def DistanceAndHeightAboveNearestDrainage(axis, row, col):
         def accept(feature):
             
             properties = feature['properties']
-            return all([
-                properties['AXH'] == axis,
-                properties['ROW'] == row,
-                properties['COL'] == col
-            ])
+            return properties['AXH'] == axis
 
         def accept_pixel(i, j):
             return all([i >= -height, i < 2*height, j >= -width, j < 2*width])
