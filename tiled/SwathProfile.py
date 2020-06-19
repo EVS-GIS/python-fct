@@ -200,6 +200,7 @@ def UnitSwathAxis(axis, gid, m0, bounds):
     dgo_raster = os.path.join(workdir, 'AX%03d_DGO.vrt' % axis)
     measure_raster = os.path.join(workdir, 'AX%03d_AXIS_MEASURE.vrt' % axis)
     distance_raster = os.path.join(workdir, 'AX%03d_AXIS_DISTANCE.vrt' % axis)
+    measure_weight = 0.8
 
     with rio.open(distance_raster) as ds:
 
@@ -232,53 +233,13 @@ def UnitSwathAxis(axis, gid, m0, bounds):
 
         def find(d0):
 
-            cost = 10.0 * np.square(measure[mask] - m0) + np.square(distance[mask] - d0)
+            cost = measure_weight * np.square(measure[mask] - m0) + (1 - measure_weight) * np.square(distance[mask] - d0)
             idx = np.argmin(cost)
             i = pixi[mask].item(idx)
             j = pixj[mask].item(idx)
             return ta.xy(i, j, transform)
 
         return axis, gid, find(0), find(dmin), find(dmax)
-
-        # height, width = distance.shape
-        # pixi, pixj = np.meshgrid(np.arange(height, dtype='int32'), np.arange(width, dtype='int32'), indexing='ij')
-
-        # xy = ta.pixeltoworld(np.column_stack([pixi[mask], pixj[mask]]), ds.transform, gdal=False)
-        # matrix = np.column_stack([xy, np.ones(xy.shape[0], dtype='float32')])
-        # (a, b, c), _, _, _ = np.linalg.lstsq(matrix, np.zeros(xy.shape[0], dtype='float32'), rcond=None)
-
-        # idx0 = np.argmin(distance[mask])
-        # i0 = pixi[mask].item(idx0)
-        # j0 = pixj[mask].item(idx0)
-        # x0, y0 = ta.xy(i0, j0, ds.transform)
-
-        # dmin = np.min(distance[mask])
-        # dmax = np.max(distance[mask])
-        # unit_length = math.sqrt(a**2 + b**2)
-
-        # def valid_pixel(i, j):
-        #     return all([i >= 0, i < height, j >= 0, j < width])
-
-        # if unit_length > 0:
-
-        #     kmin = dmin / unit_length
-        #     xmin = x0 - kmin*b
-        #     ymin = y0 + kmin*a
-
-        #     kmax = dmax / unit_length
-        #     xmax = x0 - kmax*b
-        #     ymax = y0 + kmax*a
-
-        #     imin, jmin = ta.index(xmin, ymin, ds.transform)
-        #     imax, jmax = ta.index(xmax, ymax, ds.transform)
-
-        #     if valid_pixel(imin, jmin) and valid_pixel(imax, jmax):
-        #         if distance[imin, jmin] > distance[imax, jmax]:
-        #             xmin, ymin, xmax, ymax = xmax, ymax, xmin, ymin
-
-        #     return (x0, y0), (xmin, ymin), (xmax, ymax)
-
-        # return (x0, y0), None, None
 
 def SwathProfiles(axis, processes=1):
 
