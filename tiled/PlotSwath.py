@@ -40,7 +40,7 @@ def plot_swath(x, swath, relative=False, title=None, filename=None):
         fig.show()
     elif filename.endswith('.pdf'):
         plt.savefig(filename, format='pdf', dpi=600)
+        plt.clf()
     else:
         plt.savefig(filename, format='png', dpi=300)
-
-    plt.clf()
+        plt.clf()

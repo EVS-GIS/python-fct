@@ -1,4 +1,5 @@
 import os
+import math
 from multiprocessing import Pool
 
 import numpy as np
@@ -32,13 +33,14 @@ def as_window(bounds, transform):
 def TileCropInvalidRegions(axis, row, col):
 
     invalid_shapefile = os.path.join(workdir, 'AX%03d_DGO_DISCONNECTED.shp' % axis)
-    distance_raster = os.path.join(workdir, 'AX%03d_AXIS_DISTANCE_%02d_%02d.tif' % (axis, row, col))
+    # distance_raster = os.path.join(workdir, 'AX%03d_AXIS_DISTANCE_%02d_%02d.tif' % (axis, row, col))
     # distance_raster = os.path.join(workdir, 'AX%03d_NEAREST_DISTANCE_%02d_%02d.tif' % (axis, row, col))
+    regions_raster = os.path.join(workdir, 'AX%03d_DGO_%02d_%02d.tif' % (axis, row, col))
 
-    if not os.path.exists(distance_raster):
+    if not os.path.exists(regions_raster):
         return
 
-    with rio.open(distance_raster) as ds:
+    with rio.open(regions_raster) as ds:
 
         data = ds.read(1)
         transform = ds.transform
@@ -49,9 +51,7 @@ def TileCropInvalidRegions(axis, row, col):
 
         def accept(feature):
             return all([
-                feature['properties']['AXIS'] == axis,
-                feature['properties']['ROW'] == row,
-                feature['properties']['COL'] == col
+                feature['properties']['AXIS'] == axis
             ])
 
         mask = features.rasterize(
@@ -64,7 +64,7 @@ def TileCropInvalidRegions(axis, row, col):
 
     data[mask == 1] = nodata
 
-    with rio.open(distance_raster, 'w', **profile) as dst:
+    with rio.open(regions_raster, 'w', **profile) as dst:
         dst.write(data, 1)
 
 def CropInvalidRegions(axis, processes=1):
@@ -86,7 +86,7 @@ def CropInvalidRegions(axis, processes=1):
             for _ in iterator:
                 pass
 
-def SwathProfile(axis, gid, bounds):
+def UnitSwathProfile(axis, gid, bounds):
     """
     Calculate Elevation Swath Profile for Valley Unit (axis, gid)
     """
@@ -116,7 +116,7 @@ def SwathProfile(axis, gid, bounds):
 
         with rio.open(dgo_raster) as ds4:
             mask = (ds4.read(1, window=window, boundless=True, fill_value=ds4.nodata) == gid)
-            mask = mask & (elevations != ds1.nodata) & (distance != ds.nodata)
+            mask = mask & (elevations != ds1.nodata)
 
         assert(all([
             distance.shape == elevations.shape,
@@ -151,21 +151,25 @@ def SwathProfile(axis, gid, bounds):
         # Relative-to-valley-floor elevation swath profile
 
         swath_rel_valley = np.full((len(xbins)-1, 5), np.nan, dtype='float32')
-        error_threshold = 1.0
 
-        size = elevations.shape[0]*elevations.shape[1]
-        matrix = np.stack([
-            measure.reshape(size),
-            np.ones(size, dtype='float32'),
-            elevations.reshape(size)
-        ]).T
-        matrix = matrix[mask.reshape(size), :]
-        samples = matrix.shape[0] // 10
-        model = LinearModel([0, 1], [2])
+        def fit_valley_floor(fit_mask=None, error_threshold=1.0, iterations=100):
 
-        try:
+            if fit_mask is None:
+                mask0 = mask
+            else:
+                mask0 = mask & fit_mask
 
-            (slope, z0), _, _ = ransac(matrix, model, samples, 100, error_threshold, 2*samples)
+            size = elevations.shape[0]*elevations.shape[1]
+            matrix = np.stack([
+                measure.reshape(size),
+                np.ones(size, dtype='float32'),
+                elevations.reshape(size)
+            ]).T
+            matrix = matrix[mask0.reshape(size), :]
+            samples = matrix.shape[0] // 10
+            model = LinearModel([0, 1], [2])
+
+            (slope, z0), _, _ = ransac(matrix, model, samples, iterations, error_threshold, 2*samples)
 
             relative = elevations - (z0 + slope*measure)
 
@@ -175,12 +179,106 @@ def SwathProfile(axis, gid, bounds):
                 if swath_elevations.size:
                     swath_rel_valley[i-1, :] = np.percentile(swath_elevations, [5, 25, 50, 75, 95])
 
+        try:
+
+            fit_valley_floor()            
+
         except RuntimeError:
 
-            swath_rel_valley = np.array([])
+            try:
+
+                fit_valley_floor(fit_mask=(relz <= 10.0))
+
+            except RuntimeError:
+
+                swath_rel_valley = np.array([])
 
         return axis, gid, x, swath_absolute, swath_rel_stream, swath_rel_valley
 
+def UnitSwathAxis(axis, gid, m0, bounds):
+
+    dgo_raster = os.path.join(workdir, 'AX%03d_DGO.vrt' % axis)
+    measure_raster = os.path.join(workdir, 'AX%03d_AXIS_MEASURE.vrt' % axis)
+    distance_raster = os.path.join(workdir, 'AX%03d_AXIS_DISTANCE.vrt' % axis)
+
+    with rio.open(distance_raster) as ds:
+
+        window = as_window(bounds, ds.transform)
+        distance = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
+
+        with rio.open(measure_raster) as ds2:
+            measure = ds2.read(1, window=window, boundless=True, fill_value=ds2.nodata)
+
+        with rio.open(dgo_raster) as ds4:
+            mask = (ds4.read(1, window=window, boundless=True, fill_value=ds4.nodata) == gid)
+
+        assert(all([
+            measure.shape == distance.shape,
+            mask.shape == distance.shape
+        ]))
+
+        if np.count_nonzero(mask) == 0:
+            return axis, gid, None, None, None
+
+        transform = ds.transform * ds.transform.translation(window.col_off, window.row_off)
+
+        height, width = distance.shape
+        dmin = np.min(distance[mask])
+        dmax = np.max(distance[mask])
+        pixi, pixj = np.meshgrid(
+            np.arange(height, dtype='int32'),
+            np.arange(width, dtype='int32'),
+            indexing='ij')
+
+        def find(d0):
+
+            cost = 10.0 * np.square(measure[mask] - m0) + np.square(distance[mask] - d0)
+            idx = np.argmin(cost)
+            i = pixi[mask].item(idx)
+            j = pixj[mask].item(idx)
+            return ta.xy(i, j, transform)
+
+        return axis, gid, find(0), find(dmin), find(dmax)
+
+        # height, width = distance.shape
+        # pixi, pixj = np.meshgrid(np.arange(height, dtype='int32'), np.arange(width, dtype='int32'), indexing='ij')
+
+        # xy = ta.pixeltoworld(np.column_stack([pixi[mask], pixj[mask]]), ds.transform, gdal=False)
+        # matrix = np.column_stack([xy, np.ones(xy.shape[0], dtype='float32')])
+        # (a, b, c), _, _, _ = np.linalg.lstsq(matrix, np.zeros(xy.shape[0], dtype='float32'), rcond=None)
+
+        # idx0 = np.argmin(distance[mask])
+        # i0 = pixi[mask].item(idx0)
+        # j0 = pixj[mask].item(idx0)
+        # x0, y0 = ta.xy(i0, j0, ds.transform)
+
+        # dmin = np.min(distance[mask])
+        # dmax = np.max(distance[mask])
+        # unit_length = math.sqrt(a**2 + b**2)
+
+        # def valid_pixel(i, j):
+        #     return all([i >= 0, i < height, j >= 0, j < width])
+
+        # if unit_length > 0:
+
+        #     kmin = dmin / unit_length
+        #     xmin = x0 - kmin*b
+        #     ymin = y0 + kmin*a
+
+        #     kmax = dmax / unit_length
+        #     xmax = x0 - kmax*b
+        #     ymax = y0 + kmax*a
+
+        #     imin, jmin = ta.index(xmin, ymin, ds.transform)
+        #     imax, jmax = ta.index(xmax, ymax, ds.transform)
+
+        #     if valid_pixel(imin, jmin) and valid_pixel(imax, jmax):
+        #         if distance[imin, jmin] > distance[imax, jmax]:
+        #             xmin, ymin, xmax, ymax = xmax, ymax, xmin, ymin
+
+        #     return (x0, y0), (xmin, ymin), (xmax, ymax)
+
+        # return (x0, y0), None, None
 
 def SwathProfiles(axis, processes=1):
 
@@ -199,7 +297,7 @@ def SwathProfiles(axis, processes=1):
                     gid = feature['properties']['GID']
                     measure = feature['properties']['M']
                     geometry = asShape(feature['geometry'])
-                    _, _, x, swath_absolute, swath_rel_stream, swath_rel_valley = SwathProfile(axis, gid, geometry.bounds)
+                    _, _, x, swath_absolute, swath_rel_stream, swath_rel_valley = UnitSwathProfile(axis, gid, geometry.bounds)
 
                     if swath_rel_valley.size == 0:
                         relative_errors += 1
@@ -226,7 +324,7 @@ def SwathProfiles(axis, processes=1):
                 geometry = asShape(feature['geometry'])
 
                 profiles[axis, gid] = [axis, gid, measure]
-                arguments.append([SwathProfile, axis, gid, geometry.bounds, kwargs])
+                arguments.append([UnitSwathProfile, axis, gid, geometry.bounds, kwargs])
 
         with Pool(processes=processes) as pool:
 
@@ -252,7 +350,100 @@ def SwathProfiles(axis, processes=1):
     if relative_errors:
         click.secho('%d DGO without relative-to-valley-bottom profile' % relative_errors, fg='yellow')
 
-def PlotSwath(axis, gid, kind='absolute', filename=None):
+def SwathAxes(axis, processes=1):
+
+    dgo_shapefile = os.path.join(workdir, 'AX%03d_DGO.shp' % axis)
+    output = os.path.join(workdir, 'AX%03d_SWATH_AXIS.shp' % axis)
+
+    driver = 'ESRI Shapefile'
+    crs = fiona.crs.from_epsg(2154)
+    schema = {
+        'geometry': 'LineString',
+        'properties': [
+            ('GID', 'int:4'),
+            ('AXIS', 'int:4'),
+            ('M', 'float:10.2'),
+            ('OX', 'float'),
+            ('OY', 'float'),
+        ]
+    }
+    options = dict(driver=driver, crs=crs, schema=schema)
+
+    if processes == 1:
+
+        with fiona.open(output, 'w', **options) as dst:
+            with fiona.open(dgo_shapefile) as fs:
+                with click.progressbar(fs) as iterator:
+                    for feature in iterator:
+
+                        gid = feature['properties']['GID']
+                        measure = feature['properties']['M']
+                        geometry = asShape(feature['geometry'])
+                        _, _, pt0, pt_min, pt_max = UnitSwathAxis(axis, gid, measure, geometry.bounds)
+
+                        if pt0 is None:
+                            continue
+
+                        dst.write({
+                            'geometry': {
+                                'type': 'LineString',
+                                'coordinates': [pt_min, pt0, pt_max]
+                            },
+                            'properties': {
+                                'GID': gid,
+                                'AXIS': axis,
+                                'M': measure,
+                                'OX': float(pt0[0]),
+                                'OY': float(pt0[1])
+                            }
+                        })
+
+    else:
+
+        kwargs = dict()
+        profiles = dict()
+        arguments = list()
+
+        with fiona.open(dgo_shapefile) as fs:
+            for feature in fs:
+
+                gid = feature['properties']['GID']
+                measure = feature['properties']['M']
+                geometry = asShape(feature['geometry'])
+
+                profiles[axis, gid] = [axis, gid, measure]
+                arguments.append([UnitSwathAxis, axis, gid, measure, geometry.bounds, kwargs])
+
+        with fiona.open(output, 'w', **options) as dst:
+            with Pool(processes=processes) as pool:
+
+                pooled = pool.imap_unordered(starcall, arguments)
+
+                with click.progressbar(pooled, length=len(arguments)) as iterator:
+
+                    for _, gid, pt0, pt_min, pt_max in iterator:
+
+                        if pt0 is None:
+                            continue
+
+                        profile = profiles[axis, gid]
+                        measure = profile[2]
+
+                        dst.write({
+                            'geometry': {
+                                'type': 'LineString',
+                                'coordinates': [pt_min, pt0, pt_max]
+                            },
+                            'properties': {
+                                'GID': gid,
+                                'AXIS': axis,
+                                'M': measure,
+                                'OX': float(pt0[0]),
+                                'OY': float(pt0[1])
+                            }
+                        })
+
+def PlotSwath(axis, gid, kind='absolute', output=None):
 
     from PlotSwath import plot_swath
 
@@ -281,7 +472,8 @@ def PlotSwath(axis, gid, kind='absolute', filename=None):
 
         if swath.shape[0] == x.shape[0]:
             title = 'Swath Profile PK %.0f m (DGO #%d)' % (measure, gid)
-            output = os.path.join(workdir, 'SWATH', 'AX%03d_SWATH_%04d.pdf' % (axis, gid))
+            if output is True:
+                output = os.path.join(workdir, 'SWATH', 'AX%03d_SWATH_%04d.pdf' % (axis, gid))
             plot_swath(-x, swath, kind in ('relative', 'valley bottom'), title, output)
         else:
             click.secho('Invalid swath data')
