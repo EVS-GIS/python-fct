@@ -1,3 +1,4 @@
+import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from Plotting import MapFigureSizer
@@ -22,10 +23,28 @@ def plot_swath(x, swath, relative=False, title=None, filename=None):
         tick.set_pad(2)
     ax.grid(which='both', axis='both', alpha=0.5)
 
-    ax.fill_between(x, swath[:, 0], swath[:, 4], facecolor='#b9d8e6', alpha = 0.2, interpolate=True)
-    ax.plot(x, swath[:, 0], "gray", x, swath[:, 4], "gray", linewidth = 0.5, linestyle='--')
-    ax.fill_between(x, swath[:, 1], swath[:, 3], facecolor='#48638a', alpha = 0.5, interpolate=True)
-    ax.plot(x, swath[:, 2], "#48638a", linewidth = 1)
+    parts = np.split(
+        np.column_stack([x, swath]),
+        np.where(np.isnan(swath[:, 0]))[0])
+
+    for k, part in enumerate(parts):
+
+        if k == 0:
+
+            xk = part[:, 0]
+            swathk = part[:, 1:]
+
+        else:
+
+            xk = part[1:, 0]
+            swathk = part[1:, 1:]
+
+        if xk.size > 0:
+
+            ax.fill_between(xk, swathk[:, 0], swathk[:, 4], facecolor='#b9d8e6', alpha = 0.2, interpolate=True)
+            ax.plot(xk, swathk[:, 0], "gray", xk, swathk[:, 4], "gray", linewidth = 0.5, linestyle='--')
+            ax.fill_between(xk, swathk[:, 1], swathk[:, 3], facecolor='#48638a', alpha = 0.5, interpolate=True)
+            ax.plot(xk, swathk[:, 2], "#48638a", linewidth = 1)
 
     fig_size_inches = 6.25
     aspect_ratio = 2

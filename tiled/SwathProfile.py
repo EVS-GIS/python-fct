@@ -432,7 +432,7 @@ def PlotSwath(axis, gid, kind='absolute', output=None):
             return
 
         if swath.shape[0] == x.shape[0]:
-            title = 'Swath Profile PK %.0f m (DGO #%d)' % (measure, gid)
+            title = 'Swath Profile #%d, PK %.1f km' % (gid, measure / 1000.0)
             if output is True:
                 output = os.path.join(workdir, 'SWATH', 'AX%03d_SWATH_%04d.pdf' % (axis, gid))
             plot_swath(-x, swath, kind in ('relative', 'valley bottom'), title, output)
