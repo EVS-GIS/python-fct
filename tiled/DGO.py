@@ -1,3 +1,18 @@
+# coding: utf-8
+
+"""
+Arbitrary DGO Polygon Swath Profiles
+
+***************************************************************************
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+***************************************************************************
+"""
+
 import os
 from operator import itemgetter
 import math
@@ -40,6 +55,7 @@ def SwathProfile(axis, gid, geometry):
         transform = ds.transform * ds.transform.translation(window.col_off, window.row_off)
 
         height, width = elevations.shape
+        buf = geometry.buffer(100.0)
 
         # Create DGO mask
 
@@ -58,7 +74,11 @@ def SwathProfile(axis, gid, geometry):
         refaxis_pixels = list()
 
         def accept_pixel(i, j):
-                return all([i >= -height, i < 2*height, j >= -width, j < 2*width])
+                x, y = ta.xy(i, j, transform)
+                return all([
+                    i >= -height, i < 2*height,
+                    j >= -width, j < 2*width
+                ]) and buf.contains(Point(x, y))
 
         coord = itemgetter(0, 1)
 
@@ -89,8 +109,7 @@ def SwathProfile(axis, gid, geometry):
 
                 for a, b in zip(coordinates[:-1], coordinates[1:]):
                     for i, j, m in rasterize_linestringz(a, b):
-                        x, y = ta.xy(i, j, transform)
-                        if accept_pixel(i, j) and geometry.contains(Point(x, y)):
+                        if accept_pixel(i, j):
                             # distance[i, j] = 0
                             # measure[i, j] = m
                             refaxis_pixels.append((i, j, m))
@@ -159,6 +178,13 @@ def SwathProfile(axis, gid, geometry):
         xbins = np.arange(np.min(distance[mask == 1]), np.max(distance[mask == 1]), 10.0)
         binned = np.digitize(distance, xbins)
         x = 0.5*(xbins[1:] + xbins[:-1])
+        density = np.zeros_like(x, dtype='int32')
+
+        # Profile density
+
+        for i in range(1, len(xbins)):
+
+            density[i-1] = np.sum((mask == 1) & (binned == i))
 
         # Absolute elevation swath profile
 
@@ -227,7 +253,15 @@ def SwathProfile(axis, gid, geometry):
 
                 swath_rel_valley = np.array([])
 
-        return axis, gid, x, swath_absolute, swath_rel_stream, swath_rel_valley
+        values = dict(
+            x=x,
+            density=density,
+            swath_abs=swath_absolute,
+            swath_rel=swath_rel_stream,
+            swath_vb=swath_rel_valley
+        )
+
+        return axis, gid, values
 
 def test():
 
@@ -246,15 +280,12 @@ def test():
                 measure = properties['M']
                 geometry = asShape(feature['geometry'])
 
-                _, _, x, swath_absolute, swath_rel_stream, swath_rel_valley = SwathProfile(axis, gid, geometry)
+                _, _, values = SwathProfile(axis, gid, geometry)
 
                 np.savez(
                     output(axis, gid),
                     profile=(axis, gid, measure),
-                    x=x,
-                    swath_abs=swath_absolute,
-                    swath_rel=swath_rel_stream,
-                    swath_vb=swath_rel_valley)
+                    **values)
 
 def PlotSwath(axis, gid, kind='absolute', output=None):
 
@@ -290,3 +321,47 @@ def PlotSwath(axis, gid, kind='absolute', output=None):
             plot_swath(-x, swath, kind in ('relative', 'valley bottom'), title, output)
         else:
             click.secho('Invalid swath data')
+
+def PlotSwathDensity(axis, gid):
+
+    import matplotlib.pyplot as plt
+    import matplotlib as mpl
+    from Plotting import MapFigureSizer
+
+    filename = os.path.join(workdir, 'DGOEXT', 'AX%03d_SWATH_%04d.npz' % (axis, gid))
+
+    if os.path.exists(filename):
+
+        data = np.load(filename, allow_pickle=True)
+
+        x = data['x']
+        density = data['density']
+        
+        bins = np.linspace(np.min(x), np.max(x), int((np.max(x) - np.min(x)) // 100.0) + 1)
+        binned = np.digitize(x, bins)
+        
+        _x = 0.5 * (bins[1:] + bins[:-1])
+        _width = bins[1:] - bins[:-1]
+        _density = np.zeros_like(_x, dtype='int32')
+
+        for i in range(1, len(bins)):
+            _density[i-1] = np.sum(density[binned == i])
+
+        fig = plt.figure(1, facecolor='white',figsize=(6.25,3.5))
+        gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=1.0,top=1.0)
+        ax = fig.add_subplot(gs[25:100,10:95])
+
+        ax.spines['top'].set_linewidth(1)
+        ax.spines['left'].set_linewidth(1)
+        ax.spines['right'].set_linewidth(1)
+        ax.spines['bottom'].set_linewidth(1)
+        ax.set_ylabel("Profile Density")
+        ax.set_xlabel("Distance from reference axis (m)")
+        ax.tick_params(axis='both', width=1, pad = 2)
+        for tick in ax.xaxis.get_major_ticks():
+            tick.set_pad(2)
+        ax.grid(which='both', axis='both', alpha=0.5)
+
+        ax.bar(_x, _density, width=_width, align='center', color='lightgray', edgecolor='k')
+
+        fig.show()

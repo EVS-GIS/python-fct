@@ -128,6 +128,14 @@ def UnitSwathProfile(axis, gid, bounds):
         binned = np.digitize(distance, xbins)
         x = 0.5*(xbins[1:] + xbins[:-1])
 
+        density = np.zeros_like(x, dtype='int32')
+
+        # Profile density
+
+        for i in range(1, len(xbins)):
+            
+            density[i-1] = np.sum((mask == 1) & (binned == i))
+
         # Absolute elevation swath profile
 
         swath_absolute = np.full((len(xbins)-1, 5), np.nan, dtype='float32')
@@ -193,7 +201,15 @@ def UnitSwathProfile(axis, gid, bounds):
 
                 swath_rel_valley = np.array([])
 
-        return axis, gid, x, swath_absolute, swath_rel_stream, swath_rel_valley
+        values = dict(
+            x=x,
+            density=density,
+            swath_abs=swath_absolute,
+            swath_rel=swath_rel_stream,
+            swath_vb=swath_rel_valley
+        )
+
+        return axis, gid, values
 
 def UnitSwathAxis(axis, gid, m0, bounds):
 
@@ -258,18 +274,15 @@ def SwathProfiles(axis, processes=1):
                     gid = feature['properties']['GID']
                     measure = feature['properties']['M']
                     geometry = asShape(feature['geometry'])
-                    _, _, x, swath_absolute, swath_rel_stream, swath_rel_valley = UnitSwathProfile(axis, gid, geometry.bounds)
+                    _, _, values = UnitSwathProfile(axis, gid, geometry.bounds)
 
-                    if swath_rel_valley.size == 0:
+                    if values['swath_vb'].size == 0:
                         relative_errors += 1
 
                     np.savez(
                         output(axis, gid),
                         profile=(axis, gid, measure),
-                        x=x,
-                        swath_abs=swath_absolute,
-                        swath_rel=swath_rel_stream,
-                        swath_vb=swath_rel_valley)
+                        **values)
 
     else:
 
@@ -293,20 +306,17 @@ def SwathProfiles(axis, processes=1):
 
             with click.progressbar(pooled, length=len(arguments)) as iterator:
 
-                for axis, gid, x, swath_absolute, swath_rel_stream, swath_rel_valley in iterator:
+                for axis, gid, values in iterator:
 
                     profile = profiles[axis, gid]
 
-                    if swath_rel_valley.size == 0:
+                    if values['swath_vb'] == 0:
                         relative_errors += 1
 
                     np.savez(
                         output(axis, gid),
                         profile=profile,
-                        x=x,
-                        swath_abs=swath_absolute,
-                        swath_rel=swath_rel_stream,
-                        swath_vb=swath_rel_valley)
+                        **values)
 
     if relative_errors:
         click.secho('%d DGO without relative-to-valley-bottom profile' % relative_errors, fg='yellow')

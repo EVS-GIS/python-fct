@@ -36,7 +36,9 @@ def MetricElevation(axis):
     dgo_raster = os.path.join(workdir, 'AX%03d_DGO.vrt' % axis)
     elevation_raster = '/var/local/fct/RMC/RGEALTI.tif'
     output = os.path.join(workdir, 'METRICS', 'AX%03d_DGO_MINZ.csv' % axis)
-    metrics = defaultdict(lambda: (float('inf'), float('-inf')))
+    
+    metrics = defaultdict(lambda: float('inf'))
+    # metrics = defaultdict(lambda: (float('inf'), float('-inf')))
 
     gid = itemgetter(0)
     elevation = itemgetter(1)
@@ -56,11 +58,13 @@ def MetricElevation(axis):
 
                         for dgo, points in itertools.groupby(obs, key=gid):
 
-                            zmin, zmax = metrics[dgo]
-                            zs = list(elevation(p) for p in points)
-                            zmin = min(zmin, min(zs))
-                            zmax = max(zmax, max(zs))
-                            metrics[dgo] = (zmin, zmax)
+                            # zmin, zmax = metrics[dgo]
+                            # zs = list(elevation(p) for p in points)
+                            # zmin = min(zmin, min(zs))
+                            # zmax = max(zmax, max(zs))
+
+                            zmin = min(elevation(p) for p in points)
+                            metrics[dgo] = min(zmin, metrics[dgo])
 
     with open(output, 'w') as fp:
         for dgo in sorted(metrics.keys()):
@@ -112,7 +116,8 @@ def MetricSlope(axis, distance):
         return int(t[1])
 
     def elevation(t):
-        return 0.5 * (float(t[2]) + float(t[3]))
+        return float(t[2])
+        # return 0.5 * (float(t[2]) + float(t[3]))
 
     with open(filename) as fp:
         data = [line.strip().split(',') for line in fp]
@@ -183,6 +188,9 @@ def AggregateMetrics(axis):
         fp.write('\n')
 
         for gid in sorted(values.keys()):
+
+            if gid == 0:
+                continue
 
             fp.write(format_values(axis, gid, values[gid]))
             fp.write('\n')
