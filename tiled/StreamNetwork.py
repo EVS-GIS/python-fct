@@ -398,7 +398,9 @@ def AggregateStreams():
         'geometry': 'LineString',
         'properties': [
             ('GID', 'int'),
-            ('HEAD', 'int')
+            ('HEAD', 'int:1'),
+            ('ROW', 'int:4'),
+            ('COL', 'int:4')
         ]
     }
     crs = fiona.crs.from_epsg(2154)

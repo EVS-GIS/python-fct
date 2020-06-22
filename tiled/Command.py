@@ -569,5 +569,40 @@ def aggregate_streams():
     """
     AggregateStreams()
 
+@cli.group()
+def streams():
+    """
+    Create Stream Network from Mapped Sources
+    """
+    pass
+
+from StreamSources import (
+    InletSources,
+    StreamToFeatureFromSources,
+    AggregateStreamsFromSources
+)
+
+@aggregate(streams, 'sources')
+def sources():
+    """
+    Map Sources accross Tiles
+    """
+    InletSources()
+
+@parallel(streams, StreamToFeatureFromSources, 'vectorize')
+@click.option('--min_drainage', '-a', default=50.0, help='Minimum Drainage Area in km²')
+def vectorize_from_sources():
+    """
+    Vectorize Stream Network From Mapped Sources
+    """
+    return tileindex()
+
+@aggregate(streams, 'aggregate')
+def aggregate_from_sources():
+    """
+    Aggregate Stream Network
+    """
+    AggregateStreamsFromSources()
+
 if __name__ == '__main__':
     cli()
