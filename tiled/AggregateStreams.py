@@ -1,13 +1,7 @@
 # coding: utf-8
 
 """
-Sequence :
-
-4. Accumulate/Resolve Acc Graph/InletAreas
-5. FlowAccumulation (*)
-6. StreamToFeature (*)
-
-(*) Possibly Parallel Steps
+DOCME
 
 ***************************************************************************
 *                                                                         *
@@ -19,33 +13,21 @@ Sequence :
 ***************************************************************************
 """
 
-import click
 import os
-import glob
-import rasterio as rio
-from rasterio.windows import Window
-from rasterio.warp import Resampling
+from collections import Counter
+import click
+
 import fiona
 import fiona.crs
-import numpy as np
-from collections import namedtuple, defaultdict, Counter
-from heapq import heappush, heappop
 
-import richdem as rd
-import speedup
-import terrain_analysis as ta
-import itertools
-from operator import itemgetter
+# workdir = '/media/crousson/Backup/TESTS/TuilesAin'
+workdir = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC'
 
-from config import tileindex, filename
-
-workdir = '/media/crousson/Backup/TESTS/TuilesAin'
-
-def GroupStreamSegmentsByAxisAndTile():
+def AggregateSegmentsByAxisAndTile():
 
     # database = '/media/crousson/Backup/TESTS/TuilesAin/METRICS.gpkg'
-    source = os.path.join(workdir, 'RHT.shp')
-    output = os.path.join(workdir, 'RHT_AXIS_TILED.shp')
+    source = os.path.join(workdir, 'RHTS_HACK.shp')
+    output = os.path.join(workdir, 'RHTS_TILED.shp')
 
     graph = dict()
     indegree = Counter()
@@ -59,8 +41,8 @@ def GroupStreamSegmentsByAxisAndTile():
 
                 a = feature['properties']['NODEA']
                 b = feature['properties']['NODEB']
-                axis = feature['properties']['AXH']
-                axis_length = feature['properties']['LAXH']
+                axis = feature['properties']['AXIS']
+                axis_length = feature['properties']['LENAXIS']
                 row = feature['properties']['ROW']
                 col = feature['properties']['COL']
 
@@ -130,8 +112,8 @@ def GroupStreamSegmentsByAxisAndTile():
 
         with fiona.open(output, 'w', **options) as dst:
 
-            with click.progressbar(group_iterator(), length=length) as processing:
-                for current, (group, nodes) in enumerate(processing):
+            with click.progressbar(group_iterator(), length=length) as iterator:
+                for current, (group, nodes) in enumerate(iterator):
 
                     # axis, row, col = group
                     a = nodes[0]
