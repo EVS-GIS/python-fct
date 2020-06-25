@@ -204,9 +204,9 @@ def UnitSwathProfile(axis, gid, bounds):
         values = dict(
             x=x,
             density=density,
-            swath_abs=swath_absolute,
-            swath_rel=swath_rel_stream,
-            swath_vb=swath_rel_valley
+            sz=swath_absolute,
+            hand=swath_rel_stream,
+            hvf=swath_rel_valley
         )
 
         return axis, gid, values
@@ -276,7 +276,7 @@ def SwathProfiles(axis, processes=1):
                     geometry = asShape(feature['geometry'])
                     _, _, values = UnitSwathProfile(axis, gid, geometry.bounds)
 
-                    if values['swath_vb'].size == 0:
+                    if values['hvf'].size == 0:
                         relative_errors += 1
 
                     np.savez(
@@ -310,7 +310,7 @@ def SwathProfiles(axis, processes=1):
 
                     profile = profiles[axis, gid]
 
-                    if values['swath_vb'] == 0:
+                    if values['hvf'].size == 0:
                         relative_errors += 1
 
                     np.savez(
@@ -428,15 +428,15 @@ def PlotSwath(axis, gid, kind='absolute', output=None):
         _, _,  measure = data['profile']
 
         if kind == 'absolute':
-            swath = data['swath_abs']
-        elif kind == 'relative':
-            swath = data['swath_rel']
-        elif kind == 'valley bottom':
-            swath = data['swath_vb']
+            swath = data['sz']
+        elif kind == 'hand':
+            swath = data['hand']
+        elif kind == 'hfv':
+            swath = data['hfv']
             if swath.size == 0:
                 click.secho('No relative-to-valley-bottom swath profile for DGO (%d, %d)' % (axis, gid), fg='yellow')
                 click.secho('Using relative-to-nearest-drainage profile', fg='yellow')
-                swath = data['swath_rel']
+                swath = data['hand']
         else:
             click.secho('Unknown swath kind: %s' % kind)
             return
@@ -445,6 +445,6 @@ def PlotSwath(axis, gid, kind='absolute', output=None):
             title = 'Swath Profile #%d, PK %.1f km' % (gid, measure / 1000.0)
             if output is True:
                 output = os.path.join(workdir, 'SWATH', 'AX%03d_SWATH_%04d.pdf' % (axis, gid))
-            plot_swath(-x, swath, kind in ('relative', 'valley bottom'), title, output)
+            plot_swath(-x, swath, kind in ('hand', 'hvf'), title, output)
         else:
             click.secho('Invalid swath data')

@@ -291,12 +291,12 @@ def createFluvialCorridorDataset(filename):
     fcw.units = 'm'
     fcw.coordinates = 'ax m'
 
-    fcwk = grp_corridor.createVariable('fcwk', 'f4', ('landcover', 'profile'), **landcover_options)
+    fcwk = grp_corridor.createVariable('fcwk', 'f4', ('profile', 'landcover'), **landcover_options)
     fcwk.long_name = 'fluvial corridor width per land cover class'
     fcwk.units = 'm'
     fcwk.coordinates = 'ax m'
 
-    fcwc = grp_corridor.createVariable('fcwc', 'f4', ('landcover', 'profile'), **landcover_options)
+    fcwc = grp_corridor.createVariable('fcwc', 'f4', ('profile', 'landcover'), **landcover_options)
     fcwc.long_name = 'fluvial corridor width per land cover continuity class'
     fcwc.units = 'm'
     fcwc.coordinates = 'ax m'
@@ -324,37 +324,43 @@ def createFluvialCorridorDataset(filename):
     ds = grp_swath.createVariable('ds', 'u4', ('swath',), **options)
     ds.long_name = 'swath slice density, ie. number of pixels used in slice values'
     ds.units = 'pixels'
-    ds.coordinates = 'ax m sx'
+    ds.coordinates = 'sp sx'
 
     # Elevation per swath slice
 
-    sz = grp_swath_elevation.createVariable('sz', 'f4', ('quantile', 'swath'), **elevation_options)
+    sz = grp_swath_elevation.createVariable('sz', 'f4', ('swath', 'quantile'), **elevation_options)
     sz.long_name = 'swath elevation'
     sz.units = 'm'
-    sz.coordinates = 'ax m sx'
+    sz.coordinates = 'sp sx'
     sz.vertical_ref = crs.vertical_ref
 
-    hand = grp_swath_elevation.createVariable('hand', 'f4', ('quantile', 'swath'), **elevation_options)
+    hand = grp_swath_elevation.createVariable('hand', 'f4', ('swath', 'quantile'), **elevation_options)
     hand.long_name = 'height above nearest drainage'
     hand.units = 'm'
-    hand.coordinates = 'ax m sx'
+    hand.coordinates = 'sp sx'
 
-    hvf = grp_swath_elevation.createVariable('hvf', 'f4', ('quantile', 'swath'), **elevation_options)
+    hvf = grp_swath_elevation.createVariable('hvf', 'f4', ('swath', 'quantile'), **elevation_options)
     hvf.long_name = 'height above valley floor'
     hvf.units = 'm'
-    hvf.coordinates = 'ax m sx'
+    hvf.coordinates = 'sp sx'
 
     # Land cover metrics per swath slice
 
-    scwk = grp_swath_landcover.createVariable('scwk', 'f4', ('landcover', 'swath'), **landcover_options)
-    scwk.long_name = 'unit width for land cover class'
-    scwk.units = 'm'
-    scwk.coordinates = 'ax m sx'
+    lck = grp_swath_landcover.createVariable('lck', 'uint8', ('profile', 'landcover'), **options)
+    lck.long_name = 'land cover classes represented at profile location'
 
-    scwc = grp_swath_landcover.createVariable('scwc', 'f4', ('landcover', 'swath'), **landcover_options)
+    scwk = grp_swath_landcover.createVariable('scwk', 'uint32', ('swath', 'landcover'), **landcover_options)
+    scwk.long_name = 'unit width for land cover class'
+    scwk.units = 'pixels'
+    scwk.coordinates = 'sp sx'
+
+    lcc = grp_swath_landcover.createVariable('lcc', 'uint8', ('profile', 'landcover'), **options)
+    lcc.long_name = 'land cover continuity classes represented at profile location'
+
+    scwc = grp_swath_landcover.createVariable('scwc', 'uint32', ('swath', 'landcover'), **landcover_options)
     scwc.long_name = 'unit width for land cover continuity class'
-    scwc.units = 'm'
-    scwc.coordinates = 'ax m sx'
+    scwc.units = 'pixels'
+    scwc.coordinates = 'sp sx'
 
     rootgrp.close()
 
