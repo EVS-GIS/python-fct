@@ -34,16 +34,20 @@ def as_window(bounds, transform):
 
     return Window(col_offset, row_offset, width, height)
 
-def UnitLandCoverSwath(axis, gid, bounds):
+def UnitLandCoverSwath(axis, gid, bounds, landcover='continuity'):
     """
     Calculate Land Cover Swath Profile for Valley Unit (axis, gid)
     """
 
     dgo_raster = os.path.join(workdir, 'AX%03d_DGO.vrt' % axis)
     distance_raster = os.path.join(workdir, 'AX%03d_AXIS_DISTANCE.vrt' % axis)
-    landcover_raster = os.path.join(workdir, 'AX%03d_CONTINUITY.vrt' % axis)
     relz_raster = os.path.join(workdir, 'AX%03d_NEAREST_RELZ.vrt' % axis)
 
+    if landcover == 'continuity':
+        landcover_raster = os.path.join(workdir, 'AX%03d_CONTINUITY.vrt' % axis)
+    else:
+        landcover_raster = os.path.join(workdir, 'CESBIO_2018.vrt')
+    
     with rio.open(distance_raster) as ds:
 
         window = as_window(bounds, ds.transform)
@@ -53,7 +57,8 @@ def UnitLandCoverSwath(axis, gid, bounds):
             relz = ds1.read(1, window=window, boundless=True, fill_value=ds1.nodata)
 
         with rio.open(landcover_raster) as ds2:
-            landcover = ds2.read(1, window=window, boundless=True, fill_value=ds2.nodata)
+            window2 = as_window(bounds, ds2.transform)
+            landcover = ds2.read(1, window=window2, boundless=True, fill_value=ds2.nodata)
 
         with rio.open(dgo_raster) as ds3:
             mask = (ds3.read(1, window=window, boundless=True, fill_value=ds3.nodata) == gid)
@@ -97,17 +102,24 @@ def UnitLandCoverSwath(axis, gid, bounds):
 
         return axis, gid, values
 
-def LandCoverSwath(axis, processes=1):
+def LandCoverSwath(axis, landcover='continuity', processes=1):
     """
     DOCME
     """
 
     dgo_shapefile = os.path.join(workdir, 'AX%03d_DGO.shp' % axis)
     
-    def output(axis, gid):
-        return os.path.join(workdir, 'OCS', 'AX%03d_SWATH_%04d.npz' % (axis, gid))
+    if landcover == 'continuity':
 
-    kwargs = dict()
+        def output(axis, gid):
+            return os.path.join(workdir, 'OCS', 'AX%03d_SWATH_CONTINUITY_%04d.npz' % (axis, gid))
+            
+    else:
+
+        def output(axis, gid):
+            return os.path.join(workdir, 'OCS', 'AX%03d_SWATH_RAW_%04d.npz' % (axis, gid))
+
+    kwargs = dict(landcover=landcover)
     profiles = dict()
     arguments = list()
 
@@ -136,7 +148,7 @@ def LandCoverSwath(axis, processes=1):
                     profile=profile,
                     **values)
 
-def plot_swath(x, classes, swath, title=None, filename=None):
+def plot_swath(x, classes, swath, direction='forward', title=None, filename=None):
 
     fig = plt.figure(1, facecolor='white',figsize=(6.25,3.5))
     gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=1.0,top=1.0)
@@ -166,28 +178,126 @@ def plot_swath(x, classes, swath, title=None, filename=None):
         '#fa1665'  # Disconnected
     ]
 
-    cumulative = np.zeros_like(x, dtype='uint16')
-    lagged = np.copy(cumulative)
+    
 
     count = np.sum(swath, axis=1)
-    count[count == 0] = 1
 
-    # TODO do not plot zeros
+    # ====================================================================
+    
+    # count[count == 0] = 1
+    # cumulative = np.zeros_like(x, dtype='uint16')
+    # lagged = np.copy(cumulative)
 
-    for k in range(swath.shape[1]):
+    # for k in range(swath.shape[1]):
 
-        if classes[k] == 255:
-            continue
+    #     if classes[k] == 255:
+    #         continue
 
-        cumulative += swath[:, k]
+    #     cumulative += swath[:, k]
 
-        ax.fill_between(x, lagged / count, cumulative / count, facecolor=colors[classes[k]], alpha = 0.6, interpolate=True)
-        ax.plot(x, cumulative / count, colors[classes[k]], linewidth = 1.0)
+    #     ax.fill_between(x, lagged / count, cumulative / count, facecolor=colors[classes[k]], alpha = 0.6, interpolate=True)
+    #     ax.plot(x, cumulative / count, colors[classes[k]], linewidth = 1.0)
 
-        lagged += swath[:, k]
+    #     lagged += swath[:, k]
+
+    # ====================================================================
+
+    # cumulative = np.zeros_like(x, dtype='uint16')
+    # lagged = np.copy(cumulative)
+
+    # for variable in range(swath.shape[1]):
+
+    #     if classes[variable] == 255:
+    #         continue
+
+    #     cumulative += swath[:, variable]
+
+    #     parts = np.split(
+    #         np.column_stack([x, count, lagged, cumulative]),
+    #         np.where((count == 0) | (swath[:, variable] == 0))[0])
+
+    #     for k, part in enumerate(parts):
+
+    #         if k == 0:
+
+    #             xk = part[:, 0]
+    #             countk = part[:, 1]
+    #             laggedk = part[:, 2]
+    #             cumulativek = part[:, 3]
+
+    #         else:
+
+    #             xk = part[1:, 0]
+    #             countk = part[1:, 1]
+    #             laggedk = part[1:, 2]
+    #             cumulativek = part[1:, 3]
+
+    #         # print(k, xk.shape, countk.shape, swathk.shape)
+
+    #         # cumulative = np.zeros_like(xk)
+    #         # lagged = np.copy(cumulative)
+
+    #         if xk.size > 0:
+
+    #             countk[countk == 0] = 1
+    #             laggedk = laggedk / countk
+    #             cumulativek = cumulativek / countk
+
+    #             # cumulative += swathk / countk
+
+    #             ax.fill_between(xk, laggedk, cumulativek, facecolor=colors[classes[variable]], alpha = 0.6, interpolate=True)
+    #             ax.plot(xk, cumulativek, colors[classes[variable]], linewidth = 1.0)
+
+    #             # lagged += swathk / countk
+
+    #     lagged += swath[:, variable]
+
+    # ====================================================================
+
+    # Do not plot zeros
+
+    parts = np.split(
+        np.column_stack([x, count, swath]),
+        np.where(count == 0)[0])
+
+    for k, part in enumerate(parts):
+
+        if k == 0:
+
+            xk = part[:, 0]
+            countk = part[:, 1]
+            swathk = part[:, 2:]
+        
+        else:
+
+            xk = part[1:, 0]
+            countk = part[1:, 1]
+            swathk = part[1:, 2:]
+
+        # print(k, xk.shape, countk.shape, swathk.shape)
+
+        cumulative = np.zeros_like(xk)
+        lagged = np.copy(cumulative)
+
+        if xk.size > 0:
+
+            variables = range(swath.shape[1])
+            variables = reversed(variables) if direction == 'reversed' else variables
+
+            for variable in variables:
+
+                if classes[variable] == 255:
+                    continue
+
+                cumulative += swathk[:, variable] / countk
+
+                ax.fill_between(xk, lagged, cumulative, facecolor=colors[classes[variable]], alpha = 0.7, interpolate=True)
+                ax.plot(xk, cumulative, colors[classes[variable]], linewidth = 1.0)
+
+                lagged += swathk[:, variable] / countk
 
     fig_size_inches = 6.25
-    aspect_ratio = 2
+    aspect_ratio = 3
     cbar_L = "None"
     [fig_size_inches,map_axes,cbar_axes] = MapFigureSizer(fig_size_inches, aspect_ratio, cbar_loc=cbar_L, title=True)
 
@@ -204,9 +314,15 @@ def plot_swath(x, classes, swath, title=None, filename=None):
         plt.savefig(filename, format='png', dpi=300)
         plt.clf()
 
-def PlotSwath(axis, gid, output=None):
+def PlotSwath(axis, gid, kind='continuity', direction='forward', output=None):
 
-    filename = os.path.join(workdir, 'OCS', 'AX%03d_SWATH_%04d.npz' % (axis, gid))
+    if kind == 'continuity':
+        filename = os.path.join(workdir, 'OCS', 'AX%03d_SWATH_CONTINUITY_%04d.npz' % (axis, gid))
+    elif kind == 'raw':
+        filename = os.path.join(workdir, 'OCS', 'AX%03d_SWATH_RAW_%04d.npz' % (axis, gid))
+    else:
+        click.secho('Unknown swath kind %s' % kind, fg='yellow')
+        return
 
     if os.path.exists(filename):
 
@@ -222,7 +338,6 @@ def PlotSwath(axis, gid, output=None):
         _x = -0.5 * (bins[1:] + bins[:-1])
         # _width = bins[1:] - bins[:-1]
         _swath = np.zeros((_x.size, classes.size), dtype='uint16')
-        print(_swath.shape)
 
         for i in range(1, len(bins)):
             for k in range(len(classes)):
@@ -231,7 +346,10 @@ def PlotSwath(axis, gid, output=None):
         if swath.shape[0] == x.shape[0]:
             title = 'Land Cover Swath Profile #%d, PK %.1f km' % (gid, measure / 1000.0)
             if output is True:
-                output = os.path.join(workdir, 'OCS', 'AX%03d_SWATH_%04d.pdf' % (axis, gid))
-            plot_swath(_x, classes, _swath, title, output)
+                if kind == 'continuity':
+                    output = os.path.join(workdir, 'OCS', 'AX%03d_SWATH_CONTINUITY_%04d.pdf' % (axis, gid))
+                elif kind == 'raw':
+                    output = os.path.join(workdir, 'OCS', 'AX%03d_SWATH_RAW_%04d.pdf' % (axis, gid))
+            plot_swath(_x, classes, _swath, direction, title, output)
         else:
             click.secho('Invalid swath data')

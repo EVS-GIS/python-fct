@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from Plotting import MapFigureSizer
 
+mpl.use('cairo')
+
 def plot_swath(x, swath, relative=False, title=None, filename=None):
 
     fig = plt.figure(1, facecolor='white',figsize=(6.25,3.5))
@@ -47,7 +49,7 @@ def plot_swath(x, swath, relative=False, title=None, filename=None):
             ax.plot(xk, swathk[:, 2], "#48638a", linewidth = 1)
 
     fig_size_inches = 6.25
-    aspect_ratio = 2
+    aspect_ratio = 3
     cbar_L = "None"
     [fig_size_inches,map_axes,cbar_axes] = MapFigureSizer(fig_size_inches, aspect_ratio, cbar_loc=cbar_L, title=True)
 
