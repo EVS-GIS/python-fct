@@ -15,6 +15,7 @@ NetCDF4 Fluvial Corridor Data Model
 """
 
 import os
+import re
 import numpy as np
 import click
 from netCDF4 import Dataset
@@ -24,15 +25,21 @@ from netCDF4 import Dataset
 # template.createVariable(srs.name, srs.datatype, srs.dimensions)
 # template[srs.name].setncatts(srs.__dict__)
 
-def createFluvialCorridorDataset(filename):
+def strip(s):
+    # return re.sub(' {2,}', ' ', s.strip())
+    return s.rstrip()
+
+def createFluvialCorridorProfileDataset(filename, description=None):
     """
     Creates an empty NetCDF data structure
     """
 
     rootgrp = Dataset(filename, 'w')
-    rootgrp.Conventions = 'CF-1.5'
-    rootgrp.FCT = '1.0.5'
-    rootgrp.description = 'Lorem etc.'
+    rootgrp.Conventions = 'CF-1.8'
+    rootgrp.FCT = 'Fluvial Corridor Toolbox Profile Model 1.0.5'
+
+    if description:
+        rootgrp.description = description
 
     # Common variable options
 
@@ -99,7 +106,7 @@ def createFluvialCorridorDataset(filename):
     crs.longitude_of_prime_meridian = 0.0
     crs.semi_major_axis = 6378137.0
     crs.inverse_flattening = 298.257222101
-    crs.spatial_ref = """
+    crs.spatial_ref = strip("""
         PROJCS["RGF93 / Lambert-93",
             GEOGCS["RGF93"
                 DATUM["Reseau_Geodesique_Francais_1993",
@@ -120,8 +127,8 @@ def createFluvialCorridorDataset(filename):
             AXIS["X",EAST],
             AXIS["Y",NORTH],
             AUTHORITY["EPSG","2154"]]
-    """
-    crs.vertical_ref = """
+    """)
+    crs.vertical_ref = strip("""
         VERT_CS["NGF-IGN69 height",
             VERT_DATUM["Nivellement General de la France - IGN69",2005,
                 AUTHORITY["EPSG","5119"]],
@@ -129,222 +136,237 @@ def createFluvialCorridorDataset(filename):
                 AUTHORITY["EPSG","9001"]],
             AXIS["Up",UP],
             AUTHORITY["EPSG","5720"]]
-    """
+    """)
     crs.crs_wkt = crs.spatial_ref
+
+    rootgrp.featureType = 'profile'
+    rootgrp.grid_mapping = 'crs: x, y'
 
     # Coordinates
 
-    p = grp_profile.createVariable('profile', 'u4', ('profile',))
+    p = grp_profile.createVariable('profile', 'uint32', ('profile',))
     p.long_name = 'long profile coordinate'
     p.compress = 'axdim mdim'
+    p.cf_role = 'profile_id'
 
-    s = grp_swath.createVariable('swath', 'u4', ('swath',))
-    s.long_name = 'swath profile coordinate'
-    s.compress = 'axdim mdim sdim'
+    s = grp_swath.createVariable('swath', 'uint32', ('swath',))
+    s.long_name = 'swath coordinate'
+    s.compress = 'profile sdim'
+    s.cf_role = 'profile_id' # swath ID
 
     # Entity Attributes
 
-    axdim = grp_entity.createVariable('axdim', 'u4', ('axdim',))
-    axdim.long_name = 'long profile identifier'
+    ax = grp_entity.createVariable('ax', 'uint32', ('axdim',))
+    ax.long_name = 'entity index'
     # unique identifier, unitless
 
-    ox = grp_entity.createVariable('ox', 'f8', ('axdim',), **xym_options)
-    ox.long_name = 'projected x location at long profile origin (most downstream point)'
-    ox.units = 'm'
+    x = grp_entity.createVariable('x', 'float64', ('axdim',), **xym_options)
+    x.long_name = 'projected x location at long profile origin (most downstream point)'
+    x.units = 'm'
 
-    oy = grp_entity.createVariable('oy', 'f8', ('axdim',), **xym_options)
-    oy.long_name = 'projected y location at long profile origin (most downstream point)'
-    oy.units = 'm'
+    y = grp_entity.createVariable('y', 'float64', ('axdim',), **xym_options)
+    y.long_name = 'projected y location at long profile origin (most downstream point)'
+    y.units = 'm'
 
-    om = grp_entity.createVariable('om', 'f8', ('axdim',), **xym_options)
-    om.long_name = 'measure (distance) from network outlet at long profile origin'
-    om.units = 'm'
+    m = grp_entity.createVariable('m', 'float64', ('axdim',), **xym_options)
+    m.long_name = 'measure (distance) from network outlet at long profile origin'
+    m.units = 'm'
+    m.grid_mapping = 'crs: x, y'
 
-    srcx = grp_entity.createVariable('srcx', 'f8', ('axdim',), **xym_options)
-    srcx.long_name = 'projected x location of stream source'
-    srcx.units = 'm'
+    xs = grp_entity.createVariable('xs', 'float64', ('axdim',), **xym_options)
+    xs.long_name = 'projected x location of stream source'
+    xs.units = 'm'
 
-    srcy = grp_entity.createVariable('srcy', 'f8', ('axdim',), **xym_options)
-    srcy.long_name = 'projected y location of stream source'
-    srcy.units = 'm'
+    ys = grp_entity.createVariable('ys', 'float64', ('axdim',), **xym_options)
+    ys.long_name = 'projected y location of stream source'
+    ys.units = 'm'
 
-    srcm = grp_entity.createVariable('srcm', 'f8', ('axdim',), **xym_options)
-    srcm.long_name = 'measure (distance) from origin at stream source'
-    srcm.units = 'm'
+    ms = grp_entity.createVariable('ms', 'float64', ('axdim',), **xym_options)
+    ms.long_name = 'measure (distance) from origin at stream source'
+    ms.units = 'm'
+    ms.grid_mapping = 'crs: xs, ys'
 
-    cdentitehy = grp_entity.createVariable('cdentitehy', 'S8', ('axdim',), **options)
-    # cdentitehy = rootgrp.createVariable('cdentitehy', str, ('axdim', 'string8'))
-    cdentitehy.long_name = 'hydrographic entity identifier'
-    cdentitehy.source = 'BD Carthage'
-    cdentitehy._Encoding = 'ascii'
-    cdentitehy.coordinates = 'ox oy'
-    cdentitehy.grid_mapping = 'crs: ox oy'
+    cdh = grp_entity.createVariable('cdh', 'S8', ('axdim',), **options)
+    cdh.long_name = 'hydrographic entity identifier'
+    cdh.source = 'BD Carthage CdEntiteHy'
+    cdh._Encoding = 'ascii'
+    cdh.coordinates = 'x y'
+    cdh.grid_mapping = 'crs: x, y'
     # unique identifier, unitless
 
-    hydronym = grp_entity.createVariable('hydronym', 'S20', ('axdim',), **options)
-    # hydronym = rootgrp.createVariable('hydronym', str, ('axdim', 'string20'))
-    hydronym.long_name = 'river toponym'
-    hydronym.source = 'BD Topo'
-    hydronym._Encoding = 'utf-8'
-    hydronym.coordinates = 'ox oy'
-    hydronym.grid_mapping = 'crs: ox oy'
+    nym = grp_entity.createVariable('nym', 'S20', ('axdim',), **options)
+    nym.long_name = 'river toponym'
+    nym.source = 'BD Topo'
+    nym._Encoding = 'utf-8'
+    nym.coordinates = 'x y'
+    nym.grid_mapping = 'crs: x, y'
     # name identifier, unitless
 
-    hack = grp_entity.createVariable('hack', 'u4', ('axdim',), **options)
-    hack.long_name = 'Hack order of long profile'
-    hack.coordinates = 'ox oy'
-    hack.grid_mapping = 'crs: ox oy'
+    hk = grp_entity.createVariable('hk', 'uint8', ('axdim',), **options)
+    hk.long_name = 'Hack order of long profile'
+    hk.coordinates = 'xo yo'
+    hk.grid_mapping = 'crs: x, y'
     # unitless
 
-    ostrahler = grp_entity.createVariable('ostrahler', 'u4', ('axdim',), **options)
-    ostrahler.long_name = 'Strahler order at long profile origin'
-    ostrahler.coordinates = 'ox oy'
-    ostrahler.grid_mapping = 'crs: ox oy'
+    sto = grp_entity.createVariable('sto', 'uint8', ('axdim',), **options)
+    sto.long_name = 'Strahler order at long profile origin'
+    sto.coordinates = 'x y'
+    sto.grid_mapping = 'crs: x, y'
     # unitless
 
-    # Long Profile Coordinates
+    join = grp_entity.createVariable('join', 'uint32', ('axdim',), **options)
+    join.long_name = 'junction profile coordinate'
+    join.description = strip("""
+        This variable contains an index on the profile dimension,
+        which can be dereferenced to coordinate (axis, m)
+        where :
+            - `axis` is the downstream entity identifier
+            - and `m` the location of the junction on `axis`
+        """)
 
-    ax = grp_profile.createVariable('ax', 'u4', ('profile',), **options)
-    ax.long_name = 'long profile identifier of LP unit'
+    # Long Profile Location Coordinates
 
-    m = grp_profile.createVariable('m', 'f8', ('profile',), **xym_options)
-    m.long_name = 'measure (distance) from origin of LP unit'
-    m.units = 'm'
+    ap = grp_profile.createVariable('ap', 'uint32', ('profile',), **options)
+    ap.long_name = 'long profile identifier of LP unit'
 
-    # Long Profile General Characteristics
+    mp = grp_profile.createVariable('mp', 'float64', ('profile',), **xym_options)
+    mp.long_name = 'measure (distance) from origin of LP unit'
+    mp.units = 'm'
 
-    px = grp_profile.createVariable('px', 'f8', ('profile',), **xym_options)
-    px.long_name = 'projected x location of LP unit'
-    px.units = 'm'
-    px.coordinates = 'ax m'
+    # Long Profile Location Characteristics
 
-    py = grp_profile.createVariable('py', 'f8', ('profile',), **xym_options)
-    py.long_name = 'projected y location of LP unit'
-    py.units = 'm'
-    py.coordinates = 'ax m'
+    xp = grp_profile.createVariable('xp', 'float64', ('profile',), **xym_options)
+    xp.long_name = 'projected x location of LP unit'
+    xp.units = 'm'
+    xp.coordinates = 'ap mp'
 
-    strahler = grp_profile.createVariable('strahler', 'u4', ('profile',), **options)
-    strahler.long_name = 'Strahler order at LP unit location'
+    yp = grp_profile.createVariable('yp', 'float64', ('profile',), **xym_options)
+    yp.long_name = 'projected y location of LP unit'
+    yp.units = 'm'
+    yp.coordinates = 'ap mp'
+
+    st = grp_profile.createVariable('st', 'uint8', ('profile',), **options)
+    st.long_name = 'Strahler order at LP unit location'
     # unitless
-    strahler.coordinates = 'ax m'
+    st.coordinates = 'ap mp'
 
     # Long Profile Metrics
 
-    drainage_options = dict(zlib=True, least_significant_digit=1, fill_value=0)
+    drainage_options = dict(zlib=True, least_significant_digit=2, fill_value=0)
 
-    drainage = grp_profile.createVariable('A', 'f8', ('profile',), **drainage_options)
+    drainage = grp_profile.createVariable('A', 'float32', ('profile',), **drainage_options)
     drainage.long_name = 'drainage area'
     drainage.units = 'km^2'
-    drainage.coordinates = 'ax m'
+    drainage.coordinates = 'ap mp'
 
-    z = grp_profile.createVariable('z', 'f4', ('profile',), **elevation_options)
+    z = grp_profile.createVariable('z', 'float32', ('profile',), **elevation_options)
     z.long_name = 'elevation'
     z.units = 'm'
     z.vertical_ref = crs.vertical_ref
     z.source = 'RGE Alti 5 m'
-    z.coordinates = 'ax m'
+    z.coordinates = 'ap mp'
 
-    dz = grp_profile.createVariable('dz', 'f4', ('profile',), **elevation_options)
+    dz = grp_profile.createVariable('dz', 'float32', ('profile',), **elevation_options)
     dz.long_name = 'slope, derived from z variable'
     dz.units = 'percent'
-    dz.coordinates = 'ax m'
+    dz.coordinates = 'ap mp'
 
-    dzv = grp_profile.createVariable('dzv', 'f4', ('profile',), **elevation_options)
+    dzv = grp_profile.createVariable('dzv', 'float32', ('profile',), **elevation_options)
     dzv.long_name = 'slope of valley floor'
     dzv.units = 'percent'
-    dzv.coordinates = 'ax m'
+    dzv.coordinates = 'ap mp'
 
-    dzt = grp_profile.createVariable('dzt', 'f4', ('profile',), **elevation_options)
+    dzt = grp_profile.createVariable('dzt', 'float32', ('profile',), **elevation_options)
     dzt.long_name = 'slope of talweg'
     dzt.units = 'percent'
-    dzt.coordinates = 'ax m'
+    dzt.coordinates = 'ap mp'
 
-    acw = grp_profile.createVariable('acw', 'f4', ('profile',), **measurement_options)
+    acw = grp_profile.createVariable('acw', 'float32', ('profile',), **measurement_options)
     acw.long_name = 'active channel width'
     acw.units = 'm'
-    acw.coordinates = 'ax m'
+    acw.coordinates = 'ap mp'
 
-    lfw = grp_profile.createVariable('lfw', 'f4', ('profile',), **measurement_options)
+    lfw = grp_profile.createVariable('lfw', 'float32', ('profile',), **measurement_options)
     lfw.long_name = 'low-flow water channel width'
     lfw.units = 'm'
     lfw.coordinates = 'ax m'
 
-    axl = grp_profile.createVariable('axl', 'f4', ('profile',), **measurement_options)
+    axl = grp_profile.createVariable('axl', 'float32', ('profile',), **measurement_options)
     axl.long_name = 'intercepted reference axis length'
     axl.units = 'm'
-    axl.coordinates = 'ax m'
+    axl.coordinates = 'ap mp'
 
-    twl = grp_profile.createVariable('twl', 'f4', ('profile',), **measurement_options)
+    twl = grp_profile.createVariable('twl', 'float32', ('profile',), **measurement_options)
     twl.long_name = 'intercepted talweg length'
     twl.units = 'm'
-    twl.coordinates = 'ax m'
+    twl.coordinates = 'ap mp'
 
-    tcl = grp_profile.createVariable('tcl', 'f4', ('profile',), **measurement_options)
+    tcl = grp_profile.createVariable('tcl', 'float32', ('profile',), **measurement_options)
     tcl.long_name = 'intercepted water channels length'
     tcl.units = 'm'
-    tcl.coordinates = 'ax m'
+    tcl.coordinates = 'ap mp'
 
     # Fluvial corridor widths
 
-    fcw = grp_corridor.createVariable('fcw', 'f4', ('profile',), **measurement_options)
+    fcw = grp_corridor.createVariable('fcw', 'float32', ('profile',), **measurement_options)
     fcw.long_name = 'fluvial corridor width'
     fcw.units = 'm'
-    fcw.coordinates = 'ax m'
+    fcw.coordinates = 'ap mp'
 
-    fcwk = grp_corridor.createVariable('fcwk', 'f4', ('profile', 'landcover'), **landcover_options)
+    fcwk = grp_corridor.createVariable('fcwk', 'float32', ('profile', 'landcover'), **landcover_options)
     fcwk.long_name = 'fluvial corridor width per land cover class'
     fcwk.units = 'm'
-    fcwk.coordinates = 'ax m'
+    fcwk.coordinates = 'ap mp'
 
-    fcwc = grp_corridor.createVariable('fcwc', 'f4', ('profile', 'landcover'), **landcover_options)
+    fcwc = grp_corridor.createVariable('fcwc', 'float32', ('profile', 'landcover'), **landcover_options)
     fcwc.long_name = 'fluvial corridor width per land cover continuity class'
     fcwc.units = 'm'
-    fcwc.coordinates = 'ax m'
+    fcwc.coordinates = 'ap mp'
 
-    # Swath Profile Coordinates
+    # Swath Slice Coordinates
 
-    # sx = grp_swath.createVariable('sx', 'u4', ('swath',), **options)
+    # sx = grp_swath.createVariable('sx', 'uint32', ('swath',), **options)
     # sx.long_name = 'long profile identifier of LP unit'
 
     # sm = grp_swath.createVariable('sm', 'f8', ('swath',), **xym_options)
     # sm.long_name = 'measure (distance) from origin of LP unit'
     # sm.units = 'm'
 
-    sp = grp_swath.createVariable('sp', 'u4', ('swath',), **options)
+    sp = grp_swath.createVariable('sp', 'uint32', ('swath',), **options)
     sp.long_name = 'long profile identifier of LP unit'
-    sp.coordinates = 'ax m'
+    sp.coordinates = 'ap mp'
 
-    sx = grp_swath.createVariable('sx', 'f8', ('swath',), **xym_options)
+    sx = grp_swath.createVariable('sx', 'float32', ('swath',), **xym_options)
     sx.long_name = 'distance from reference axis'
     sx.positive = 'left bank to right bank'
     sx.units = 'm'
 
-    # Swath slice general characteristics
+    # Swath Slice Characteristics
 
-    ds = grp_swath.createVariable('ds', 'u4', ('swath',), **options)
+    ds = grp_swath.createVariable('ds', 'uint32', ('swath',), **options)
     ds.long_name = 'swath slice density, ie. number of pixels used in slice values'
     ds.units = 'pixels'
     ds.coordinates = 'sp sx'
 
-    # Elevation per swath slice
+    # Swath Slice Elevations
 
-    sz = grp_swath_elevation.createVariable('sz', 'f4', ('swath', 'quantile'), **elevation_options)
+    sz = grp_swath_elevation.createVariable('sz', 'float32', ('swath', 'quantile'), **elevation_options)
     sz.long_name = 'swath elevation'
     sz.units = 'm'
     sz.coordinates = 'sp sx'
     sz.vertical_ref = crs.vertical_ref
 
-    hand = grp_swath_elevation.createVariable('hand', 'f4', ('swath', 'quantile'), **elevation_options)
+    hand = grp_swath_elevation.createVariable('hand', 'float32', ('swath', 'quantile'), **elevation_options)
     hand.long_name = 'height above nearest drainage'
     hand.units = 'm'
     hand.coordinates = 'sp sx'
 
-    hvf = grp_swath_elevation.createVariable('hvf', 'f4', ('swath', 'quantile'), **elevation_options)
+    hvf = grp_swath_elevation.createVariable('hvf', 'float32', ('swath', 'quantile'), **elevation_options)
     hvf.long_name = 'height above valley floor'
     hvf.units = 'm'
     hvf.coordinates = 'sp sx'
 
-    # Land cover metrics per swath slice
+    # Land cover metrics
 
     lck = grp_swath_landcover.createVariable('lck', 'uint8', ('profile', 'landcover'), **options)
     lck.long_name = 'land cover classes represented at profile location'
@@ -376,7 +398,7 @@ def cli(ctx, filename, overwrite):
     if os.path.exists(filename) and not overwrite:
         ctx.fail('File %s already exists' % filename)
 
-    createFluvialCorridorDataset(filename)
+    createFluvialCorridorProfileDataset(filename)
 
 if __name__ == '__main__':
     #pylint:disable=no-value-for-parameter
