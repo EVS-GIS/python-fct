@@ -27,6 +27,37 @@ def count_by_value(numpy.int64_t[:, :] raster):
 
 @cython.wraparound(False)
 @cython.boundscheck(False)
+def count_by_uint8(numpy.uint8_t[:, :] raster, numpy.uint8_t nodata, int n):
+    """
+    Returns an array of the count of pixels for each value in `raster`
+    """
+
+    cdef:
+
+        long height = raster.shape[0], width = raster.shape[1]
+        long i, j
+        numpy.uint8_t value
+        numpy.int64_t[:] counts
+
+    # last position counts nodata
+    counts = np.zeros(n+1, dtype='int')
+
+    for i in range(height):
+        for j in range(width):
+
+            value = raster[i, j]
+
+            if value == nodata:
+                counts[n] += 1
+                continue
+
+            if value < n:
+                counts[value] += 1
+
+    return np.asarray(counts)
+
+@cython.wraparound(False)
+@cython.boundscheck(False)
 def spread_connected(numpy.uint8_t[:, :] raster, numpy.uint8_t value):
     """
     Spread value to connected pixels with value+1

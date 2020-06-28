@@ -62,9 +62,16 @@ def createFluvialCorridorSubGridDataset(filename, description=None):
         zlib=True
     )
 
+    pop_options = dict(
+        least_significant_digit=3,
+        fill_value=-99999.0,
+        zlib=True
+    )
+
     # Groups
 
     grp_landcover = rootgrp.createGroup('landcover')
+    grp_population = rootgrp.createGroup('population')
 
     # Dimensions
 
@@ -124,6 +131,20 @@ def createFluvialCorridorSubGridDataset(filename, description=None):
             AUTHORITY["EPSG","5720"]]
     """)
 
+    # Fixed time variables
+
+    time_landcover = rootgrp.createVariable('time_landcover', 'int16', ())
+    time_landcover.long_name = 'temporality of landcover data'
+    time_landcover.units = 'year'
+    time_landcover.calendar = 'gregorian'
+    time_landcover[...] = 2018
+
+    time_pop = rootgrp.createVariable('time_pop', 'int16', ())
+    time_pop.long_name = 'temporality of population data'
+    time_pop.units = 'year'
+    time_pop.calendar = 'gregorian'
+    time_pop[...] = 2015
+
     # Coordinates
 
     x = rootgrp.createVariable('x', 'float64', ('X',), **xy_options)
@@ -160,19 +181,21 @@ def createFluvialCorridorSubGridDataset(filename, description=None):
     dlen.units = 'km'
     dlen.grid_mapping = 'lambert_conformal_conic: x, y'
 
-    xo = rootgrp.createVariable('xo', 'float32', ('Y', 'X'), **xy_options)
-    xo.long_name = 'cell outlet x coordinate'
+    xo = rootgrp.createVariable('xo', 'uint16', ('Y', 'X'), **options)
+    xo.long_name = 'cell outlet x index'
     xo.units = 'm'
 
-    yo = rootgrp.createVariable('yo', 'float32', ('Y', 'X'), **xy_options)
-    yo.long_name = 'cell outlet y coordinate'
+    yo = rootgrp.createVariable('yo', 'uint16', ('Y', 'X'), **options)
+    yo.long_name = 'cell outlet y index'
     yo.units = 'm'
 
     zo = rootgrp.createVariable('zo', 'float32', ('Y', 'X'), **xy_options)
+    zo.standard_name = 'height'
     zo.long_name = 'cell outlet elevation'
     zo.units = 'm'
     zo.vertical_ref = vertical_ref
-    zo.grid_mapping = 'lambert_conformal_conic: xo, yo'
+    zo.coordinates = 'x(xo) y(yo)'
+    zo.grid_mapping = 'lambert_conformal_conic: x, y'
 
     jnext = rootgrp.createVariable('jnext', 'uint32', ('Y', 'X'), **options)
     jnext.long_name = 'downstream cell x coordinate'
@@ -182,12 +205,14 @@ def createFluvialCorridorSubGridDataset(filename, description=None):
     inext.long_name = 'downstream cell y coordinate'
     inext.units = 'm'
 
+    # Land Cover Metrics
+
     lck = grp_landcover.createVariable('lck', 'S20', ('K',))
     lck.long_name = 'land cover class description'
 
     lc = grp_landcover.createVariable('lc', 'float32', ('K', 'Y', 'X'), **area_options)
     lc.long_name = 'area of land cover class in cell (x, y)'
-    lc.units = 'm^2'
+    lc.units = 'ha'
     lc.grid_mapping = 'lambert_conformal_conic: x, y'
 
     lcum = grp_landcover.createVariable('lcum', 'float32', ('K', 'GRID'), **area_options)
@@ -195,6 +220,25 @@ def createFluvialCorridorSubGridDataset(filename, description=None):
     lcum.units = 'km^2'
     lcum.coordinates = 'xg yg'
     lcum.grid_mapping = 'lambert_conformal_conic: xg, yg'
+
+    # Population Variables
+
+    # uint16 ? max = 65536
+    pop = grp_population.createVariable(
+        'pop', 'uint32', ('Y', 'X'),
+        fill_value=np.iinfo('uint32').max,
+        **options)
+    pop.long_name = 'population from 2015 census'
+    pop.units = 'inhabitants'
+    pop.source = 'INSEE, Filosofi 2015, Données au carreau de 200 m (y compris données imputées)'
+    pop.references = 'https://www.insee.fr/fr/statistiques/4176290'
+
+    popcum = grp_population.createVariable('popcum', 'float32', ('Y', 'X'), **pop_options)
+    popcum.long_name = 'cumulative upstream population from 2015 census'
+    popcum.units = 'thousands'
+    popcum.source = 'INSEE, Filosofi 2015, Données au carreau de 200 m (y compris données imputées)'
+    popcum.references = 'https://www.insee.fr/fr/statistiques/4176290'
+
 
 @click.command('create')
 @click.argument('filename')

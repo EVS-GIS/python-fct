@@ -30,19 +30,6 @@ INFO = 'cyan'
 WARNING = 'yellow'
 ERROR = 'red'
 
-def riotogdal(transform):
-    """
-    RasterIO AffineTransform to GDAL GeoTransform tuple
-    """
-    return (
-        transform.c,
-        transform.a,
-        transform.d,
-        transform.f,
-        transform.b,
-        transform.e
-    )
-
 def BuildNetworkGraph(outlets, flow, feedback):
     """
     Link each outlet to the next one
@@ -257,7 +244,7 @@ def SubGridTopography(basin, zone, root, overwrite, filename, flowdir, links, li
         click.secho('Find outlets', fg=INFO)
 
         feedback = ta.ConsoleFeedback()
-        outlets = ta.subgrid_outlets(geometries, flow, acc, riotogdal(ds.transform), feedback)
+        outlets = ta.subgrid_outlets(geometries, flow, acc, ds.transform.to_gdal(), feedback)
         feedback.setProgress(100)
 
         click.secho('Build network graph', fg=INFO)
