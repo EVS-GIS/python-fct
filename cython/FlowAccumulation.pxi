@@ -111,3 +111,58 @@ def flow_accumulation(short[:,:] flow, ContributingArea[:, :] out=None):
             queue.push_back(Cell(ix, jx))
 
     return np.asarray(out)
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def outlets(short[:, :] flow):
+    """
+    Find all cells flowing outside of raster
+
+    Parameters
+    ----------
+
+    flow: array-like
+        D8 Flow direction raster (ndim=2, dtype=np.int8), nodata=-1
+
+    Returns
+    -------
+
+    outlets: list of pixel coordinates (row, col)
+        Raster outlets
+
+    targets: list of pixel coordinates (row, col)
+        Corresponding target pixels, outside of raster range
+    """
+
+    cdef:
+
+        long height = flow.shape[0], width = flow.shape[1]
+        long i, j, ik, jk
+        int k
+        short direction
+
+        vector[Cell] outlets
+        vector[Cell] targets
+        
+        short NODATA = -1, NOFLOW = 0
+
+    with nogil:
+
+        for i in range(height):
+            for j in range(width):
+
+                direction = flow[i, j]
+                
+                if direction == NODATA or direction == NOFLOW:
+                    continue
+
+                k = ilog2(direction)
+                ik = i + ci[k]
+                jk = j + cj[k]
+
+                if not ingrid(height, width, ik, jk):
+
+                    outlets.push_back(Cell(i, j))
+                    targets.push_back(Cell(ik, jk))
+
+    return outlets, targets

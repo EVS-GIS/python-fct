@@ -16,6 +16,7 @@ SubGrid Procedures
 
 import os
 import itertools
+from collections import defaultdict
 from operator import itemgetter
 from multiprocessing import Pool
 
@@ -205,7 +206,7 @@ def AggregateLandCover(processes=1, **kwargs):
 
     dtype = 'float32'
     nodata = -99999.0
-    classes = 10
+    classes = 9
 
     with rio.open(mask_file) as ds:
 
@@ -428,54 +429,64 @@ def TileSubGraph(row, col, bounds, items=None):
 
             return trow, tcol, ti, tj
 
-        outlets = dict()
+        outlets = defaultdict(list)
 
         with fiona.open(outlet_shapefile) as fs:
             for feature in fs.filter(bbox=bounds):
 
                 x, y = feature['geometry']['coordinates']
                 i, j = ta.index(x, y, transform)
-                outlets[i, j] = int(feature['id'])
+                outlets[i, j].append(int(feature['id']))
 
         if items:
 
             resolved = outlets
-            outlets = {(i, j): fid for fid, row, col, i, j in items}
+            outlets = defaultdict(list)
+
+            for fid, row, col, i, j in items:
+                outlets[i, j].append(fid)
 
         else:
 
             resolved = dict()
 
         for (i, j) in outlets:
+            for fid in outlets[i, j]:
 
-            fid = outlets[i, j]
+                if fid in (78751, 77683):
+                    if intile(i, j):
+                        print(fid, 'in tile')
+                    else:
+                        print(fid, 'not in tile')
 
-            while intile(i, j):
+                while intile(i, j):
 
-                direction = flow[i, j]
-                if direction in (nodata, noflow):
-                    break
-
-                x = int(np.log2(direction))
-
-                i = i + ci[x]
-                j = j + cj[x]
-
-                if (i, j) in resolved:
-
-                    if resolved[i, j] != fid:
-                        graph[fid] = resolved[i, j]
+                    direction = flow[i, j]
+                    if direction in (nodata, noflow):
+                        if fid in (78751, 77683):
+                            print('fid', 'flow stop')
                         break
 
-                if (i, j) in outlets:
+                    x = int(np.log2(direction))
 
-                    if outlets[i, j] != fid:
-                        graph[fid] = outlets[i, j]
-                        break
+                    i = i + ci[x]
+                    j = j + cj[x]
 
-            else:
+                    if (i, j) in resolved:
 
-                spillovers[fid] = translate(i, j)
+                        if resolved[i, j] != fid:
+                            graph[fid] = resolved[i, j][0]
+                            break
+
+                    if (i, j) in outlets:
+
+                        if outlets[i, j] != fid:
+                            graph[fid] = outlets[i, j][0]
+                            break
+
+                else:
+
+                    spillovers[fid] = translate(i, j)
 
     return graph, spillovers
 
@@ -597,6 +608,10 @@ def SubGraph():
         step += 1
         click.echo('Step %d, %d spillovers' % (step, len(spillovers)))
 
+        for fid in (78751, 77683):
+            if fid in spillovers:
+                print(fid, spillovers[fid])
+
         unresolved = [(fid, row, col, i, j) for fid, (row, col, i, j) in spillovers.items()]
         unresolved = sorted([item for item in unresolved if item not in processed], key=index)
         processed.update(unresolved)
@@ -663,3 +678,87 @@ def ExportSubGraph(graph):
                     )
 
                     dst.write(feature)
+
+def AsPixelGraph(feature_graph):
+
+    outlet_shapefile = os.path.join(workdir, 'SUBGRID', 'SUBGRID_OUTLETS.shp')
+    graph = dict()
+
+    with fiona.open(outlet_shapefile) as fs:
+        with click.progressbar(feature_graph) as iterator:
+            for fid in iterator:
+
+                feature = fs.get(fid)
+                target_fid = feature_graph[fid]
+                target = fs.get(target_fid)
+
+                i = feature['properties']['i']
+                j = feature['properties']['j']
+
+                ti = target['properties']['i']
+                tj = target['properties']['j']
+
+                graph[i, j] = (ti, tj)
+
+    return graph
+
+def AccumulatePopulation(graph):
+    """
+    DOCME
+    """
+    
+    population_raster = os.path.join(workdir, 'SUBGRID', 'POP_INSEE_2015.tif')
+    # landcover_raster = os.path.join(workdir, 'SUBGRID', 'LANDCOVER_CESBIO_2018.tif')
+    output = os.path.join(workdir, 'SUBGRID', 'POP_INSEE_2015_ACC.tif')
+    nodata = -99999.0
+
+    with rio.open(population_raster) as ds:
+
+        population = ds.read(1)
+        nodata_mask = (population == ds.nodata)
+        population = np.float32(population)
+        population[nodata_mask] = 0.0
+        out = np.zeros_like(population)
+        
+        speedup.raster_acc(population, graph, out=out, coeff=0.001)
+        out[nodata_mask] = nodata
+
+        profile = ds.profile.copy()
+        profile.update(
+            dtype = 'float32',
+            nodata = nodata,
+            compress='deflate'
+        )
+
+        with rio.open(output, 'w', **profile) as dst:
+            dst.write(out, 1)
+
+
+def AccumulateLandcover(graph):
+    """
+    DOCME
+    """
+    
+    landcover_raster = os.path.join(workdir, 'SUBGRID', 'LANDCOVER_CESBIO_2018.tif')
+    output = os.path.join(workdir, 'SUBGRID', 'LANDCOVER_CESBIO_2018_ACC.tif')
+    nodata = -99999.0
+
+    with rio.open(landcover_raster) as ds:
+
+        landcover = ds.read()
+        nodata_mask = (landcover == ds.nodata)
+        landcover[nodata_mask] = 0.0
+        out = np.zeros_like(landcover)
+        
+        speedup.multiband_raster_acc(landcover, graph, out=out, coeff=0.04)
+        out[nodata_mask] = nodata
+
+        profile = ds.profile.copy()
+        profile.update(
+            dtype = 'float32',
+            nodata = nodata,
+            compress='deflate'
+        )
+
+        with rio.open(output, 'w', **profile) as dst:
+            dst.write(out)

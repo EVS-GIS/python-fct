@@ -97,3 +97,221 @@ def graph_acc(dict graph_in, float coeff=25e-6):
                     queue.push_back(target)
 
     return areas, indegree
+
+@cython.wraparound(False)
+@cython.boundscheck(False)
+def raster_acc(float[:, :] raster, dict graph_in, float[:, :] out=None, float coeff=25e-6):
+    """
+    Calculate cumulative values
+    for each pixel represented in the input graph,
+    with input values from `raster`.
+
+    Parameters
+    ----------
+
+    raster: array-like, 2D, dtype=float32
+        
+        Input values to be accumulated
+
+    graph_in: dict
+        
+        Graph of outlet pixel (i, j) to destination pixel (ti, tj)
+        pixel: tuple (int, int) = (pixel row, pixel column)
+        rows and columns reference pixel coordinates in `raster`
+
+    coeff: float
+        
+        coefficient to use to convert contributing areas from raster values
+
+    Returns
+    -------
+
+    out: array-like, 2D, dtype=float32, same shape as `raster`
+        
+        Cumulative values
+    """
+
+    cdef:
+
+        long height = raster.shape[0], width = raster.shape[1]
+        long i, j, ti, tj
+        count = 0
+        ContributingArea area
+        PixelGraph graph
+        PixelGraphItem item
+        Degree indegree
+        Pixel pixel, target
+        ContributingPixel value
+        PixTracker seen
+        CumAreas areas
+        PixQueue queue
+        PixelGraphIterator it
+
+    if out is None:
+        out = np.zeros_like(raster, dtype='float32')
+
+    for i, j in graph_in:
+        
+        ti, tj = graph_in[(i, j)]
+        pixel = Pixel(i, j)
+        target = Pixel(ti, tj)
+        
+        graph[pixel] =target
+
+        if indegree.count(target) == 0:
+            indegree[target] = 1
+        else:
+            indegree[target] += 1
+
+        count += 1
+
+    it = graph.begin()
+    while it != graph.end():
+        item = dereference(it)
+        if indegree.count(item.first) == 0:
+            queue.push_back(item.first)
+        preincrement(it)
+    
+    while not queue.empty():
+
+        pixel = queue.front()
+        queue.pop_front()
+
+        if seen.count(pixel) > 0:
+            continue
+
+        seen[pixel] = True
+
+        if graph.count(pixel) > 0:
+
+            target = graph[pixel]
+
+            i = pixel.first
+            j = pixel.second
+
+            ti = target.first
+            tj = target.second
+
+            # if ti == 311 and (tj == 179 or tj == 180):
+            #     print(ti, tj, out[ti, tj], out[i, j], raster[i, j])
+
+            if ingrid(height, width, i, j) and ingrid(height, width, ti, tj):
+
+                area = raster[i, j]
+                out[ti, tj] += out[i, j] + area*coeff
+
+            indegree[target] -= 1
+
+            if indegree[target] == 0:
+                queue.push_back(target)
+
+    return np.asarray(out)
+
+@cython.wraparound(False)
+@cython.boundscheck(False)
+def multiband_raster_acc(float[:, :, :] raster, dict graph_in, float[:, :, :] out=None, float coeff=25e-6):
+    """
+    Calculate cumulative values
+    for each pixel represented in the input graph,
+    with input values from `raster`.
+
+    Parameters
+    ----------
+
+    raster: array-like, 2D, dtype=float32
+        
+        Input values to be accumulated
+
+    graph_in: dict
+        
+        Graph of outlet pixel (i, j) to destination pixel (ti, tj)
+        pixel: tuple (int, int) = (pixel row, pixel column)
+        rows and columns reference pixel coordinates in `raster`
+
+    coeff: float
+        
+        coefficient to use to convert contributing areas from raster values
+
+    Returns
+    -------
+
+    out: array-like, 2D, dtype=float32, same shape as `raster`
+        
+        Cumulative values
+    """
+
+    cdef:
+
+        int bands = raster.shape[0], k
+        long height = raster.shape[1], width = raster.shape[2]
+        long i, j, ti, tj
+        count = 0
+        ContributingArea area
+        PixelGraph graph
+        PixelGraphItem item
+        Degree indegree
+        Pixel pixel, target
+        ContributingPixel value
+        PixTracker seen
+        CumAreas areas
+        PixQueue queue
+        PixelGraphIterator it
+
+    if out is None:
+        out = np.zeros_like(raster, dtype='float32')
+
+    for i, j in graph_in:
+        
+        ti, tj = graph_in[(i, j)]
+        pixel = Pixel(i, j)
+        target = Pixel(ti, tj)
+        
+        graph[pixel] =target
+
+        if indegree.count(target) == 0:
+            indegree[target] = 1
+        else:
+            indegree[target] += 1
+
+        count += 1
+
+    it = graph.begin()
+    while it != graph.end():
+        item = dereference(it)
+        if indegree.count(item.first) == 0:
+            queue.push_back(item.first)
+        preincrement(it)
+    
+    while not queue.empty():
+
+        pixel = queue.front()
+        queue.pop_front()
+
+        if seen.count(pixel) > 0:
+            continue
+
+        seen[pixel] = True
+
+        if graph.count(pixel) > 0:
+
+            target = graph[pixel]
+
+            i = pixel.first
+            j = pixel.second
+
+            ti = target.first
+            tj = target.second
+
+            if ingrid(height, width, i, j) and ingrid(height, width, ti, tj):
+
+                for k in range(bands):
+
+                    area = raster[k, i, j]
+                    out[k, ti, tj] += out[k, i, j] + area*coeff
+
+            indegree[target] -= 1
+
+            if indegree[target] == 0:
+                queue.push_back(target)
+
+    return np.asarray(out)

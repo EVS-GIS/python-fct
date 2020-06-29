@@ -13,9 +13,6 @@ Subgrid Topography
 ***************************************************************************
 """
 
-ctypedef pair[Cell, Cell] GridExtent
-ctypedef pair[Cell, ContributingArea] Outlet
-
 cdef inline bint inextent(GridExtent extent, long i, long j) nogil:
 
     return i >= extent.first.first and i <= extent.second.first and \

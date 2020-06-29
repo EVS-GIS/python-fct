@@ -54,6 +54,9 @@ ctypedef unsigned int Label
 ctypedef pair[Label, Label] LabelPair
 ctypedef pair[long, long] Pixel
 ctypedef pair[Pixel, long] ContributingPixel
+ctypedef map[Pixel, Pixel] PixelGraph
+ctypedef map[Pixel, Pixel].iterator PixelGraphIterator
+ctypedef pair[Pixel, Pixel]  PixelGraphItem
 ctypedef map[Pixel, ContributingPixel] Graph
 ctypedef pair[Pixel, ContributingPixel]  GraphItem
 ctypedef map[Pixel, ContributingPixel].iterator GraphIterator
@@ -62,6 +65,9 @@ ctypedef map[Pixel, float] CumAreas
 ctypedef map[Pixel, bint] PixTracker
 ctypedef deque[Pixel] PixQueue
 # ctypedef deque[Pixel].iterator PixQueueIterator
+
+ctypedef pair[Cell, Cell] GridExtent
+ctypedef pair[Cell, ContributingArea] Outlet
 
 #                                    0   1   2   3   4   5   6   7
 #                                    N  NE   E  SE   S  SW   W  NW
