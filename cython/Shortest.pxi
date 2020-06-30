@@ -27,6 +27,10 @@ def shortest_value(
     Parameters
     ----------
 
+    domain: array-like, dtype=float32
+        
+        Domain mask, 1 belongs to domain, 0 is outside
+
     reference: array-like, dtype=float32, same shape as `elevations`
         
         Reference elevation raster,
@@ -39,13 +43,9 @@ def shortest_value(
         Reference raster must be initialized to a copy of `elevations`
         set to nodata everywhere except for reference (stream network) cells.
 
-    elevations: array-like, dtype=float32
+    nodata: float
         
-        Digital elevation model (DEM) raster (ndim=2)
-
-    elevations_nodata: float
-        
-        No data value in `elevations`
+        No data value in `reference`
 
     distance: array-like, dtype=float32, same shape as `elevations`
         
@@ -73,10 +73,27 @@ def shortest_value(
         ShortestQueue queue
         unsigned char[:, :] seen
         map[Cell, Cell] ancestors
+        float[:, :] jitteri, jitterj
 
     height = reference.shape[0]
     width = reference.shape[1]
     seen = np.zeros((height, width), dtype=np.uint8)
+
+    jitteri = np.float32(np.random.normal(0, 0.4, (height, width)))
+    jitterj = np.float32(np.random.normal(0, 0.4, (height, width)))
+
+    for i in range(height):
+        for j in range(width):
+
+            if jitteri[i, j] > 0.4:
+                jitteri[i, j] = 0.4
+            elif jitteri[i, j] < -0.4:
+                jitteri[i, j] = -0.4
+
+            if jitterj[i, j] > 0.4:
+                jitterj[i, j] = 0.4
+            elif jitterj[i, j] < -0.4:
+                jitterj[i, j] = -0.4
 
     # if cost is None:
     #     cost = np.ones((height, width), dtype=np.float32)
@@ -189,10 +206,14 @@ def shortest_value(
                 # if domain[ik, jk] == nodata:
                 #     continue
 
-                if k % 2 == 0:
-                    d = distance[i, j] + 1
-                else:
-                    d = distance[i, j] + 1.4142135 # sqrt(2) float32
+                # if k % 2 == 0:
+                #     d = distance[i, j] + 1
+                # else:
+                #     d = distance[i, j] + 1.4142135 # sqrt(2) float32
+
+                d = distance[i, j] + sqrt(
+                    (i + jitteri[i, j] - ik - jitteri[ik, jk])**2 +
+                    (j + jitterj[i, j] - jk - jitterj[ik, jk])**2)
 
                 # d = d + d*cost[ik, jk]
 

@@ -18,6 +18,7 @@ according to D8 flow raster.
 import os
 import itertools
 from operator import itemgetter
+from collections import Counter
 
 from multiprocessing import Pool
 import numpy as np
@@ -52,7 +53,7 @@ def as_window(bounds, transform):
 
     return Window(col_offset, row_offset, width, height)
 
-def TileOutlets(row, col, bounds, band=1, **kwargs):
+def TileOutlets(row, col, bounds, conv=1.0, band=1, **kwargs):
     
     flow_raster = kwargs['flow']
     rasterfile = kwargs['raster'](row, col)
@@ -68,6 +69,10 @@ def TileOutlets(row, col, bounds, band=1, **kwargs):
             window2 = as_window(bounds, ds2.transform)
             flow = ds2.read(1, window=window2, boundless=True, fill_value=ds2.nodata)
             height, width = flow.shape
+
+            acc = np.float32(data)
+            acc[data == ds1.nodata] = 0
+            speedup.flow_accumulation(flow, acc)
 
             outlets, targets = speedup.outlets(flow)
 
@@ -95,11 +100,37 @@ def TileOutlets(row, col, bounds, band=1, **kwargs):
 
                 return trow, tcol, ti, tj
 
-            return [
-                translate(ti, tj) + (data[i, j],)
+            # connect outlet->inlet
+
+            return {
+                (row, col, i, j): translate(ti, tj) + (conv*acc[i, j],)
                 for (i, j), (ti, tj)
                 in zip(outlets, targets)
-            ]
+            }
+
+def TileConnectInlets(row, col, bounds, inlets, **kwargs):
+
+    flow_raster = kwargs['flow']
+
+    graph = dict()
+
+    with rio.open(flow_raster) as ds:
+
+        window = as_window(bounds, ds.transform)
+        flow = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
+
+        for _, _, i, j in inlets:
+
+            # connect inlet->tile outlet
+            
+            io, jo = ta.outlet(flow, i, j)
+            
+            if io == i and jo == j:
+                continue
+
+            graph[row, col, i, j] = (row, col, io, jo, 0.0)
+
+    return graph
 
 def TileAccumulate(row, col, bounds, inlets, conv=1.0, band=1, **kwargs):
     
@@ -122,8 +153,8 @@ def TileAccumulate(row, col, bounds, inlets, conv=1.0, band=1, **kwargs):
         out = np.float32(np.copy(data) * conv)
         out[data == ds1.nodata] = 0.0
 
-        for _, _, ti, tj, value in inlets:
-            out[ti, tj] += value * conv
+        for ti, tj, value in inlets:
+            out[ti, tj] += value
 
         speedup.flow_accumulation(flow, out)
 
@@ -133,11 +164,16 @@ def TileAccumulate(row, col, bounds, inlets, conv=1.0, band=1, **kwargs):
         profile.update(
             dtype='float32',
             nodata=nodata,
-            compress='deflate'
+            compress='deflate',
+            transform=transform
         )
 
-        with rio.open(output, 'w', **profile) as dst:
-            dst.write(out, band)
+        if os.path.exists(output) and band > 1:
+            with rio.open(output, 'r+') as dst:
+                dst.write(out, band)
+        else:
+            with rio.open(output, 'w', **profile) as dst:
+                dst.write(out, band)
 
 def Accumulate(processes, **kwargs):
     
@@ -166,25 +202,75 @@ def Accumulate(processes, **kwargs):
             arguments.append((TileOutlets, row, col, bounds, kwargs))
 
     tile = itemgetter(0, 1)
-    outlets = list()
+    coords = itemgetter(2, 3)
+    graph = dict()
+
+    # 1. Find tile outlets
+
+    click.secho('Find tile outlets', fg='cyan')
 
     with Pool(processes=processes) as pool:
 
         pooled = pool.imap_unordered(starcall, arguments)
 
         with click.progressbar(pooled, length=len(arguments)) as iterator:
-            for _outlets in iterator:
-                outlets.extend(sorted(_outlets, key=tile))
+            for _graph in iterator:
+                graph.update(_graph)   
+
+    outlets = set(graph.keys())
+
+    # 2. Resolve inlet/outlet graph
+
+    click.secho('Resolve inlet/outlet graph', fg='cyan')
 
     arguments = list()
-    outlets = sorted(outlets, key=tile)
-    groups = itertools.groupby(outlets, key=tile)
+    inlets = sorted([(row, col, i, j) for row, col, i, j, _ in graph.values()], key=tile)
+    groups = itertools.groupby(inlets, key=tile)
 
-    for (row, col), inlets in groups:
+    for (row, col), items in groups:
         if (row, col) in tiles:
 
             bounds = tiles[row, col]
-            arguments.append((TileAccumulate, row, col, bounds, inlets, kwargs))
+            arguments.append((TileConnectInlets, row, col, bounds, list(items), kwargs))
+
+    with Pool(processes=processes) as pool:
+
+        pooled = pool.imap_unordered(starcall, arguments)
+
+        with click.progressbar(pooled, length=len(arguments)) as iterator:
+            for _graph in iterator:
+                graph.update(_graph)
+
+    click.secho('Accumulate graph', fg='cyan')
+
+    areas = speedup.graph_acc2(graph)
+
+    # 3. Accumulate tiles with inlets contributions
+
+    click.secho('Accumulate tiles', fg='cyan')
+
+    arguments = list()
+    # bnodes = {(tr, tc, ti, tj) for tr, tc, ti, tj, _ in graph.values()}
+    inlets = sorted(graph.keys(), key=tile)
+    groups = itertools.groupby(inlets, key=tile)
+
+    def contribution(pixel):
+
+        t = tile(pixel)
+        ij = coords(pixel)
+        ti, tj = ij
+        
+        if (t, ij) in areas:
+            return (ti, tj, areas[t, ij])
+
+        return (ti, tj, 0.0)
+
+    for (row, col), items in groups:
+        if (row, col) in tiles:
+
+            contributions = [contribution(item) for item in items if item not in outlets]
+            bounds = tiles[row, col]
+            arguments.append((TileAccumulate, row, col, bounds, contributions, kwargs))
 
     with Pool(processes=processes) as pool:
 
@@ -328,3 +414,4 @@ def AccumulateLandCover(processes=1, bands=9):
             conv=25e-6,
             output=landcover_output,
             band=k+1)
+

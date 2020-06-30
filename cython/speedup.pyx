@@ -24,6 +24,7 @@ cimport numpy
 import array
 from cpython cimport array
 
+from libc.math cimport sqrt
 from libcpp.deque cimport deque
 from libcpp.map cimport map
 from libcpp.pair cimport pair
@@ -109,3 +110,4 @@ include "ValleyBottomShortest.pxi"
 include "Shortest.pxi"
 include "RasterBuffer.pxi"
 include "SubGrid.pxi"
+include "GraphAcc2.pxi"

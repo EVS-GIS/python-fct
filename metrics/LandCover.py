@@ -5,7 +5,10 @@ import numpy as np
 import click
 import rasterio as rio
 from rasterio.windows import Window
+from shapely.geometry import asShape
 import fiona
+
+import terrain_analysis as ta
 
 def starcall(args):
     """
@@ -14,6 +17,18 @@ def starcall(args):
 
     fun = args[0]
     return fun(*args[1:-1], **args[-1])
+
+def as_window(bounds, transform):
+
+    minx, miny, maxx, maxy = bounds
+
+    row_offset, col_offset = ta.index(minx, maxy, transform)
+    row_end, col_end = ta.index(maxx, miny, transform)
+
+    height = row_end - row_offset
+    width = col_end - col_offset
+
+    return Window(col_offset, row_offset, width, height)
 
 def MkLandCoverTile(feature, bounds):
 
@@ -65,27 +80,43 @@ def MkLandCoverTile(feature, bounds):
             'CESBIO_%02d_%02d.tif' % (row, col))
 
     with rio.open(template_raster) as template:
+
+        resolution_x = template.transform.a
+        resolution_y = template.transform.e
+
         with rio.open(cesbio_raster) as ds:
 
             profile = ds.profile.copy()
 
+            geometry = asShape(feature['geometry'])
+
             properties = feature['properties']
             x0 = properties['left']
             y0 = properties['top']
-            x1 = properties['right']
-            y1 = properties['bottom']
+            # x1 = properties['right']
+            # y1 = properties['bottom']
 
-            i0, j0 = ds.index(x0, y0)
-            i1, j1 = ds.index(x1, y1)
+            # i0, j0 = ds.index(x0, y0)
+            # i1, j1 = ds.index(x1, y1)
 
-            h0 = i1 - i0
-            w0 = j1 - j0
-            window = Window(j0, i0, w0, h0)
+            # h0 = i1 - i0
+            # w0 = j1 - j0
+            # window = Window(j0, i0, w0, h0)
 
-            height, width = shape(x0, y0, x1, y1, template)
-            transform = ds.transform * \
-                ds.transform.translation(j0, i0) * \
-                ds.transform.scale(w0 / width, h0 / height)
+            window = as_window(geometry.bounds, ds.transform)
+            window_t = as_window(geometry.bounds, template.transform)
+
+            it = window_t.row_off
+            jt = window_t.col_off
+            height = window_t.height
+            width = window_t.width
+
+            transform = template.transform * \
+                template.transform.translation(jt, it)
+
+            # transform = ds.transform * \
+            #     ds.transform.translation(j0, i0) * \
+            #     ds.transform.scale(w0 / width, h0 / height)
 
             data = ds.read(
                 1,

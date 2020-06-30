@@ -58,13 +58,30 @@ def raster_buffer(
         float[:, :] distance
         unsigned char[:, :] seen
         map[Cell, Cell] ancestors
+        float[:, :] jitteri, jitterj
 
     height = data.shape[0]
     width = data.shape[1]
     distance = np.zeros((height, width), dtype=np.float32)
     seen = np.zeros((height, width), dtype=np.uint8)
 
+    jitteri = np.float32(np.random.normal(0, 0.4, (height, width)))
+    jitterj = np.float32(np.random.normal(0, 0.4, (height, width)))
+
     with nogil:
+
+        for i in range(height):
+            for j in range(width):
+
+                if jitteri[i, j] > 0.4:
+                    jitteri[i, j] = 0.4
+                elif jitteri[i, j] < -0.4:
+                    jitteri[i, j] = -0.4
+
+                if jitterj[i, j] > 0.4:
+                    jitterj[i, j] = 0.4
+                elif jitterj[i, j] < -0.4:
+                    jitterj[i, j] = -0.4
 
         # Sequential scan
         # Search for seed cells having data value
@@ -145,10 +162,14 @@ def raster_buffer(
                 if not ingrid(height, width, ik, jk):
                     continue
 
-                if k % 2 == 0:
-                    d = distance[i, j] + 1
-                else:
-                    d = distance[i, j] + 1.4142135 # sqrt(2) float32
+                # if k % 2 == 0:
+                #     d = distance[i, j] + 1
+                # else:
+                #     d = distance[i, j] + 1.4142135 # sqrt(2) float32
+
+                d = distance[i, j] + sqrt(
+                    (i + jitteri[i, j] - ik - jitteri[ik, jk])**2 +
+                    (j + jitterj[i, j] - jk - jitterj[ik, jk])**2)
 
                 if seen[ik, jk] == 0:
 
