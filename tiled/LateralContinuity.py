@@ -15,10 +15,11 @@ workdir = '/media/crousson/Backup/TESTS/TuilesAin'
 
 def TileLateralContinuity(axis, row, col):
 
-    distance_raster = os.path.join(workdir, 'AX%03d_NEAREST_DISTANCE.vrt' % axis)
-    relz_raster = os.path.join(workdir, 'AX%03d_NEAREST_RELZ.vrt' % axis)
-    landcover_raster = os.path.join(workdir, 'CESBIO_2018.vrt')
-    output = os.path.join(workdir, 'OCS', 'AX%03d_CONTINUITY_%02d_%02d.tif' % (axis, row, col))
+    landcover_raster = os.path.join(workdir, 'GLOBAL', 'LANDCOVER_2018.vrt')
+
+    distance_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'NEAREST_DISTANCE.vrt')
+    relz_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'NEAREST_RELZ.vrt')
+    output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'CONTINUITY_%02d_%02d.tif' % (row, col))
 
     padding = 200
     height = int(parameter('input.height')) + 2*padding
@@ -79,7 +80,7 @@ def TileLateralContinuity(axis, row, col):
 
 def LateralContinuity(axis, processes=1, **kwargs):
 
-    tilefile = '/media/crousson/Backup/TESTS/TuilesAin/TILES.shp'
+    tilefile = os.path.join(workdir, 'TILESET', 'TILES.shp')
 
     with fiona.open(tilefile) as fs:
         

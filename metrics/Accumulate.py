@@ -31,6 +31,8 @@ import fiona
 import terrain_analysis as ta
 import speedup
 
+from SubGridProfile import PlotMetric
+
 workdir = '/media/crousson/Backup/TESTS/TuilesAin'
 
 def starcall(args):
@@ -177,7 +179,7 @@ def TileAccumulate(row, col, bounds, inlets, conv=1.0, band=1, **kwargs):
 
 def Accumulate(processes, **kwargs):
     
-    tile_shapefile = '/media/crousson/Backup/PRODUCTION/OCSOL/GRILLE_10K_AIN.shp'
+    tile_shapefile = os.path.join(workdir, 'TILESET', 'GRILLE_10K.shp')
     tiles = dict()
 
     with fiona.open(tile_shapefile) as fs:
@@ -284,14 +286,16 @@ def population_tile(row, col):
 
     return os.path.join(
         workdir,
-        'METRICS',
+        'GLOBAL',
+        'POPULATION',
         'POP_INSEE_%02d_%02d.tif' % (row, col))
 
 def population_output(row, col):
 
     return os.path.join(
         workdir,
-        'METRICS',
+        'GLOBAL',
+        'ACC',
         'POP_INSEE_ACC_%02d_%02d.tif' % (row, col))
 
 def AccumulatePopulation(processes=1):
@@ -338,16 +342,18 @@ def LandCoverSplit():
     into separate contingency bands
     """
 
-    tile_shapefile = '/media/crousson/Backup/PRODUCTION/OCSOL/GRILLE_10K_AIN.shp'
+    tile_shapefile = os.path.join(workdir, 'TILESET', 'GRILLE_10K.shp')
 
     rasterfile = lambda row, col: os.path.join(
         workdir,
-        'OCS',
+        'GLOBAL',
+        'LANDCOVER',
         'CESBIO_%02d_%02d.tif' % (row, col))
 
     output = lambda row, col: os.path.join(
         workdir,
-        'OCS',
+        'GLOBAL',
+        'ACC',
         'CESBIO_MB_%02d_%02d.tif' % (row, col))
 
     with fiona.open(tile_shapefile) as fs:
@@ -377,14 +383,16 @@ def landcover_tile(row, col):
 
     return os.path.join(
         workdir,
-        'OCS',
+        'GLOBAL',
+        'ACC',
         'CESBIO_MB_%02d_%02d.tif' % (row, col))
 
 def landcover_output(row, col):
 
     return os.path.join(
         workdir,
-        'OCS',
+        'GLOBAL',
+        'ACC',
         'CESBIO_ACC_%02d_%02d.tif' % (row, col))
 
 def AccumulateLandCover(processes=1, bands=9):
@@ -415,3 +423,77 @@ def AccumulateLandCover(processes=1, bands=9):
             output=landcover_output,
             band=k+1)
 
+def ExtractCumulativeProfile(axis=1044):
+
+    subgrid_profile = os.path.join(
+        workdir,
+        'AXES',
+        'AX%03d' % axis,
+        'PROFILE',
+        'SUBGRID_PROFILE.shp'
+    )
+
+    measure_raster = os.path.join(
+        workdir,
+        'AXES',
+        'AX%03d' % axis,
+        'AXIS_MEASURE.vrt'
+    )
+
+    population_raster = os.path.join(
+        workdir,
+        'GLOBAL',
+        'POP_2015_ACC.vrt'
+    )
+
+    landcover_raster = os.path.join(
+        workdir,
+        'GLOBAL',
+        'LANDCOVER_2018_ACC.vrt'
+    )
+
+    # output = os.path.join(
+    #     workdir,
+    #     'METRICS'
+    #     'AX%03d_SUBGRID_PROFILE.npz' % axis
+    # )
+
+    with fiona.open(subgrid_profile) as fs:
+        with click.progressbar(fs) as iterator:
+            xy = np.array([
+                feature['geometry']['coordinates'][0]
+                for feature in iterator
+            ])
+
+    with rio.open(measure_raster) as measure_ds:
+        measure = np.array(list(measure_ds.sample(xy, 1)))
+        measure[measure == measure_ds.nodata] = np.nan
+
+    with rio.open(population_raster) as pop_ds:
+        pop = np.array(list(pop_ds.sample(xy, 1)))
+        pop[pop == pop_ds.nodata] = np.nan
+
+    with rio.open(landcover_raster) as landcover_ds:
+        landcover = np.array(list(landcover_ds.sample(xy)))
+        landcover[landcover == landcover_ds.nodata] = np.nan
+
+    data = np.column_stack([xy, measure, pop, landcover])
+    print(data.shape, data.dtype)
+
+    dtype = np.dtype([
+        ('x', 'float64'),
+        ('y', 'float64'),
+        ('measure', 'float32'),
+        ('population', 'float32'),
+        ('water', 'float32'),
+        ('gravel', 'float32'),
+        ('natural', 'float32'),
+        ('forest', 'float32'),
+        ('grassland', 'float32'),
+        ('crops', 'float32'),
+        ('diffuse', 'float32'),
+        ('dense', 'float32'),
+        ('infrast', 'float32')
+    ])
+
+    return np.sort(np.array([tuple(data[k, :]) for k in range(data.shape[0])], dtype=dtype), order='measure')

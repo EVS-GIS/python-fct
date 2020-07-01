@@ -84,18 +84,22 @@ def TileStreamBuffer(row, col, bounds, distance, **kwargs):
 
 def StreamBuffer(distance, fill=2.0):
 
-    tile_shapefile = '/media/crousson/Backup/PRODUCTION/OCSOL/GRILLE_10K_AIN.shp'
+    tile_shapefile = os.path.join(workdir, 'TILESET', 'GRILLE_10K.shp')
 
     axis = 1044
     resolution = 5.0
 
     rasterfile = os.path.join(
         workdir,
-        'AX%03d_CONTINUITY.vrt' % axis)
+        'AXES',
+        'AX%03d' % axis,
+        'CONTINUITY.vrt')
 
     output = lambda row, col: os.path.join(
         workdir,
-        'OCS',
+        'AXES',
+        'AX%03d' % axis,
+        'TILES',
         'BUFFER%.0f_%02d_%02d.tif' % (distance, row, col))
 
     with fiona.open(tile_shapefile) as fs:
@@ -121,3 +125,10 @@ def StreamBuffer(distance, fill=2.0):
                     output=output(row, col),
                     distance=distance / resolution,
                     fill=fill)
+
+def test():
+
+    for width in (30, 100, 200):
+
+        click.echo('Create buffer of width = %.1f m' % width)
+        StreamBuffer(width)

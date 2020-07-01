@@ -58,7 +58,7 @@ def border(height, width):
 
 def ReadSeeds(axis):
 
-    shapefile = os.path.join(workdir, 'RHT_AXIS_TILED.shp')
+    shapefile = os.path.join(workdir, 'GLOBAL', 'RHT_AXIS_TILED.shp')
 
     def accept(feature):
         properties = feature['properties']
@@ -77,8 +77,8 @@ def ReadSeeds(axis):
 
 def TileValleyBottom(axis, row, col, seeds):
 
-    output_flow_relativez = os.path.join(workdir, 'AX%03d_FLOW_RELZ_%02d_%02d.tif' % (axis, row, col))
-    output_flow_distance = os.path.join(workdir, 'AX%03d_FLOW_DIST_%02d_%02d.tif' % (axis, row, col))
+    output_flow_relativez = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'FLOW_RELZ_%02d_%02d.tif' % (row, col))
+    output_flow_distance = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'FLOW_DIST_%02d_%02d.tif' % (row, col))
 
     elevations, profile = PadRaster(row, col, 'tiled', 1)
     transform = profile['transform']
@@ -242,8 +242,8 @@ def CropAndScale(axis, tiles, processes=1):
 
     def rasters(row, col):
 
-        yield os.path.join(workdir, 'AX%03d_FLOW_RELZ_%02d_%02d.tif' % (axis, row, col)), 1.0
-        yield os.path.join(workdir, 'AX%03d_FLOW_DIST_%02d_%02d.tif' % (axis, row, col)), 5.0
+        yield os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'FLOW_RELZ_%02d_%02d.tif' % (row, col)), 1.0
+        yield os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'FLOW_DIST_%02d_%02d.tif' % (row, col)), 5.0
 
     if processes == 1:
 
@@ -270,7 +270,7 @@ def CropAndScale(axis, tiles, processes=1):
 
 def ValleyBottom(axis, processes=1):
 
-    output = os.path.join(workdir, 'AX%03d_TILES.csv' % axis)
+    output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES.csv')
 
     g_tiles = set()
     tile = itemgetter(4, 5)

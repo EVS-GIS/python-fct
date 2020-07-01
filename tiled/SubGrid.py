@@ -180,8 +180,8 @@ def aggregate_sum(data, ds, nodata):
 
 def AggregatePopulation(processes=1):
 
-    datafile = os.path.join(workdir, 'POP_INSEE_2015.vrt')
-    output = os.path.join(workdir, 'SUBGRID', 'POP_INSEE_2015.tif')
+    datafile = os.path.join(workdir, 'GLOBAL', 'POP_2015.vrt')
+    output = os.path.join(workdir, 'SUBGRID', 'POP_2015.tif')
 
     AggregateMetric(
         datafile,
@@ -201,8 +201,8 @@ def AggregateLandCoverCell(i, j, datafile, window, n):
 def AggregateLandCover(processes=1, **kwargs):
 
     mask_file = os.path.join(workdir, 'SUBGRID', 'SUBGRID_MASK.tif')
-    datafile = os.path.join(workdir, 'CESBIO_2018.vrt')
-    output = os.path.join(workdir, 'SUBGRID', 'LANDCOVER_CESBIO_2018.tif')
+    datafile = os.path.join(workdir, 'GLOBAL', 'LANDCOVER_2018.vrt')
+    output = os.path.join(workdir, 'SUBGRID', 'LANDCOVER_2018.tif')
 
     dtype = 'float32'
     nodata = -99999.0
@@ -261,7 +261,7 @@ def AggregateLandCover(processes=1, **kwargs):
 
 def DominantLandCover():
 
-    landcover_file = os.path.join(workdir, 'SUBGRID', 'LANDCOVER_CESBIO_2018.tif')
+    landcover_file = os.path.join(workdir, 'SUBGRID', 'LANDCOVER_2018.tif')
     mask_file = os.path.join(workdir, 'SUBGRID', 'SUBGRID_MASK.tif')
     output = os.path.join(workdir, 'SUBGRID', 'LANDCOVER_DOMINANT.tif')
 
@@ -573,7 +573,7 @@ def LinkOutlet(fid):
 
 def SubGraph():
 
-    tile_shapefile = '/media/crousson/Backup/PRODUCTION/OCSOL/GRILLE_10K_AIN.shp'
+    tile_shapefile = os.path.join(workdir, 'TILESET', 'GRILLE_10K.shp')
     graph = dict()
     spillovers = dict()
     tiles = dict()
@@ -707,9 +707,9 @@ def AccumulatePopulation(graph):
     DOCME
     """
     
-    population_raster = os.path.join(workdir, 'SUBGRID', 'POP_INSEE_2015.tif')
+    population_raster = os.path.join(workdir, 'SUBGRID', 'POP_2015.tif')
     # landcover_raster = os.path.join(workdir, 'SUBGRID', 'LANDCOVER_CESBIO_2018.tif')
-    output = os.path.join(workdir, 'SUBGRID', 'POP_INSEE_2015_ACC.tif')
+    output = os.path.join(workdir, 'SUBGRID', 'POP_2015_ACC.tif')
     nodata = -99999.0
 
     with rio.open(population_raster) as ds:
@@ -739,8 +739,8 @@ def AccumulateLandcover(graph):
     DOCME
     """
     
-    landcover_raster = os.path.join(workdir, 'SUBGRID', 'LANDCOVER_CESBIO_2018.tif')
-    output = os.path.join(workdir, 'SUBGRID', 'LANDCOVER_CESBIO_2018_ACC.tif')
+    landcover_raster = os.path.join(workdir, 'SUBGRID', 'LANDCOVER_2018.tif')
+    output = os.path.join(workdir, 'SUBGRID', 'LANDCOVER_2018_ACC.tif')
     nodata = -99999.0
 
     with rio.open(landcover_raster) as ds:
@@ -762,3 +762,35 @@ def AccumulateLandcover(graph):
 
         with rio.open(output, 'w', **profile) as dst:
             dst.write(out)
+
+def workflow():
+
+    click.secho('Create SubGrid Data', fg='cyan')
+
+    click.echo('Define SubGrid')
+    DefineSubGrid()
+
+    click.echo('Aggregate Population')
+    AggregatePopulation(7)
+    click.echo('Aggregate Land Cover')
+    AggregateLandCover(7)
+    click.echo('Calculate Dominant Land Cover')
+    DominantLandCover()
+
+    click.secho('Accumulate SubGrid', fg='cyan')
+
+    click.echo('Find Grid Outlets')
+    SubGridOutlets(7)
+    click.echo('Build Grid Graph')
+    graph = SubGraph()
+    click.echo('Write Graph Shapefile')
+    ExportSubGraph(graph)
+    pixgraph = AsPixelGraph(graph)
+    click.echo('Accumulate Population')
+    AccumulatePopulation(pixgraph)
+    click.echo('Accumulate Land Cover')
+    AccumulateLandcover(pixgraph)
+
+
+if __name__ == '__main__':
+    workflow()

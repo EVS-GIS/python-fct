@@ -69,10 +69,10 @@ def TileDisaggregatePopulationData(row, col, bounds):
     # height = int(parameter('input.height'))
     # width = int(parameter('input.width'))
 
-    pop_shapefile = '/media/crousson/Backup/TESTS/TuilesAin/POP_INSEE_200M_LA93.shp'
-    landcover_raster = os.path.join(workdir, 'OCS', 'CESBIO_%02d_%02d.tif' % (row, col))
+    pop_shapefile = os.path.join(workdir, 'GLOBAL', 'POPULATION', 'POP_INSEE_200M_LA93.shp')
+    landcover_raster = os.path.join(workdir, 'GLOBAL', 'LANDCOVER', 'CESBIO_%02d_%02d.tif' % (row, col))
     # landcover_raster = os.path.join(workdir, 'CESBIO_2018.vrt')
-    output = os.path.join(workdir, 'METRICS', 'POP_INSEE_%02d_%02d.tif' % (row, col))
+    output = os.path.join(workdir, 'GLOBAL', 'POPULATION', 'POP_INSEE_%02d_%02d.tif' % (row, col))
 
     # if os.path.exists(output) and not overwrite:
     #     click.secho('Output already exists: %s' % output, fg='yellow')
@@ -156,7 +156,7 @@ def TileDisaggregatePopulationData(row, col, bounds):
 
 def DisaggregatePopulationData(processes=1, **kwargs):
 
-    tile_shapefile = '/media/crousson/Backup/PRODUCTION/OCSOL/GRILLE_10K_AIN.shp'
+    tile_shapefile = os.path.join(workdir, 'TILESET', 'GRILLE_10K.shp')
 
     with fiona.open(tile_shapefile) as fs:
         

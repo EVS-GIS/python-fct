@@ -25,17 +25,17 @@ def as_window(bounds, transform):
     row_offset, col_offset = ta.index(minx, maxy, transform)
     row_end, col_end = ta.index(maxx, miny, transform)
 
-    height = row_end - row_offset + 1
-    width = col_end - col_offset + 1
+    height = row_end - row_offset
+    width = col_end - col_offset
 
     return Window(col_offset, row_offset, width, height)
 
 def TileCropInvalidRegions(axis, row, col):
 
-    invalid_shapefile = os.path.join(workdir, 'AX%03d_DGO_DISCONNECTED.shp' % axis)
+    invalid_shapefile = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'REF', 'DGO_DISCONNECTED.shp')
     # distance_raster = os.path.join(workdir, 'AX%03d_AXIS_DISTANCE_%02d_%02d.tif' % (axis, row, col))
     # distance_raster = os.path.join(workdir, 'AX%03d_NEAREST_DISTANCE_%02d_%02d.tif' % (axis, row, col))
-    regions_raster = os.path.join(workdir, 'AX%03d_DGO_%02d_%02d.tif' % (axis, row, col))
+    regions_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'DGO_%02d_%02d.tif' % (row, col))
 
     if not os.path.exists(regions_raster):
         return
@@ -69,7 +69,7 @@ def TileCropInvalidRegions(axis, row, col):
 
 def CropInvalidRegions(axis, processes=1):
 
-    tileindex = os.path.join(workdir, 'TILES.shp')
+    tileindex = os.path.join(workdir, 'TILESET', 'TILES.shp')
     kwargs = dict()
     arguments = list()
 
@@ -91,13 +91,13 @@ def UnitSwathProfile(axis, gid, bounds):
     Calculate Elevation Swath Profile for Valley Unit (axis, gid)
     """
 
-    dgo_raster = os.path.join(workdir, 'AX%03d_DGO.vrt' % axis)
-    measure_raster = os.path.join(workdir, 'AX%03d_AXIS_MEASURE.vrt' % axis)
-    distance_raster = os.path.join(workdir, 'AX%03d_AXIS_DISTANCE.vrt' % axis)
+    dgo_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'DGO.vrt')
+    measure_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'AXIS_MEASURE.vrt')
+    distance_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'AXIS_DISTANCE.vrt')
     # distance_raster = os.path.join(workdir, 'AX%03d_NEAREST_DISTANCE.vrt' % axis)
     # elevation_raster = '/var/local/fct/RMC/DEM_RGE5M_TILES.vrt'
     elevation_raster = '/var/local/fct/RMC/RGEALTI.tif'
-    relz_raster = os.path.join(workdir, 'AX%03d_NEAREST_RELZ.vrt' % axis)
+    relz_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'NEAREST_RELZ.vrt')
 
     with rio.open(distance_raster) as ds:
 
@@ -213,9 +213,9 @@ def UnitSwathProfile(axis, gid, bounds):
 
 def UnitSwathAxis(axis, gid, m0, bounds):
 
-    dgo_raster = os.path.join(workdir, 'AX%03d_DGO.vrt' % axis)
-    measure_raster = os.path.join(workdir, 'AX%03d_AXIS_MEASURE.vrt' % axis)
-    distance_raster = os.path.join(workdir, 'AX%03d_AXIS_DISTANCE.vrt' % axis)
+    dgo_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'DGO.vrt')
+    measure_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'AXIS_MEASURE.vrt')
+    distance_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'AXIS_DISTANCE.vrt')
     measure_weight = 0.8
 
     with rio.open(distance_raster) as ds:
@@ -259,11 +259,11 @@ def UnitSwathAxis(axis, gid, m0, bounds):
 
 def SwathProfiles(axis, processes=1):
 
-    dgo_shapefile = os.path.join(workdir, 'AX%03d_DGO.shp' % axis)
+    dgo_shapefile = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'REF', 'DGO.shp')
     relative_errors = 0
     
     def output(axis, gid):
-        return os.path.join(workdir, 'SWATH', 'AX%03d_SWATH_%04d.npz' % (axis, gid))
+        return os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'SWATH', 'ELEVATION', 'SWATH_%04d.npz' % gid)
 
     if processes == 1:
 
@@ -323,8 +323,8 @@ def SwathProfiles(axis, processes=1):
 
 def SwathAxes(axis, processes=1):
 
-    dgo_shapefile = os.path.join(workdir, 'AX%03d_DGO.shp' % axis)
-    output = os.path.join(workdir, 'AX%03d_SWATH_AXIS.shp' % axis)
+    dgo_shapefile = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'REF', 'DGO.shp')
+    output = os.path.join(workdir, 'AXES', 'AX%03d' %axis, 'REF', 'SWATH_AXIS.shp')
 
     driver = 'ESRI Shapefile'
     crs = fiona.crs.from_epsg(2154)
@@ -418,7 +418,7 @@ def PlotSwath(axis, gid, kind='absolute', output=None):
 
     from PlotSwath import plot_swath
 
-    filename = os.path.join(workdir, 'SWATH', 'AX%03d_SWATH_%04d.npz' % (axis, gid))
+    filename = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'SWATH', 'ELEVATION', 'SWATH_%04d.npz' % gid)
 
     if os.path.exists(filename):
 
@@ -444,7 +444,7 @@ def PlotSwath(axis, gid, kind='absolute', output=None):
         if swath.shape[0] == x.shape[0]:
             title = 'Swath Profile #%d, PK %.1f km' % (gid, measure / 1000.0)
             if output is True:
-                output = os.path.join(workdir, 'SWATH', 'AX%03d_SWATH_%04d.pdf' % (axis, gid))
+                output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'PDF', 'ELEVATION', 'SWATH_%04d.pdf' % gid)
             plot_swath(-x, swath, kind in ('hand', 'hvf'), title, output)
         else:
             click.secho('Invalid swath data')

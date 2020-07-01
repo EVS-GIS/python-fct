@@ -25,17 +25,17 @@ def as_window(bounds, transform):
     row_offset, col_offset = ta.index(minx, maxy, transform)
     row_end, col_end = ta.index(maxx, miny, transform)
 
-    height = row_end - row_offset + 1
-    width = col_end - col_offset + 1
+    height = row_end - row_offset
+    width = col_end - col_offset
 
     return Window(col_offset, row_offset, width, height)
 
 def MetricElevation(axis):
 
-    streams_shapefile = os.path.join(workdir, 'RHT.shp')
-    dgo_raster = os.path.join(workdir, 'AX%03d_DGO.vrt' % axis)
+    streams_shapefile = os.path.join(workdir, 'GLOBAL', 'RHT.shp')
+    dgo_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'DGO.vrt')
     elevation_raster = '/var/local/fct/RMC/RGEALTI.tif'
-    output = os.path.join(workdir, 'METRICS', 'AX%03d_DGO_MINZ.csv' % axis)
+    output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'METRICS', 'DGO_MINZ.csv')
     
     metrics = defaultdict(lambda: float('inf'))
     # metrics = defaultdict(lambda: (float('inf'), float('-inf')))
@@ -72,10 +72,10 @@ def MetricElevation(axis):
 
 def MetricDrainageArea(axis):
 
-    dgo_shapefile = os.path.join(workdir, 'AX%03d_DGO.shp' % axis)
-    dgo_raster = os.path.join(workdir, 'AX%03d_DGO.vrt' % axis)
+    dgo_shapefile = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'REF', 'DGO.shp')
+    dgo_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'DGO.vrt')
     accumulation_raster = '/var/local/fct/RMC/ACC_RGE5M_TILES.vrt'
-    output = os.path.join(workdir, 'METRICS', 'AX%03d_DGO_DRAINAGE_AREA.csv' % axis)
+    output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'METRICS', 'DGO_DRAINAGE_AREA.csv')
     metrics = dict()
 
     with rio.open(accumulation_raster) as ds1:
@@ -109,8 +109,8 @@ def MetricSlope(axis, distance):
     DGO Slope, expressed in percent
     """
 
-    filename = os.path.join(workdir, 'METRICS', 'AX%03d_DGO_MINZ.csv' % axis)
-    output = os.path.join(workdir, 'METRICS', 'AX%03d_DGO_SLOPE.csv' % axis)
+    filename = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'METRICS', 'DGO_MINZ.csv')
+    output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'METRICS', 'DGO_SLOPE.csv')
 
     def gid(t):
         return int(t[1])
@@ -130,67 +130,67 @@ def MetricSlope(axis, distance):
             fp.write('%d,%d,%.3f\n' % (axis, gid(data[k]), value))
 
 
-def AggregateMetrics(axis):
+# def AggregateMetrics(axis):
 
-    dgo_shapefile = os.path.join(workdir, 'AX%03d_DGO.shp' % axis)
-    output = os.path.join(workdir, 'METRICS', 'AX%03d_METRICS.csv' % axis)
-    headers = ['AXIS', 'DGO', 'MEASURE']
+#     dgo_shapefile = os.path.join(workdir, 'AX%03d_DGO.shp' % axis)
+#     output = os.path.join(workdir, 'METRICS', 'AX%03d_METRICS.csv' % axis)
+#     headers = ['AXIS', 'DGO', 'MEASURE']
 
-    metrics = {
-        'elevation': 'DGO_MINZ.csv',
-        'slope': 'DGO_SLOPE.csv',
-        'drainage': 'DGO_DRAINAGE_AREA.csv'
-    }
+#     metrics = {
+#         'elevation': 'DGO_MINZ.csv',
+#         'slope': 'DGO_SLOPE.csv',
+#         'drainage': 'DGO_DRAINAGE_AREA.csv'
+#     }
 
-    values = defaultdict(dict)
+#     values = defaultdict(dict)
 
-    with fiona.open(dgo_shapefile) as fs:
-        for feature in fs:
+#     with fiona.open(dgo_shapefile) as fs:
+#         for feature in fs:
 
-            gid = feature['properties']['GID']
-            measure = feature['properties']['M']
-            values[gid]['MEASURE'] = '%.0f' % measure
+#             gid = feature['properties']['GID']
+#             measure = feature['properties']['M']
+#             values[gid]['MEASURE'] = '%.0f' % measure
 
-    for metric, dataset in metrics.items():
+#     for metric, dataset in metrics.items():
 
-        filename = os.path.join(workdir, 'METRICS', 'AX%03d_%s' % (axis, dataset))
+#         filename = os.path.join(workdir, 'METRICS', 'AX%03d_%s' % (axis, dataset))
 
-        if os.path.exists(filename):
+#         if os.path.exists(filename):
 
-            headers.append(metric)
+#             headers.append(metric)
 
-            with open(filename) as fp:
-                for line in fp:
-                    t = line.strip().split(',')
-                    gid = int(t[1])
-                    value = t[2]
-                    values[gid][metric] = value
+#             with open(filename) as fp:
+#                 for line in fp:
+#                     t = line.strip().split(',')
+#                     gid = int(t[1])
+#                     value = t[2]
+#                     values[gid][metric] = value
 
-    def format_values(axis, gid, values):
+#     def format_values(axis, gid, values):
 
-        str_values = [
-            '%d' % axis,
-            '%d' % gid
-        ]
+#         str_values = [
+#             '%d' % axis,
+#             '%d' % gid
+#         ]
 
-        for name in headers[2:]:
-            if name in values:
-                str_values.append(values[name])
-            else:
-                str_values.append('nan')
+#         for name in headers[2:]:
+#             if name in values:
+#                 str_values.append(values[name])
+#             else:
+#                 str_values.append('nan')
 
-        return ','.join(str_values)
+#         return ','.join(str_values)
 
 
-    with open(output, 'w') as fp:
+#     with open(output, 'w') as fp:
 
-        fp.write(','.join(headers))
-        fp.write('\n')
+#         fp.write(','.join(headers))
+#         fp.write('\n')
 
-        for gid in sorted(values.keys()):
+#         for gid in sorted(values.keys()):
 
-            if gid == 0:
-                continue
+#             if gid == 0:
+#                 continue
 
-            fp.write(format_values(axis, gid, values[gid]))
-            fp.write('\n')
+#             fp.write(format_values(axis, gid, values[gid]))
+#             fp.write('\n')

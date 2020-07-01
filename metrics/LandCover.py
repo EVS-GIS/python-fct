@@ -10,6 +10,8 @@ import fiona
 
 import terrain_analysis as ta
 
+workdir = '/media/crousson/Backup/TESTS/TuilesAin'
+
 def starcall(args):
     """
     Invoke first arg function with all other arguments.
@@ -76,7 +78,8 @@ def MkLandCoverTile(feature, bounds):
         col = int((x - minx) // 10000)
 
         return os.path.join(
-            '/media/crousson/Backup/TESTS/TuilesAin/OCS',
+            workdir,
+            'GLOBAL', 'LANDCOVER',
             'CESBIO_%02d_%02d.tif' % (row, col))
 
     with rio.open(template_raster) as template:
@@ -141,7 +144,7 @@ def MkLandCoverTile(feature, bounds):
 
 def MkLandCoverTiles(processes=1, **kwargs):
 
-    tile_shapefile = '/media/crousson/Backup/PRODUCTION/OCSOL/GRILLE_10K_AIN.shp'
+    tile_shapefile = os.path.join(workdir, 'TILESET', 'GRILLE_10K.shp')
 
     with fiona.open(tile_shapefile) as fs:
         arguments= [(MkLandCoverTile, feature, fs.bounds, kwargs) for feature in fs]

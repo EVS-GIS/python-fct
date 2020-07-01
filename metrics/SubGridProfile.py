@@ -31,100 +31,33 @@ import speedup
 
 workdir = '/media/crousson/Backup/TESTS/TuilesAin'
 
-def ExtractSubGridProfile1(axis=1044):
-
-    subgrid_profile = os.path.join(
-        workdir,
-        'SUBGRID',
-        'AX%03d_SUBGRID_PROFILE.shp' % axis
-    )
-
-    measure_raster = os.path.join(
-        workdir,
-        'AX%03d_AXIS_MEASURE.vrt' % axis
-    )
-
-    population_raster = os.path.join(
-        workdir,
-        'METRICS',
-        'POP_INSEE_ACC.vrt'
-    )
-
-    landcover_raster = os.path.join(
-        workdir,
-        'OCS',
-        'CESBIO_ACC.vrt'
-    )
-
-    # output = os.path.join(
-    #     workdir,
-    #     'METRICS'
-    #     'AX%03d_SUBGRID_PROFILE.npz' % axis
-    # )
-
-    with fiona.open(subgrid_profile) as fs:
-        with click.progressbar(fs) as iterator:
-            xy = np.array([
-                feature['geometry']['coordinates'][0]
-                for feature in iterator
-            ])
-
-    with rio.open(measure_raster) as measure_ds:
-        measure = np.array(list(measure_ds.sample(xy, 1)))
-        measure[measure == measure_ds.nodata] = np.nan
-
-    with rio.open(population_raster) as pop_ds:
-        pop = np.array(list(pop_ds.sample(xy, 1)))
-        pop[pop == pop_ds.nodata] = np.nan
-
-    with rio.open(landcover_raster) as landcover_ds:
-        landcover = np.array(list(landcover_ds.sample(xy)))
-        landcover[landcover == landcover_ds.nodata] = np.nan
-
-    data = np.column_stack([xy, measure, pop, landcover])
-    print(data.shape, data.dtype)
-
-    dtype = np.dtype([
-        ('x', 'float64'),
-        ('y', 'float64'),
-        ('measure', 'float32'),
-        ('population', 'float32'),
-        ('water', 'float32'),
-        ('gravel', 'float32'),
-        ('natural', 'float32'),
-        ('forest', 'float32'),
-        ('grassland', 'float32'),
-        ('crops', 'float32'),
-        ('diffuse', 'float32'),
-        ('dense', 'float32'),
-        ('infrast', 'float32')
-    ])
-
-    return np.sort(np.array([tuple(data[k, :]) for k in range(data.shape[0])], dtype=dtype), order='measure')
-
 def ExtractSubGridProfile(axis=1044):
 
     subgrid_profile = os.path.join(
         workdir,
-        'SUBGRID',
-        'AX%03d_SUBGRID_PROFILE.shp' % axis
+        'AXES',
+        'AX%03d' % axis,
+        'PROFILE',
+        'SUBGRID_PROFILE.shp'
     )
 
     measure_raster = os.path.join(
         workdir,
-        'AX%03d_AXIS_MEASURE.vrt' % axis
+        'AXES',
+        'AX%03d' % axis,
+        'AXIS_MEASURE.vrt'
     )
 
     population_raster = os.path.join(
         workdir,
-        'SUBGRID',
-        'POP_INSEE_2015_ACC.tif'
+        'GLOBAL',
+        'POP_2015_ACC.vrt'
     )
 
     landcover_raster = os.path.join(
         workdir,
-        'SUBGRID',
-        'LANDCOVER_CESBIO_2018_ACC.tif'
+        'GLOBAL',
+        'LANDCOVER_2018_ACC.vrt'
     )
 
     # output = os.path.join(
@@ -177,8 +110,7 @@ def ExtractSubGridProfile(axis=1044):
         ('crops', 'float32'),
         ('diffuse', 'float32'),
         ('dense', 'float32'),
-        ('infrast', 'float32'),
-        ('dummy', 'float32')
+        ('infrast', 'float32')
     ])
 
     return np.sort(np.array([tuple(data[k, :]) for k in range(data.shape[0])], dtype=dtype), order='measure')
@@ -187,7 +119,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.ticker import EngFormatter
 
-def PlotMetric(data, fieldx, fieldy):
+def PlotMetric(data, fieldx, fieldy, filename=None):
 
     fig = plt.figure(1, facecolor='white',figsize=(6.25,3.5))
     gs = plt.GridSpec(100,100,bottom=0.15,left=0.1,right=1.0,top=1.0)
@@ -209,4 +141,11 @@ def PlotMetric(data, fieldx, fieldy):
 
     ax.plot(data[fieldx], data[fieldy], "#48638a", linewidth = 1)
 
-    fig.show()
+    if filename is None:
+        fig.show()
+    elif filename.endswith('.pdf'):
+        plt.savefig(filename, format='pdf', dpi=600)
+        plt.clf()
+    else:
+        plt.savefig(filename, format='png', dpi=300)
+        plt.clf()

@@ -39,15 +39,15 @@ def UnitLandCoverSwath(axis, gid, bounds, landcover='continuity'):
     Calculate Land Cover Swath Profile for Valley Unit (axis, gid)
     """
 
-    dgo_raster = os.path.join(workdir, 'AX%03d_DGO.vrt' % axis)
-    distance_raster = os.path.join(workdir, 'AX%03d_AXIS_DISTANCE.vrt' % axis)
-    relz_raster = os.path.join(workdir, 'AX%03d_NEAREST_RELZ.vrt' % axis)
+    dgo_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'DGO.vrt')
+    distance_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'AXIS_DISTANCE.vrt')
+    relz_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'NEAREST_RELZ.vrt')
 
     if landcover == 'continuity':
-        landcover_raster = os.path.join(workdir, 'AX%03d_CONTINUITY.vrt' % axis)
+        landcover_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'CONTINUITY.vrt')
     else:
-        landcover_raster = os.path.join(workdir, 'CESBIO_2018.vrt')
-    
+        landcover_raster = os.path.join(workdir, 'GLOBAL', 'LANDCOVER_2018.vrt')
+
     with rio.open(distance_raster) as ds:
 
         window = as_window(bounds, ds.transform)
@@ -107,17 +107,17 @@ def LandCoverSwath(axis, landcover='continuity', processes=1):
     DOCME
     """
 
-    dgo_shapefile = os.path.join(workdir, 'AX%03d_DGO.shp' % axis)
+    dgo_shapefile = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'REF', 'DGO.shp')
     
     if landcover == 'continuity':
 
         def output(axis, gid):
-            return os.path.join(workdir, 'OCS', 'AX%03d_SWATH_CONTINUITY_%04d.npz' % (axis, gid))
+            return os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'SWATH', 'CONTINUITY', 'SWATH_CONTINUITY_%04d.npz' % gid)
             
     else:
 
         def output(axis, gid):
-            return os.path.join(workdir, 'OCS', 'AX%03d_SWATH_RAW_%04d.npz' % (axis, gid))
+            return os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'SWATH', 'LANDCOVER', 'SWATH_LANDCOVER_%04d.npz' % gid)
 
     kwargs = dict(landcover=landcover)
     profiles = dict()
@@ -317,9 +317,9 @@ def plot_swath(x, classes, swath, direction='forward', title=None, filename=None
 def PlotSwath(axis, gid, kind='continuity', direction='forward', output=None):
 
     if kind == 'continuity':
-        filename = os.path.join(workdir, 'OCS', 'AX%03d_SWATH_CONTINUITY_%04d.npz' % (axis, gid))
-    elif kind == 'raw':
-        filename = os.path.join(workdir, 'OCS', 'AX%03d_SWATH_RAW_%04d.npz' % (axis, gid))
+        filename = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'SWATH', 'CONTINUITY', 'SWATH_CONTINUITY_%04d.npz' % gid)
+    elif kind == 'landcover':
+        filename = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'SWATH', 'LANDCOVER', 'SWATH_LANDCOVER_%04d.npz' % gid)
     else:
         click.secho('Unknown swath kind %s' % kind, fg='yellow')
         return
@@ -347,9 +347,14 @@ def PlotSwath(axis, gid, kind='continuity', direction='forward', output=None):
             title = 'Land Cover Swath Profile #%d, PK %.1f km' % (gid, measure / 1000.0)
             if output is True:
                 if kind == 'continuity':
-                    output = os.path.join(workdir, 'OCS', 'AX%03d_SWATH_CONTINUITY_%04d.pdf' % (axis, gid))
-                elif kind == 'raw':
-                    output = os.path.join(workdir, 'OCS', 'AX%03d_SWATH_RAW_%04d.pdf' % (axis, gid))
+                    output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'PDF', 'SWATH_CONTINUITY_%04d.pdf' % gid)
+                elif kind == 'landcover':
+                    output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'PDF', 'SWATH_LANDCOVER_%04d.pdf' % gid)
             plot_swath(_x, classes, _swath, direction, title, output)
         else:
             click.secho('Invalid swath data')
+
+def test():
+
+    for dgo in [45, 47, 61, 75, 87, 122, 125, 167, 190, 412, 630, 811, 819, 885, 897]: 
+        PlotSwath(1044, dgo, 'continuity', output=True) 
