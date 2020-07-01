@@ -296,8 +296,8 @@ def plot_swath(x, classes, swath, direction='forward', title=None, filename=None
 
                 lagged += swathk[:, variable] / countk
 
-    fig_size_inches = 6.25
-    aspect_ratio = 3
+    fig_size_inches = 12.5
+    aspect_ratio = 4
     cbar_L = "None"
     [fig_size_inches,map_axes,cbar_axes] = MapFigureSizer(fig_size_inches, aspect_ratio, cbar_loc=cbar_L, title=True)
 
