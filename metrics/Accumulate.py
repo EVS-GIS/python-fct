@@ -22,6 +22,7 @@ from collections import Counter
 
 from multiprocessing import Pool
 import numpy as np
+import xarray as xr
 
 import click
 import rasterio as rio
@@ -478,22 +479,61 @@ def ExtractCumulativeProfile(axis=1044):
         landcover[landcover == landcover_ds.nodata] = np.nan
 
     data = np.column_stack([xy, measure, pop, landcover])
-    print(data.shape, data.dtype)
 
-    dtype = np.dtype([
-        ('x', 'float64'),
-        ('y', 'float64'),
-        ('measure', 'float32'),
-        ('population', 'float32'),
-        ('water', 'float32'),
-        ('gravel', 'float32'),
-        ('natural', 'float32'),
-        ('forest', 'float32'),
-        ('grassland', 'float32'),
-        ('crops', 'float32'),
-        ('diffuse', 'float32'),
-        ('dense', 'float32'),
-        ('infrast', 'float32')
-    ])
+    return xr.Dataset(
+        {
+            'x': ('measure', data[:, 1]),
+            'y': ('measure', data[:, 2]),
+            'pop': ('measure', data[:, 3]),
+            'lcc': (('measure', 'landcover'), data[:, 4:])
+        },
+        coords={
+            'axis': axis,
+            'measure': data[:, 0],
+            'landcover': [
+                'Water Channel',
+                'Gravel Bars',
+                'Natural Open',
+                'Forest',
+                'Grassland',
+                'Crops',
+                'Diffuse Urban',
+                'Dense Urban',
+                'Infrastructures'
+            ],
+        }
+    )
 
-    return np.sort(np.array([tuple(data[k, :]) for k in range(data.shape[0])], dtype=dtype), order='measure')
+    # print(data.shape, data.dtype)
+
+    # dtype = np.dtype([
+    #     ('x', 'float64'),
+    #     ('y', 'float64'),
+    #     ('measure', 'float32'),
+    #     ('population', 'float32'),
+    #     ('water', 'float32'),
+    #     ('gravel', 'float32'),
+    #     ('natural', 'float32'),
+    #     ('forest', 'float32'),
+    #     ('grassland', 'float32'),
+    #     ('crops', 'float32'),
+    #     ('diffuse', 'float32'),
+    #     ('dense', 'float32'),
+    #     ('infrast', 'float32')
+    # ])
+
+    # return np.sort(np.array([tuple(data[k, :]) for k in range(data.shape[0])], dtype=dtype), order='measure')
+
+def WriteCumulativeProfile(axis, data):
+
+    output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'METRICS', 'WATERSHED_PROFILE.nc')
+
+    data.to_netcdf(
+        output, 'w',
+        encoding={
+            'measure': dict(zlib=True, complevel=9, least_significant_digit=0),
+            'x': dict(zlib=True, complevel=9, least_significant_digit=1),
+            'y': dict(zlib=True, complevel=9, least_significant_digit=1),
+            'pop': dict(zlib=True, complevel=9, least_significant_digit=3),
+            'lcc': dict(zlib=True, complevel=9, least_significant_digit=2)
+        })

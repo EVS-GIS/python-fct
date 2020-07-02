@@ -21,3 +21,4 @@ find TILES -name "CONTINUITY_*.tif" | xargs gdalbuildvrt -a_srs EPSG:2154 CONTIN
 find TILES -name "BUFFER30_*.tif" | xargs gdalbuildvrt -a_srs EPSG:2154 BUFFER30.vrt
 find TILES -name "BUFFER100_*.tif" | xargs gdalbuildvrt -a_srs EPSG:2154 BUFFER100.vrt
 find TILES -name "BUFFER200_*.tif" | xargs gdalbuildvrt -a_srs EPSG:2154 BUFFER200.vrt
+find TILES -name "BUFFER1000_*.tif" | xargs gdalbuildvrt -a_srs EPSG:2154 BUFFER1000.vrt

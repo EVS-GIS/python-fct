@@ -679,6 +679,22 @@ def ExportSubGraph(graph):
 
                     dst.write(feature)
 
+def LoadSubGraph():
+
+    graph_shapefile = os.path.join(workdir, 'SUBGRID', 'SUBGRID_GRAPH.shp')
+    graph = dict()
+
+    with fiona.open(graph_shapefile) as fs:
+        with click.progressbar(fs) as iterator:
+            for feature in iterator:
+
+                properties = feature['properties']
+                nodea = properties['nodea']
+                nodeb = properties['nodeb']
+                graph[nodea] = nodeb
+
+    return graph
+
 def AsPixelGraph(feature_graph):
 
     outlet_shapefile = os.path.join(workdir, 'SUBGRID', 'SUBGRID_OUTLETS.shp')
@@ -702,14 +718,65 @@ def AsPixelGraph(feature_graph):
 
     return graph
 
-def AccumulatePopulation(graph):
+def CreateBufferMask(axis, distance):
+
+    subgrid_raster = os.path.join(
+        workdir,
+        'SUBGRID',
+        'SUBGRID_MASK.tif')
+
+    outlet_shapefile = os.path.join(
+        workdir,
+        'SUBGRID',
+        'SUBGRID_OUTLETS.shp')
+
+    buffer_raster = os.path.join(
+        workdir,
+        'AXES',
+        'AX%03d' % axis,
+        'BUFFER%.0f.vrt' % distance)
+
+    output = os.path.join(
+        workdir,
+        'AXES',
+        'AX%03d' % axis,
+        'SUBGRID_MASK_BUFFER%.0f.tif' % distance)
+
+    with rio.open(subgrid_raster) as ds:
+
+        mask = np.zeros((ds.height, ds.width), dtype='uint8')
+        profile = ds.profile.copy()
+
+        with rio.open(buffer_raster) as src:
+            with fiona.open(outlet_shapefile) as fs:
+                with click.progressbar(fs.filter(bbox=src.bounds)) as iterator:
+                    for feature in iterator:
+
+                        i = feature['properties']['i']
+                        j = feature['properties']['j']
+                        x, y = feature['geometry']['coordinates']
+                        buf_value = next(src.sample([(x, y)], 1))
+                        
+                        if buf_value > 1:
+                            mask[i, j] = 1
+
+        with rio.open(output, 'w', **profile) as dst:
+            dst.write(mask, 1)
+
+    return mask
+
+def AccumulatePopulation(graph, axis=None, mask=None, dataset=''):
     """
     DOCME
     """
     
     population_raster = os.path.join(workdir, 'SUBGRID', 'POP_2015.tif')
-    # landcover_raster = os.path.join(workdir, 'SUBGRID', 'LANDCOVER_CESBIO_2018.tif')
-    output = os.path.join(workdir, 'SUBGRID', 'POP_2015_ACC.tif')
+    
+    if axis is not None:
+        output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, dataset, 'POP_2015_ACC.tif')
+    else:
+        output = os.path.join(workdir, 'SUBGRID', 'POP_2015_ACC.tif')
+    
     nodata = -99999.0
 
     with rio.open(population_raster) as ds:
@@ -717,7 +784,12 @@ def AccumulatePopulation(graph):
         population = ds.read(1)
         nodata_mask = (population == ds.nodata)
         population = np.float32(population)
-        population[nodata_mask] = 0.0
+        
+        if mask is None:
+            population[nodata_mask] = 0.0
+        else:
+            population[nodata_mask | mask] = 0.0
+        
         out = np.zeros_like(population)
         
         speedup.raster_acc(population, graph, out=out, coeff=0.001)
@@ -733,21 +805,37 @@ def AccumulatePopulation(graph):
         with rio.open(output, 'w', **profile) as dst:
             dst.write(out, 1)
 
-
-def AccumulateLandcover(graph):
+def AccumulateLandcover(graph, axis=None, mask=None, dataset=''):
     """
     DOCME
     """
     
     landcover_raster = os.path.join(workdir, 'SUBGRID', 'LANDCOVER_2018.tif')
-    output = os.path.join(workdir, 'SUBGRID', 'LANDCOVER_2018_ACC.tif')
+
+    if axis is not None:
+        output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, dataset, 'LANDCOVER_2018_ACC.tif')
+    else:
+        output = os.path.join(workdir, 'SUBGRID', 'LANDCOVER_2018_ACC.tif')
+
     nodata = -99999.0
 
     with rio.open(landcover_raster) as ds:
 
         landcover = ds.read()
         nodata_mask = (landcover == ds.nodata)
-        landcover[nodata_mask] = 0.0
+
+        click.echo('Apply mask')
+        print(landcover.shape, nodata_mask.shape, mask.shape)
+        
+        if mask is None:
+            landcover[nodata_mask] = 0.0
+        else:
+            # for k in range(ds.count):
+            #     landcover[nodata_mask[k, :, :] | mask] = 0.0
+            landcover[nodata_mask | mask[np.newaxis, :, :]] = 0.0
+
+        click.echo('Accumulate')
+
         out = np.zeros_like(landcover)
         
         speedup.multiband_raster_acc(landcover, graph, out=out, coeff=0.04)
@@ -792,5 +880,5 @@ def workflow():
     AccumulateLandcover(pixgraph)
 
 
-if __name__ == '__main__':
-    workflow()
+# if __name__ == '__main__':
+#     workflow()

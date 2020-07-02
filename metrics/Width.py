@@ -23,8 +23,6 @@ import matplotlib as mpl
 from matplotlib.ticker import EngFormatter
 from Plotting import MapFigureSizer
 
-mpl.use('cairo')
-
 workdir = '/media/crousson/Backup/TESTS/TuilesAin'
 
 def as_window(bounds, transform):
@@ -184,7 +182,7 @@ def WriteFluvialCorridorWidth(axis, data):
             'bankh2': dict(zlib=True, complevel=9, least_significant_digit=0)
         })
 
-def ContinuityWidth(axis, threshold=0.8):
+def ContinuityWidth(axis):
     """
     Defines
     -------
@@ -532,13 +530,14 @@ def PlotContinuityProfile(data, title='', window=1, proportion=False, direction=
                 #     ax.plot(xki, cumi, colors[variable], linewidth = 1.0)
 
                 ax.fill_between(xk, lagged - baseline, cumulative - baseline, facecolor=colors[variable], alpha = 0.7, interpolate=True)
-                ax.plot(xk, cumulative - baseline, colors[variable], linewidth = 0.8)
+                if variable < lcck.shape[1]-2:
+                    ax.plot(xk, cumulative - baseline, colors[variable], linewidth = 0.8)
 
                 lagged += lcck[:, variable]
                 lagged[lagged > fcwk] = fcwk[lagged > fcwk]
 
     if not proportion:
-        ax.plot(x, fcwk - baseline, 'darkgray', linewidth = 1.5)
+        ax.plot(x, fcwk - baseline, 'darkgray', linewidth = 1.0)
 
     fig_size_inches = 12.5
     aspect_ratio = 4
@@ -710,6 +709,8 @@ def PlotLeftRightContinuityProfile(data, title='', window=1, proportion=False, d
 
 def test(axis=1044):
 
+    mpl.use('cairo')
+
     fcw = FluvialCorridorWidth(axis)
     lcc = ContinuityWidth(axis)
 
@@ -724,7 +725,7 @@ def test(axis=1044):
         'fcw2',
         window=5,
         title='Corridor Width (FCW2)',
-        filename=os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'PDF', 'METRIC_FCW2.pdf'))
+        filename=os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'PDF', 'FCW2.pdf'))
 
     PlotMetric(
         data,
@@ -732,7 +733,7 @@ def test(axis=1044):
         'fcw8',
         window=5,
         title='Corridor Width (FCW8)',
-        filename=os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'PDF', 'METRIC_FCW8.pdf'))
+        filename=os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'PDF', 'FCW8.pdf'))
 
     PlotMetric(
         data,
@@ -740,7 +741,7 @@ def test(axis=1044):
         'fcw10',
         window=5,
         title='Corridor Width (FCW10)',
-        filename=os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'PDF', 'METRIC_FCW10.pdf'))
+        filename=os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'PDF', 'FCW10.pdf'))
 
     PlotMetric(
         data,
@@ -750,7 +751,7 @@ def test(axis=1044):
         'fcw10',
         window=5,
         title='Fluvial Corridor Width Metrics',
-        filename=os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'PDF', 'COMPARISON_FCW.pdf'))
+        filename=os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'PDF', 'FCW_METRICS.pdf'))
 
     PlotContinuityProfile(
         data,
