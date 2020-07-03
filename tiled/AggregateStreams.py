@@ -20,14 +20,14 @@ import click
 import fiona
 import fiona.crs
 
-# workdir = '/media/crousson/Backup/TESTS/TuilesAin'
-workdir = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC'
+workdir = '/media/crousson/Backup/TESTS/TuilesAin'
+# workdir = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC'
 
 def AggregateSegmentsByAxisAndTile():
 
     # database = '/media/crousson/Backup/TESTS/TuilesAin/METRICS.gpkg'
-    source = os.path.join(workdir, 'RHTS_HACK.shp')
-    output = os.path.join(workdir, 'RHTS_TILED.shp')
+    source = os.path.join(workdir, 'GLOBAL', 'RHTS.shp')
+    output = os.path.join(workdir, 'GLOBAL', 'RHTS_TILED.shp')
 
     graph = dict()
     indegree = Counter()

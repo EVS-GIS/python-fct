@@ -82,11 +82,10 @@ def TileStreamBuffer(row, col, bounds, distance, **kwargs):
         with rio.open(output, 'w', **profile) as dst:
             dst.write(out, 1)
 
-def StreamBuffer(distance, fill=2.0):
+def StreamBuffer(axis, distance, fill=2.0):
 
     tile_shapefile = os.path.join(workdir, 'TILESET', 'GRILLE_10K.shp')
 
-    axis = 1044
     resolution = 5.0
 
     rasterfile = os.path.join(

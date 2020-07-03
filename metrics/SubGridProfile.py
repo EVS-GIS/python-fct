@@ -141,7 +141,7 @@ def ExtractSubGridProfile(axis=1044, dataset='SUBGRID'):
             ],
         },
         attrs={
-            'FCT': 'Fluvial Corridor Toolbox SubGrid Model 1.0.5',
+            'FCT': 'Fluvial Corridor Toolbox SubGrid Profile 1.0.5',
             'crs': 'EPSG:2154'
         }
     )

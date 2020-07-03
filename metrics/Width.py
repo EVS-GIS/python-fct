@@ -76,10 +76,22 @@ def FluvialCorridorWidth(axis):
                 data = np.load(swathfile, allow_pickle=True)
 
                 x = data['x']
-                density = data['density']
-                density_max = np.max(density)
                 hand = data['hand']
                 hvf = data['hvf']
+
+                try:
+                    density = data['density']
+                    density_max = np.max(density)
+                except ValueError:
+                    density = np.zeros(0, dtype='uint32')
+                    density_max = 0
+
+                if density_max == 0 or x.shape[0] < 3:
+
+                    gids.append(gid)
+                    measures.append(measure)
+                    values.append((np.nan, np.nan, np.nan, np.nan, np.nan))
+                    continue
 
                 # unit width of observations
                 w = 0.5 * (np.roll(x, -1) - np.roll(x, 1))
@@ -205,10 +217,23 @@ def ContinuityWidth(axis):
                 data = np.load(swathfile, allow_pickle=True)
 
                 x = data['x']
-                density = data['density']
-                density_max = np.max(density)
                 classes = data['classes']
                 swath = data['swath']
+
+                try:
+                    density = data['density']
+                    density_max = np.max(density)
+                except ValueError:
+                    density = np.zeros(0, dtype='uint32')
+                    density_max = 0
+
+                if density_max == 0 or x.shape[0] < 3:
+
+                    gids.append(gid)
+                    measures.append(measure)
+                    width = np.zeros((9, 2), dtype='float32')
+                    values.append(width)
+                    continue
 
                 # count = np.ma.sum(np.ma.masked_array(swath, np.isnan(swath)), axis=1)
                 dominant = np.ma.argmax(np.ma.masked_array(swath, np.isnan(swath)), axis=1)
@@ -718,6 +743,7 @@ def test(axis=1044):
     WriteContinuityWidth(axis, lcc)
 
     data = fcw.merge(lcc).sortby(fcw['measure'])
+    print(data)
 
     PlotMetric(
         data,

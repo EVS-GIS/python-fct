@@ -38,7 +38,7 @@ origin_y = float('-inf')
 size_x = 5.0*int(parameter('input.width'))
 size_y = 5.0*int(parameter('input.height'))
 
-def iniitalize():
+def initialize():
     """
     DOCME
     """
@@ -50,7 +50,7 @@ def iniitalize():
         origin_x = min(origin_x, tile.x0)
         origin_y = max(origin_y, tile.y0)
 
-iniitalize()
+initialize()
 
 def xy2tile(x, y):
     """

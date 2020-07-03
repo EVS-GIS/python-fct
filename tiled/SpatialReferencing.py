@@ -272,9 +272,10 @@ def SpatialReference(axis, row, col, mdelta=200.0):
 
 def DistanceAndHeightAboveNearestDrainage(axis, row, col):
 
+    axdir = os.path.join(workdir, 'AXES', 'AX%03d' % axis)
     elevation_raster = filename('tiled', row=row, col=col)
     valley_bottom_rasterfile = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'FLOW_RELZ_%02d_%02d.tif' % (row, col))
-    network_shapefile = os.path.join(workdir, 'GLOBAL', 'RHT_AXIS_TILED.shp')
+    network_shapefile = os.path.join(workdir, 'GLOBAL', 'RHTS_TILED.shp')
     # network_shapefile = '/media/crousson/Backup/WORK/TestAin/AIN_RHT_05_07.shp'
     # network_shapefile = '/media/crousson/Backup/WORK/TestAin/AIN_RHT_SMOOTH_05_07.shp'
     output_relative_z = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'NEAREST_RELZ_%02d_%02d.tif' % (row, col))
@@ -295,7 +296,7 @@ def DistanceAndHeightAboveNearestDrainage(axis, row, col):
         def accept(feature):
             
             properties = feature['properties']
-            return properties['AXH'] == axis
+            return properties['AXIS'] == axis
 
         def accept_pixel(i, j):
             return all([i >= -height, i < 2*height, j >= -width, j < 2*width])
@@ -326,7 +327,7 @@ def DistanceAndHeightAboveNearestDrainage(axis, row, col):
                                 refaxis_pixels.append((i, j, z))
                                 unique.add((i, j))
 
-        # output_rasterized_ref = '/media/crousson/Backup/WORK/TestAin/AIN_RASTERIZEDREF_05_07.shp'
+        # output_refaxis = os.path.join(axdir, 'REF', 'REFAXIS_POINTS.shp')
         # schema = {
         #     'geometry': 'Point',
         #     'properties': [
@@ -338,7 +339,13 @@ def DistanceAndHeightAboveNearestDrainage(axis, row, col):
         # }
         # crs = fiona.crs.from_epsg(2154)
         # options = dict(driver='ESRI Shapefile', crs=crs, schema=schema)
-        # with fiona.open(output_rasterized_ref, 'w', **options) as fst:
+
+        # if os.path.exists(output_refaxis):
+        #     mode = 'a'
+        # else:
+        #     mode = 'w'
+
+        # with fiona.open(output_refaxis, mode, **options) as fst:
         #     for k, (i, j, z) in enumerate(refaxis_pixels):
         #         geom = {'type': 'Point', 'coordinates': ds.xy(i, j)}
         #         properties = {'GID': k, 'I': i, 'J': j, 'Z': float(z)}
@@ -496,9 +503,8 @@ def MapReferencePoints(axis, row, col, points):
 #         (901024, 6583392)
 #     ])
 
-def testDGOs():
+def testDGOs(axis):
 
-    axis = 1044
     units = defaultdict(list)
 
     tilefile = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES.csv')
@@ -515,9 +521,7 @@ def testDGOs():
 
     return units
 
-def testHAND():
-
-    axis = 1044
+def testHAND(axis):
 
     tilefile = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES.csv')
     with open(tilefile) as fp:
@@ -528,9 +532,8 @@ def testHAND():
 
             DistanceAndHeightAboveNearestDrainage(axis, row, col)
 
-def AggregateDGOs():
+def AggregateDGOs(axis):
 
-    axis = 1044
     output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'REF', 'DGO_PARTS.shp')
 
     schema = {

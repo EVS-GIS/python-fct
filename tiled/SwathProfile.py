@@ -152,7 +152,7 @@ def UnitSwathProfile(axis, gid, bounds):
 
         for i in range(1, len(xbins)):
 
-            swath_elevations = relz[mask & (binned == i)]
+            swath_elevations = relz[mask & (relz != ds3.nodata) & (binned == i)]
             if swath_elevations.size:
                 swath_rel_stream[i-1, :] = np.percentile(swath_elevations, [5, 25, 50, 75, 95])
 
@@ -431,8 +431,8 @@ def PlotSwath(axis, gid, kind='absolute', output=None):
             swath = data['sz']
         elif kind == 'hand':
             swath = data['hand']
-        elif kind == 'hfv':
-            swath = data['hfv']
+        elif kind == 'hvf':
+            swath = data['hvf']
             if swath.size == 0:
                 click.secho('No relative-to-valley-bottom swath profile for DGO (%d, %d)' % (axis, gid), fg='yellow')
                 click.secho('Using relative-to-nearest-drainage profile', fg='yellow')
@@ -444,7 +444,7 @@ def PlotSwath(axis, gid, kind='absolute', output=None):
         if swath.shape[0] == x.shape[0]:
             title = 'Swath Profile #%d, PK %.1f km' % (gid, measure / 1000.0)
             if output is True:
-                output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'PDF', 'ELEVATION', 'SWATH_%04d.pdf' % gid)
+                output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'PDF', 'SWATH_%04d.pdf' % gid)
             plot_swath(-x, swath, kind in ('hand', 'hvf'), title, output)
         else:
             click.secho('Invalid swath data')

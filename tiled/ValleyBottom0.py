@@ -58,11 +58,11 @@ def border(height, width):
 
 def ReadSeeds(axis):
 
-    shapefile = os.path.join(workdir, 'GLOBAL', 'RHT_AXIS_TILED.shp')
+    shapefile = os.path.join(workdir, 'GLOBAL', 'RHTS_TILED.shp')
 
     def accept(feature):
         properties = feature['properties']
-        return properties['AXH'] == axis
+        return properties['AXIS'] == axis
 
     with fiona.open(shapefile) as fs:
         for feature in fs:

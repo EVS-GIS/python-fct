@@ -70,6 +70,18 @@ def UnitLandCoverSwath(axis, gid, bounds, landcover='continuity'):
             mask.shape == distance.shape
         ]))
 
+        if np.sum(mask) == 0:
+
+            click.secho('No data for swath (%d, %d)' % (axis, gid), fg='yellow')
+            values = dict(
+                x=np.zeros(0, dtype='float32'),
+                density=np.zeros(0, dtype='float32'),
+                classes=np.zeros(0, dtype='uint32'),
+                swath=np.zeros((0, 0), dtype='float32')
+            )
+            return axis, gid, values
+
+
         xbins = np.arange(np.min(distance[mask]), np.max(distance[mask]), 10.0)
         binned = np.digitize(distance, xbins)
         x = 0.5*(xbins[1:] + xbins[:-1])

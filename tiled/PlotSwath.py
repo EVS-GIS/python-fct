@@ -3,8 +3,6 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from Plotting import MapFigureSizer
 
-mpl.use('cairo')
-
 def plot_swath(x, swath, relative=False, title=None, filename=None):
 
     fig = plt.figure(1, facecolor='white',figsize=(6.25,3.5))
