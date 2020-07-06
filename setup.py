@@ -18,21 +18,21 @@ with open('VERSION.txt', 'w', **open_kwds) as f:
 extensions = [
 
     Extension(
-        'fct/transform',
+        'fct.transform',
         ['cython/transform.pyx'],
         language='c',
         include_dirs=[numpy.get_include()]
     ),
 
     Extension(
-        'fct/speedup',
+        'fct.speedup',
         ['cython/speedup.pyx'],
         language='c++',
         include_dirs=[numpy.get_include()]
     ),
 
     Extension(
-        'fct/terrain_analysis',
+        'fct.terrain_analysis',
         ['cython/terrain/terrain_analysis.pyx'],
         language='c++',
         include_dirs=[numpy.get_include()]

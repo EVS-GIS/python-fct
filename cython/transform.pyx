@@ -4,7 +4,7 @@
 """
 GeoTransform:
 replacement for RasterIO .index() and .xy() methods,
-and vectorized coordinates array transformation.
+and vectorized transformation of array of coordinates.
 
 ***************************************************************************
 *                                                                         *
@@ -23,9 +23,20 @@ cimport numpy as np
 cimport cython
 
 from libc.math cimport lround
+# from libcpp.pair cimport pair
 
-ctypedef pair[float, float] Point
-ctypedef pair[int, int] Pixel
+# ctypedef pair[float, float] Point
+# ctypedef pair[int, int] Pixel
+
+cdef struct Point:
+
+    float x
+    float y
+
+cdef struct Pixel:
+
+    int i
+    int j
 
 cdef struct GeoTransform:
 
@@ -35,6 +46,20 @@ cdef struct GeoTransform:
     float scale_y
     float shear_x
     float shear_y
+
+# see https://github.com/cython/cython/issues/1642
+
+cdef Point make_point(float x, float y) nogil:
+    cdef Point p
+    p.x = x
+    p.y = y
+    return p
+
+cdef Pixel make_pixel(int i, int j) nogil:
+    cdef Pixel p
+    p.i = i
+    p.j = j
+    return p
 
 cdef GeoTransform transform_from_gdal(gdal_transform):
     """
@@ -78,16 +103,16 @@ cdef Point pixeltopoint(Pixel pixel, GeoTransform transform) nogil:
 
     if transform.shear_x == 0 and transform.shear_y == 0:
 
-        x = (pixel.second + 0.5) * transform.scale_x + transform.origin_x
-        y = (pixel.first + 0.5) * transform.scale_y + transform.origin_y
+        x = (pixel.j + 0.5) * transform.scale_x + transform.origin_x
+        y = (pixel.i + 0.5) * transform.scale_y + transform.origin_y
 
     else:
 
         # complete affine transform formula
-        x = (pixel.second + 0.5) * transform.scale_x + (pixel.first + 0.5) * transform.shear_y + transform.origin_x
-        y = (pixel.first + 0.5) * transform.scale_y + (pixel.second + 0.5) * transform.shear_x + transform.origin_y
+        x = (pixel.i + 0.5) * transform.scale_x + (pixel.j + 0.5) * transform.shear_y + transform.origin_x
+        y = (pixel.j + 0.5) * transform.scale_y + (pixel.i + 0.5) * transform.shear_x + transform.origin_y
 
-    return Point(x, y)
+    return make_point(x, y)
 
 @cython.cdivision(True) 
 cdef Pixel pointtopixel(Point p, GeoTransform transform) nogil:
@@ -101,19 +126,19 @@ cdef Pixel pointtopixel(Point p, GeoTransform transform) nogil:
 
     if transform.shear_x == 0 and transform.shear_y == 0:
 
-        j = lround((p.first - transform.origin_x) / transform.scale_x - 0.5)
-        i = lround((p.second - transform.origin_y) / transform.scale_y - 0.5)
+        j = lround((p.x - transform.origin_x) / transform.scale_x - 0.5)
+        i = lround((p.y - transform.origin_y) / transform.scale_y - 0.5)
 
     else:
 
         # complete affine transform formula
         det = transform.scale_x*transform.scale_y - transform.shear_x*transform.shear_y
-        j = lround((p.first*transform.scale_y - p.second*transform.shear_x + \
+        j = lround((p.x*transform.scale_y - p.y*transform.shear_x + \
             transform.shear_x*transform.origin_y - transform.origin_x*transform.scale_y) / det - 0.5)
-        i = lround((-p.first*transform.shear_y + p.second*transform.scale_x + \
+        i = lround((-p.x*transform.shear_y + p.y*transform.scale_x + \
              transform.origin_x*transform.shear_y - transform.scale_x*transform.origin_y) / det - 0.5)
     
-    return Pixel(i, j)
+    return make_pixel(i, j)
 
 def pixeltoxy(int row, int col, transform, gdal=True):
     """
@@ -146,7 +171,7 @@ def pixeltoxy(int row, int col, transform, gdal=True):
     else:
         gt = transform_from_rasterio(transform)
 
-    return pixeltopoint(Pixel(row, col), gt)
+    return pixeltopoint(make_pixel(row, col), gt)
 
 def xytopixel(float x, float y, transform, gdal=True):
     """
@@ -178,7 +203,7 @@ def xytopixel(float x, float y, transform, gdal=True):
     else:
         gt = transform_from_rasterio(transform)
 
-    return pointtopixel(Point(x, y), gt)
+    return pointtopixel(make_point(x, y), gt)
 
 def index(float x, float y, transform):
     """
@@ -204,7 +229,7 @@ def index(float x, float y, transform):
     cdef GeoTransform gt
 
     gt = transform_from_rasterio(transform)
-    return pointtopixel(Point(x, y), gt)
+    return pointtopixel(make_point(x, y), gt)
 
 def xy(int row, int col, transform):
     """
@@ -231,7 +256,7 @@ def xy(int row, int col, transform):
     cdef GeoTransform gt
     
     gt = transform_from_rasterio(transform)
-    return pixeltopoint(Pixel(row, col), transform)
+    return pixeltopoint(make_pixel(row, col), transform)
 
 
 @cython.boundscheck(False)
@@ -362,9 +387,9 @@ def pixeltoworld(np.int32_t[:, :] pixels, transform, gdal=True):
 
         for k in range(length):
 
-            pixel = Pixel(pixels[k, 0], pixels[k, 1])
+            pixel = make_pixel(pixels[k, 0], pixels[k, 1])
             point = pixeltopoint(pixel, gt)
-            coordinates[k, 0] = point.first
-            coordinates[k, 1] = point.second
+            coordinates[k, 0] = point.x
+            coordinates[k, 1] = point.y
 
     return np.asarray(coordinates)
