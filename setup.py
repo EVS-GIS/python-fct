@@ -3,6 +3,17 @@ from distutils.extension import Extension
 import numpy
 from Cython.Build import cythonize
 
+# Parse the version from the main module.
+with open('fct/__init__.py', 'r') as f:
+    for line in f:
+        if line.find("__version__") >= 0:
+            version = line.split("=")[1].strip().strip('"').strip("'")
+            break
+
+open_kwds = {'encoding': 'utf-8'}
+
+with open('VERSION.txt', 'w', **open_kwds) as f:
+    f.write(version)
 
 extensions = [
 
@@ -23,16 +34,18 @@ extensions = [
 ]
 
 setup(
-    name='fct-cli',
-    version='1.0.5',
-    # packages=find_packages(),
+    name='fct',
+    version=version,
+    packages=['fct'],
     ext_modules=cythonize(extensions),
     include_package_data=True,
     install_requires=[
         'numpy>=1.18',
+        'xarray>=0.15',
         'scipy>=1.4',
-        'rasterio>=1.0.22',
+        'rasterio>=1.1',
         'fiona>=1.8.6',
+        'shapely>=1.7',
         'Click>=7.0'
     ],
 #     entry_points='''
@@ -41,4 +54,14 @@ setup(
 # fct=fct.cli.algorithms:fct
 # fcw=fct.cli.algorithms:workflows
 #     ''',
+    classifiers=[
+        'Development Status :: 4 - Beta',
+        'Intended Audience :: Developers',
+        'Intended Audience :: Science/Research',
+        'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+        'Operating System :: OS Independent',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Cython',
+        'Topic :: Scientific/Engineering :: GIS']
 )
