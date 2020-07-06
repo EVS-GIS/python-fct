@@ -12,3 +12,7 @@ Configuration Module
 *                                                                         *
 ***************************************************************************
 """
+
+from .Configuration import Configuration
+
+config = Configuration()
