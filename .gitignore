@@ -1,4 +1,5 @@
 cython/terrain
+VERSION.txt
 *.pyc
 *.pyo
 *.c
