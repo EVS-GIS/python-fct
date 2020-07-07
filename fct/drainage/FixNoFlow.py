@@ -14,15 +14,29 @@ Fix Flow Direction for No-Flow Cells
 """
 
 import numpy as np
+
 import rasterio as rio
 import fiona
-from config import tileindex, filename, parameter
 import click
+
+from ..config import config
+
+def workdir():
+    """
+    Return default working directory
+    """
+    return config.workdir
+
+def tileindex():
+    """
+    Return default tileindex
+    """
+    return config.tileset('drainage').tileindex
 
 origin_x = float('inf')
 origin_y = float('-inf')
-size_x = 5.0*int(parameter('input.width'))
-size_y = 5.0*int(parameter('input.height'))
+size_x = 5.0*config.tileset('drainage').width
+size_y = 5.0*config.tileset('drainage').height
 
 for tile in tileindex().values():
     origin_x = min(origin_x, tile.x0)
@@ -46,12 +60,10 @@ def FixNoFlow(x0, y0, min_drainage=5.0, fix=False):
     cj = [  0,  1,  1,  1,  0, -1, -1, -1 ]
     upward = [ 16,  32,  64,  128,  1,  2,  4,  8 ]
 
-    flow1 = flow2 = None
-    streams1 = streams2 = None
+    flow1_data = acc1_data = np.array(0)
     height = width = 0
     ds = None
-    profile = None
-
+    profile = dict()
 
     flow_raster1 = '/var/local/fct/RMC/FLOW_RGE5M_TILES.vrt'
     acc_raster1 = '/var/local/fct/RMC/ACC_RGE5M_TILES.vrt'
@@ -70,17 +82,15 @@ def FixNoFlow(x0, y0, min_drainage=5.0, fix=False):
 
         nonlocal ds
         nonlocal profile
-        nonlocal flow1
-        nonlocal flow2
-        nonlocal streams1
-        nonlocal streams2
+        nonlocal flow1_data
+        nonlocal acc1_data
         nonlocal height
         nonlocal width
 
         # click.echo('Reading tile (%d, %d)' % (row, col))
 
-        flow_raster1 = filename('flow', row=row, col=col)
-        acc_raster1 = filename('acc', row=row, col=col)
+        flow_raster1 = config.filename('flow', row=row, col=col)
+        acc_raster1 = config.filename('acc', row=row, col=col)
 
         with rio.open(acc_raster1) as ds:
             acc1_data = ds.read(1)
@@ -88,7 +98,7 @@ def FixNoFlow(x0, y0, min_drainage=5.0, fix=False):
         with rio.open(flow_raster1) as ds:
             profile = ds.profile.copy()
             flow1_data = ds.read(1)
-            height, width = flow1.shape
+            height, width = flow1_data.shape
 
     def intile(i, j):
          return all([i >= 0, i < height, j >= 0, j < width])
@@ -124,10 +134,10 @@ def FixNoFlow(x0, y0, min_drainage=5.0, fix=False):
 
         if fix:
 
-            flow_raster1 = filename('flow', row=row, col=col)
+            flow_raster1 = config.filename('flow', row=row, col=col)
 
             with rio.open(flow_raster1, 'w', **profile) as dst:
-                dst.write(flow1, 1)
+                dst.write(flow1_data, 1)
 
     row, col = xy2tile(x0, y0)
     read_tile(row, col)
@@ -170,7 +180,7 @@ def FixNoFlow(x0, y0, min_drainage=5.0, fix=False):
         if direction == -1 or direction == 0:
             break
 
-        flow1[i, j] = direction
+        flow1_data[i, j] = direction
         k = int(np.log2(direction))
         i, j = i + ci[k], j + cj[k]
 
@@ -188,7 +198,7 @@ def FixNoFlow(x0, y0, min_drainage=5.0, fix=False):
         if direction == -1 or direction == 0:
             break
 
-        flow1[i, j] = direction
+        flow1_data[i, j] = direction
         k = int(np.log2(direction))
         i, j = i + ci[k], j + cj[k]
 

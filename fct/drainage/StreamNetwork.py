@@ -19,25 +19,32 @@ Sequence :
 ***************************************************************************
 """
 
-import click
+
 import os
+from collections import namedtuple, defaultdict, Counter
+import itertools
+from operator import itemgetter
 import glob
+from heapq import heappush, heappop
+
+import numpy as np
+
+import click
 import rasterio as rio
 from rasterio.windows import Window
 from rasterio.warp import Resampling
 import fiona
 import fiona.crs
-import numpy as np
-from collections import namedtuple, defaultdict, Counter
-from heapq import heappush, heappop
 
-import richdem as rd
-import speedup
-import terrain_analysis as ta
-import itertools
-from operator import itemgetter
+from .. import speedup
+from .. import terrain_analysis as ta
+from ..config import config
 
-from config import tileindex, filename
+def tileindex():
+    """
+    Return default tileindex
+    """
+    return config.tileset('drainage').tileindex
 
 def CreateOutletsGraph():
     """
@@ -45,7 +52,7 @@ def CreateOutletsGraph():
     """
 
     tile_index = tileindex()
-    DEM = filename('dem', 'input')
+    DEM = config.datasource('dem').filename
 
     click.secho('Build outlets graph', fg='cyan')
 
@@ -58,8 +65,8 @@ def CreateOutletsGraph():
         for row, col in progress:
 
             tile = tile_index[(row, col)].gid
-            inlet_shapefile = filename('inlets', row=row, col=col)
-            flow_raster = filename('flow', row=row, col=col)
+            inlet_shapefile = config.filename('inlets', row=row, col=col)
+            flow_raster = config.filename('flow', row=row, col=col)
 
             with rio.open(flow_raster) as ds:
 
@@ -91,7 +98,7 @@ def CreateOutletsGraph():
                             graph[(tile, i, j)] = (tile, ti, tj, 0)
                             indegree[(tile, ti, tj)] += 1
 
-                with fiona.open(filename('exterior-inlets', 'input')) as fs:
+                with fiona.open(config.datasource('exterior-inlets').filename) as fs:
                     for feature in fs:
 
                         loci, locj = ds.index(*feature['geometry']['coordinates'])
@@ -173,7 +180,7 @@ def TileInletAreas(tile, keys, areas):
     }
     options = dict(driver=driver, crs=crs, schema=schema)
 
-    dem_file = filename('dem', 'input')
+    dem_file = config.datasource('dem1').filename
     dem = rio.open(dem_file)
 
     cum_areas = defaultdict(lambda: 0.0)
@@ -181,7 +188,7 @@ def TileInletAreas(tile, keys, areas):
     for key in keys:
         cum_areas[key[1:]] += areas.get(key[1:], 0)
 
-    with fiona.open(filename('inlet-areas', row=row, col=col), 'w', **options) as dst:
+    with fiona.open(config.filename('inlet-areas', row=row, col=col), 'w', **options) as dst:
         for i, j in cum_areas:
 
             x, y = dem.xy(i, j)
@@ -226,9 +233,9 @@ def FlowAccumulation(row, col, overwrite):
 
     tile = tile_index[(row, col)].gid
 
-    flow_raster = filename('flow', row=row, col=col)
-    inlet_shapefile = filename('inlet-areas', row=row, col=col)
-    output = filename('acc', row=row, col=col)
+    flow_raster = config.filename('flow', row=row, col=col)
+    inlet_shapefile = config.filename('inlet-areas', row=row, col=col)
+    output = config.filename('acc', row=row, col=col)
 
     if os.path.exists(output) and not overwrite:
         click.secho('Output already exists: %s' % output, fg='yellow')
@@ -268,9 +275,9 @@ def StreamToFeature(row, col, min_drainage):
     DOCME
     """
 
-    flow_raster = filename('flow', row=row, col=col)
-    acc_raster = filename('acc', row=row, col=col)
-    output = filename('streams-t', row=row, col=col)
+    flow_raster = config.filename('flow', row=row, col=col)
+    acc_raster = config.filename('acc', row=row, col=col)
+    output = config.filename('streams-t', row=row, col=col)
 
     driver = 'ESRI Shapefile'
     schema = {
@@ -310,9 +317,9 @@ def StreamToFeature(row, col, min_drainage):
 
 def NoFlowPixels(row, col, min_drainage):
 
-    flow_raster = filename('flow', row=row, col=col)
-    acc_raster = filename('acc', row=row, col=col)
-    output = filename('noflow-t', row=row, col=col)
+    flow_raster = config.filename('flow', row=row, col=col)
+    acc_raster = config.filename('acc', row=row, col=col)
+    output = config.filename('noflow-t', row=row, col=col)
 
     driver = 'ESRI Shapefile'
     schema = {
@@ -357,7 +364,7 @@ def AggregateNoFlowPixels():
     """
 
     tile_index = tileindex()
-    output = filename('noflow')
+    output = config.filename('noflow')
 
     driver = 'ESRI Shapefile'
     schema = {
@@ -376,7 +383,7 @@ def AggregateNoFlowPixels():
     with fiona.open(output, 'w', **options) as dst:
         with click.progressbar(tile_index) as progress:
             for row, col in progress:
-                with fiona.open(filename('noflow-t', row=row, col=col)) as fs:
+                with fiona.open(config.filename('noflow-t', row=row, col=col)) as fs:
                     for feature in fs:
                         feature['properties']['GID'] = next(gid)
                         dst.write(feature)
@@ -391,7 +398,7 @@ def AggregateStreams():
     """
 
     tile_index = tileindex()
-    output = filename('streams')
+    output = config.filename('streams')
 
     driver = 'ESRI Shapefile'
     schema = {
@@ -411,7 +418,7 @@ def AggregateStreams():
     with fiona.open(output, 'w', **options) as dst:
         with click.progressbar(tile_index) as progress:
             for row, col in progress:
-                with fiona.open(filename('streams-t', row=row, col=col)) as fs:
+                with fiona.open(config.filename('streams-t', row=row, col=col)) as fs:
                     for feature in fs:
                         feature['properties']['GID'] = next(gid)
                         dst.write(feature)

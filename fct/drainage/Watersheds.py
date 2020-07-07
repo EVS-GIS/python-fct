@@ -27,16 +27,22 @@ import fiona
 import fiona.crs
 from shapely.geometry import asShape
 
-from config import tileindex, filename, parameter
-from Command import starcall
-import terrain_analysis as ta
-import speedup
-from tileio import PadRaster
+from ..config import config
+from ..cli import starcall, pretty_time_delta
+from .. import terrain_analysis as ta
+from .. import speedup
+from ..tileio import PadRaster
 
 origin_x = float('inf')
 origin_y = float('-inf')
-size_x = 5.0*int(parameter('input.width'))
-size_y = 5.0*int(parameter('input.height'))
+size_x = 5.0*config.tileset('drainage').width
+size_y = 5.0*config.tileset('drainage').height
+
+def tileindex():
+    """
+    Return default tileindex
+    """
+    return config.tileset('drainage').tileindex
 
 def initialize():
     """
@@ -79,20 +85,20 @@ def border(height, width):
             yield i, j
         offset = 0
 
-def Watershed(row, col, seeds, wid=1, tmp=''):
+def Watershed(row, col, seeds, axis=1, tmp=''):
     """
     seeds: (x, y, value, distance)
     """
 
     flow, profile = PadRaster(row, col, 'flow', padding=1)
     transform = profile['transform']
-    destination = filename('watershed-u', row=row, col=col, wid=wid)
+    destination = config.filename('watershed', row=row, col=col, axis=axis)
     height, width = flow.shape
 
     if os.path.exists(destination):
         # with rio.open(destination) as ds:
         #     ds.read(1, out=out[1:-1, 1:-1])
-        data, _ = PadRaster(row, col, 'watershed-u', padding=1, wid=wid)
+        data, _ = PadRaster(row, col, 'watershed', padding=1, axis=axis)
     else:
         data = np.zeros_like(flow, dtype='float32')
 
@@ -152,7 +158,7 @@ def VectorizeTile(wid, row, col):
     DOCME
     """
 
-    rasterfile = filename('watershed-u', row=row, col=col, wid=wid)
+    rasterfile = config.filename('watershed-u', row=row, col=col, wid=wid)
 
     if os.path.exists(rasterfile):
 
@@ -171,12 +177,12 @@ def VectorizeTile(wid, row, col):
 
         return [], row, col
 
-def Vectorize(wid, processes=1):
+def Vectorize(axis, processes=1):
     """
     DOCME
     """
 
-    output = filename('watershed', wid=wid)
+    output = config.filename('watershed', axis=axis)
 
     epsg = 2154
     schema = {
@@ -200,13 +206,13 @@ def Vectorize(wid, processes=1):
         with fiona.open(output, 'w', **options) as dst:
             with click.progressbar(tileindex()) as bar:
                 for row, col in bar:
-                    polygons, _, _ = VectorizeTile(wid, row, col)
+                    polygons, _, _ = VectorizeTile(axis, row, col)
                     for polygon in polygons:
                         geom = asShape(polygon).buffer(0.0)
                         feature = {
                             'geometry': geom.__geo_interface__,
                             'properties': {
-                                'WATID': wid,
+                                'WATID': axis,
                                 'ROW': row,
                                 'COL': col
                             }
@@ -216,7 +222,7 @@ def Vectorize(wid, processes=1):
     else:
 
         kwargs = dict()
-        arguments = [(VectorizeTile, wid, row, col, kwargs) for row, col in tileindex()]
+        arguments = [(VectorizeTile, axis, row, col, kwargs) for row, col in tileindex()]
 
         with fiona.open(output, 'w', **options) as dst:
             with Pool(processes=processes) as pool:
@@ -230,7 +236,7 @@ def Vectorize(wid, processes=1):
                             feature = {
                                 'geometry': geom.__geo_interface__,
                                 'properties': {
-                                    'WATID': wid,
+                                    'WATID': axis,
                                     'ROW': row,
                                     'COL': col
                                 }
@@ -243,7 +249,7 @@ def print_spillover_tiles(spillover):
     tiles = set([tile(s) for s in spillover])
     print(tiles)
 
-def step(spillover, wid=1, processes=1):
+def step(spillover, axis=1, processes=1):
 
     xy = itemgetter(0, 1)
     value = itemgetter(2)
@@ -259,7 +265,7 @@ def step(spillover, wid=1, processes=1):
 
         for (row, col), seeds in tiles:
             seeds = [xy(seed) + (value(seed),) for seed in seeds]
-            t_spillover, tmpfile = Watershed(row, col, seeds, wid=wid, tmp='.tmp')
+            t_spillover, tmpfile = Watershed(row, col, seeds, axis=axis, tmp='.tmp')
             g_spillover.extend(t_spillover)
             tmpfiles.append(tmpfile)
 
@@ -268,7 +274,7 @@ def step(spillover, wid=1, processes=1):
 
     else:
 
-        kwargs = {'tmp': '.tmp', 'wid': wid}
+        kwargs = {'tmp': '.tmp', 'wid': axis}
         arguments = list()
 
         for (row, col), seeds in tiles:
@@ -294,7 +300,7 @@ def step(spillover, wid=1, processes=1):
 @click.command()
 @click.option('--processes', '-j', default=1)
 @click.option('--wid', '-w', default=1)
-def test(processes=1, wid=1):
+def test(processes=1, axis=1):
 
     # River Ain
     # x = 869165.0
@@ -309,12 +315,12 @@ def test(processes=1, wid=1):
     count = 0
     tile = itemgetter(3, 4)
 
-    click.secho('Watershed ID = %d' % wid, fg='cyan')
+    click.secho('Watershed ID = %d' % axis, fg='cyan')
     click.secho('Run %d processes' % processes, fg='yellow')
 
     while seeds:
 
-        seeds = step(seeds, wid, processes)
+        seeds = step(seeds, axis, processes)
 
         count += 1
         tiles = set([tile(s) for s in seeds])

@@ -17,6 +17,7 @@ import os
 import itertools
 from operator import itemgetter
 from multiprocessing import Pool
+import time
 
 import numpy as np
 import click
@@ -27,14 +28,11 @@ import fiona
 import fiona.crs
 from shapely.geometry import asShape
 
-from config import tileindex, filename, parameter
-from Command import starcall
-import terrain_analysis as ta
-import speedup
-from tileio import PadRaster
-
-import time
-from Command import pretty_time_delta
+from ..config import config
+from ..cli import starcall, pretty_time_delta
+from .. import terrain_analysis as ta
+from .. import speedup
+from ..tileio import PadRaster
 
 workdir = '/media/crousson/Backup/TESTS/TuilesAin'
 

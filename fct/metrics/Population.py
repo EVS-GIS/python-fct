@@ -26,11 +26,12 @@ import rasterio as rio
 from rasterio.windows import Window
 import fiona
 
-import terrain_analysis as ta
-from Command import starcall
-from config import tileindex, parameter
+from .. import transform as fct
+from .. import terrain_analysis as ta
+from ..cli import starcall
+from ..config import config
 
-workdir = '/media/crousson/Backup/TESTS/TuilesAin'
+# workdir = '/media/crousson/Backup/TESTS/TuilesAin'
 
 def grid_extent(geometry, transform):
 
@@ -56,10 +57,10 @@ def grid_extent(geometry, transform):
 
     # return mini, minj, maxi, maxj
 
-    ij = ta.worldtopixel(geometry, transform, gdal=False)
+    ij = fct.worldtopixel(geometry, transform)
     return np.min(ij[:, 0]), np.min(ij[:, 1]), np.max(ij[:, 0]), np.max(ij[:, 1])
 
-def TileDisaggregatePopulationData(row, col, bounds):
+def TileDisaggregatePopulationData(tile):
     """
     Désagrège les données carroyées de l'INSEE
     à la résolution du raster d'occupation du sol,
@@ -69,10 +70,14 @@ def TileDisaggregatePopulationData(row, col, bounds):
     # height = int(parameter('input.height'))
     # width = int(parameter('input.width'))
 
-    pop_shapefile = os.path.join(workdir, 'GLOBAL', 'POPULATION', 'POP_INSEE_200M_LA93.shp')
-    landcover_raster = os.path.join(workdir, 'GLOBAL', 'LANDCOVER', 'CESBIO_%02d_%02d.tif' % (row, col))
-    # landcover_raster = os.path.join(workdir, 'CESBIO_2018.vrt')
-    output = os.path.join(workdir, 'GLOBAL', 'POPULATION', 'POP_INSEE_%02d_%02d.tif' % (row, col))
+    # pop_shapefile = os.path.join(workdir, 'GLOBAL', 'POPULATION', 'POP_INSEE_200M_LA93.shp')
+    # landcover_raster = os.path.join(workdir, 'GLOBAL', 'LANDCOVER', 'CESBIO_%02d_%02d.tif' % (row, col))
+    # # landcover_raster = os.path.join(workdir, 'CESBIO_2018.vrt')
+    # output = os.path.join(workdir, 'GLOBAL', 'POPULATION', 'POP_INSEE_%02d_%02d.tif' % (row, col))
+
+    pop_shapefile = config.datasource('population').filename
+    landcover_raster = config.tileset('landcover').tilename('landcover', row=tile.row, col=tile.col)
+    output = config.tileset('landcover').tilename('population', row=tile.row, col=tile.col)
 
     # if os.path.exists(output) and not overwrite:
     #     click.secho('Output already exists: %s' % output, fg='yellow')
@@ -119,17 +124,17 @@ def TileDisaggregatePopulationData(row, col, bounds):
             # value_total = 0
             feature_mask = np.zeros((height, width), dtype=np.uint8)
 
-            for feature in fs.filter(bbox=bounds):
+            for feature in fs.filter(bbox=tile.bounds):
 
-                geometry = np.array(feature['geometry']['coordinates'][0], dtype='float32')
+                geometry = np.array(feature['geometry']['coordinates'][0][0], dtype='float32')
                 value = int(feature['properties']['Ind'])
 
-                if accept(geometry): # 80 * 5 m = 400 m
+                if accept(geometry[:, :2]):
 
                     # value_total += value
 
                     ta.disaggregate(
-                        geometry,
+                        geometry[:, :2],
                         urban_mask,
                         value,
                         transform,
@@ -156,27 +161,28 @@ def TileDisaggregatePopulationData(row, col, bounds):
 
 def DisaggregatePopulationData(processes=1, **kwargs):
 
-    tile_shapefile = os.path.join(workdir, 'TILESET', 'GRILLE_10K.shp')
+    # tile_shapefile = os.path.join(workdir, 'TILESET', 'GRILLE_10K.shp')
 
-    with fiona.open(tile_shapefile) as fs:
-        
-        arguments = list()
-        
-        for feature in fs:
+    # with fiona.open(tile_shapefile) as fs:
 
-            minx, miny, maxx, maxy = fs.bounds
+    #     arguments = list()
 
-            properties = feature['properties']
-            x0 = properties['left']
-            y0 = properties['top']
-            x1 = properties['right']
-            y1 = properties['bottom']
-            bounds = (x0, y1, x1, y0)
-            
-            row = int((maxy - y0) // 10000)
-            col = int((x0 - minx) // 10000)
-            
-            arguments.append((TileDisaggregatePopulationData, row, col, bounds, kwargs))
+    #     for feature in fs:
+
+    #         minx, miny, maxx, maxy = fs.bounds
+
+    #         properties = feature['properties']
+    #         x0 = properties['left']
+    #         y0 = properties['top']
+    #         x1 = properties['right']
+    #         y1 = properties['bottom']
+    #         bounds = (x0, y1, x1, y0)
+
+    #         row = int((maxy - y0) // 10000)
+    #         col = int((x0 - minx) // 10000)
+
+    tileindex = config.tileset('landcover').tileindex
+    arguments = [(TileDisaggregatePopulationData, tile, kwargs) for tile in tileindex.values()]
 
     with Pool(processes=processes) as pool:
 

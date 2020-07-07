@@ -5,11 +5,13 @@ import fiona
 import fiona.crs
 import numpy as np
 
-from config import filename, parameter
+from ..config import config
 
-tile_height = int(parameter('input.height'))
-tile_width = int(parameter('input.width'))
-srs = int(parameter('input.srs'))
+tileset = config.tileset('drainage')
+
+tile_height = tileset.height
+tile_width = tileset.width
+srs = config.srid
 
 crs = fiona.crs.from_epsg(srs)
 schema = {

@@ -9,12 +9,28 @@ from heapq import heappush, heappop
 
 import rasterio as rio
 import fiona
-import terrain_analysis as ta
-import speedup
 
-from tileio import PadRaster
-from Areas import WatershedUnitAreas, WatershedCumulativeAreas
-from config import tileindex, filename
+from ..config import config
+from .. import terrain_analysis as ta
+from .. import speedup
+from ..tileio import PadRaster
+
+from .Areas import (
+    WatershedUnitAreas,
+    WatershedCumulativeAreas
+)
+
+def workdir():
+    """
+    Return default working directory
+    """
+    return config.workdir
+
+def tileindex():
+    """
+    Return default tileindex
+    """
+    return config.tileset('drainage').tileindex
 
 def LabelBorderFlats(row, col, **kwargs):
     """
@@ -22,7 +38,7 @@ def LabelBorderFlats(row, col, **kwargs):
     """
 
     # elevation_raster = filename('filled', row=row, col=col)
-    label_raster = filename('labels', row=row, col=col)
+    label_raster = config.dataset('labels').filename(row=row, col=col)
 
     # with rio.open(elevation_raster) as ds:
 
@@ -49,11 +65,11 @@ def LabelBorderFlats(row, col, **kwargs):
         labels = labels[1:-1, 1:-1]
 
         profile = ds.profile.copy()
-        output = filename('flat_labels', row=row, col=col)
+        output = config.filename('flat_labels', row=row, col=col)
         with rio.open(output, 'w', **profile) as dst:
             dst.write(labels, 1)
 
-        output = filename('flat_graph', row=row, col=col)
+        output = config.filename('flat_graph', row=row, col=col)
         np.savez(
             output,
             z=np.array([
@@ -85,7 +101,7 @@ def ConnectTiles(row, col, **kwargs):
     exterior = (-1, 1)
 
     def read_data(i, j):
-        return np.load(filename("flat_graph", row=i, col=j), allow_pickle=True)
+        return np.load(config.filename("flat_graph", row=i, col=j), allow_pickle=True)
 
     data = read_data(row, col)
     graph = dict()
@@ -376,7 +392,7 @@ def ResolveFlatSpillover(epsilon=0.0005):
     click.secho('Ensure epsilon Gradient : %f m' % epsilon, fg='cyan')
     resolved = EnsureEpsilonGradient(directed, ulinks, areas, epsilon=epsilon)
 
-    output = filename('flat_spillover')
+    output = config.filename('flat_spillover')
     minz = [watershed + (resolved[watershed][1],) for watershed in resolved]
     np.savez(output, minz=np.array(minz))
 
@@ -392,15 +408,15 @@ def ApplyMinimumZ(row, col, overwrite, **kwargs):
     tile_index = tileindex()
     tile = tile_index[row, col]
 
-    filled_raster = filename('filled', row=row, col=col)
-    label_raster = filename('flat_labels', row=row, col=col)
-    output = filename('resolved', row=row, col=col)
+    filled_raster = config.filename('filled', row=row, col=col)
+    label_raster = config.filename('flat_labels', row=row, col=col)
+    output = config.filename('resolved', row=row, col=col)
 
     if os.path.exists(output) and not overwrite:
         click.secho('Output already exists: %s' % output, fg='yellow')
         return
 
-    minz_file = filename('flat_spillover')
+    minz_file = config.filename('flat_spillover')
     minimum_z = np.load(minz_file)['minz']
 
     index = {int(w): z for t, w, z in minimum_z if int(t) == tile.gid}

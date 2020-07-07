@@ -53,14 +53,16 @@ setup(
         'rasterio>=1.1',
         'fiona>=1.8.6',
         'shapely>=1.7',
+        'pyyaml>=5.3',
         'Click>=7.0'
     ],
-#     entry_points='''
-# [console_scripts]
-# autodoc=fct.cli.autodoc:autodoc
-# fct=fct.cli.algorithms:fct
-# fcw=fct.cli.algorithms:workflows
-#     ''',
+    entry_points='''
+        [console_scripts]
+            fct=fct.cli.Command:info
+            fct-files=fct.cli.Command:cli
+            fct-drainage=fct.drainage.Command:cli
+            fct-metrics=fct.metrics.Command:cli
+    ''',
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',

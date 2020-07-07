@@ -32,12 +32,11 @@ import numpy as np
 from collections import namedtuple, defaultdict, Counter
 from heapq import heappush, heappop
 
-import richdem as rd
-import speedup
-import terrain_analysis as ta
-
-from config import tileindex, filename, parameter
-from tileio import ReadRasterTile, PadRaster
+# import richdem as rd
+from ..config import config
+from .. import terrain_analysis as ta
+from .. import speedup
+from ..tileio import ReadRasterTile, PadRaster
 
 # def FlowDirection(row, col):
 
@@ -62,6 +61,12 @@ from tileio import ReadRasterTile, PadRaster
 
 #         with rio.open(output, 'w', **profile) as dst:
 #             dst.write(flow[1:-1, 1:-1], 1)
+
+def tileindex():
+    """
+    Return default tileindex
+    """
+    return config.tileset('drainage').tileindex
 
 def WallFlats(padded, nodata):
 
@@ -109,8 +114,8 @@ def FlowDirection(row, col, overwrite, **kwargs):
     calculate D8 flow direction from adjusted elevations.
     """
 
-    # elevation_raster = filename('filled', row=row, col=col)
-    output = filename('flow', row=row, col=col)
+    # elevation_raster = config.filename('filled', row=row, col=col)
+    output = config.filename('flow', row=row, col=col)
 
     if os.path.exists(output) and not overwrite:
         click.secho('Output already exists: %s' % output, fg='yellow')
@@ -170,7 +175,7 @@ def FlowDirection(row, col, overwrite, **kwargs):
     # rd.FillDepressions(extended, True, True, 'D8')
     # flow = ta.flowdir(padded, ds.nodata)
 
-    with fiona.open(filename('exterior-domain', 'input')) as fs:
+    with fiona.open(config.datasource('exterior-domain').filename) as fs:
         mask = rasterize(
             [f['geometry'] for f in fs],
             out_shape=flow.shape,
@@ -182,7 +187,7 @@ def FlowDirection(row, col, overwrite, **kwargs):
     flow[mask == 1] = -1
 
     # noout = float(parameter('input.noout'))
-    # with rio.open(filename('tiled', row=row, col=col)) as ds2:
+    # with rio.open(config.filename('tiled', row=row, col=col)) as ds2:
     #     flow[ds2.read(1) == noout] = -1
 
     # profile = ds.profile.copy()
@@ -223,14 +228,14 @@ def Outlets(row, col, verbose=False):
 
     # read_tile_index()
 
-    flow_raster = filename('flow', row=row, col=col)
+    flow_raster = config.filename('flow', row=row, col=col)
 
     gid = tile_index[(row, col)].gid
     tiles = defaultdict(list)
 
     def readz(trow, tcol, x, y):
 
-        with rio.open(filename('filled', row=trow, col=tcol)) as src:
+        with rio.open(config.filename('filled', row=trow, col=tcol)) as src:
             return float(next(src.sample([(x, y)], 1)))
 
     with rio.open(flow_raster) as ds:
@@ -240,7 +245,7 @@ def Outlets(row, col, verbose=False):
         mask = np.ones_like(flow, dtype=np.uint8)
         outlets, targets = ta.tile_outlets(flow, mask)
 
-        # output = filename('outlets', row=row, col=col)
+        # output = config.filename('outlets', row=row, col=col)
         # with fiona.open(output, 'w', **options) as dst:
 
         for current, (ti, tj) in enumerate(targets):
@@ -308,7 +313,7 @@ def Outlets(row, col, verbose=False):
                 continue
 
             target = tile_index[(trow, tcol)].gid
-            output = filename('inlets-t', row=trow, col=tcol, gid=gid)
+            output = config.filename('inlets-t', row=trow, col=tcol, gid=gid)
 
             # if os.path.exists(output):
             #     mode = 'a'
@@ -367,11 +372,11 @@ def AggregateOutlets():
     with click.progressbar(tile_index) as progress:
         for row, col in progress:
 
-            output = filename('inlets', row=row, col=col)
+            output = config.filename('inlets', row=row, col=col)
 
             with fiona.open(output, 'w', **options) as dst:
 
-                for name in glob.glob(filename('inlets-pat', row=row, col=col)):
+                for name in glob.glob(config.filename('inlets-pat', row=row, col=col)):
                     with fiona.open(name) as fs:
                         
                         for feature in fs:

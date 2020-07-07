@@ -28,11 +28,11 @@ import fiona.crs
 from shapely.geometry import asShape
 from scipy.spatial import cKDTree
 
-from config import tileindex, filename, parameter
-from tileio import ReadRasterTile
-from rasterize import rasterize_linestring, rasterize_linestringz
-import terrain_analysis as ta
-import speedup
+from ..config import config
+from ..tileio import ReadRasterTile
+from ..rasterize import rasterize_linestring, rasterize_linestringz
+from .. import terrain_analysis as ta
+from .. import speedup
 
 workdir = '/media/crousson/Backup/TESTS/TuilesAin'
 

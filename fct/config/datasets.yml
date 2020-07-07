@@ -1,0 +1,104 @@
+flow:
+  description: |
+    D8 Flow Direction, derived from DEM
+  type: raster
+  subdir: GLOBAL/DEM
+  filename: FLOW_RGE5M.vrt
+  tiles:
+    tileset: landcover
+    template: FLOW_RGE5M_%(row)02d_%(col)02d
+    extension: .tif
+
+watershed:
+  description: |
+    Lorem ....
+  type: polygon
+  subdir: AXES/AX%(axis)04d
+  filename: WATERSHED.shp
+  tiles:
+    tileset: landcover
+    template: WATERSHED_%(row)02d_%(col)02d
+    extension: .shp
+
+landcover:
+  description: |
+    Lorem ....
+  type: raster
+  subdir: GLOBAL/LANDCOVER
+  filename: LANDCOVER_2018.vrt
+  tiles:
+    tileset: landcover
+    template: LANDCOVER_%(row)02d_%(col)02d
+    extension: .tif
+
+population:
+  description: |
+    Population (2015)
+  type: raster
+  subdir: GLOBAL/POPULATION
+  filename: POP_2015.vrt
+  tiles:
+    tileset: landcover
+    template: POP_2015_%(row)02d_%(col)02d
+    extension: .tif
+
+subgrid_mask:
+  description: |
+    SubGrid Mask
+  type: raster
+  subdir: SUBGRID
+  filename: SUBGRID_MASK.tif
+
+subgrid_population:
+  description: |
+    SubGrid Mask
+  type: raster
+  subdir: SUBGRID
+  filename: POP_2015.tif
+
+subgrid_landcover:
+  description: |
+    SubGrid Mask
+  type: raster
+  subdir: SUBGRID
+  filename: LANDCOVER_2018.tif
+
+subgrid_dominant_landcover:
+  description: |
+    SubGrid Mask
+  type: raster
+  subdir: SUBGRID
+  filename: LANDCOVER_DOMINANT_2018.tif
+
+ax_nearest_distance:
+  description: |
+    Lorem ....
+  type: raster
+  subdir: AXES/AX%(axis)04d
+  filename: NEAREST_DISTANCE.vrt
+  tiles:
+    tileset: landcover
+    template: NEAREST_DISTANCE_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_relative_elevation:
+  description: |
+    Lorem ....
+  type: raster
+  subdir: AXES/AX%(axis)04d
+  filename: NEAREST_RELZ.vrt
+  tiles:
+    tileset: landcover
+    template: NEAREST_RELZ_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_continuity:
+  description: |
+    Lorem ....
+  type: raster
+  subdir: AXES/AX%(axis)04d
+  filename: LANDCOVER_CONTINUITY.vrt
+  tiles:
+    tileset: landcover
+    template: LANDCOVER_CONTINUITY_%(row)02d_%(col)02d
+    extension: .tif

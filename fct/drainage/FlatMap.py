@@ -7,11 +7,11 @@ import numpy as np
 import click
 import rasterio as rio
 from rasterio.features import sieve
-import terrain_analysis as ta
-import speedup
 
-from config import tileindex, filename
-from tileio import ReadRasterTile
+from .. import terrain_analysis as ta
+from .. import speedup
+from ..config import config
+from ..tileio import ReadRasterTile
 
 def FlatDepth(row, col, min_drainage=5.0, **kwargs):
     """
@@ -22,12 +22,12 @@ def FlatDepth(row, col, min_drainage=5.0, **kwargs):
 
     # from scipy.ndimage.morphology import binary_closing
 
-    # reference_raster = filename('tiled', row=row, col=col)
-    filled_raster = filename('filled', row=row, col=col)
-    # flow_raster = filename('flow', row=row, col=col)
-    # acc_raster = filename('acc', row=row, col=col)
-    # labels_raster = filename('flat_labels', row=row, col=col)
-    output = filename('flats', row=row, col=col)
+    # reference_raster = config.filename('tiled', row=row, col=col)
+    filled_raster = config.filename('filled', row=row, col=col)
+    # flow_raster = config.filename('flow', row=row, col=col)
+    # acc_raster = config.filename('acc', row=row, col=col)
+    # labels_raster = config.filename('flat_labels', row=row, col=col)
+    output = config.filename('flats', row=row, col=col)
     overwrite = kwargs.get('overwrite', False)
 
     if os.path.exists(output) and not overwrite:
@@ -82,10 +82,10 @@ def FlatMap(row, col, min_drainage, **kwargs):
 
     from scipy.ndimage.morphology import binary_closing
 
-    dem_raster = filename('filled', row=row, col=col)
-    flow_raster = filename('flow', row=row, col=col)
-    acc_raster = filename('acc', row=row, col=col)
-    output = filename('flatmap', row=row, col=col)
+    dem_raster = config.filename('filled', row=row, col=col)
+    flow_raster = config.filename('flow', row=row, col=col)
+    acc_raster = config.filename('acc', row=row, col=col)
+    output = config.filename('flatmap', row=row, col=col)
 
     with rio.open(dem_raster) as ds:
 

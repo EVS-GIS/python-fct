@@ -1,4 +1,4 @@
-# distutils: language = c
+# distutils: language=c
 # cython: language_level=3, c_string_type=str, c_string_encoding=ascii, embedsignature=True
 
 """
@@ -18,15 +18,12 @@ and vectorized transformation of array of coordinates.
 
 import numpy as np
 import cython
+from affine import Affine
 
 cimport numpy as np
 cimport cython
 
 from libc.math cimport lround
-# from libcpp.pair cimport pair
-
-# ctypedef pair[float, float] Point
-# ctypedef pair[int, int] Pixel
 
 cdef struct Point:
 
@@ -61,7 +58,13 @@ cdef Pixel make_pixel(int i, int j) nogil:
     p.j = j
     return p
 
-cdef GeoTransform transform_from_gdal(gdal_transform):
+cdef tuple xytuple(Point p):
+    return p.x, p.y
+
+cdef tuple ijtuple(Pixel p):
+    return p.i, p.j
+
+cdef GeoTransform transform_from_gdal(tuple gdal_transform):
     """
     Convert GDAL GeoTransform Tuple to internal GeoTransform
     """
@@ -77,7 +80,7 @@ cdef GeoTransform transform_from_gdal(gdal_transform):
 
     return transform
 
-cdef GeoTransform transform_from_rasterio(rio_transform):
+cdef GeoTransform transform_from_rasterio(object rio_transform):
     """
     Convert RasterIO Affine Transform Object to internal GeoTransform
     """
@@ -92,6 +95,16 @@ cdef GeoTransform transform_from_rasterio(rio_transform):
     transform.shear_y = rio_transform.b
 
     return transform
+
+cdef GeoTransform get_transform(object transform):
+
+    if isinstance(transform, Affine):
+        return transform_from_rasterio(transform)
+
+    if isinstance(transform, tuple):
+        return transform_from_gdal(transform)
+
+    raise ValueError('Invalid transform instance')
 
 cdef Point pixeltopoint(Pixel pixel, GeoTransform transform) nogil:
     """
@@ -140,71 +153,6 @@ cdef Pixel pointtopixel(Point p, GeoTransform transform) nogil:
     
     return make_pixel(i, j)
 
-def pixeltoxy(int row, int col, transform, gdal=True):
-    """
-    Transform raster pixel coordinates (py, px)
-    into real world coordinates (x, y)
-
-    Parameters
-    ----------
-
-    row, col: int
-        raster pixel coordinates
-
-    transform: object
-        GDAL GeoTransform or RasterIO Affine Transform Object
-
-    gdal: boolean
-        True if `transform` is a GDAL GeoTransform,
-        False if it is a Rasterio Affine Transform
-
-    Returns
-    -------
-
-    (x, y): float
-        x and y real world coordinates
-        
-    """
-
-    if gdal:
-        gt = transform_from_gdal(transform)
-    else:
-        gt = transform_from_rasterio(transform)
-
-    return pixeltopoint(make_pixel(row, col), gt)
-
-def xytopixel(float x, float y, transform, gdal=True):
-    """
-    Transform real world coordinates (x, y)
-    into raster pixel coordinates (py, px)
-
-    Parameters
-    ----------
-
-    x, y: float
-        x and y real world coordinates
-
-    transform: object
-        GDAL GeoTransform or RasterIO Affine Transform Object
-
-    gdal: boolean
-        True if `transform` is a GDAL GeoTransform,
-        False if it is a Rasterio Affine Transform
-
-    Returns
-    -------
-
-    (row, col): int
-        raster pixel coordinates
-    """
-
-    if gdal:
-        gt = transform_from_gdal(transform)
-    else:
-        gt = transform_from_rasterio(transform)
-
-    return pointtopixel(make_point(x, y), gt)
-
 def index(float x, float y, transform):
     """
     Transform real world coordinates (x, y)
@@ -217,7 +165,7 @@ def index(float x, float y, transform):
         x and y real world coordinates
 
     transform: object
-        RasterIO Affine Transform Object
+        GDAL GeoTransform or RasterIO Affine Transform Object
 
     Returns
     -------
@@ -227,9 +175,8 @@ def index(float x, float y, transform):
     """
 
     cdef GeoTransform gt
-
-    gt = transform_from_rasterio(transform)
-    return pointtopixel(make_point(x, y), gt)
+    gt = get_transform(transform)
+    return ijtuple(pointtopixel(make_point(x, y), gt))
 
 def xy(int row, int col, transform):
     """
@@ -243,7 +190,7 @@ def xy(int row, int col, transform):
         raster pixel coordinates
 
     transform: object
-        RasterIO Affine Transform Object
+        GDAL GeoTransform or RasterIO Affine Transform Object
 
     Returns
     -------
@@ -254,15 +201,14 @@ def xy(int row, int col, transform):
     """
 
     cdef GeoTransform gt
-    
-    gt = transform_from_rasterio(transform)
-    return pixeltopoint(make_pixel(row, col), transform)
+    gt = get_transform(transform)
+    return xytuple(pixeltopoint(make_pixel(row, col), transform))
 
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-def worldtopixel(np.float32_t[:, :] coordinates, transform, gdal=True):
+def worldtopixel(np.float32_t[:, :] coordinates, transform):
     """
     Transform real world coordinates (x, y)
     into raster pixel coordinates (py, px)
@@ -297,10 +243,7 @@ def worldtopixel(np.float32_t[:, :] coordinates, transform, gdal=True):
         float x, y
         float det, a, b, c, d, e, f
 
-    if gdal:
-        gt = transform_from_gdal(transform)
-    else:
-        gt = transform_from_rasterio(transform)
+    gt = get_transform(transform)
 
     pixels = np.zeros((length, 2), dtype=np.int32)
 
@@ -343,7 +286,7 @@ def worldtopixel(np.float32_t[:, :] coordinates, transform, gdal=True):
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def pixeltoworld(np.int32_t[:, :] pixels, transform, gdal=True):
+def pixeltoworld(np.int32_t[:, :] pixels, transform):
     """
     Transform raster pixel coordinates (py, px)
     into real world coordinates (x, y)
@@ -354,12 +297,8 @@ def pixeltoworld(np.int32_t[:, :] pixels, transform, gdal=True):
     pixels: array, shape (n, 2), dtype=int32
         array of (row, col) raster coordinates
 
-    transform: object
+    transform: tuple or object
         GDAL GeoTransform or RasterIO Affine Transform Object
-
-    gdal: boolean
-        True if `transform` is a GDAL GeoTransform,
-        False if it is a Rasterio Affine Transform 
 
     Returns
     -------
@@ -376,10 +315,7 @@ def pixeltoworld(np.int32_t[:, :] pixels, transform, gdal=True):
         Point point
         Pixel pixel
 
-    if gdal:
-        gt = transform_from_gdal(transform)
-    else:
-        gt = transform_from_rasterio(transform)
+    gt = get_transform(transform)
 
     coordinates = np.zeros((length, 2), dtype=np.float32)
 

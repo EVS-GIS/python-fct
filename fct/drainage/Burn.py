@@ -8,12 +8,11 @@ import itertools
 import math
 
 import rasterio as rio
-
 import fiona
-import terrain_analysis as ta
 
-from config import tileindex, filename
-from rasterize import rasterize_linestringz
+from .. import terrain_analysis as ta
+from ..config import config
+from ..rasterize import rasterize_linestringz
 
 def DrapeNetworkAndAdjustElevations():
     """
@@ -95,6 +94,7 @@ def DrapeNetworkAndAdjustElevations():
 def DispatchHydrographyToTiles():
 
     src = '/var/local/fct/RMC/TILES2/HYDROGRAPHY_TILED.shp'
+    tileindex = config.tileset('drainage').tileindex
 
     def rowcol(feature):
         return feature['properties']['ROW'], feature['properties']['COL']
@@ -105,9 +105,9 @@ def DispatchHydrographyToTiles():
 
     groups = itertools.groupby(features, key=rowcol)
 
-    with click.progressbar(groups, length=len(tileindex())) as progress:
+    with click.progressbar(groups, length=len(tileindex)) as progress:
         for (row, col), features in progress:
-            with fiona.open(filename('hydrography', row=row, col=col), 'w', **options) as fst:
+            with fiona.open(config.filename('hydrography', row=row, col=col), 'w', **options) as fst:
                 for feature in features:
                     fst.write(feature)
 
@@ -116,8 +116,8 @@ def BurnTile(tileset, row, col, burn_delta=0.0):
     DOCME
     """
 
-    elevation_raster = filename(tileset, row=row, col=col)
-    hydrography = filename('hydrography', row=row, col=col)
+    elevation_raster = config.filename(tileset, row=row, col=col)
+    hydrography = config.filename('hydrography', row=row, col=col)
 
     with rio.open(elevation_raster) as ds:
 

@@ -7,25 +7,29 @@ import rasterio as rio
 from rasterio.windows import Window
 import fiona
 
-import terrain_analysis as ta
-from Command import starcall
-from config import tileindex, parameter
+from .. import terrain_analysis as ta
+from ..cli import starcall
+from ..config import config
 
-workdir = '/media/crousson/Backup/TESTS/TuilesAin'
+# workdir = '/media/crousson/Backup/TESTS/TuilesAin'
 
 def TileLateralContinuity(axis, row, col):
 
-    landcover_raster = os.path.join(workdir, 'GLOBAL', 'LANDCOVER_2018.vrt')
+    # landcover_raster = os.path.join(workdir, 'GLOBAL', 'LANDCOVER_2018.vrt')
+    # distance_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'NEAREST_DISTANCE.vrt')
+    # relz_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'NEAREST_RELZ.vrt')
+    # output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'CONTINUITY_%02d_%02d.tif' % (row, col))
 
-    distance_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'NEAREST_DISTANCE.vrt')
-    relz_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'NEAREST_RELZ.vrt')
-    output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'CONTINUITY_%02d_%02d.tif' % (row, col))
+    tileset = config.tileset('landcover')
+    landcover_raster = config.filename('landcover')
+    distance_raster = config.filename('ax_nearest_distance', axis=axis)
+    relz_raster = config.filename('ax_relative_elevation', axis=axis)
+    output = tileset.tilename('ax_continuity', axis=axis, row=row, col=col)
 
     padding = 200
-    height = int(parameter('input.height')) + 2*padding
-    width = int(parameter('input.width')) + 2*padding
-
-    tile_index = tileindex()
+    height = tileset.height + 2*padding
+    width = tileset.width + 2*padding
+    tile_index = tileset.tileindex
     tile = tile_index[row, col]
 
     with rio.open(relz_raster) as ds1:
@@ -80,18 +84,24 @@ def TileLateralContinuity(axis, row, col):
 
 def LateralContinuity(axis, processes=1, **kwargs):
 
-    tilefile = os.path.join(workdir, 'TILESET', 'TILES.shp')
+    # tilefile = os.path.join(workdir, 'TILESET', 'TILES.shp')
+    tileset = config.tileset('landcover')
 
-    with fiona.open(tilefile) as fs:
+    # with fiona.open(tilefile) as fs:
         
-        arguments = list()
+    #     arguments = list()
         
-        for feature in fs:
+    #     for feature in fs:
 
-            properties = feature['properties']
-            row = properties['ROW']
-            col = properties['COL']
-            arguments.append((TileLateralContinuity, axis, row, col, kwargs))
+    #         properties = feature['properties']
+    #         row = properties['ROW']
+    #         col = properties['COL']
+    #         arguments.append((TileLateralContinuity, axis, row, col, kwargs))
+
+    arguments = list()
+
+    for tile in tileset.tileindex:
+        arguments.append((TileLateralContinuity, axis, tile.row, tile.col, kwargs))
 
     with Pool(processes=processes) as pool:
 

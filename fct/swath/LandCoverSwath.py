@@ -3,8 +3,10 @@ import math
 from multiprocessing import Pool
 
 import numpy as np
-import click
+import matplotlib.pyplot as plt
+import matplotlib as mpl
 
+import click
 import rasterio as rio
 from rasterio.windows import Window
 from rasterio import features
@@ -12,13 +14,9 @@ import fiona
 import fiona.crs
 from shapely.geometry import asShape
 
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-from Plotting import MapFigureSizer
-
-import terrain_analysis as ta
-from ransac import LinearModel, ransac
-from Command import starcall
+from .. import terrain_analysis as ta
+from ..plotting.MapFigureSizer import MapFigureSizer
+from ..cli import starcall
 
 workdir = '/media/crousson/Backup/TESTS/TuilesAin'
 
@@ -189,8 +187,6 @@ def plot_swath(x, classes, swath, direction='forward', title=None, filename=None
         '#fa1524', # Urban
         '#fa1665'  # Disconnected
     ]
-
-    
 
     count = np.sum(swath, axis=1)
 

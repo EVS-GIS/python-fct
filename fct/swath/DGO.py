@@ -25,13 +25,13 @@ import fiona
 import fiona.crs
 from shapely.geometry import asShape, Point
 
-import terrain_analysis as ta
-import speedup
-from rasterize import rasterize_linestring, rasterize_linestringz
-from ransac import LinearModel, ransac
+from .. import terrain_analysis as ta
+from .. import speedup
+from ..rasterize import rasterize_linestring, rasterize_linestringz
+from ..tileio import as_window
+from ..drainage.SpatialReferencing import nearest_value_and_distance
 
-from SpatialReferencing import nearest_value_and_distance
-from SwathProfile import as_window
+from .ransac import LinearModel, ransac
 
 workdir = '/media/crousson/Backup/TESTS/TuilesAin'
 

@@ -4,4 +4,5 @@ scipy>=1.4
 rasterio>=1.1
 fiona>=1.8.6
 shapely>=1.7
+pyyaml>=5.3
 Click>=7.0

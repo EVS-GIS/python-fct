@@ -1,7 +1,7 @@
 # coding: utf-8
 
 """
-Command Line Interface
+Common Click Options
 
 ***************************************************************************
 *                                                                         *
@@ -13,15 +13,21 @@ Command Line Interface
 ***************************************************************************
 """
 
-from .Decorators import (
-    parallel,
-    aggregate,
-    starcall,
-    command_info,
-    pretty_time_delta
-)
+import click
 
-from .Options import (
-    overwritable,
-    verbosable
-)
+overwritable = click.option(
+    '--overwrite', '-w',
+    default=False,
+    help='Overwrite existing output ?',
+    is_flag=True)
+
+verbosable = click.option(
+    '--verbose', '-v',
+    default=False,
+    help='Print verbose messages ?',
+    is_flag=True)
+
+quiet_opt = click.option(
+    '--quiet/--no-quiet', '-q',
+    default=False,
+    help='Suppress message output ?')

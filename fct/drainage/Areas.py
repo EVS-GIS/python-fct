@@ -3,8 +3,20 @@
 from collections import defaultdict, Counter
 import click
 import rasterio as rio
-import speedup
-from config import tileindex, filename
+from .. import speedup
+from ..config import config
+
+def workdir():
+    """
+    Return default working directory
+    """
+    return config.workdir
+
+def tileindex():
+    """
+    Return default tileindex
+    """
+    return config.tileset('drainage').tileindex
 
 def WatershedUnitAreas(dataset='labels', coeff=25e-6):
     """
@@ -24,7 +36,7 @@ def WatershedUnitAreas(dataset='labels', coeff=25e-6):
         for row, col in progress:
 
             tile = tile_index[row, col].gid
-            label_raster = filename(dataset, row=row, col=col)
+            label_raster = config.filename(dataset, row=row, col=col)
 
             with rio.open(label_raster) as ds:
         

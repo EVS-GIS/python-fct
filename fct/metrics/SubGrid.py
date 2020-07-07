@@ -29,64 +29,63 @@ from rasterio.windows import Window
 import fiona
 from shapely.geometry import asShape
 
-import terrain_analysis as ta
-import speedup
-from Command import starcall
-from config import tileindex, parameter
+from .. import transform as fct
+from .. import terrain_analysis as ta
+from .. import speedup
+from ..cli import starcall
+from ..config import config
+from ..tileio import as_window
 
 workdir = '/media/crousson/Backup/TESTS/TuilesAin'
 
-def as_window(bounds, transform):
-
-    minx, miny, maxx, maxy = bounds
-
-    row_offset, col_offset = ta.index(minx, maxy, transform)
-    row_end, col_end = ta.index(maxx, miny, transform)
-
-    height = row_end - row_offset
-    width = col_end - col_offset
-
-    return Window(col_offset, row_offset, width, height)
-
-def DefineSubGrid():
+def DefineSubGridMask():
     """
     Using np.ma conventions:
     True means masked/nodata
     """
 
-    subgrid_shapefile = os.path.join(workdir, 'SUBGRID', 'SubGrid200m.shp')
-    output = os.path.join(workdir, 'SUBGRID', 'SUBGRID_MASK.tif')
+    # subgrid_shapefile = os.path.join(workdir, 'SUBGRID', 'SubGrid200m.shp')
+    # output = os.path.join(workdir, 'SUBGRID', 'SUBGRID_MASK.tif')
+
+    tileset = config.tileset('subgrid')
+    subgrid = tileset.tileindex
+    # height = tileset.height
+    # width = tileset.width
+    output = config.filename('subgrid_mask')
     resolution = 200.0
 
-    with fiona.open(subgrid_shapefile) as fs:
+    # with fiona.open(subgrid_shapefile) as fs:
+    # for tile in subgrid.values():
 
-        x0, y1, x1, y0 = fs.bounds
-        height = int((y0 - y1) // resolution)
-        width = int((x1- x0) // resolution)
-        transform = Affine.from_gdal(x0, resolution, 0.0, y0, 0.0, -resolution)
+    x0, y1, x1, y0 = tileset.bounds
+    height = int((y0 - y1) // resolution)
+    width = int((x1- x0) // resolution)
+    transform = Affine.from_gdal(x0, resolution, 0.0, y0, 0.0, -resolution)
 
-        mask = np.full((height, width), True)
+    mask = np.full((height, width), True)
 
-        def intile(i, j):
-            return all([
-                i >= 0,
-                i < height,
-                j >= 0,
-                j < width
-            ])
+    def intile(i, j):
+        return all([
+            i >= 0,
+            i < height,
+            j >= 0,
+            j < width
+        ])
 
-        with click.progressbar(fs) as iterator:
-            for feature in iterator:
+    with click.progressbar(subgrid.values()) as iterator:
+        for tile in iterator:
 
-                properties = feature['properties']
-                
-                cx = 0.5 * (properties['right'] + properties['left'])
-                cy = 0.5 * (properties['top'] + properties['bottom'])
-                i, j = ta.index(cx, cy, transform)
-                
-                assert(intile(i, j))
-                
-                mask[i, j] = False
+            # properties = feature['properties']
+            # cx = 0.5 * (properties['right'] + properties['left'])
+            # cy = 0.5 * (properties['top'] + properties['bottom'])
+            left, bottom, right, top = tile.bounds
+            cx = 0.5 * (left + right)
+            cy = 0.5 * (top + bottom)
+            i, j = fct.index(cx, cy, transform)
+            
+            assert(intile(i, j))
+            
+            mask[i, j] = False
 
         profile = dict(
             driver='GTiff',
@@ -96,7 +95,7 @@ def DefineSubGrid():
             dtype='uint8',
             compress='deflate',
             transform=transform,
-            crs=rio.crs.CRS.from_epsg(2154)
+            crs=rio.crs.CRS.from_epsg(config.srid)
         )
 
         with rio.open(output, 'w', **profile) as dst:
@@ -117,7 +116,7 @@ def AggregateCell(i, j, datafile, window, fun, nodata):
 
 def AggregateMetric(datafile, output, fun, dtype, nodata, processes, **kwargs):
 
-    mask_file = os.path.join(workdir, 'SUBGRID', 'SUBGRID_MASK.tif')
+    mask_file = config.filename('subgrid_mask')
 
     with rio.open(mask_file) as ds:
 
@@ -180,8 +179,11 @@ def aggregate_sum(data, ds, nodata):
 
 def AggregatePopulation(processes=1):
 
-    datafile = os.path.join(workdir, 'GLOBAL', 'POP_2015.vrt')
-    output = os.path.join(workdir, 'SUBGRID', 'POP_2015.tif')
+    # datafile = os.path.join(workdir, 'GLOBAL', 'POP_2015.vrt')
+    # output = os.path.join(workdir, 'SUBGRID', 'POP_2015.tif')
+
+    datafile = config.filename('population')
+    output = config.filename('subgrid_population')
 
     AggregateMetric(
         datafile,
@@ -200,9 +202,13 @@ def AggregateLandCoverCell(i, j, datafile, window, n):
 
 def AggregateLandCover(processes=1, **kwargs):
 
-    mask_file = os.path.join(workdir, 'SUBGRID', 'SUBGRID_MASK.tif')
-    datafile = os.path.join(workdir, 'GLOBAL', 'LANDCOVER_2018.vrt')
-    output = os.path.join(workdir, 'SUBGRID', 'LANDCOVER_2018.tif')
+    # mask_file = os.path.join(workdir, 'SUBGRID', 'SUBGRID_MASK.tif')
+    # datafile = os.path.join(workdir, 'GLOBAL', 'LANDCOVER_2018.vrt')
+    # output = os.path.join(workdir, 'SUBGRID', 'LANDCOVER_2018.tif')
+
+    mask_file = config.filename('subgrid_mask')
+    datafile = config.filename('landcover')
+    output = config.filename('subgrid_landcover')
 
     dtype = 'float32'
     nodata = -99999.0
@@ -261,9 +267,13 @@ def AggregateLandCover(processes=1, **kwargs):
 
 def DominantLandCover():
 
-    landcover_file = os.path.join(workdir, 'SUBGRID', 'LANDCOVER_2018.tif')
-    mask_file = os.path.join(workdir, 'SUBGRID', 'SUBGRID_MASK.tif')
-    output = os.path.join(workdir, 'SUBGRID', 'LANDCOVER_DOMINANT.tif')
+    # landcover_file = os.path.join(workdir, 'SUBGRID', 'LANDCOVER_2018.tif')
+    # mask_file = os.path.join(workdir, 'SUBGRID', 'SUBGRID_MASK.tif')
+    # output = os.path.join(workdir, 'SUBGRID', 'LANDCOVER_DOMINANT.tif')
+
+    mask_file = config.filename('subgrid_mask')
+    landcover_file = config.filename('subgrid_landcover')
+    output = config.filename('subgrid_dominant_landcover')
 
     with rio.open(landcover_file) as ds:
 

@@ -43,19 +43,30 @@ from rasterio.windows import Window
 import fiona
 import fiona.crs
 
-import terrain_analysis as ta
-import speedup
+from ..config import config
+from .. import terrain_analysis as ta
+from .. import speedup
+from ..tileio import ReadRasterTile
+from .Burn import BurnTile
 
-from config import tileindex, filename, fileset, workdir, parameter
-from tileio import ReadRasterTile
-from Burn import BurnTile
+def workdir():
+    """
+    Return default working directory
+    """
+    return config.workdir
+
+def tileindex():
+    """
+    Return default tileindex
+    """
+    return config.tileset('drainage').tileindex
 
 def silent(msg):
     pass
 
 def TileExtendedBoundingBox(row, col, padding=20):
 
-    template = filename('patched', row=row, col=col)
+    template = config.filename('patched', row=row, col=col)
     output = os.path.join(workdir(), 'TILEBOXES.shp')
 
     crs = fiona.crs.from_epsg(2154)
@@ -99,18 +110,18 @@ def ExtractAndPatchTile(row, col, overwrite, verbose=False, smooth=5):
     from scipy.ndimage import uniform_filter as ndfilter
 
     tile_index = tileindex()
-    DEM = filename('dem', 'input')
-    LOWRES = filename('dem2', 'input')
+    DEM = config.datasource('dem1').filename
+    LOWRES = config.datasource('dem2').filename
 
-    tile_height = int(parameter('input.height'))
-    tile_width = int(parameter('input.width'))
-    noout = float(parameter('input.noout'))
+    tile_height = config.tileset('drainage').height
+    tile_width = config.tileset('drainage').width
+    noout = config.tileset('drainage').noout
     
     if (row, col) not in tile_index:
         return
 
     tile = tile_index[row, col]
-    output = filename('tiled', row=row, col=col)
+    output = config.filename('tiled', row=row, col=col)
 
     if verbose:
 
@@ -149,7 +160,7 @@ def ExtractAndPatchTile(row, col, overwrite, verbose=False, smooth=5):
     else:
         out = elevations
 
-    with fiona.open(filename('exterior-domain', 'input')) as fs:
+    with fiona.open(config.datasource('exterior-domain').filename) as fs:
         mask = rasterize(
             [f['geometry'] for f in fs],
             out_shape=out.shape,
@@ -184,7 +195,7 @@ def MeanFilter(row, col, overwrite, verbose=False, size=5):
     if (row, col) not in tile_index:
         return
 
-    output = filename('smoothed', row=row, col=col)
+    output = config.filename('smoothed', row=row, col=col)
     
     if verbose:
 
@@ -202,7 +213,7 @@ def MeanFilter(row, col, overwrite, verbose=False, size=5):
         info('Output already exists: %s' % output)
         return
 
-    with rio.open(filename('tiled', row=row, col=col)) as ds:
+    with rio.open(config.filename('tiled', row=row, col=col)) as ds:
 
         data = ds.read(1)
         out = ndfilter(data, size)
@@ -226,8 +237,8 @@ def FillDepressions(row, col, burn=-1.0, overwrite=False, verbose=False):
     if (row, col) not in tile_index:
         return
 
-    noout = float(parameter('input.noout'))
-    outputs = fileset(['prefilled', 'labels', 'graph'], row=row, col=col)
+    noout = config.tileset('drainage').noout
+    outputs = config.fileset(['prefilled', 'labels', 'graph'], row=row, col=col)
 
     if verbose:
 
@@ -248,7 +259,7 @@ def FillDepressions(row, col, burn=-1.0, overwrite=False, verbose=False):
 
     info('Processing tile (%02d, %02d)' % (row, col))
 
-    with rio.open(filename('tiled', row=row, col=col)) as ds:
+    with rio.open(config.filename('tiled', row=row, col=col)) as ds:
 
         profile = ds.profile.copy()
         nodata = ds.nodata
@@ -424,7 +435,7 @@ def CheckBorderFlats(directed, graph, row, col, dlinks, ulinks, epsilon=0.001):
     ulinks = dict()
 
     def read_data(i, j):
-        return np.load(filename("graph", row=i, col=j), allow_pickle=True)
+        return np.load(config.filename('graph', row=i, col=j), allow_pickle=True)
 
     def isupstream(origin, target):
 
@@ -629,7 +640,7 @@ def Spillover(overwrite):
     entre les différentes tuiles
     """
 
-    output = filename('spillover')
+    output = config.filename('spillover')
     if os.path.exists(output) and not overwrite:
         click.secho('Output already exists: %s' % output, fg='yellow')
         return
@@ -642,7 +653,7 @@ def Spillover(overwrite):
     nodata = -99999.0
 
     def tiledatafn(row, col):
-        return filename('graph', row=row, col=col)
+        return config.filename('graph', row=row, col=col)
 
     with click.progressbar(tile_index) as progress:
         for row, col in progress:
@@ -728,14 +739,14 @@ def ApplyFlatZ(row, col, **kwargs):
     tile_index = tileindex()
     tile = tile_index[row, col]
 
-    minz_file = filename('spillover')
+    minz_file = config.filename('spillover')
     minimum_z = np.load(minz_file)['minz']
 
     index = {int(w): z for t, w, z in minimum_z if int(t) == tile.gid}
 
-    filled_raster = filename('prefilled', row=row, col=col)
-    label_raster = filename('labels', row=row, col=col)
-    output = filename('filled', row=row, col=col)
+    filled_raster = config.filename('prefilled', row=row, col=col)
+    label_raster = config.filename('labels', row=row, col=col)
+    output = config.filename('filled', row=row, col=col)
 
     def info(msg):
         click.secho(msg, fg='yellow')
