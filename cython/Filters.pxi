@@ -52,8 +52,8 @@ def mean_filter(float[:, :] data, float nodata, int window=3, bint inplace=True)
 
     cdef:
 
-        long height, width, padded_height, padded_width
-        long i, j, ik, jk
+        Py_ssize_t height, width, padded_height, padded_width
+        Py_ssize_t i, j, ik, jk
         int size, count
         double value
         float[:, :] padded
@@ -73,7 +73,6 @@ def mean_filter(float[:, :] data, float nodata, int window=3, bint inplace=True)
     padded_width = padded.shape[1]
 
     with nogil:
-
         for i in range(padded_height):
             for j in range(padded_width):
 
@@ -134,8 +133,8 @@ def max_filter(float[:, :] data, float nodata, int window=3, bint inplace=True):
 
     cdef:
 
-        long height, width, padded_height, padded_width
-        long i, j, ik, jk
+        Py_ssize_t height, width, padded_height, padded_width
+        Py_ssize_t i, j, ik, jk
         int size
         float value
         float[:, :] padded
@@ -155,7 +154,6 @@ def max_filter(float[:, :] data, float nodata, int window=3, bint inplace=True):
     padded_width = padded.shape[1]
 
     with nogil:
-
         for i in range(padded_height):
             for j in range(padded_width):
 
@@ -214,8 +212,8 @@ def min_filter(float[:, :] data, float nodata, int window=3, bint inplace=True):
 
     cdef:
 
-        long height, width, padded_height, padded_width
-        long i, j, ik, jk
+        Py_ssize_t height, width, padded_height, padded_width
+        Py_ssize_t i, j, ik, jk
         int size
         float value
         float[:, :] padded
@@ -235,7 +233,6 @@ def min_filter(float[:, :] data, float nodata, int window=3, bint inplace=True):
     padded_width = padded.shape[1]
 
     with nogil:
-
         for i in range(padded_height):
             for j in range(padded_width):
 
@@ -295,8 +292,8 @@ def median_filter(float[:, :] data, float nodata, int window=3, bint inplace=Tru
 
     cdef:
 
-        long height, width, padded_height, padded_width
-        long i, j, ik, jk
+        Py_ssize_t height, width, padded_height, padded_width
+        Py_ssize_t i, j, ik, jk
         int size
         vector[float] values
         float[:, :] padded
@@ -316,7 +313,6 @@ def median_filter(float[:, :] data, float nodata, int window=3, bint inplace=Tru
     padded_width = padded.shape[1]
 
     with nogil:
-
         for i in range(padded_height):
             for j in range(padded_width):
 

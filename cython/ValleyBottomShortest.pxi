@@ -20,6 +20,7 @@ def valley_bottom_shortest(
         float[:, :] elevations,
         float elevations_nodata,
         float[:, :] distance=None,
+        float max_dz=0.0,
         float max_distance=0.0):
     """
     Valley Bottom, based on shortest distance
@@ -32,11 +33,10 @@ def valley_bottom_shortest(
         Reference elevation raster,
         that is modified in place during processing.
         
-        For each cell, the reference elevation is the elevation of the first cell
-        on the stream network following flow direction
-        from that cell.
+        For each cell, the reference elevation is the elevation of
+        the nearest cell on the stream network.
         
-        Reference raster must be initialized to a copy of `elevations`
+        Reference raster is initialized to a copy of `elevations`
         set to nodata everywhere except for reference (stream network) cells.
 
     elevations: array-like, dtype=float32
@@ -51,10 +51,19 @@ def valley_bottom_shortest(
         
         Optional raster of distance to reference cells
 
+    max_dz: float
+        
+        Optional maximum elevation difference from reference cell.
+        Set to 0 to disable elevation stop criteria (default).
+        Using max dz stop criteria
+        changes the meaning of shortest :)
+        But you can try max dz significantly greater than your target,
+        and threshold your output afterwards.
+
     max_distance: float
         
         Optional maximum distance to reference cell.
-        Set to 0 to disable distance stop criteria.
+        Set to 0 to disable distance stop criteria (default).
 
     References
     ----------
@@ -64,8 +73,9 @@ def valley_bottom_shortest(
 
     cdef:
 
-        long width, height
-        long i, j, k, ik, jk
+        Py_ssize_t width, height
+        Py_ssize_t i, j, ik, jk
+        int k
         float d
 
         Cell ij, ijk
@@ -73,10 +83,13 @@ def valley_bottom_shortest(
         ShortestQueue queue
         unsigned char[:, :] seen
         map[Cell, Cell] ancestors
+        float[:, :] jitteri, jitterj
 
     height = reference.shape[0]
     width = reference.shape[1]
     seen = np.zeros((height, width), dtype=np.uint8)
+    jitteri = np.float32(np.random.normal(0, 0.4, (height, width)))
+    jitterj = np.float32(np.random.normal(0, 0.4, (height, width)))
 
     # if cost is None:
     #     cost = np.ones((height, width), dtype=np.float32)
@@ -88,6 +101,21 @@ def valley_bottom_shortest(
         distance = np.zeros((height, width), dtype=np.float32)
 
     with nogil:
+
+        # Clamp jitter
+
+        for i in range(height):
+            for j in range(width):
+
+                if jitteri[i, j] > 0.4:
+                    jitteri[i, j] = 0.4
+                elif jitteri[i, j] < -0.4:
+                    jitteri[i, j] = -0.4
+
+                if jitterj[i, j] > 0.4:
+                    jitterj[i, j] = 0.4
+                elif jitterj[i, j] < -0.4:
+                    jitterj[i, j] = -0.4
 
         # Sequential scan
         # Search for origin cells with startvalue
@@ -149,13 +177,13 @@ def valley_bottom_shortest(
 
             # Stop criteria
 
-            # Cannot use max dz stop criteria for shortest
-            # withou changing the meaning of shortest :)
+            # Using max dz stop criteria for shortest
+            # changes the meaning of shortest :)
 
-            # if max_dz > 0:
+            if max_dz > 0:
 
-            #     if elevations[i, j] - reference[i, j] > max_dz:
-            #         continue
+                if elevations[i, j] - reference[i, j] > max_dz:
+                    continue
         
             if max_distance > 0:
 
@@ -180,12 +208,16 @@ def valley_bottom_shortest(
                 if elevations[ik, jk] == elevations_nodata:
                     continue
 
-                if k % 2 == 0:
-                    d = distance[i, j] + 1
-                else:
-                    d = distance[i, j] + 1.4142135 # sqrt(2) float32
+                # if k % 2 == 0:
+                #     d = distance[i, j] + 1
+                # else:
+                #     d = distance[i, j] + 1.4142135 # sqrt(2) float32
 
                 # d = d + d*cost[ik, jk]
+
+                d = distance[i, j] + sqrt(
+                    (i + jitteri[i, j] - ik - jitteri[ik, jk])**2 +
+                    (j + jitterj[i, j] - jk - jitterj[ik, jk])**2)
 
                 if seen[ik, jk] == 0:
 

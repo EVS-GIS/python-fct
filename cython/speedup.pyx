@@ -17,6 +17,7 @@ DOCME
 import cython
 import click
 cimport cython
+from cython.parallel import prange
 
 import numpy as np
 cimport numpy

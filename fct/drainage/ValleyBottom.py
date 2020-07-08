@@ -17,24 +17,20 @@ import os
 import itertools
 from operator import itemgetter
 from multiprocessing import Pool
-# import time
 
 import numpy as np
 import click
 
 import rasterio as rio
-# from rasterio import features
 import fiona
 import fiona.crs
-# from shapely.geometry import asShape
 
 from ..config import config
 from ..cli import starcall
+from .. import transform as fct
 from .. import terrain_analysis as ta
 from .. import speedup
 from ..tileio import PadRaster
-
-# workdir = '/media/crousson/Backup/TESTS/TuilesAin'
 
 def border(height, width):
     """
@@ -56,7 +52,6 @@ def border(height, width):
 
 def ReadSeeds(axis):
 
-    # shapefile = os.path.join(workdir, 'GLOBAL', 'RHTS_TILED.shp')
     shapefile = config.filename('streams-tiled')
 
     def accept(feature):
@@ -75,9 +70,6 @@ def ReadSeeds(axis):
 
 
 def TileValleyBottom(axis, row, col, seeds):
-
-    # output_flow_relativez = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'FLOW_RELZ_%02d_%02d.tif' % (row, col))
-    # output_flow_distance = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'FLOW_DIST_%02d_%02d.tif' % (row, col))
 
     output_flow_height = config.tileset('landcover').tilename('ax_flow_height', axis=axis, row=row, col=col)
     output_flow_distance = config.tileset('landcover').tilename('ax_flow_distance', axis=axis, row=row, col=col)
@@ -116,7 +108,7 @@ def TileValleyBottom(axis, row, col, seeds):
 
     for x, y, z, dist in seeds:
 
-        i, j = ta.index(x, y, transform)
+        i, j = fct.index(x, y, transform)
         
         if intile(i, j):
 
@@ -236,16 +228,18 @@ def CropAndScaleRasterTile(rasterfile, scale=1.0, padding=1):
         data = scale * data
         data[mask] = ds.nodata
 
-    profile.update(transform=transform, height=height, width=width)
+    profile.update(
+        transform=transform,
+        height=height,
+        width=width,
+        compress='deflate')
+
     with rio.open(rasterfile, 'w', **profile) as dst:
         dst.write(data[padding:-padding, padding:-padding], 1)
 
 def CropAndScale(axis, tiles, processes=1):
 
     def rasters(row, col):
-
-        # yield os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'FLOW_RELZ_%02d_%02d.tif' % (row, col)), 1.0
-        # yield os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'FLOW_DIST_%02d_%02d.tif' % (row, col)), 5.0
 
         yield config.tileset('landcover').tilename('ax_flow_height', axis=axis, row=row, col=col), 1.0
         yield config.tileset('landcover').tilename('ax_flow_distance', axis=axis, row=row, col=col), 5.0
@@ -274,8 +268,10 @@ def CropAndScale(axis, tiles, processes=1):
                     pass
 
 def ValleyBottom(axis, processes=1):
+    """
+    DOCME
+    """
 
-    # output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES.csv')
     output = config.filename('ax_tiles', axis=axis)
 
     g_tiles = set()

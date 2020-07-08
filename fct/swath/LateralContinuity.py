@@ -77,7 +77,12 @@ def TileLateralContinuity(axis, row, col):
         height = height - 2*padding
         width = width - 2*padding
         transform = ds1.transform * ds1.transform.translation(j0, i0)
-        profile.update(height=height, width=width, transform=transform, driver='GTiff')
+        profile.update(
+            driver='GTiff',
+            height=height,
+            width=width,
+            transform=transform,
+            compress='deflate')
 
         with rio.open(output, 'w', **profile) as dst:
             dst.write(out[padding:-padding, padding:-padding], 1)

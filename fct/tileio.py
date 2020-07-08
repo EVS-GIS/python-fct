@@ -156,7 +156,7 @@ def PadRaster(row, col, dataset='filled', tileset='default', padding=1, **kwargs
     with rio.open(rasterfile) as ds:
 
         height, width = ds.shape
-        padded = np.zeros((height+2*padding, width+2*padding), dtype=ds.dtypes[0])
+        padded = np.full((height+2*padding, width+2*padding), ds.nodata, dtype=ds.dtypes[0])
 
         padded[padding:-padding, padding:-padding] = ds.read(1)
 

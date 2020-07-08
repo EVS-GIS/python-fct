@@ -25,15 +25,15 @@ def noflow(
 
     cdef:
 
-        long height = flow.shape[0], width = flow.shape[1]
-        long i, j, i0, j0
+        Py_ssize_t height = flow.shape[0], width = flow.shape[1]
+        Py_ssize_t i, j, ik, jk
 
         short direction
         unsigned char[:, :] inflow
         unsigned char inflowij
         CellStack stack
         Cell c
-        short x
+        short k
 
         CellSequence notflowing
 
@@ -47,12 +47,12 @@ def noflow(
 
             if flow[i, j] == NO_FLOW and streams[i, j] > 0:
 
-                for x in range(8):
+                for k in range(8):
 
-                    ix = i + ci[x]
-                    jx = j + cj[x]
+                    ik = i + ci[k]
+                    jk = j + cj[k]
 
-                    if ingrid(height, width, ix, jx) and flow[ix, jx] == FLOW_NODATA:
+                    if ingrid(height, width, ik, jk) and flow[ik, jk] == FLOW_NODATA:
                         break
 
                 else:
@@ -72,14 +72,14 @@ def noflow(
 
                 inflowij = 0
 
-                for x in range(8):
+                for k in range(8):
 
-                    di = ci[x]
-                    dj = cj[x]
+                    ik = i + ci[k]
+                    jk = j + cj[k]
 
-                    if ingrid(height, width, i+di, j+dj) \
-                        and streams[i+di, j+dj] > 0 \
-                        and (flow[i+di, j+dj] == upward[x]):
+                    if ingrid(height, width, ik, jk) \
+                        and streams[ik, jk] > 0 \
+                        and (flow[ik, jk] == upward[k]):
 
                         inflowij += 1
 
@@ -92,26 +92,26 @@ def noflow(
 
         c = stack.top()
         stack.pop()
-        i0 = c.first
-        j0 = c.second
+        i = c.first
+        j = c.second
 
-        i = i0
-        j = j0
-        direction = flow[i, j]
+        ik = i
+        jk = j
+        direction = flow[ik, jk]
 
         while not (direction == FLOW_NODATA or direction == NO_FLOW):
 
-            x = ilog2(direction)
-            di, dj = ci[x], cj[x]
-            i, j = i+di, j+dj
+            k = ilog2(direction)
+            ik = ik + ci[k]
+            jk = jk + cj[k]
 
-            if (i == i0) and (j == j0):
-                notflowing.push_back(Cell(i0, j0))
+            if (ik == i) and (jk == j):
+                notflowing.push_back(Cell(ik, jk))
                 break
 
-            if ingrid(height, width, i, j) and inflow[i, j] == 1:
+            if ingrid(height, width, ik, jk) and inflow[ik, jk] == 1:
 
-                direction = flow[i, j]
+                direction = flow[ik, jk]
 
             else:
 

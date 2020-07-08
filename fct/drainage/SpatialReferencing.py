@@ -8,7 +8,7 @@ Measure along Reference Axis, Space Discretization
 *                                                                         *
 *   This program is free software; you can redistribute it and/or modify  *
 *   it under the terms of the GNU General Public License as published by  *
-*   the Free Software Foundation; either version 2 of the License, or     *
+*   the Free Software Foundation; either version 3 of the License, or     *
 *   (at your option) any later version.                                   *
 *                                                                         *
 ***************************************************************************
@@ -16,11 +16,12 @@ Measure along Reference Axis, Space Discretization
 
 import os
 import math
-import click
-import numpy as np
 from operator import itemgetter
-from collections import defaultdict
+# from collections import defaultdict
 
+import numpy as np
+
+import click
 import rasterio as rio
 from rasterio import features
 import fiona
@@ -29,12 +30,11 @@ from shapely.geometry import asShape
 from scipy.spatial import cKDTree
 
 from ..config import config
-from ..tileio import ReadRasterTile
+# from ..tileio import ReadRasterTile
 from ..rasterize import rasterize_linestring, rasterize_linestringz
+from .. import transform as fct
 from .. import terrain_analysis as ta
 from .. import speedup
-
-# workdir = '/media/crousson/Backup/TESTS/TuilesAin'
 
 def nearest_value_and_distance(refpixels, domain, nodata):
     """
@@ -103,18 +103,14 @@ def nearest_value_and_distance(refpixels, domain, nodata):
 
     return values, distance
 
-def SpatialReference(axis, row, col, mdelta=200.0):
-
-    # valley_bottom_rasterfile = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'FLOW_RELZ_%02d_%02d.tif' % (row, col))
-    # refaxis_shapefile = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'REF', 'REFAXIS.shp')
-
-    # output_distance = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'AXIS_DISTANCE_%02d_%02d.tif' % (row, col))
-    # output_measure = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'AXIS_MEASURE_%02d_%02d.tif' % (row, col))
-    # output_dgo = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'DGO_%02d_%02d.tif' % (row, col))
-    # output_dgo_shapefile = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'DGO_%02d_%02d.shp' % (row, col))
+def TileSpatialReference(axis, row, col, mdelta=200.0):
+    """
+    see SpatialReference
+    """
 
     tileset = config.tileset('landcover')
-    valley_bottom_rasterfile = tileset.tilename('ax_flow_height', axis=axis, row=row, col=col)
+    # valley_bottom_rasterfile = tileset.tilename('ax_flow_height', axis=axis, row=row, col=col)
+    valley_bottom_rasterfile = tileset.tilename('ax_relative_elevation', axis=axis, row=row, col=col)
     refaxis_shapefile = config.filename('ax_refaxis', axis=axis)
 
     output_distance = tileset.tilename('ax_axis_distance', axis=axis, row=row, col=col)
@@ -126,7 +122,8 @@ def SpatialReference(axis, row, col, mdelta=200.0):
 
         click.echo('Read Valley Bottom')
 
-        valley_bottom = speedup.raster_buffer(ds.read(1), ds.nodata, 6.0)
+        # valley_bottom = speedup.raster_buffer(ds.read(1), ds.nodata, 6.0)
+        valley_bottom = ds.read(1)
         height, width = valley_bottom.shape
 
         # distance = np.full_like(valley_bottom, ds.nodata)
@@ -172,11 +169,6 @@ def SpatialReference(axis, row, col, mdelta=200.0):
                             # measure[i, j] = m
                             refaxis_pixels.append((i, j, m))
 
-                # valid_pixels = np.array([intile(i, j) for i, j in pixels])
-                # distance[pixels[valid_pixels, 0], pixels[valid_pixels, 1]] = 0.0
-                # measure[pixels[valid_pixels, 0], pixels[valid_pixels, 1]] = coordinates[valid_pixels, 2]
-                # axis[pixels[valid_pixels, 0], pixels[valid_pixels, 1]] = 1
-
         # ta.shortest_distance(axr, ds.nodata, startval=1, distance=distance, feedback=ta.ConsoleFeedback())
         # ta.shortest_ref(axr, ds.nodata, startval=1, fillval=0, out=measure, feedback=ta.ConsoleFeedback())
 
@@ -212,6 +204,7 @@ def SpatialReference(axis, row, col, mdelta=200.0):
         click.echo('Write output')
 
         profile = ds.profile.copy()
+        profile.update(compress='deflate')
 
         with rio.open(output_distance, 'w', **profile) as dst:
             dst.write(distance, 1)
@@ -279,22 +272,17 @@ def SpatialReference(axis, row, col, mdelta=200.0):
 
         return dgos
 
-def DistanceAndHeightAboveNearestDrainage(axis, row, col):
-
-    # axdir = os.path.join(workdir, 'AXES', 'AX%03d' % axis)
-    # elevation_raster = filename('tiled', row=row, col=col)
-    # valley_bottom_rasterfile = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'FLOW_RELZ_%02d_%02d.tif' % (row, col))
-    # network_shapefile = os.path.join(workdir, 'GLOBAL', 'RHTS_TILED.shp')
-    # # network_shapefile = '/media/crousson/Backup/WORK/TestAin/AIN_RHT_05_07.shp'
-    # # network_shapefile = '/media/crousson/Backup/WORK/TestAin/AIN_RHT_SMOOTH_05_07.shp'
-    # output_relative_z = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'NEAREST_RELZ_%02d_%02d.tif' % (row, col))
-    # output_stream_distance = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'NEAREST_DISTANCE_%02d_%02d.tif' % (row, col))
+def TileHAND(axis, row, col):
+    """
+    see DistanceAndHeightAboveNearestDrainage
+    """
 
     tileset = config.tileset('landcover')
 
     network_shapefile = config.filename('streams-tiled')
     elevation_raster = tileset.tilename('tiled', row=row, col=col)
-    valley_bottom_rasterfile = tileset.tilename('ax_flow_height', axis=axis, row=row, col=col)
+    # valley_bottom_rasterfile = tileset.tilename('ax_flow_height', axis=axis, row=row, col=col)
+    valley_bottom_rasterfile = tileset.tilename('ax_valley_bottom', axis=axis, row=row, col=col)
     
     output_relative_z = tileset.tilename('ax_relative_elevation', axis=axis, row=row, col=col)
     output_stream_distance = tileset.tilename('ax_nearest_distance', axis=axis, row=row, col=col)
@@ -305,7 +293,9 @@ def DistanceAndHeightAboveNearestDrainage(axis, row, col):
 
         valley_bottom = speedup.raster_buffer(ds.read(1), ds.nodata, 6.0)
         height, width = valley_bottom.shape
+        
         profile = ds.profile.copy()
+        profile.update(compress='deflate')
 
         refaxis_pixels = list()
 
@@ -399,13 +389,9 @@ def DistanceAndHeightAboveNearestDrainage(axis, row, col):
             dst.write(relative, 1)
 
 def MapReferencePoints(axis, row, col, points):
-
-    # elevation_raster = filename('tiled', row=row, col=col)
-    # valley_bottom_rasterfile = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'FLOW_RELZ_%02d_%02d.tif' % (row, col))
-    # network_shapefile = os.path.join(workdir, 'GLOBAL', 'RHT_AXIS_TILED.shp')
-    # refaxis_shapefile = '/media/crousson/Backup/WORK/TestAin/AIN_AXREF_05_07.shp'
-    # network_shapefile = '/media/crousson/Backup/WORK/TestAin/AIN_RHT_05_07.shp'
-    # network_shapefile = '/media/crousson/Backup/WORK/TestAin/AIN_RHT_SMOOTH_05_07.shp'
+    """
+    DOCME
+    """
 
     tileset = config.tileset('landcover')
 
@@ -438,17 +424,12 @@ def MapReferencePoints(axis, row, col, points):
         with fiona.open(network_shapefile) as fs:
             for feature in fs:
 
-                # m0 = feature['properties']['M0']
 
                 coordinates = np.array([
                     coord(p) for p in feature['geometry']['coordinates']
                 ], dtype='float32')
 
-                # coordinates[1:, 2] = m0 + np.cumsum(np.linalg.norm(
-                #     coordinates[1:, :2] - coordinates[:-1, :2],
-                #     axis=1))
-
-                coordinates[:] = ta.worldtopixel(coordinates, ds.transform, gdal=False)
+                coordinates[:] = fct.worldtopixel(coordinates, ds.transform)
 
                 for a, b in zip(coordinates[:-1], coordinates[1:]):
                     for i, j in rasterize_linestring(a, b):
@@ -483,7 +464,7 @@ def MapReferencePoints(axis, row, col, points):
         nearest_coordinates = nearest_a + pos[:, np.newaxis] * (nearest_b - nearest_a)
         distance = 5.0 * dist * np.sign(signed_dist)
 
-        elevations, _ = ReadRasterTile(row, col, 'dem')
+        # elevations, _ = ReadRasterTile(row, col, 'dem')
 
         schema = {
             'geometry': 'Point',
@@ -518,53 +499,43 @@ def MapReferencePoints(axis, row, col, points):
                 }
                 fst.write(feature)
 
-# if __name__ == '__main__':
-#     test()
-#     test_relz()
-#     map_ref_points([
-#         (888067, 6561917),
-#         (903433, 6590772),
-#         (905057, 6593619),
-#         (903460, 6590613),
-#         (901024, 6583392)
-#     ])
+def SpatialReference(axis):
+    """
+    Calculate measurement support rasters and
+    create discrete longitudinal units along the reference axis
+    """
 
-def testDGOs(axis):
-
-    units = defaultdict(list)
-
-    # tilefile = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES.csv')
     tilefile = config.filename('ax_tiles', axis=axis)
 
     with open(tilefile) as fp:
         tiles = [tuple(int(x) for x in line.split(',')) for line in fp]
 
-    with click.progressbar(tiles) as bar:
-        for axis, row, col in bar:
+    with click.progressbar(tiles) as iterator:
+        for _, row, col in iterator:
 
-            for measure, gid, _, _, _ in SpatialReference(axis, row, col):
-                units[axis, measure].append((gid, row, col))
+            TileSpatialReference(axis, row, col)
 
-            # DistanceAndHeightAboveNearestDrainage(axis, row, col)
+def DistanceAndHeightAboveNearestDrainage(axis):
+    """
+    Calculate distance and height abode nearest drainage,
+    based on theoretical drainage derived from DEM.
+    """
 
-    return units
-
-def testHAND(axis):
-
-    # tilefile = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES.csv')
     tilefile = config.filename('ax_tiles', axis=axis)
 
     with open(tilefile) as fp:
         tiles = [tuple(int(x) for x in line.split(',')) for line in fp]
 
-    with click.progressbar(tiles) as bar:
-        for axis, row, col in bar:
+    with click.progressbar(tiles) as iterator:
+        for _, row, col in iterator:
 
-            DistanceAndHeightAboveNearestDrainage(axis, row, col)
+            TileHAND(axis, row, col)
 
 def AggregateDGOs(axis):
+    """
+    Aggregate DGO tiles together
+    """
 
-    # output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'REF', 'DGO_PARTS.shp')
     output = config.filename('ax_dgo_vector', axis=axis)
 
     schema = {
@@ -580,19 +551,21 @@ def AggregateDGOs(axis):
     crs = fiona.crs.from_epsg(2154)
     options = dict(driver='ESRI Shapefile', crs=crs, schema=schema)
 
-    # tilefile = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES.csv')
     tilefile = config.filename('ax_tiles', axis=axis)
 
     with open(tilefile) as fp:
         tiles = [tuple(int(x) for x in line.split(',')) for line in fp]
 
     with fiona.open(output, 'w', **options) as dst:
-        with click.progressbar(tiles) as bar:
+        with click.progressbar(tiles) as iterator:
 
-            for axis, row, col in bar:
+            for _, row, col in iterator:
 
-                # shapefile = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'DGO_%02d_%02d.shp' % (row, col))
-                shapefile = config.tileset('landcover').tilename('ax_dgo_vector', axis=axis, row=row, col=col)
+                shapefile = config.tileset('landcover').tilename(
+                    'ax_dgo_vector',
+                    axis=axis,
+                    row=row,
+                    col=col)
 
                 if os.path.exists(shapefile):
 

@@ -293,6 +293,28 @@ ax_relative_elevation:
     template: NEAREST_HEIGHT_%(row)02d_%(col)02d
     extension: .tif
 
+ax_valley_bottom:
+  description: |
+    Valley bottom extended to topographic limits
+  type: raster
+  subdir: AXES/AX%(axis)04d
+  filename: VALLEY_BOTTOM.vrt
+  tiles:
+    tileset: landcover
+    template: VALLEY_BOTTOM_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_valley_distance:
+  description: |
+    Valley bottom extended to topographic limits
+  type: raster
+  subdir: AXES/AX%(axis)04d
+  filename: VALLEY_DISTANCE.vrt
+  tiles:
+    tileset: landcover
+    template: VALLEY_DISTANCE_%(row)02d_%(col)02d
+    extension: .tif
+
 ax_continuity:
   description: |
     Landcover continuity map

@@ -122,8 +122,8 @@ cdef Point pixeltopoint(Pixel pixel, GeoTransform transform) nogil:
     else:
 
         # complete affine transform formula
-        x = (pixel.i + 0.5) * transform.scale_x + (pixel.j + 0.5) * transform.shear_y + transform.origin_x
-        y = (pixel.j + 0.5) * transform.scale_y + (pixel.i + 0.5) * transform.shear_x + transform.origin_y
+        x = (pixel.j + 0.5) * transform.scale_x + (pixel.i + 0.5) * transform.shear_y + transform.origin_x
+        y = (pixel.i + 0.5) * transform.scale_y + (pixel.j + 0.5) * transform.shear_x + transform.origin_y
 
     return make_point(x, y)
 
@@ -202,7 +202,7 @@ def xy(int row, int col, transform):
 
     cdef GeoTransform gt
     gt = get_transform(transform)
-    return xytuple(pixeltopoint(make_pixel(row, col), transform))
+    return xytuple(pixeltopoint(make_pixel(row, col), gt))
 
 
 @cython.boundscheck(False)
