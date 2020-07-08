@@ -22,11 +22,17 @@ import fiona
 import fiona.crs
 from shapely.geometry import asShape
 
+from ..config import config
+
 def JoinNetworkAttributes():
 
-    sources_shapefile = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/RHTS_SOURCES.shp'
-    network_shapefile = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/RHTS.shp'
-    output = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/RHTS_ATTR.shp'
+    # sources_shapefile = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/RHTS_SOURCES.shp'
+    # network_shapefile = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/RHTS.shp'
+    # output = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/RHTS_ATTR.shp'
+
+    sources_shapefile = config.filename('sources')
+    network_shapefile = config.filename('streams-attr')
+    output = config.filename('streams-attr-sources')
 
     graph = dict()
     rgraph = defaultdict(list)
@@ -179,8 +185,11 @@ def JoinNetworkAttributes():
 
 def UpdateLengthOrder():
 
-    network_shapefile = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/RHTS_ATTR.shp'
-    output = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/RHTS_HACK.shp'
+    # network_shapefile = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/RHTS_ATTR.shp'
+    # output = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/RHTS_HACK.shp'
+
+    network_shapefile = config.filename('streams-attr-sources')
+    output = config.filename('streams')
 
     graph = dict()
     indegree = Counter()

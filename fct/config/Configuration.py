@@ -80,7 +80,7 @@ class Configuration():
             for name in names
         ]
 
-    def tileset(self, name):
+    def tileset(self, name='default'):
         """
         Return Tileset definition
         """
@@ -144,15 +144,15 @@ class Dataset():
 
         self._name = name
         self._filename = filename
-        self._tilename = tilename + ext
+        self._tilename = tilename
         self._subdir = subdir
         self._ext = ext
 
-        if not filename:
+        if filename == '':
             self._filename = name.upper() + ext
 
-        if not tilename:
-            self._tilename = name.upper() + '_%(row)02d_%(col)02d' + ext
+        if tilename == '':
+            self._tilename = name.upper() + '_%(row)02d_%(col)02d'
 
     @property
     def name(self):
@@ -179,6 +179,9 @@ class Dataset():
         Return filename instance
         """
 
+        if self._filename is None:
+            raise ValueError('Dataset %s has only tiles' % self.name)
+
         if kwargs:
             return self._filename % kwargs
 
@@ -189,8 +192,11 @@ class Dataset():
         Return tilename instance
         """
 
+        if self._tilename is None:
+            raise ValueError('Dataset %s does not have tiles' % self.name)
+
         if kwargs:
-            return self._tilename % kwargs
+            return (self._tilename + self.ext) % kwargs
 
         return self._tilename
 
@@ -432,7 +438,7 @@ class FileParser():
 
         for name in data:
 
-            filename = data[name]['filename']
+            filename = data[name].get('filename', None)
             subdir = data[name]['subdir']
 
             if 'tiles' in data[name]:
@@ -442,8 +448,8 @@ class FileParser():
 
             else:
 
-                tilename = ''
-                ext = ''
+                tilename = None
+                ext = None
 
             dst = Dataset(name, filename, tilename, subdir, ext)
             datasets[name] = dst

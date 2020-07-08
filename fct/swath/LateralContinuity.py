@@ -100,7 +100,7 @@ def LateralContinuity(axis, processes=1, **kwargs):
 
     arguments = list()
 
-    for tile in tileset.tileindex:
+    for tile in tileset.tileindex.values():
         arguments.append((TileLateralContinuity, axis, tile.row, tile.col, kwargs))
 
     with Pool(processes=processes) as pool:

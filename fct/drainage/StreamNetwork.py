@@ -40,11 +40,13 @@ from .. import speedup
 from .. import terrain_analysis as ta
 from ..config import config
 
+TILESET = 'drainage'
+
 def tileindex():
     """
     Return default tileindex
     """
-    return config.tileset('drainage').tileindex
+    return config.tileset(TILESET).tileindex
 
 def CreateOutletsGraph():
     """
@@ -52,7 +54,7 @@ def CreateOutletsGraph():
     """
 
     tile_index = tileindex()
-    DEM = config.datasource('dem').filename
+    DEM = config.datasource('dem1').filename
 
     click.secho('Build outlets graph', fg='cyan')
 
@@ -65,8 +67,8 @@ def CreateOutletsGraph():
         for row, col in progress:
 
             tile = tile_index[(row, col)].gid
-            inlet_shapefile = config.filename('inlets', row=row, col=col)
-            flow_raster = config.filename('flow', row=row, col=col)
+            inlet_shapefile = config.tileset(TILESET).filename('inlets', row=row, col=col)
+            flow_raster = config.tileset(TILESET).filename('flow', row=row, col=col)
 
             with rio.open(flow_raster) as ds:
 
@@ -188,7 +190,7 @@ def TileInletAreas(tile, keys, areas):
     for key in keys:
         cum_areas[key[1:]] += areas.get(key[1:], 0)
 
-    with fiona.open(config.filename('inlet-areas', row=row, col=col), 'w', **options) as dst:
+    with fiona.open(config.tileset(TILESET).filename('inlet-areas', row=row, col=col), 'w', **options) as dst:
         for i, j in cum_areas:
 
             x, y = dem.xy(i, j)
@@ -233,9 +235,9 @@ def FlowAccumulation(row, col, overwrite):
 
     tile = tile_index[(row, col)].gid
 
-    flow_raster = config.filename('flow', row=row, col=col)
-    inlet_shapefile = config.filename('inlet-areas', row=row, col=col)
-    output = config.filename('acc', row=row, col=col)
+    flow_raster = config.tileset(TILESET).filename('flow', row=row, col=col)
+    inlet_shapefile = config.tileset(TILESET).filename('inlet-areas', row=row, col=col)
+    output = config.tileset(TILESET).filename('acc', row=row, col=col)
 
     if os.path.exists(output) and not overwrite:
         click.secho('Output already exists: %s' % output, fg='yellow')
@@ -275,9 +277,9 @@ def StreamToFeature(row, col, min_drainage):
     DOCME
     """
 
-    flow_raster = config.filename('flow', row=row, col=col)
-    acc_raster = config.filename('acc', row=row, col=col)
-    output = config.filename('streams-t', row=row, col=col)
+    flow_raster = config.tileset(TILESET).filename('flow', row=row, col=col)
+    acc_raster = config.tileset(TILESET).filename('acc', row=row, col=col)
+    output = config.tileset(TILESET).filename('streams', row=row, col=col)
 
     driver = 'ESRI Shapefile'
     schema = {
@@ -317,9 +319,9 @@ def StreamToFeature(row, col, min_drainage):
 
 def NoFlowPixels(row, col, min_drainage):
 
-    flow_raster = config.filename('flow', row=row, col=col)
-    acc_raster = config.filename('acc', row=row, col=col)
-    output = config.filename('noflow-t', row=row, col=col)
+    flow_raster = config.tileset(TILESET).filename('flow', row=row, col=col)
+    acc_raster = config.tileset(TILESET).filename('acc', row=row, col=col)
+    output = config.tileset(TILESET).filename('noflow', row=row, col=col)
 
     driver = 'ESRI Shapefile'
     schema = {
@@ -383,7 +385,7 @@ def AggregateNoFlowPixels():
     with fiona.open(output, 'w', **options) as dst:
         with click.progressbar(tile_index) as progress:
             for row, col in progress:
-                with fiona.open(config.filename('noflow-t', row=row, col=col)) as fs:
+                with fiona.open(config.tileset(TILESET).filename('noflow', row=row, col=col)) as fs:
                     for feature in fs:
                         feature['properties']['GID'] = next(gid)
                         dst.write(feature)
@@ -418,7 +420,7 @@ def AggregateStreams():
     with fiona.open(output, 'w', **options) as dst:
         with click.progressbar(tile_index) as progress:
             for row, col in progress:
-                with fiona.open(config.filename('streams-t', row=row, col=col)) as fs:
+                with fiona.open(config.tileset(TILESET).filename('streams', row=row, col=col)) as fs:
                     for feature in fs:
                         feature['properties']['GID'] = next(gid)
                         dst.write(feature)

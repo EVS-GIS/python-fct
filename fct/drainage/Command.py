@@ -55,6 +55,8 @@ from .StreamSources import (
     AggregateStreamsFromSources
 )
 
+config.default()
+
 def workdir():
     """
     Return default working directory
@@ -65,7 +67,7 @@ def tileindex():
     """
     Return default tileindex
     """
-    return config.tileset('drainage').tileindex
+    return config.tileset().tileindex
 
 @click.group()
 def cli():

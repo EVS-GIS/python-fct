@@ -1,3 +1,14 @@
+tiled:
+  description: |
+    DEM Tiles
+  type: raster
+  subdir: GLOBAL/DEM
+  filename: RGE5M.vrt
+  tiles:
+    tileset: landcover
+    template: RGE5M_%(row)02d_%(col)02d
+    extension: .tif
+
 flow:
   description: |
     D8 Flow Direction, derived from DEM
@@ -9,9 +20,119 @@ flow:
     template: FLOW_RGE5M_%(row)02d_%(col)02d
     extension: .tif
 
+acc:
+  description: |
+    Accumulation raster (drainage area), derived from D8 Flow Direction
+  type: raster
+  subdir: GLOBAL/DEM
+  filename: ACC_RGE5M.vrt
+  tiles:
+    tileset: landcover
+    template: ACC_RGE5M_%(row)02d_%(col)02d
+    extension: .tif
+
+outlets:
+  description: |
+    Tile outlets, grouped per target tile (row, col).
+    (gid) identifies the tile of origin.
+  type: polygon
+  subdir: GLOBAL/DEM
+  tiles:
+    tileset: landcover
+    template: OUTLETS_%(row)02d_%(col)02d_%(gid)03d
+    extension: .geojson
+
+outlets-glob:
+  description: |
+    Tile outlets, per target tile glob pattern
+  type: polygon
+  subdir: GLOBAL/DEM
+  tiles:
+    tileset: landcover
+    template: OUTLETS_%(row)02d_%(col)02d_*
+    extension: .geojson
+
+inlets:
+  description: |
+    Tile flow inlets
+  type: polygon
+  subdir: GLOBAL/DEM
+  tiles:
+    tileset: landcover
+    template: INLETS_%(row)02d_%(col)02d
+    extension: .shp
+
+inlets:
+  description: |
+    Tile flow inlets
+  type: polygon
+  subdir: GLOBAL/DEM
+  filename: INLETS.shp
+  tiles:
+    tileset: landcover
+    template: INLETS_%(row)02d_%(col)02d
+    extension: .shp
+
+inlet-sources:
+  description: |
+    Cross-tile stream connections
+  type: polygon
+  subdir: GLOBAL/DEM
+  filename: SOURCES.shp
+  tiles:
+    tileset: landcover
+    template: SOURCES_%(row)02d_%(col)02d
+    extension: .shp
+
+streams-from-sources:
+  description: |
+    Theoretical stream network, derived from DEM and mapped sources
+  type: polygon
+  subdir: GLOBAL/DEM
+  filename: RHTS_NOATTR.shp
+  tiles:
+    tileset: landcover
+    template: RHTS_%(row)02d_%(col)02d
+    extension: .shp
+
+sources:
+  description: |
+    Theoretical stream network sources, with input sources attributes
+  type: polygon
+  subdir: GLOBAL/DEM
+  filename: RHTS_SOURCES.shp
+
+streams-attr:
+  description: |
+    Theoretical stream network with source attributes
+  type: polygon
+  subdir: GLOBAL/DEM
+  filename: RHTS_ATTR.shp
+
+streams-attr-sources:
+  description: |
+    Theoretical stream network with source attributes
+  type: polygon
+  subdir: GLOBAL/DEM
+  filename: RHTS_ATTR_JOINED.shp
+
+streams:
+  description: |
+    Theoretical stream network (final)
+  type: polygon
+  subdir: GLOBAL/DEM
+  filename: RHTS.shp
+
+streams-tiled:
+  description: |
+    Stream network aggregated by axis and tiles
+  type: polygon
+  subdir: GLOBAL
+  filename: STREAMS.shp
+
 watershed:
   description: |
-    Lorem ....
+    Watershed delineation
   type: polygon
   subdir: AXES/AX%(axis)04d
   filename: WATERSHED.shp
@@ -70,9 +191,89 @@ subgrid_dominant_landcover:
   subdir: SUBGRID
   filename: LANDCOVER_DOMINANT_2018.tif
 
+ax_tiles:
+  description: |
+    List of tiles intersecting given axis
+  type: text
+  subdir: AXES/AX%(axis)04d
+  filename: TILES.csv
+
+ax_refaxis:
+  description: |
+    Reference axis
+  type: linestring
+  subdir: AXES/AX%(axis)04d/REF
+  filename: REFAXIS.shp
+
+ax_flow_height:
+  description: |
+    Height above nearest drainage, following flow
+  type: raster
+  subdir: AXES/AX%(axis)04d
+  filename: FLOW_HEIGHT.vrt
+  tiles:
+    tileset: landcover
+    template: FLOW_HEIGHT_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_flow_distance:
+  description: |
+    Distance to nearest drainage, following flow
+  type: raster
+  subdir: AXES/AX%(axis)04d
+  filename: FLOW_DISTANCE.vrt
+  tiles:
+    tileset: landcover
+    template: FLOW_DISTANCE_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_axis_distance:
+  description: |
+    Distance to reference axis
+  type: raster
+  subdir: AXES/AX%(axis)04d
+  filename: AXIS_DISTANCE.vrt
+  tiles:
+    tileset: landcover
+    template: AXIS_DISTANCE_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_axis_measure:
+  description: |
+    Distance (measure) along reference axis
+  type: raster
+  subdir: AXES/AX%(axis)04d
+  filename: AXIS_MEASURE.vrt
+  tiles:
+    tileset: landcover
+    template: AXIS_MEASURE_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_dgo:
+  description: |
+    Spatial units discretization
+  type: raster
+  subdir: AXES/AX%(axis)04d
+  filename: DGO.vrt
+  tiles:
+    tileset: landcover
+    template: DGO_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_dgo_vector:
+  description: |
+    Spatial units polygons
+  type: polygon
+  subdir: AXES/AX%(axis)04d
+  filename: DGO.shp
+  tiles:
+    tileset: landcover
+    template: DGO_%(row)02d_%(col)02d
+    extension: .shp
+
 ax_nearest_distance:
   description: |
-    Lorem ....
+    Distance to nearest drainage
   type: raster
   subdir: AXES/AX%(axis)04d
   filename: NEAREST_DISTANCE.vrt
@@ -83,18 +284,18 @@ ax_nearest_distance:
 
 ax_relative_elevation:
   description: |
-    Lorem ....
+    Height above nearest drainage (HAND)
   type: raster
   subdir: AXES/AX%(axis)04d
-  filename: NEAREST_RELZ.vrt
+  filename: NEAREST_HEIGHT.vrt
   tiles:
     tileset: landcover
-    template: NEAREST_RELZ_%(row)02d_%(col)02d
+    template: NEAREST_HEIGHT_%(row)02d_%(col)02d
     extension: .tif
 
 ax_continuity:
   description: |
-    Lorem ....
+    Landcover continuity map
   type: raster
   subdir: AXES/AX%(axis)04d
   filename: LANDCOVER_CONTINUITY.vrt

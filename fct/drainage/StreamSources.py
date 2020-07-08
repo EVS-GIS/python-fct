@@ -34,11 +34,13 @@ from .. import speedup
 from .. import terrain_analysis as ta
 from ..config import config
 
+TILESET = 'default'
+
 def tileindex():
     """
     Return default tileindex
     """
-    return config.tileset('drainage').tileindex
+    return config.tileset(TILESET).tileindex
 
 def CreateSourcesGraph():
     """
@@ -46,7 +48,7 @@ def CreateSourcesGraph():
     """
 
     tile_index = tileindex()
-    DEM = config.datasource('dem').filename
+    DEM = config.datasource('dem1').filename
     sources = config.datasource('sources').filename
 
     click.secho('Build sources graph', fg='cyan')
@@ -60,8 +62,8 @@ def CreateSourcesGraph():
         for row, col in progress:
 
             tile = tile_index[(row, col)].gid
-            inlet_shapefile = config.filename('inlets', row=row, col=col)
-            flow_raster = config.filename('flow', row=row, col=col)
+            inlet_shapefile = config.tileset(TILESET).tilename('inlets', row=row, col=col)
+            flow_raster = config.tileset(TILESET).tilename('flow', row=row, col=col)
 
             with rio.open(flow_raster) as ds:
 
@@ -155,7 +157,7 @@ def TileInletSources(tile, keys, areas):
     for key in keys:
         cum_areas[key[1:]] += areas.get(key[1:], 0)
 
-    with fiona.open(config.filename('inlet-sources', row=row, col=col), 'w', **options) as dst:
+    with fiona.open(config.tileset(TILESET).tilename('inlet-sources', row=row, col=col), 'w', **options) as dst:
         for i, j in cum_areas:
 
             x, y = dem.xy(i, j)
@@ -203,10 +205,10 @@ def StreamToFeatureFromSources(row, col, min_drainage):
     ci = [ -1, -1,  0,  1,  1,  1,  0, -1 ]
     cj = [  0,  1,  1,  1,  0, -1, -1, -1 ]
 
-    flow_raster = config.filename('flow', row=row, col=col)
-    acc_raster = config.filename('acc', row=row, col=col)
-    sources = config.filename('inlet-sources', row=row, col=col)
-    output = config.filename('streams-t-sources', row=row, col=col)
+    flow_raster = config.tileset(TILESET).tilename('flow', row=row, col=col)
+    acc_raster = config.tileset(TILESET).tilename('acc', row=row, col=col)
+    sources = config.tileset(TILESET).tilename('inlet-sources', row=row, col=col)
+    output = config.tileset(TILESET).tilename('streams-from-sources', row=row, col=col)
 
     driver = 'ESRI Shapefile'
     schema = {
@@ -273,7 +275,7 @@ def AggregateStreamsFromSources():
     """
 
     tile_index = tileindex()
-    output = config.filename('streams-sources')
+    output = config.filename('streams-from-sources')
 
     driver = 'ESRI Shapefile'
     schema = {
@@ -293,7 +295,7 @@ def AggregateStreamsFromSources():
     with fiona.open(output, 'w', **options) as dst:
         with click.progressbar(tile_index) as progress:
             for row, col in progress:
-                with fiona.open(config.filename('streams-t-sources', row=row, col=col)) as fs:
+                with fiona.open(config.tileset(TILESET).tilename('streams-from-sources', row=row, col=col)) as fs:
                     for feature in fs:
                         feature['properties']['GID'] = next(gid)
                         dst.write(feature)

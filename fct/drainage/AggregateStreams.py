@@ -19,15 +19,12 @@ import click
 
 import fiona
 import fiona.crs
-
-workdir = '/media/crousson/Backup/TESTS/TuilesAin'
-# workdir = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC'
+from ..config import config
 
 def AggregateSegmentsByAxisAndTile():
 
-    # database = '/media/crousson/Backup/TESTS/TuilesAin/METRICS.gpkg'
-    source = os.path.join(workdir, 'GLOBAL', 'RHTS.shp')
-    output = os.path.join(workdir, 'GLOBAL', 'RHTS_TILED.shp')
+    source = config.filename('streams')
+    output = config.filename('streams-tiled')
 
     graph = dict()
     indegree = Counter()

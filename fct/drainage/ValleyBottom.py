@@ -17,24 +17,24 @@ import os
 import itertools
 from operator import itemgetter
 from multiprocessing import Pool
-import time
+# import time
 
 import numpy as np
 import click
 
 import rasterio as rio
-from rasterio import features
+# from rasterio import features
 import fiona
 import fiona.crs
-from shapely.geometry import asShape
+# from shapely.geometry import asShape
 
 from ..config import config
-from ..cli import starcall, pretty_time_delta
+from ..cli import starcall
 from .. import terrain_analysis as ta
 from .. import speedup
 from ..tileio import PadRaster
 
-workdir = '/media/crousson/Backup/TESTS/TuilesAin'
+# workdir = '/media/crousson/Backup/TESTS/TuilesAin'
 
 def border(height, width):
     """
@@ -56,7 +56,8 @@ def border(height, width):
 
 def ReadSeeds(axis):
 
-    shapefile = os.path.join(workdir, 'GLOBAL', 'RHTS_TILED.shp')
+    # shapefile = os.path.join(workdir, 'GLOBAL', 'RHTS_TILED.shp')
+    shapefile = config.filename('streams-tiled')
 
     def accept(feature):
         properties = feature['properties']
@@ -75,13 +76,16 @@ def ReadSeeds(axis):
 
 def TileValleyBottom(axis, row, col, seeds):
 
-    output_flow_relativez = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'FLOW_RELZ_%02d_%02d.tif' % (row, col))
-    output_flow_distance = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'FLOW_DIST_%02d_%02d.tif' % (row, col))
+    # output_flow_relativez = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'FLOW_RELZ_%02d_%02d.tif' % (row, col))
+    # output_flow_distance = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'FLOW_DIST_%02d_%02d.tif' % (row, col))
 
-    elevations, profile = PadRaster(row, col, 'tiled', 1)
+    output_flow_height = config.tileset('landcover').tilename('ax_flow_height', axis=axis, row=row, col=col)
+    output_flow_distance = config.tileset('landcover').tilename('ax_flow_distance', axis=axis, row=row, col=col)
+
+    elevations, profile = PadRaster(row, col, 'tiled', padding=1)
     transform = profile['transform']
     nodata = profile['nodata']
-    flow, _ = PadRaster(row, col, 'flow', 1)
+    flow, _ = PadRaster(row, col, 'flow', padding=1)
 
     height, width = elevations.shape
 
@@ -90,8 +94,8 @@ def TileValleyBottom(axis, row, col, seeds):
 
     reference = distance = None
 
-    if os.path.exists(output_flow_relativez):
-        with rio.open(output_flow_relativez) as ds:
+    if os.path.exists(output_flow_height):
+        with rio.open(output_flow_height) as ds:
             if ds.height == height and ds.width == width:
                 relative = ds.read(1)
                 reference = elevations - relative
@@ -161,16 +165,16 @@ def TileValleyBottom(axis, row, col, seeds):
             
             spillovers.append(attribute(pixel))
 
-    output_flow_relativez += '.tmp'
+    output_flow_height += '.tmp'
     output_flow_distance += '.tmp'
 
-    with rio.open(output_flow_relativez, 'w', **profile) as dst:
+    with rio.open(output_flow_height, 'w', **profile) as dst:
         dst.write(relative, 1)
 
     with rio.open(output_flow_distance, 'w', **profile) as dst:
         dst.write(distance, 1)
 
-    return spillovers, (output_flow_relativez, output_flow_distance)
+    return spillovers, (output_flow_height, output_flow_distance)
 
 def ValleyBottomIteration(spillovers, axis, processes=1):
 
@@ -240,8 +244,11 @@ def CropAndScale(axis, tiles, processes=1):
 
     def rasters(row, col):
 
-        yield os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'FLOW_RELZ_%02d_%02d.tif' % (row, col)), 1.0
-        yield os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'FLOW_DIST_%02d_%02d.tif' % (row, col)), 5.0
+        # yield os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'FLOW_RELZ_%02d_%02d.tif' % (row, col)), 1.0
+        # yield os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'FLOW_DIST_%02d_%02d.tif' % (row, col)), 5.0
+
+        yield config.tileset('landcover').tilename('ax_flow_height', axis=axis, row=row, col=col), 1.0
+        yield config.tileset('landcover').tilename('ax_flow_distance', axis=axis, row=row, col=col), 5.0
 
     if processes == 1:
 
@@ -268,7 +275,8 @@ def CropAndScale(axis, tiles, processes=1):
 
 def ValleyBottom(axis, processes=1):
 
-    output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES.csv')
+    # output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES.csv')
+    output = config.filename('ax_tiles', axis=axis)
 
     g_tiles = set()
     tile = itemgetter(4, 5)

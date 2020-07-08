@@ -26,7 +26,7 @@ def tileindex():
     """
     Return default tileindex
     """
-    return config.tileset('drainage').tileindex
+    return config.tileset().tileindex
 
 def as_window(bounds, transform):
 
@@ -42,15 +42,12 @@ def as_window(bounds, transform):
 
 def ReadRasterTile(row, col, dataset1, dataset2=None, padding=0):
 
-    tile_index = tileindex()
-    tile = tile_index[row, col]
+    tileset = config.tileset('default')
+    tile = tileset.tileindex[row, col]
 
-    tileset = config.tileset('drainage')
     file1 = config.datasource(dataset1).filename
     tile_height = tileset.height + 2*padding
     tile_width = tileset.width + 2*padding
-    xres = tileset.resolution
-    yres = tileset.resolution
 
     with rio.open(file1) as ds:
 
@@ -70,6 +67,8 @@ def ReadRasterTile(row, col, dataset1, dataset2=None, padding=0):
         if dataset2:
 
             file2 = config.datasource(dataset2).filename
+            xres = config.datasource(dataset2).resolution
+            yres = config.datasource(dataset2).resolution
 
             with rio.open(file2) as ds2:
 
@@ -145,14 +144,14 @@ def DownsampleRasterTile(row, col, dataset1, dataset2=None, factor=2):
 
     return data, profile
 
-def PadRaster(row, col, dataset='filled', padding=1, **kwargs):
+def PadRaster(row, col, dataset='filled', tileset='default', padding=1, **kwargs):
     """
     Assemble a n-pixels padded raster,
     with borders from neighboring tiles.
     """
 
     tile_index = tileindex()
-    rasterfile = config.datasource(dataset).filename(row=row, col=col, **kwargs)
+    rasterfile = config.tileset(tileset).tilename(dataset, row=row, col=col, **kwargs)
 
     with rio.open(rasterfile) as ds:
 
@@ -167,7 +166,7 @@ def PadRaster(row, col, dataset='filled', padding=1, **kwargs):
 
         if (i, j) in tile_index:
 
-            other_raster = config.datasource(dataset).filename(row=i, col=j, **kwargs)
+            other_raster = config.tileset(tileset).tilename(dataset, row=i, col=j, **kwargs)
             if os.path.exists(other_raster):
                 with rio.open(other_raster) as ds2:
                     padded[0:padding, padding:-padding] = ds2.read(
@@ -184,7 +183,7 @@ def PadRaster(row, col, dataset='filled', padding=1, **kwargs):
 
         if (i, j) in tile_index:
 
-            other_raster = config.datasource(dataset).filename(row=i, col=j, **kwargs)
+            other_raster = config.tileset(tileset).tilename(dataset, row=i, col=j, **kwargs)
             if os.path.exists(other_raster):
                 with rio.open(other_raster) as ds2:
                     padded[height+padding:, padding:-padding] = ds2.read(
@@ -201,7 +200,7 @@ def PadRaster(row, col, dataset='filled', padding=1, **kwargs):
 
         if (i, j) in tile_index:
 
-            other_raster = config.datasource(dataset).filename(row=i, col=j, **kwargs)
+            other_raster = config.tileset(tileset).tilename(dataset, row=i, col=j, **kwargs)
             if os.path.exists(other_raster):
                 with rio.open(other_raster) as ds2:
                     padded[padding:-padding, 0:padding] = ds2.read(
@@ -218,7 +217,7 @@ def PadRaster(row, col, dataset='filled', padding=1, **kwargs):
 
         if (i, j) in tile_index:
 
-            other_raster = config.datasource(dataset).filename(row=i, col=j, **kwargs)
+            other_raster = config.tileset(tileset).tilename(dataset, row=i, col=j, **kwargs)
             if os.path.exists(other_raster):
                 with rio.open(other_raster) as ds2:
                     padded[padding:-padding, width+padding:] = ds2.read(
@@ -235,7 +234,7 @@ def PadRaster(row, col, dataset='filled', padding=1, **kwargs):
 
         if (i, j) in tile_index:
 
-            other_raster = config.datasource(dataset).filename(row=i, col=j, **kwargs)
+            other_raster = config.tileset(tileset).tilename(dataset, row=i, col=j, **kwargs)
             if os.path.exists(other_raster):
                 with rio.open(other_raster) as ds2:
                     padded[0:padding, 0:padding] = ds2.read(
@@ -252,7 +251,7 @@ def PadRaster(row, col, dataset='filled', padding=1, **kwargs):
 
         if (i, j) in tile_index:
 
-            other_raster = config.datasource(dataset).filename(row=i, col=j, **kwargs)
+            other_raster = config.tileset(tileset).tilename(dataset, row=i, col=j, **kwargs)
             if os.path.exists(other_raster):
                 with rio.open(other_raster) as ds2:
                     padded[height+padding:, 0:padding] = ds2.read(
@@ -269,7 +268,7 @@ def PadRaster(row, col, dataset='filled', padding=1, **kwargs):
 
         if (i, j) in tile_index:
 
-            other_raster = config.datasource(dataset).filename(row=i, col=j, **kwargs)
+            other_raster = config.tileset(tileset).tilename(dataset, row=i, col=j, **kwargs)
             if os.path.exists(other_raster):
                 with rio.open(other_raster) as ds2:
                     padded[0:padding, width+padding:] = ds2.read(
@@ -286,7 +285,7 @@ def PadRaster(row, col, dataset='filled', padding=1, **kwargs):
 
         if (i, j) in tile_index:
 
-            other_raster = config.datasource(dataset).filename(row=i, col=j, **kwargs)
+            other_raster = config.tileset(tileset).tilename(dataset, row=i, col=j, **kwargs)
             if os.path.exists(other_raster):
                 with rio.open(other_raster) as ds2:
                     padded[height+padding:, width+padding:] = ds2.read(

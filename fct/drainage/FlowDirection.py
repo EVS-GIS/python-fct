@@ -62,11 +62,14 @@ from ..tileio import ReadRasterTile, PadRaster
 #         with rio.open(output, 'w', **profile) as dst:
 #             dst.write(flow[1:-1, 1:-1], 1)
 
+# TILESET = 'drainage'
+TILESET = 'default'
+
 def tileindex():
     """
     Return default tileindex
     """
-    return config.tileset('drainage').tileindex
+    return config.tileset(TILESET).tileindex
 
 def WallFlats(padded, nodata):
 
@@ -115,7 +118,7 @@ def FlowDirection(row, col, overwrite, **kwargs):
     """
 
     # elevation_raster = config.filename('filled', row=row, col=col)
-    output = config.filename('flow', row=row, col=col)
+    output = config.tileset(TILESET).filename('flow', row=row, col=col)
 
     if os.path.exists(output) and not overwrite:
         click.secho('Output already exists: %s' % output, fg='yellow')
@@ -228,15 +231,15 @@ def Outlets(row, col, verbose=False):
 
     # read_tile_index()
 
-    flow_raster = config.filename('flow', row=row, col=col)
+    flow_raster = config.tileset(TILESET).tilename('flow', row=row, col=col)
 
     gid = tile_index[(row, col)].gid
     tiles = defaultdict(list)
 
-    def readz(trow, tcol, x, y):
+    # def readz(trow, tcol, x, y):
 
-        with rio.open(config.filename('filled', row=trow, col=tcol)) as src:
-            return float(next(src.sample([(x, y)], 1)))
+    #     with rio.open(config.tileset(TILESET).tilename('filled', row=trow, col=tcol)) as src:
+    #         return float(next(src.sample([(x, y)], 1)))
 
     with rio.open(flow_raster) as ds:
 
@@ -313,7 +316,7 @@ def Outlets(row, col, verbose=False):
                 continue
 
             target = tile_index[(trow, tcol)].gid
-            output = config.filename('inlets-t', row=trow, col=tcol, gid=gid)
+            output = config.tileset(TILESET).tilename('outlets', row=trow, col=tcol, gid=gid)
 
             # if os.path.exists(output):
             #     mode = 'a'
@@ -372,11 +375,11 @@ def AggregateOutlets():
     with click.progressbar(tile_index) as progress:
         for row, col in progress:
 
-            output = config.filename('inlets', row=row, col=col)
+            output = config.tileset(TILESET).tilename('inlets', row=row, col=col)
 
             with fiona.open(output, 'w', **options) as dst:
 
-                for name in glob.glob(config.filename('inlets-pat', row=row, col=col)):
+                for name in glob.glob(config.tileset(TILESET).tilename('outlets-glob', row=row, col=col)):
                     with fiona.open(name) as fs:
                         
                         for feature in fs:

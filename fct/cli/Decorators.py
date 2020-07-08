@@ -52,7 +52,7 @@ def command_info(command, ntiles, kwargs):
     click.secho('Command        : %s' % command, fg='green')
     click.secho('FCT version    : %s' % version)
 
-    click.secho('Tileset        : %s' % tileset)
+    click.secho('Tileset        : %s' % tileset.name)
     click.secho('# of tiles     : %d' % ntiles)
     click.secho('Tile Directory : %s' % workdir)
     
