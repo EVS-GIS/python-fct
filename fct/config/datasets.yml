@@ -260,16 +260,31 @@ ax_dgo:
     template: DGO_%(row)02d_%(col)02d
     extension: .tif
 
-ax_dgo_vector:
+ax_dgo_parts:
   description: |
-    Spatial units polygons
+    Spatial units polygons, extracted from measure raster
   type: polygon
-  subdir: AXES/AX%(axis)04d
-  filename: DGO.shp
+  subdir: AXES/AX%(axis)04d/REF
+  filename: DGO_PARTS.shp
   tiles:
     tileset: landcover
     template: DGO_%(row)02d_%(col)02d
     extension: .shp
+
+ax_dgo_vector:
+  description: |
+    Spatial units polygons,
+    after cross-tile merge and invalid parts removal
+  type: polygon
+  subdir: AXES/AX%(axis)04d/REF
+  filename: DGO.shp
+
+ax_dgo_invalid:
+  description: |
+    Spatial units' invalid parts
+  type: polygon
+  subdir: AXES/AX%(axis)04d/REF
+  filename: DGO_DISCONNECTED.shp
 
 ax_nearest_distance:
   description: |
@@ -325,3 +340,53 @@ ax_continuity:
     tileset: landcover
     template: LANDCOVER_CONTINUITY_%(row)02d_%(col)02d
     extension: .tif
+
+ax_swath_elevation:
+  description: |
+    Elevation swath
+  type: npz
+  subdir: AXES/AX%(axis)04d/SWATH/ELEVATION
+  filename: SWATH_ELEVATION_%(gid)04d.npz
+
+ax_swath_landcover:
+  description: |
+    Landcover swath
+  type: npz
+  subdir: AXES/AX%(axis)04d/SWATH/LANDCOVER
+  filename: SWATH_ELEVATION_%(gid)04d_%(kind)s.npz
+
+ax_swath_axes:
+  description: |
+    Spatial unit (swath) distance axis
+    (orthogonal to reference axis)
+  type: linestring
+  subdir: AXES/AX%(axis)04d/REF
+  filename: SWATH_AXIS.shp
+
+metrics_fcw:
+  description: |
+    Fluvial Corridor Width
+  type: metrics
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: FLUVIAL_CORRIDOR_WIDTH.nc
+
+metrics_lcc:
+  description: |
+    Fluvial Corridor Width
+  type: metrics
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: LANDCOVER_WIDTH.nc
+
+pdf_ax_swath_elevation:
+  description: |
+    Elevation swath output, per spatial unit
+  type: pdf
+  subdir: AXES/AX%(axis)04d/PDF
+  filename: SWATH_ELEVATION_%(gid)04d_%(kind)s.pdf
+
+pdf_ax_swath_landcover:
+  description: |
+    Landcover swath output, per spatial unit
+  type: pdf
+  subdir: AXES/AX%(axis)04d/PDF/LANDCOVER
+  filename: SWATH_ELEVATION_%(gid)04d_%(kind)s.pdf

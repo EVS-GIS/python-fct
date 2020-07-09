@@ -116,7 +116,7 @@ def TileSpatialReference(axis, row, col, mdelta=200.0):
     output_distance = tileset.tilename('ax_axis_distance', axis=axis, row=row, col=col)
     output_measure = tileset.tilename('ax_axis_measure', axis=axis, row=row, col=col)
     output_dgo = tileset.tilename('ax_dgo', axis=axis, row=row, col=col)
-    output_dgo_shapefile = tileset.tilename('ax_dgo_vector', axis=axis, row=row, col=col)
+    output_dgo_shapefile = tileset.tilename('ax_dgo_parts', axis=axis, row=row, col=col)
 
     with rio.open(valley_bottom_rasterfile) as ds:
 
@@ -536,7 +536,7 @@ def AggregateDGOs(axis):
     Aggregate DGO tiles together
     """
 
-    output = config.filename('ax_dgo_vector', axis=axis)
+    output = config.filename('ax_dgo_parts', axis=axis)
 
     schema = {
         'geometry': 'Polygon',
@@ -562,7 +562,7 @@ def AggregateDGOs(axis):
             for _, row, col in iterator:
 
                 shapefile = config.tileset('landcover').tilename(
-                    'ax_dgo_vector',
+                    'ax_dgo_parts',
                     axis=axis,
                     row=row,
                     col=col)

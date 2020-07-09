@@ -23,7 +23,7 @@ def valley_bottom_shortest(
         float max_dz=0.0,
         float max_distance=0.0):
     """
-    Valley Bottom, based on shortest distance
+    Valley Bottom, based on shortest distance space exploration
 
     Parameters
     ----------
@@ -75,7 +75,7 @@ def valley_bottom_shortest(
 
         Py_ssize_t width, height
         Py_ssize_t i, j, ik, jk
-        int k
+        short k
         float d
 
         Cell ij, ijk

@@ -1,4 +1,18 @@
-import os
+# coding: utf-8
+
+"""
+LandCover Lateral Continuity Analysis
+
+***************************************************************************
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 3 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+***************************************************************************
+"""
+
 from multiprocessing import Pool
 import numpy as np
 
@@ -63,6 +77,7 @@ def TileLateralContinuity(axis, row, col):
         distance = np.zeros_like(landcover)
 
         cost = np.ones_like(landcover)
+        # cost[landcover == 0] = 0.05
         cost[landcover <= 5] = 1.0
         cost[landcover >= 6] = 10.0
         cost[landcover >= 7] = 100.0
@@ -71,6 +86,7 @@ def TileLateralContinuity(axis, row, col):
 
         out[landcover == 0] = 1
         out = np.uint8(out) - 1
+        out[(landcover == 1) & (out == 1)] = 0
         out[landcover == ds3.nodata] = ds3.nodata
         # out[landcover == 7] = 6
 

@@ -1,41 +1,43 @@
+# coding: utf-8
+
+"""
+Elevation Swath Profile
+
+***************************************************************************
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 3 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+***************************************************************************
+"""
+
 import os
-import math
 from multiprocessing import Pool
 
 import numpy as np
 import click
 
 import rasterio as rio
-from rasterio.windows import Window
 from rasterio import features
 import fiona
 import fiona.crs
 from shapely.geometry import asShape
 
-import terrain_analysis as ta
-from ransac import LinearModel, ransac
-from Command import starcall
-
-workdir = '/media/crousson/Backup/TESTS/TuilesAin'
-
-def as_window(bounds, transform):
-
-    minx, miny, maxx, maxy = bounds
-
-    row_offset, col_offset = ta.index(minx, maxy, transform)
-    row_end, col_end = ta.index(maxx, miny, transform)
-
-    height = row_end - row_offset
-    width = col_end - col_offset
-
-    return Window(col_offset, row_offset, width, height)
+from .. import transform as fct
+from ..config import config
+from ..tileio import as_window
+from .ransac import LinearModel, ransac
+from ..cli import starcall
 
 def TileCropInvalidRegions(axis, row, col):
+    """
+    DOCME
+    """
 
-    invalid_shapefile = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'REF', 'DGO_DISCONNECTED.shp')
-    # distance_raster = os.path.join(workdir, 'AX%03d_AXIS_DISTANCE_%02d_%02d.tif' % (axis, row, col))
-    # distance_raster = os.path.join(workdir, 'AX%03d_NEAREST_DISTANCE_%02d_%02d.tif' % (axis, row, col))
-    regions_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'DGO_%02d_%02d.tif' % (row, col))
+    invalid_shapefile = config.filename('ax_dgo_invalid', axis=axis)
+    regions_raster = config.tileset().tilename('ax_dgo', axis=axis, row=row, col=col)
 
     if not os.path.exists(regions_raster):
         return
@@ -67,17 +69,14 @@ def TileCropInvalidRegions(axis, row, col):
     with rio.open(regions_raster, 'w', **profile) as dst:
         dst.write(data, 1)
 
-def CropInvalidRegions(axis, processes=1):
+def CropInvalidRegions(axis, processes=1, **kwargs):
 
-    tileindex = os.path.join(workdir, 'TILESET', 'TILES.shp')
-    kwargs = dict()
-    arguments = list()
+    tileindex = config.tileset().tileindex
 
-    with fiona.open(tileindex) as fs:
-        for feature in fs:
-            row = feature['properties']['ROW']
-            col = feature['properties']['COL']
-            arguments.append([TileCropInvalidRegions, axis, row, col, kwargs])
+    arguments = [
+        [TileCropInvalidRegions, axis, row, col, kwargs]
+        for row, col in tileindex
+    ]
 
     with Pool(processes=processes) as pool:
 
@@ -91,13 +90,11 @@ def UnitSwathProfile(axis, gid, bounds):
     Calculate Elevation Swath Profile for Valley Unit (axis, gid)
     """
 
-    dgo_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'DGO.vrt')
-    measure_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'AXIS_MEASURE.vrt')
-    distance_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'AXIS_DISTANCE.vrt')
-    # distance_raster = os.path.join(workdir, 'AX%03d_NEAREST_DISTANCE.vrt' % axis)
-    # elevation_raster = '/var/local/fct/RMC/DEM_RGE5M_TILES.vrt'
-    elevation_raster = '/var/local/fct/RMC/RGEALTI.tif'
-    relz_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'NEAREST_RELZ.vrt')
+    dgo_raster = config.filename('ax_dgo', axis=axis)
+    measure_raster = config.filename('ax_axis_measure', axis=axis)
+    distance_raster = config.filename('ax_axis_distance', axis=axis)
+    elevation_raster = config.datasource('dem1').filename
+    relz_raster = config.filename('ax_relative_elevation', axis=axis)
 
     with rio.open(distance_raster) as ds:
 
@@ -212,10 +209,13 @@ def UnitSwathProfile(axis, gid, bounds):
         return axis, gid, values
 
 def UnitSwathAxis(axis, gid, m0, bounds):
+    """
+    DOCME
+    """
 
-    dgo_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'DGO.vrt')
-    measure_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'AXIS_MEASURE.vrt')
-    distance_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'AXIS_DISTANCE.vrt')
+    dgo_raster = config.filename('ax_dgo', axis=axis)
+    measure_raster = config.filename('ax_axis_measure', axis=axis)
+    distance_raster = config.filename('ax_axis_distance', axis=axis)
     measure_weight = 0.8
 
     with rio.open(distance_raster) as ds:
@@ -253,17 +253,17 @@ def UnitSwathAxis(axis, gid, m0, bounds):
             idx = np.argmin(cost)
             i = pixi[mask].item(idx)
             j = pixj[mask].item(idx)
-            return ta.xy(i, j, transform)
+            return fct.xy(i, j, transform)
 
         return axis, gid, find(0), find(dmin), find(dmax)
 
 def SwathProfiles(axis, processes=1):
 
-    dgo_shapefile = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'REF', 'DGO.shp')
+    dgo_shapefile = config.filename('ax_dgo_vector', axis=axis)
     relative_errors = 0
     
     def output(axis, gid):
-        return os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'SWATH', 'ELEVATION', 'SWATH_%04d.npz' % gid)
+        return config.filename('ax_swath_elevation', axis=axis, gid=gid)
 
     if processes == 1:
 
@@ -306,7 +306,7 @@ def SwathProfiles(axis, processes=1):
 
             with click.progressbar(pooled, length=len(arguments)) as iterator:
 
-                for axis, gid, values in iterator:
+                for _, gid, values in iterator:
 
                     profile = profiles[axis, gid]
 
@@ -323,8 +323,8 @@ def SwathProfiles(axis, processes=1):
 
 def SwathAxes(axis, processes=1):
 
-    dgo_shapefile = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'REF', 'DGO.shp')
-    output = os.path.join(workdir, 'AXES', 'AX%03d' %axis, 'REF', 'SWATH_AXIS.shp')
+    dgo_shapefile = config.filename('ax_dgo_vector', axis=axis)
+    output = config.filename('ax_swath_axes', axis=axis)
 
     driver = 'ESRI Shapefile'
     crs = fiona.crs.from_epsg(2154)
@@ -413,38 +413,3 @@ def SwathAxes(axis, processes=1):
                                 'OY': float(pt0[1])
                             }
                         })
-
-def PlotSwath(axis, gid, kind='absolute', output=None):
-
-    from PlotSwath import plot_swath
-
-    filename = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'SWATH', 'ELEVATION', 'SWATH_%04d.npz' % gid)
-
-    if os.path.exists(filename):
-
-        data = np.load(filename, allow_pickle=True)
-
-        x = data['x']
-        _, _,  measure = data['profile']
-
-        if kind == 'absolute':
-            swath = data['sz']
-        elif kind == 'hand':
-            swath = data['hand']
-        elif kind == 'hvf':
-            swath = data['hvf']
-            if swath.size == 0:
-                click.secho('No relative-to-valley-bottom swath profile for DGO (%d, %d)' % (axis, gid), fg='yellow')
-                click.secho('Using relative-to-nearest-drainage profile', fg='yellow')
-                swath = data['hand']
-        else:
-            click.secho('Unknown swath kind: %s' % kind)
-            return
-
-        if swath.shape[0] == x.shape[0]:
-            title = 'Swath Profile #%d, PK %.1f km' % (gid, measure / 1000.0)
-            if output is True:
-                output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'PDF', 'SWATH_%04d.pdf' % gid)
-            plot_swath(-x, swath, kind in ('hand', 'hvf'), title, output)
-        else:
-            click.secho('Invalid swath data')
