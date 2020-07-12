@@ -23,16 +23,37 @@ from ..config import config
 
 # workdir = '/media/crousson/Backup/TESTS/TuilesAin'
 
-def FluvialCorridorWidth(axis):
+def swath_width(selection, unit_width, density, long_length, resolution):
+    """
+    Measure width across swath profile at selected positions
+    """
+
+    if selection.size == 0:
+        return np.nan
+
+    max_density = long_length / resolution**2
+    clamp = np.minimum(max_density*unit_width[selection], density[selection])
+    width = np.sum(clamp) / max_density
+
+    return width
+
+def FluvialCorridorWidth(axis, long_length=200.0, resolution=5.0):
     """
     Defines
     -------
 
-    fcw: fluvial corridor width (meter)
+    fcw0(h): fluvial corridor width (meter),
+        measured at height h (m) above nearest drainage
+        as the ratio between discrete unit's
+        area and longitudinal length
 
-        fcw2: measured at +2.0 m above valley floor
-        fcw8: measured at +8.0 m above nearest drainage
-        fcw10: measured at +10.0 m above nearest drainage
+    fcw1(h): fluvial corridor width (meter),
+        measured on swath profile
+        at height h (m) above nearest drainage
+
+    fcw2: fluvial corridor width (meter),
+        measured on swath profile
+        at height +2.0 m above valley floor
 
     bankh: estimated bank height (meter) above water channel
 
@@ -52,6 +73,9 @@ def FluvialCorridorWidth(axis):
     gids = list()
     measures = list()
     values = list()
+    fcw0_values = list()
+    fcw1_values = list()
+    heights = np.arange(5.0, 15.5, 0.5)
 
     with fiona.open(dgo_shapefile) as fs:
         with click.progressbar(fs) as iterator:
@@ -67,6 +91,14 @@ def FluvialCorridorWidth(axis):
                 hand = data['hand']
                 hvf = data['hvf']
 
+                # Areal width
+
+                varea = data['varea']
+                fcw0 = np.float32(varea * resolution**2 / long_length)
+                fcw0_values.append(fcw0)
+
+                # Swath width
+
                 try:
                     density = data['density']
                     density_max = np.max(density)
@@ -78,21 +110,25 @@ def FluvialCorridorWidth(axis):
 
                     gids.append(gid)
                     measures.append(measure)
-                    values.append((np.nan, np.nan, np.nan, np.nan, np.nan))
+                    values.append((np.nan, np.nan, np.nan))
+                    fcw1 = np.zeros(len(heights), dtype='float32')
+                    fcw1_values.append(fcw1)
                     continue
 
                 # unit width of observations
-                w = 0.5 * (np.roll(x, -1) - np.roll(x, 1))
-                w[0] = x[1] - x[0]
-                w[-1] = x[-1] - x[-2]
+                unit_width = 0.5 * (np.roll(x, -1) - np.roll(x, 1))
+                unit_width[0] = x[1] - x[0]
+                unit_width[-1] = x[-1] - x[-2]
 
                 if hvf.size > 0:
 
                     selection = (hvf[:, 2] <= 2.0)
-                    if selection.size > 0:
-                        fcw2 = np.sum(w[selection] * density[selection]) / density_max
-                    else:
-                        fcw2 = np.nan
+                    fcw2 = swath_width(
+                        selection,
+                        unit_width,
+                        density,
+                        long_length,
+                        resolution)
 
                     mask = np.isnan(hvf[:, 2])
                     bankh1 = np.ma.min(np.ma.masked_array(hvf[:, 2], mask))
@@ -119,23 +155,37 @@ def FluvialCorridorWidth(axis):
                     bankh1 = np.nan
                     bankh2 = np.nan
 
-                selection = (hand[:, 2] <= 8.0)
-                if selection.size > 0:
-                    fcw8 = np.sum(w[selection] * density[selection]) / density_max
-                else:
-                    fcw8 = np.nan
+                # selection = (hand[:, 2] <= 8.0)
+                # if selection.size > 0:
+                #     fcw8 = np.sum(w[selection] * density[selection]) / density_max
+                # else:
+                #     fcw8 = np.nan
 
-                selection = (hand[:, 2] <= 10.0)
-                if selection.size > 0:
-                    fcw10 = np.sum(w[selection] * density[selection]) / density_max
-                else:
-                    fcw10 = np.nan
+                # selection = (hand[:, 2] <= 10.0)
+                # if selection.size > 0:
+                #     fcw10 = np.sum(w[selection] * density[selection]) / density_max
+                # else:
+                #     fcw10 = np.nan
+
+                fcw1 = np.zeros(len(heights), dtype='float32')
+
+                for k, h in enumerate(heights):
+
+                    selection = (hand[:, 2] <= h)
+                    fcw1[k] = swath_width(
+                        selection,
+                        unit_width,
+                        density,
+                        long_length,
+                        resolution)
+
+                fcw1_values.append(fcw1)
 
                 # values.append((gid, measure, fcw2, fcw8, fcw10, bankh1, bankh2))
 
                 gids.append(gid)
                 measures.append(measure)
-                values.append((fcw2, fcw8, fcw10, bankh1, bankh2))
+                values.append((fcw2, bankh1, bankh2))
 
     # dtype = np.dtype([
     #     ('gid', 'int'),
@@ -151,20 +201,23 @@ def FluvialCorridorWidth(axis):
 
     gids = np.array(gids, dtype='uint32')
     measures = np.array(measures, dtype='float32')
+    fcw0 = np.array(fcw0_values, dtype='float32')
+    fcw1 = np.array(fcw1_values, dtype='float32')
     data = np.array(values, dtype='float32')
 
     return xr.Dataset(
         {
-            'measure': ('swath', measures),
-            'fcw2': ('swath', data[:, 0]),
-            'fcw8': ('swath', data[:, 1]),
-            'fcw10': ('swath', data[:, 2]),
-            'bankh1': ('swath', data[:, 3]),
-            'bankh2': ('swath', data[:, 4])
+            'swath': ('measure', gids),
+            'fcw0': (('measure', 'height'), fcw0),
+            'fcw1': (('measure', 'height'), fcw1),
+            'fcw2': ('measure', data[:, 0]),
+            'bankh1': ('measure', data[:, 1]),
+            'bankh2': ('measure', data[:, 2])
         },
         coords={
             'axis': axis,
-            'swath': gids,
+            'measure': measures,
+            'height': heights
         })
 
 def WriteFluvialCorridorWidth(axis, data):
@@ -175,15 +228,16 @@ def WriteFluvialCorridorWidth(axis, data):
     data.to_netcdf(
         output, 'w',
         encoding={
+            'swath': dict(zlib=True, complevel=9),
             'measure': dict(zlib=True, complevel=9, least_significant_digit=0),
+            'fcw0': dict(zlib=True, complevel=9, least_significant_digit=1),
+            'fcw1': dict(zlib=True, complevel=9, least_significant_digit=1),
             'fcw2': dict(zlib=True, complevel=9, least_significant_digit=1),
-            'fcw8': dict(zlib=True, complevel=9, least_significant_digit=1),
-            'fcw10': dict(zlib=True, complevel=9, least_significant_digit=1),
             'bankh1': dict(zlib=True, complevel=9, least_significant_digit=0),
             'bankh2': dict(zlib=True, complevel=9, least_significant_digit=0)
         })
 
-def _LandCoverWidth(axis, kind, variable):
+def _LandCoverWidth(axis, kind, variable, long_length=200.0, resolution=5.0):
     """
     Aggregate LandCover Swat Data
     """
@@ -239,29 +293,24 @@ def _LandCoverWidth(axis, kind, variable):
                     if classes[k] == 255:
                         continue
 
-                    # selection = (swath[:, k] / count) > threshold
-                    # if selection.size > 0:
-                    #     width[classes[k]] = np.sum(unit_width[selection] * density[selection]) / density_max
-                    # else:
-                    #     width[classes[k]] = 0
-
-                    selection = (dominant == k)
-                    if selection.size > 0:
-                        width[classes[k]] = np.sum(unit_width[selection] * density[selection]) / density_max
-                    else:
-                        width[classes[k]] = 0
+                    # selection = (dominant == k)
+                    # width[classes[k]] = swath_width(selection, unit_width, density, long_length, resolution)
 
                     selection = (dominant == k) & (x >= 0)
-                    if selection.size > 0:
-                        width[classes[k], 0] = np.sum(unit_width[selection] * density[selection]) / density_max
-                    else:
-                        width[classes[k], 0] = 0
+                    width[classes[k], 0] = swath_width(
+                        selection,
+                        unit_width,
+                        density,
+                        long_length,
+                        resolution)
 
                     selection = (dominant == k) & (x < 0)
-                    if selection.size > 0:
-                        width[classes[k], 1] = np.sum(unit_width[selection] * density[selection]) / density_max
-                    else:
-                        width[classes[k], 1] = 0
+                    width[classes[k], 1] = swath_width(
+                        selection,
+                        unit_width,
+                        density,
+                        long_length,
+                        resolution)
 
                 # values.append(tuple([gid, measure] + width.tolist()))
 
@@ -281,12 +330,12 @@ def _LandCoverWidth(axis, kind, variable):
 
     return xr.Dataset(
         {
-            'measure': (('swath'), measures),
-            variable: (('swath', 'landcover', 'side'), data)
+            'swath': ('measure', gids),
+            variable: (('measure', 'landcover', 'side'), data)
         },
         coords={
             'axis': axis,
-            'swath': gids,
+            'measure': measures,
             'landcover': [
                 'Water Channel',
                 'Gravel Bars',
@@ -304,7 +353,7 @@ def _LandCoverWidth(axis, kind, variable):
             ]
         })
 
-def LandCoverWidth(axis):
+def LandCoverWidth(axis, long_length=200.0, resolution=5.0):
     """
     Defines
     -------
@@ -312,9 +361,14 @@ def LandCoverWidth(axis):
     lcwk: continuity width (meter) for land cover class k
     """
 
-    return _LandCoverWidth(axis, kind='std', variable='lcw')
+    return _LandCoverWidth(
+        axis,
+        kind='std',
+        variable='lcw',
+        long_length=long_length,
+        resolution=resolution)
 
-def ContinuityWidth(axis):
+def ContinuityWidth(axis, long_length=200.0, resolution=5.0):
     """
     Defines
     -------
@@ -322,7 +376,12 @@ def ContinuityWidth(axis):
     lcck: continuity width (meter) for land cover class k
     """
 
-    return _LandCoverWidth(axis, kind='continuity', variable='lcc')
+    return _LandCoverWidth(
+        axis,
+        kind='continuity',
+        variable='lcc',
+        long_length=long_length,
+        resolution=resolution)
 
 def WriteLandCoverWidth(axis, data):
 

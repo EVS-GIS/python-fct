@@ -4,33 +4,26 @@ import itertools
 from operator import itemgetter
 from collections import defaultdict
 
-import numpy as np
-
-import xarray as xr
-import click
-
-import rasterio as rio
-from rasterio.windows import Window
-from rasterio import features
-import fiona
-import fiona.crs
-from shapely.geometry import asShape
-
-import terrain_analysis as ta
-from Width import FluvialCorridorWidth, ContinuityWidth
-
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.ticker import EngFormatter
-from Plotting import MapFigureSizer
 
-workdir = '/media/crousson/Backup/TESTS/TuilesAin'
+import numpy as np
+import click
 
-def ReadData():
+import rasterio as rio
+import fiona
+import fiona.crs
 
-    axis = 1044
-    ago_ew_file = os.path.join(workdir, 'AUX', 'AGO_EW_LIN.shp')
-    measure_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'AXIS_MEASURE.vrt')
+from ..plotting.MapFigureSizer import MapFigureSizer
+from ..config import config
+
+# workdir = '/media/crousson/Backup/TESTS/TuilesAin'
+
+def ReadData(axis):
+
+    ago_ew_file = os.path.join(config.workdir, 'AUX', 'AGO_EW_LIN.shp')
+    measure_raster = config.filename('ax_axis_measure', axis=axis)
     values = list()
 
     with rio.open(measure_raster) as ds:
@@ -287,6 +280,9 @@ def Plot(data1, data2, kind='corridor', title='', filename=None):
 
 def test():
 
+    # pylint: disable=import-outside-toplevel
+    from .Width import FluvialCorridorWidth, ContinuityWidth
+
     mpl.use('cairo')
 
     fcw = FluvialCorridorWidth(1044)
@@ -299,11 +295,11 @@ def test():
         data2,
         'corridor',
         title='Comparaison jeu de données EW',
-        filename=os.path.join(workdir, 'AXES', 'AX1044', 'PDF', 'COMPARAISON_FDV_EW.pdf'))
+        filename=os.path.join(config.workdir, 'AXES', 'AX1044', 'PDF', 'COMPARAISON_FDV_EW.pdf'))
 
     Plot(
         data1,
         data2,
         'active channel',
         title='Comparaison jeu de données EW',
-        filename=os.path.join(workdir, 'AXES', 'AX1044', 'PDF', 'COMPARAISON_ACW_EW.pdf'))
+        filename=os.path.join(config.workdir, 'AXES', 'AX1044', 'PDF', 'COMPARAISON_ACW_EW.pdf'))

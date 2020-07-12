@@ -118,16 +118,25 @@ def UnitSwathProfile(axis, gid, bounds):
         assert(all([
             distance.shape == elevations.shape,
             measure.shape == elevations.shape,
+            relz.shape == elevations.shape,
             mask.shape == elevations.shape
         ]))
+
+        # Valley Bottom pixel area (to calculate areal width)
+
+        heights = np.arange(5.0, 15.5, 0.5)
+        valley_area = np.zeros(len(heights), dtype='uint32')
+        
+        for k, h in enumerate(heights):
+            valley_area[k] = np.sum(mask & (relz <= h))
+
+        # Profile density
 
         xbins = np.arange(np.min(distance[mask]), np.max(distance[mask]), 10.0)
         binned = np.digitize(distance, xbins)
         x = 0.5*(xbins[1:] + xbins[:-1])
 
         density = np.zeros_like(x, dtype='int32')
-
-        # Profile density
 
         for i in range(1, len(xbins)):
             
@@ -200,6 +209,7 @@ def UnitSwathProfile(axis, gid, bounds):
 
         values = dict(
             x=x,
+            varea=valley_area,
             density=density,
             sz=swath_absolute,
             hand=swath_rel_stream,
