@@ -152,6 +152,28 @@ landcover:
     template: LANDCOVER_%(row)02d_%(col)02d
     extension: .tif
 
+landcover-gpk:
+  description: |
+    Lorem ....
+  type: raster
+  subdir: GLOBAL/GEOPEKA
+  filename: LANDCOVER_GEOPEKA_2019.vrt
+  tiles:
+    tileset: landcover
+    template: LANDCOVER_GEOPEKA_2019_%(row)02d_%(col)02d
+    extension: .tif
+
+landcover-bdt:
+  description: |
+    Lorem ....
+  type: raster
+  subdir: GLOBAL/BDTOPO
+  filename: LANDCOVER_BDT_2019.vrt
+  tiles:
+    tileset: landcover
+    template: LANDCOVER_BDT_2019_%(row)02d_%(col)02d
+    extension: .tif
+
 population:
   description: |
     Population (2015)

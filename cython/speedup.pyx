@@ -25,7 +25,7 @@ cimport numpy
 import array
 from cpython cimport array
 
-from libc.math cimport sqrt
+from libc.math cimport sqrt, ceil, cos, sin, M_PI
 from libcpp.deque cimport deque
 from libcpp.map cimport map
 from libcpp.pair cimport pair
@@ -112,3 +112,4 @@ include "Shortest.pxi"
 include "RasterBuffer.pxi"
 include "SubGrid.pxi"
 include "GraphAcc2.pxi"
+include "RandomPoisson.pxi"
