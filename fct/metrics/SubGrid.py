@@ -19,6 +19,7 @@ import itertools
 from collections import defaultdict
 from operator import itemgetter
 from multiprocessing import Pool
+import math
 
 import numpy as np
 
@@ -35,8 +36,6 @@ from .. import speedup
 from ..cli import starcall
 from ..config import config
 from ..tileio import as_window
-
-workdir = '/media/crousson/Backup/TESTS/TuilesAin'
 
 def DefineSubGridMask():
     """
@@ -58,6 +57,10 @@ def DefineSubGridMask():
     # for tile in subgrid.values():
 
     x0, y1, x1, y0 = tileset.bounds
+    x0 = math.floor(x0 / resolution) * resolution
+    x1 = math.ceil(x1 / resolution) * resolution
+    y0 = math.ceil(y0 / resolution) * resolution
+    y1 = math.floor(y1 / resolution) * resolution
     height = int((y0 - y1) // resolution)
     width = int((x1- x0) // resolution)
     transform = Affine.from_gdal(x0, resolution, 0.0, y0, 0.0, -resolution)
@@ -72,7 +75,7 @@ def DefineSubGridMask():
             j < width
         ])
 
-    with click.progressbar(subgrid.values()) as iterator:
+    with click.progressbar(subgrid.values(), length=len(subgrid)) as iterator:
         for tile in iterator:
 
             # properties = feature['properties']
@@ -200,14 +203,14 @@ def AggregateLandCoverCell(i, j, datafile, window, n):
         data = datas.read(1, window=window, boundless=True, fill_value=datas.nodata)
         return i, j, speedup.count_by_uint8(data, datas.nodata, n)
 
-def AggregateLandCover(processes=1, **kwargs):
+def AggregateLandCover(processes=1, dataset='landcover', **kwargs):
 
     # mask_file = os.path.join(workdir, 'SUBGRID', 'SUBGRID_MASK.tif')
     # datafile = os.path.join(workdir, 'GLOBAL', 'LANDCOVER_2018.vrt')
     # output = os.path.join(workdir, 'SUBGRID', 'LANDCOVER_2018.tif')
 
     mask_file = config.filename('subgrid_mask')
-    datafile = config.filename('landcover')
+    datafile = config.filename(dataset)
     output = config.filename('subgrid_landcover')
 
     dtype = 'float32'
@@ -297,436 +300,7 @@ def DominantLandCover():
             with rio.open(output, 'w', **profile) as dst:
                 dst.write(np.uint8(dominant), 1)
 
-def SubGridOutlet(window, i, j, flow_raster, acc_raster):
 
-    with rio.open(flow_raster) as ds1:
-        with rio.open(acc_raster) as ds2:
-
-            flow = ds1.read(1, window=window, boundless=True, fill_value=ds1.nodata)
-            acc = ds2.read(1, window=window, boundless=True, fill_value=ds2.nodata)
-            (io, jo), area = speedup.region_outlet(flow, acc)
-
-            if io == -1:
-                return (i, j), None, 0.0, 0.0
-
-            transform = ds1.transform * ds1.transform.translation(window.col_off, window.row_off)
-            x, y = ta.xy(io, jo, transform)
-
-            return (i, j), (x, y), area, acc[io, jo]
-
-def SubGridOutlets(processes=1, **kwargs):
-
-    mask_raster = os.path.join(workdir, 'SUBGRID', 'SUBGRID_MASK.tif')
-    flow_raster = '/var/local/fct/RMC/FLOW_RGE5M_TILES.vrt'
-    acc_raster = '/var/local/fct/RMC/ACC_RGE5M_TILES.vrt'
-    output = os.path.join(workdir, 'SUBGRID', 'SUBGRID_OUTLETS.shp')
-
-    driver = 'ESRI Shapefile'
-    schema = {
-        'geometry': 'Point',
-        'properties': [
-            ('i', 'int'),
-            ('j', 'int'),
-            ('area', 'float:10.0'),
-            ('drainage', 'float:10.3')
-        ]
-    }
-    crs = fiona.crs.from_epsg(2154)
-    options = dict(driver=driver, schema=schema, crs=crs)
-
-    with rio.open(mask_raster) as ds:
-
-        mask = ds.read(1)
-        height, width = mask.shape
-
-        with rio.open(acc_raster) as accds:
-
-            resolution = int(ds.transform.a // accds.transform.a)
-            # pixel_area = 1 / resolution**2
-            half_resolution = int(resolution // 2)
-            arguments = list()
-
-            for i in range(height):
-                for j in range(width):
-
-                    if mask[i, j] == 0:
-
-                        x, y = ds.xy(i, j)
-                        di, dj = accds.index(x, y)
-
-                        window = Window(
-                            dj - half_resolution,
-                            di - half_resolution,
-                            resolution,
-                            resolution)
-
-                        arguments.append((SubGridOutlet, window, i, j, flow_raster, acc_raster, kwargs))
-
-            with Pool(processes=processes) as pool:
-
-                pooled = pool.imap_unordered(starcall, arguments)
-
-                with fiona.open(output, 'w', **options) as dst:
-                    with click.progressbar(pooled, length=len(arguments)) as iterator:
-                        for (i, j), outlet, area, drainage in iterator:
-
-                            if outlet is not None:
-
-                                # drainage = float(next(accds.sample([outlet], 1)))
-
-                                geometry = {'type': 'Point', 'coordinates': outlet}
-                                properties = {
-                                    'i': i,
-                                    'j': j,
-                                    'area': float(area * 25.0),
-                                    'drainage': float(drainage)
-                                }
-
-                                dst.write({'geometry': geometry, 'properties': properties})
-
-def TileSubGraph(row, col, bounds, items=None):
-
-    flow_raster = '/var/local/fct/RMC/FLOW_RGE5M_TILES.vrt'
-    outlet_shapefile = os.path.join(workdir, 'SUBGRID', 'SUBGRID_OUTLETS.shp')
-
-    ci = [-1, -1,  0,  1,  1,  1,  0, -1]
-    cj = [ 0,  1,  1,  1,  0, -1, -1, -1]
-    nodata = -1
-    noflow = 0
-
-    # graph: feature A --(outlet xb, yb)--> feature B
-    graph = dict()
-    spillovers = dict()
-
-    with rio.open(flow_raster) as ds:
-
-        window = as_window(bounds, ds.transform)
-        flow = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
-
-        height, width = flow.shape
-        transform = ds.transform * ds.transform.translation(window.col_off, window.row_off)
-
-        def intile(i, j):
-
-            return all([
-                i >= 0,
-                i < height,
-                j >= 0,
-                j < width
-            ])
-
-        def translate(i, j):
-
-            if i < 0:
-                trow = row - 1
-                ti = i + height
-            elif i >= height:
-                trow = row + 1
-                ti = i - height
-            else:
-                trow = row
-                ti = i
-
-            if j < 0:
-                tcol = col - 1
-                tj = j + width
-            elif j >= width:
-                tcol = col + 1
-                tj = j - width
-            else:
-                tcol = col
-                tj = j
-
-            return trow, tcol, ti, tj
-
-        outlets = defaultdict(list)
-
-        with fiona.open(outlet_shapefile) as fs:
-            for feature in fs.filter(bbox=bounds):
-
-                x, y = feature['geometry']['coordinates']
-                i, j = ta.index(x, y, transform)
-                outlets[i, j].append(int(feature['id']))
-
-        if items:
-
-            resolved = outlets
-            outlets = defaultdict(list)
-
-            for fid, row, col, i, j in items:
-                outlets[i, j].append(fid)
-
-        else:
-
-            resolved = dict()
-
-        for (i, j) in outlets:
-            for fid in outlets[i, j]:
-
-                if fid in (78751, 77683):
-                    if intile(i, j):
-                        print(fid, 'in tile')
-                    else:
-                        print(fid, 'not in tile')
-
-                while intile(i, j):
-
-                    direction = flow[i, j]
-                    if direction in (nodata, noflow):
-                        if fid in (78751, 77683):
-                            print('fid', 'flow stop')
-                        break
-
-                    x = int(np.log2(direction))
-
-                    i = i + ci[x]
-                    j = j + cj[x]
-
-                    if (i, j) in resolved:
-
-                        if resolved[i, j] != fid:
-                            graph[fid] = resolved[i, j][0]
-                            break
-
-                    if (i, j) in outlets:
-
-                        if outlets[i, j] != fid:
-                            graph[fid] = outlets[i, j][0]
-                            break
-
-                else:
-
-                    spillovers[fid] = translate(i, j)
-
-    return graph, spillovers
-
-def LinkOutlet(fid):
-    """
-    For debug purpose
-    """
-
-    tile_shapefile = '/media/crousson/Backup/PRODUCTION/OCSOL/GRILLE_10K_AIN.shp'
-    flow_raster = '/var/local/fct/RMC/FLOW_RGE5M_TILES.vrt'
-    outlet_shapefile = os.path.join(workdir, 'SUBGRID', 'SUBGRID_OUTLETS.shp')
-
-    spillovers = dict()
-    tiles = dict()
-
-    with fiona.open(tile_shapefile) as fs:
-
-        minx, miny, maxx, maxy = fs.bounds
-
-        for feature in fs:
-
-            geometry = asShape(feature['geometry'])
-            x0, y0, x1, y1 = geometry.bounds
-            x = 0.5 * (x0 + x1)
-            y = 0.5 * (y0 + y1)
-
-            row = int((maxy - y) // 10000)
-            col = int((x - minx) // 10000)
-            tiles[row, col] = geometry.bounds
-
-    with fiona.open(outlet_shapefile) as fs:
-
-        feature = fs.get(fid)
-        x, y = feature['geometry']['coordinates']
-
-        row = int((maxy - y) // 10000)
-        col = int((x - minx) // 10000)
-
-        print(row, col)
-
-        bounds = tiles[row, col]
-
-        with rio.open(flow_raster) as ds:
-
-            window = as_window(bounds, ds.transform)
-            transform = ds.transform * ds.transform.translation(window.col_off, window.row_off)
-            i, j = ta.index(x, y, transform)
-
-    print(fid, row, col, i, j)
-    items = [(fid, row, col, i, j)]
-
-    subgraph, subspillovers = TileSubGraph(row, col, bounds, items)
-
-    # graph.update(subgraph)
-    spillovers.update(subspillovers)
-
-    step = 0
-    index = itemgetter(1, 2)
-    processed = set()
-
-    while spillovers:
-
-        step += 1
-        click.echo('Step %d, %d spillovers' % (step, len(spillovers)))
-
-        unresolved = [(fid, row, col, i, j) for fid, (row, col, i, j) in spillovers.items()]
-        unresolved = sorted([item for item in unresolved if item not in processed], key=index)
-        processed.update(unresolved)
-
-        groups = itertools.groupby(unresolved, key=index)
-        spillovers = dict()
-
-        with click.progressbar(groups, length=len(tiles)) as iterator:
-            for (row, col), items in iterator:
-                if (row, col) in tiles:
-
-                    bounds = tiles[row, col]
-                    subgraph, subspillovers = TileSubGraph(row, col, bounds, items)
-
-                    # graph.update(subgraph)
-                    spillovers.update(subspillovers)
-
-    return subgraph
-
-def SubGraph():
-
-    tile_shapefile = os.path.join(workdir, 'TILESET', 'GRILLE_10K.shp')
-    graph = dict()
-    spillovers = dict()
-    tiles = dict()
-
-    with fiona.open(tile_shapefile) as fs:
-
-        minx, miny, maxx, maxy = fs.bounds
-
-        with click.progressbar(fs) as iterator:
-            for feature in iterator:
-
-                geometry = asShape(feature['geometry'])
-                x0, y0, x1, y1 = geometry.bounds
-                x = 0.5 * (x0 + x1)
-                y = 0.5 * (y0 + y1)
-
-                row = int((maxy - y) // 10000)
-                col = int((x - minx) // 10000)
-                tiles[row, col] = geometry.bounds
-
-                subgraph, subspillovers = TileSubGraph(row, col, geometry.bounds)
-
-                graph.update(subgraph)
-                spillovers.update(subspillovers)
-
-    step = 0
-    index = itemgetter(1, 2)
-    processed = set()
-
-    while spillovers:
-
-        step += 1
-        click.echo('Step %d, %d spillovers' % (step, len(spillovers)))
-
-        for fid in (78751, 77683):
-            if fid in spillovers:
-                print(fid, spillovers[fid])
-
-        unresolved = [(fid, row, col, i, j) for fid, (row, col, i, j) in spillovers.items()]
-        unresolved = sorted([item for item in unresolved if item not in processed], key=index)
-        processed.update(unresolved)
-
-        groups = itertools.groupby(unresolved, key=index)
-        spillovers = dict()
-
-        with click.progressbar(groups, length=len(tiles)) as iterator:
-            for (row, col), items in iterator:
-                if (row, col) in tiles:
-
-                    bounds = tiles[row, col]
-                    subgraph, subspillovers = TileSubGraph(row, col, bounds, items)
-
-                    graph.update(subgraph)
-                    spillovers.update(subspillovers)
-
-    return graph
-
-def ExportSubGraph(graph):
-
-    outlet_shapefile = os.path.join(workdir, 'SUBGRID', 'SUBGRID_OUTLETS.shp')
-    output = os.path.join(workdir, 'SUBGRID', 'SUBGRID_GRAPH.shp')
-
-    driver = 'ESRI Shapefile'
-    schema = {
-        'geometry': 'LineString',
-        'properties': [
-            ('i', 'int'),
-            ('j', 'int'),
-            ('area', 'float:10.0'),
-            ('drainage', 'float:10.3'),
-            ('nodea', 'int'),
-            ('nodeb', 'int'),
-            ('outleti', 'int'),
-            ('outletj', 'int')
-        ]
-    }
-    crs = fiona.crs.from_epsg(2154)
-    options = dict(driver=driver, schema=schema, crs=crs)
-
-    with fiona.open(outlet_shapefile) as fs:
-        with fiona.open(output, 'w', **options) as dst:
-
-            with click.progressbar(graph) as iterator:
-                for fid in iterator:
-
-                    feature = fs.get(fid)
-                    target_fid = graph[fid]
-                    target = fs.get(target_fid)
-
-                    x, y = feature['geometry']['coordinates']
-                    xe, ye = target['geometry']['coordinates']
-                    feature['geometry'] = {
-                        'type': 'LineString',
-                        'coordinates': [[x, y], [xe, ye]]
-                    }
-
-                    feature['properties'].update(
-                        outleti=target['properties']['i'],
-                        outletj=target['properties']['j'],
-                        nodea=fid,
-                        nodeb=target_fid
-                    )
-
-                    dst.write(feature)
-
-def LoadSubGraph():
-
-    graph_shapefile = os.path.join(workdir, 'SUBGRID', 'SUBGRID_GRAPH.shp')
-    graph = dict()
-
-    with fiona.open(graph_shapefile) as fs:
-        with click.progressbar(fs) as iterator:
-            for feature in iterator:
-
-                properties = feature['properties']
-                nodea = properties['nodea']
-                nodeb = properties['nodeb']
-                graph[nodea] = nodeb
-
-    return graph
-
-def AsPixelGraph(feature_graph):
-
-    outlet_shapefile = os.path.join(workdir, 'SUBGRID', 'SUBGRID_OUTLETS.shp')
-    graph = dict()
-
-    with fiona.open(outlet_shapefile) as fs:
-        with click.progressbar(feature_graph) as iterator:
-            for fid in iterator:
-
-                feature = fs.get(fid)
-                target_fid = feature_graph[fid]
-                target = fs.get(target_fid)
-
-                i = feature['properties']['i']
-                j = feature['properties']['j']
-
-                ti = target['properties']['i']
-                tj = target['properties']['j']
-
-                graph[i, j] = (ti, tj)
-
-    return graph
 
 def CreateBufferMask(axis, distance):
 
@@ -866,7 +440,7 @@ def workflow():
     click.secho('Create SubGrid Data', fg='cyan')
 
     click.echo('Define SubGrid')
-    DefineSubGrid()
+    DefineSubGridMask()
 
     click.echo('Aggregate Population')
     AggregatePopulation(7)
@@ -875,15 +449,11 @@ def workflow():
     click.echo('Calculate Dominant Land Cover')
     DominantLandCover()
 
-    click.secho('Accumulate SubGrid', fg='cyan')
+    from .SubGridGraph import workflow as mkpixgraph
 
-    click.echo('Find Grid Outlets')
-    SubGridOutlets(7)
-    click.echo('Build Grid Graph')
-    graph = SubGraph()
-    click.echo('Write Graph Shapefile')
-    ExportSubGraph(graph)
-    pixgraph = AsPixelGraph(graph)
+    pixgraph = mkpixgraph()
+
+    click.secho('Accumulate SubGrid', fg='cyan')
     click.echo('Accumulate Population')
     AccumulatePopulation(pixgraph)
     click.echo('Accumulate Land Cover')

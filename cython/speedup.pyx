@@ -39,6 +39,12 @@ cdef extern from "<algorithm>" namespace "std":
     cdef T max[T](T a, T b) nogil
     cdef void nth_element[T](T first, T nth, T last) nogil
 
+ctypedef fused A:
+    unsigned char
+    unsigned int
+    int
+    float
+
 ctypedef short D8Flow
 ctypedef float ContributingArea
 ctypedef pair[int, int] Cell

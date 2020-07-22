@@ -30,7 +30,7 @@ def raster_buffer(
     data: array-like, 2d, dtype=float32
         
         Input raster,
-        that is modified in place during processing.
+        that will be modified in place
 
     nodata: float
         
@@ -42,8 +42,17 @@ def raster_buffer(
 
     fill: float
         
-        Fill value for expanded cells,
+        Fill value for expanded pixels,
         obviously different from `nodata`.
+
+    Returns
+    -------
+
+    distance: array-like, 2d, dtype=float32
+
+        Distance raster, from existing data pixels.
+        Pixels with distance <= 0 are not in the calculated buffer,
+        either outside, or within the generating data area.
     """
 
     cdef:
@@ -55,9 +64,9 @@ def raster_buffer(
         Cell ij, ijk
         ShortestEntry entry
         ShortestQueue queue
-        float[:, :] distance
         unsigned char[:, :] seen
         map[Cell, Cell] ancestors
+        float[:, :] distance
         float[:, :] jitteri, jitterj
 
     height = data.shape[0]
@@ -162,6 +171,9 @@ def raster_buffer(
                 if not ingrid(height, width, ik, jk):
                     continue
 
+                if data[ik, jk] != nodata:
+                    continue
+
                 # if k % 2 == 0:
                 #     d = distance[i, j] + 1
                 # else:
@@ -190,4 +202,4 @@ def raster_buffer(
                         distance[ik, jk] = d
                         ancestors[ijk] = ij
 
-    return np.asarray(data)
+    return np.asarray(distance)

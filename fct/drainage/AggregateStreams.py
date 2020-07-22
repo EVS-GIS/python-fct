@@ -21,7 +21,7 @@ import fiona
 import fiona.crs
 from ..config import config
 
-def AggregateSegmentsByAxisAndTile():
+def AggregateSegmentsByAxisAndTile(max_length=10e3):
 
     source = config.filename('streams')
     output = config.filename('streams-tiled')
@@ -43,7 +43,7 @@ def AggregateSegmentsByAxisAndTile():
                 row = feature['properties']['ROW']
                 col = feature['properties']['COL']
 
-                if axis_length >= 10e3:
+                if axis_length >= max_length:
 
                     graph[a] = [b, (axis, row, col), feature['id']]
                     indegree[b] += 1

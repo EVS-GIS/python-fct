@@ -64,7 +64,7 @@ def subgrid_mask():
     """
     Define SubGrid Mask
     """
-    
+
     config.default()
     DefineSubGridMask()
 
@@ -74,25 +74,30 @@ def subgrid_population(processes=1):
     """
     Aggregate population data
     """
-    
+
     config.default()
     AggregatePopulation(processes)
 
 @subgrid.command('landcover')
+@click.option(
+    '--dataset', '-d',
+    default='landcover-bdt',
+    help='Select land cover dataset by logical name')
 @click.option('--processes', '-j', default=1, help="Execute j parallel processes")
-def subgrid_landcover(processes=1):
+def subgrid_landcover(dataset, processes=1):
     """
     Aggregate landcover data
     """
-    
+
     config.default()
-    AggregateLandCover(processes)
+    click.secho('Using %s lancover dataset' % dataset, fg='cyan')
+    AggregateLandCover(processes, dataset=dataset)
 
 @subgrid.command('dominant')
 def subgrid_dominant_landcover():
     """
     Calculate dominant landcover at subgrid's resolution
     """
-    
+
     config.default()
     DominantLandCover()

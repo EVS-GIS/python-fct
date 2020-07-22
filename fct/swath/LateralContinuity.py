@@ -25,17 +25,10 @@ from .. import terrain_analysis as ta
 from ..cli import starcall
 from ..config import config
 
-# workdir = '/media/crousson/Backup/TESTS/TuilesAin'
-
-def TileLateralContinuity(axis, row, col):
-
-    # landcover_raster = os.path.join(workdir, 'GLOBAL', 'LANDCOVER_2018.vrt')
-    # distance_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'NEAREST_DISTANCE.vrt')
-    # relz_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'NEAREST_RELZ.vrt')
-    # output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'TILES', 'CONTINUITY_%02d_%02d.tif' % (row, col))
+def TileLateralContinuity(axis, row, col, dataset='landcover-bdt'):
 
     tileset = config.tileset('landcover')
-    landcover_raster = config.filename('landcover')
+    landcover_raster = config.filename(dataset)
     distance_raster = config.filename('ax_nearest_distance', axis=axis)
     relz_raster = config.filename('ax_relative_elevation', axis=axis)
     output = tileset.tilename('ax_continuity', axis=axis, row=row, col=col)
@@ -78,9 +71,10 @@ def TileLateralContinuity(axis, row, col):
 
         cost = np.ones_like(landcover)
         # cost[landcover == 0] = 0.05
-        cost[landcover <= 5] = 1.0
+        # cost[landcover <= 5] = 1.0
         cost[landcover >= 6] = 10.0
         cost[landcover >= 7] = 100.0
+        cost[landcover >= 8] = 1.0
 
         ta.shortest_max(landcover, ds3.nodata, 0, cost, out, distance)
 
@@ -104,20 +98,11 @@ def TileLateralContinuity(axis, row, col):
             dst.write(out[padding:-padding, padding:-padding], 1)
 
 def LateralContinuity(axis, processes=1, **kwargs):
+    """
+    Calculate LandCover Continuity from River Channel
+    """
 
-    # tilefile = os.path.join(workdir, 'TILESET', 'TILES.shp')
     tileset = config.tileset('landcover')
-
-    # with fiona.open(tilefile) as fs:
-        
-    #     arguments = list()
-        
-    #     for feature in fs:
-
-    #         properties = feature['properties']
-    #         row = properties['ROW']
-    #         col = properties['COL']
-    #         arguments.append((TileLateralContinuity, axis, row, col, kwargs))
 
     arguments = list()
 

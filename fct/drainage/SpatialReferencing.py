@@ -272,7 +272,7 @@ def TileSpatialReference(axis, row, col, mdelta=200.0):
 
         return dgos
 
-def TileHAND(axis, row, col):
+def TileHAND(axis, row, col, dataset='ax_flow_height'):
     """
     see DistanceAndHeightAboveNearestDrainage
     """
@@ -282,7 +282,7 @@ def TileHAND(axis, row, col):
     network_shapefile = config.filename('streams-tiled')
     elevation_raster = tileset.tilename('tiled', row=row, col=col)
     # valley_bottom_rasterfile = tileset.tilename('ax_flow_height', axis=axis, row=row, col=col)
-    valley_bottom_rasterfile = tileset.tilename('ax_valley_bottom', axis=axis, row=row, col=col)
+    valley_bottom_rasterfile = tileset.tilename(dataset, axis=axis, row=row, col=col)
     
     output_relative_z = tileset.tilename('ax_relative_elevation', axis=axis, row=row, col=col)
     output_stream_distance = tileset.tilename('ax_nearest_distance', axis=axis, row=row, col=col)
@@ -291,7 +291,8 @@ def TileHAND(axis, row, col):
 
         click.echo('Read Valley Bottom')
 
-        valley_bottom = speedup.raster_buffer(ds.read(1), ds.nodata, 6.0)
+        valley_bottom = ds.read(1)
+        speedup.raster_buffer(valley_bottom, ds.nodata, 6.0)
         height, width = valley_bottom.shape
         
         profile = ds.profile.copy()
@@ -499,7 +500,7 @@ def MapReferencePoints(axis, row, col, points):
                 }
                 fst.write(feature)
 
-def SpatialReference(axis):
+def SpatialReference(axis, **kwargs):
     """
     Calculate measurement support rasters and
     create discrete longitudinal units along the reference axis
@@ -513,9 +514,9 @@ def SpatialReference(axis):
     with click.progressbar(tiles) as iterator:
         for _, row, col in iterator:
 
-            TileSpatialReference(axis, row, col)
+            TileSpatialReference(axis, row, col, **kwargs)
 
-def DistanceAndHeightAboveNearestDrainage(axis):
+def DistanceAndHeightAboveNearestDrainage(axis, **kwargs):
     """
     Calculate distance and height abode nearest drainage,
     based on theoretical drainage derived from DEM.
@@ -529,7 +530,7 @@ def DistanceAndHeightAboveNearestDrainage(axis):
     with click.progressbar(tiles) as iterator:
         for _, row, col in iterator:
 
-            TileHAND(axis, row, col)
+            TileHAND(axis, row, col, **kwargs)
 
 def AggregateDGOs(axis):
     """

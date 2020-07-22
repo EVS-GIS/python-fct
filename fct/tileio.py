@@ -29,6 +29,10 @@ def tileindex():
     return config.tileset().tileindex
 
 def as_window(bounds, transform):
+    """
+    Convert real world bounds (minx, miny, maxx, maxy)
+    to raster window using defined RasterIO geo-transform 
+    """
 
     minx, miny, maxx, maxy = bounds
 
@@ -39,6 +43,18 @@ def as_window(bounds, transform):
     width = col_end - col_offset
 
     return Window(col_offset, row_offset, width, height)
+
+def grow_window(window, padding):
+    """
+    Enlarge window by `padding` pixels in every direction
+    (north, south, east and west)
+    """
+
+    return Window(
+        window.col_off - padding,
+        window.row_off - padding,
+        window.width + 2*padding,
+        window.height + 2*padding)
 
 def ReadRasterTile(row, col, dataset1, dataset2=None, padding=0):
 

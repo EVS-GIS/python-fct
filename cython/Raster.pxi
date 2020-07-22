@@ -25,6 +25,83 @@ def count_by_value(numpy.int64_t[:, :] raster):
 
     return counts
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def cumulate_by_id(A[:, :] values, unsigned int[:, :] ids):
+    """
+    Sum up values by unique IDs
+    """
+
+    cdef:
+
+        Py_ssize_t height = values.shape[0], width = values.shape[1]
+        Py_ssize_t i, j, count
+        unsigned int oid
+        unsigned int[:] unique_ids
+        map[unsigned int, A] cumulated
+
+    unique_ids = np.unique(ids)
+    count = unique_ids.shape[0]
+
+    with nogil:
+
+        for i in range(count):
+
+            oid = unique_ids[i]
+            cumulated[oid] = 0
+
+        for i in range(height):
+            for j in range(width):
+
+                oid = ids[i, j]
+                cumulated[oid] += values[i, j]
+
+    return cumulated
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def cumulate_by_id2(A[:, :] values, unsigned int[:, :] ids1, unsigned int[:, :] ids2):
+    """
+    Sum up values by unique IDs
+    """
+
+    cdef:
+
+        Py_ssize_t height = values.shape[0], width = values.shape[1]
+        Py_ssize_t i, j, count1, count2
+        unsigned int oid1, oid2
+        Cell oid
+        unsigned int[:] unique_ids1, unique_ids2
+        map[Cell, A] cumulated
+
+    unique_ids1 = np.unique(ids1)
+    count1 = unique_ids1.shape[0]
+
+    unique_ids2 = np.unique(ids2)
+    count2 = unique_ids2.shape[0]
+
+    with nogil:
+
+        for i in range(count1):
+            
+            oid1 = unique_ids1[i]
+
+            for j in range(count2):
+
+                oid2 = unique_ids2[j]
+                oid = Cell(oid1, oid2)
+                cumulated[oid] = 0
+
+        for i in range(height):
+            for j in range(width):
+
+                oid1 = ids1[i, j]
+                oid2 = ids2[i, j]
+                oid = Cell(oid1, oid2)
+                cumulated[oid] += values[i, j]
+
+    return cumulated
+
 @cython.wraparound(False)
 @cython.boundscheck(False)
 def count_by_uint8(numpy.uint8_t[:, :] raster, numpy.uint8_t nodata, int n):

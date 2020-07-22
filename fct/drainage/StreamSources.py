@@ -139,6 +139,11 @@ def TileInletSources(tile, keys, areas):
     col = tile.col
     gid = tile.gid
 
+    output = config.tileset(TILESET).tilename(
+        'inlet-sources',
+        row=row,
+        col=col)
+
     crs = fiona.crs.from_epsg(2154)
     driver = 'ESRI Shapefile'
     schema = {
@@ -157,7 +162,7 @@ def TileInletSources(tile, keys, areas):
     for key in keys:
         cum_areas[key[1:]] += areas.get(key[1:], 0)
 
-    with fiona.open(config.tileset(TILESET).tilename('inlet-sources', row=row, col=col), 'w', **options) as dst:
+    with fiona.open(output, 'w', **options) as dst:
         for i, j in cum_areas:
 
             x, y = dem.xy(i, j)
@@ -190,8 +195,8 @@ def InletSources():
     groups = itertools.groupby(keys, key=itemgetter(0))
 
     click.secho('Write inlet shapefiles', fg='cyan')
-    with click.progressbar(groups, length=len(tile_index)) as progress:
-        for tile_gid, keys in progress:
+    with click.progressbar(groups, length=len(tile_index)) as iterator:
+        for tile_gid, keys in iterator:
 
             if tile_gid in tiles:
                 tile = tiles[tile_gid]
@@ -294,8 +299,15 @@ def AggregateStreamsFromSources():
 
     with fiona.open(output, 'w', **options) as dst:
         with click.progressbar(tile_index) as progress:
+
             for row, col in progress:
-                with fiona.open(config.tileset(TILESET).tilename('streams-from-sources', row=row, col=col)) as fs:
+
+                shapefile = config.tileset(TILESET).tilename(
+                    'streams-from-sources',
+                    row=row,
+                    col=col)
+
+                with fiona.open(shapefile) as fs:
                     for feature in fs:
                         feature['properties']['GID'] = next(gid)
                         dst.write(feature)

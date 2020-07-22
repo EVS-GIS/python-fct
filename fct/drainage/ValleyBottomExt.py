@@ -28,7 +28,6 @@ import fiona.crs
 from ..config import config
 from ..cli import starcall
 from .. import transform as fct
-from .. import terrain_analysis as ta
 from .. import speedup
 from ..tileio import PadRaster
 
@@ -76,11 +75,6 @@ def ExtendValleyBottomTile(axis, row, col, spillovers):
         profile3 = ds3.profile.copy()
         nodata3 = ds3.nodata
         distance[distance == nodata3] = 0.0
-
-    if (row, col) == (7, 5):
-
-        print(spillovers)
-        print(valley_bottom[0:2, 0:2])
 
     def intile(i, j):
         return all([i >= 0, i < height, j >= 0, j < width])

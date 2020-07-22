@@ -379,7 +379,12 @@ def AggregateOutlets():
 
             with fiona.open(output, 'w', **options) as dst:
 
-                for name in glob.glob(config.tileset(TILESET).tilename('outlets-glob', row=row, col=col)):
+                pattern = config.tileset(TILESET).tilename(
+                    'outlets-glob',
+                    row=row,
+                    col=col)
+
+                for name in glob.glob(pattern):
                     with fiona.open(name) as fs:
                         
                         for feature in fs:

@@ -15,7 +15,7 @@ Watershed Analysis. Fast Cython procedure.
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def watershed(short[:, :] flow, float[:, :] values, float fill_value=0):
+def watershed(short[:, :] flow, A[:, :] values, A fill_value=0):
     """
     Watershed analysis
 
@@ -36,7 +36,7 @@ def watershed(short[:, :] flow, float[:, :] values, float fill_value=0):
     flow: array-like, dtype=int8, nodata=-1 (ndim=2)
         D8 flow direction raster
 
-    values: array-like, dtype=float32, , same shape as `flow`
+    values: array-like, dtype=float32, same shape as `flow`
         Values to propagate upstream
 
     fill_value: float
@@ -49,8 +49,8 @@ def watershed(short[:, :] flow, float[:, :] values, float fill_value=0):
         long height, width, i, j, ik, jk
         int k
         unsigned char[:, :] visited
-        cdef Cell cell
-        cdef CellStack stack
+        Cell cell
+        CellStack stack
 
     height = flow.shape[0]
     width = flow.shape[1]

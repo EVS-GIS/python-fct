@@ -141,7 +141,7 @@ watershed:
     template: WATERSHED_%(row)02d_%(col)02d
     extension: .shp
 
-landcover:
+landcover-default:
   description: |
     Lorem ....
   type: raster
@@ -150,6 +150,17 @@ landcover:
   tiles:
     tileset: landcover
     template: LANDCOVER_%(row)02d_%(col)02d
+    extension: .tif
+
+landcover-cesbio:
+  description: |
+    Lorem ....
+  type: raster
+  subdir: GLOBAL/CESBIO
+  filename: LANDCOVER_CESBIO_2018.vrt
+  tiles:
+    tileset: landcover
+    template: LANDCOVER_CESBIO_%(row)02d_%(col)02d
     extension: .tif
 
 landcover-gpk:
@@ -185,6 +196,17 @@ population:
     template: POP_2015_%(row)02d_%(col)02d
     extension: .tif
 
+population-income:
+  description: |
+    Normalized Household Income (2015)
+  type: raster
+  subdir: GLOBAL/POPULATION
+  filename: SNV_2015.vrt
+  tiles:
+    tileset: landcover
+    template: SNV_2015_%(row)02d_%(col)02d
+    extension: .tif
+
 subgrid_mask:
   description: |
     SubGrid Mask
@@ -192,23 +214,37 @@ subgrid_mask:
   subdir: SUBGRID
   filename: SUBGRID_MASK.tif
 
+subgrid_outlets:
+  description: |
+    SubGrid Outlets
+  type: point
+  subdir: SUBGRID
+  filename: SUBGRID_OUTLETS.shp
+
+subgrid_graph:
+  description: |
+    SubGrid Topography Graph
+  type: linestring
+  subdir: SUBGRID
+  filename: SUBGRID_GRAPH.shp
+
 subgrid_population:
   description: |
-    SubGrid Mask
+    SubGrid Population
   type: raster
   subdir: SUBGRID
   filename: POP_2015.tif
 
 subgrid_landcover:
   description: |
-    SubGrid Mask
+    SubGrid LandCover
   type: raster
   subdir: SUBGRID
   filename: LANDCOVER_2018.tif
 
 subgrid_dominant_landcover:
   description: |
-    SubGrid Mask
+    SubGrid Dominant LandCover
   type: raster
   subdir: SUBGRID
   filename: LANDCOVER_DOMINANT_2018.tif
@@ -352,6 +388,17 @@ ax_valley_distance:
     template: VALLEY_DISTANCE_%(row)02d_%(col)02d
     extension: .tif
 
+ax_buffer_distance:
+  description: |
+    Buffer distance from active channel limits
+  type: raster
+  subdir: AXES/AX%(axis)04d
+  filename: BUFFER_DISTANCE.vrt
+  tiles:
+    tileset: landcover
+    template: BUFFER_DISTANCE_%(row)02d_%(col)02d
+    extension: .tif
+
 ax_continuity:
   description: |
     Landcover continuity map
@@ -384,6 +431,51 @@ ax_swath_axes:
   type: linestring
   subdir: AXES/AX%(axis)04d/REF
   filename: SWATH_AXIS.shp
+
+ax_buffer_mask:
+  description: |
+    Buffer area calculated from axis active channel,
+    based on landcover continuity classes.
+    1 = active channel
+    2 = buffer area within buffer width from active channel
+    0 = elsewhere
+  type: raster
+  subdir: AXES/AX%(axis)04d
+  filename: BUFFER_MASK.vrt
+  tiles:
+    tileset: landcover
+    template: BUFFER_MASK_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_buffer_distance:
+  description: |
+    Distance from axis active channel,
+    based on landcover continuity classes
+  type: raster
+  subdir: AXES/AX%(axis)04d
+  filename: BUFFER_DISTANCE.vrt
+  tiles:
+    tileset: landcover
+    template: BUFFER_DISTANCE_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_subgrid_profile:
+  description: |
+    SubGrid Profile
+  type: point
+  subdir: AXES/AX%(axis)04d
+  filename: SUBGRID_PROFILE.shp
+
+ax_subgrid_watershed:
+  description: |
+    SubGrid Profile Sample Watershed
+  type: raster
+  subdir: AXES/AX%(axis)04d
+  filename: SUBGRID_WATERSHED.vrt
+  tiles:
+    tileset: landcover
+    template: SUBGRID_WATERSHED_%(row)02d_%(col)02d
+    extension: .tif
 
 metrics_fcw:
   description: |
