@@ -17,7 +17,6 @@ according to D8 flow raster.
 import os
 import itertools
 from operator import itemgetter
-from collections import Counter
 
 from multiprocessing import Pool
 import numpy as np
@@ -33,6 +32,7 @@ from ..tileio import PadRaster
 from ..cli import starcall
 from ..config import config
 from ..drainage.ValleyBottom import border
+from .BufferDistance import BufferMeasure
 
 def SampleWatershedsTile(tileset, axis, row, col, samples):
     
@@ -251,24 +251,30 @@ def AccumulateMetricTile(
         dataset='population',
         band=1,
         buffer_width=1000.0,
-        step=200.0):
+        width_step=200.0,
+        buffer_distance='ax_buffer_distance',
+        buffer_profile='ax_subgrid_watershed',
+        **kwargs):
 
     data_raster = config.tileset(tileset).tilename(
         dataset,
         row=row,
-        col=col)
+        col=col,
+        **kwargs)
 
     distance_raster = config.tileset(tileset).tilename(
-        'ax_buffer_distance',
+        buffer_distance,
         row=row,
         col=col,
-        axis=axis)
+        axis=axis,
+        **kwargs)
 
     sample_raster = config.tileset(tileset).tilename(
-        'ax_subgrid_watershed',
+        buffer_profile,
         row=row,
         col=col,
-        axis=axis)
+        axis=axis,
+        **kwargs)
 
     if not all([
             os.path.exists(data_raster),
@@ -278,11 +284,11 @@ def AccumulateMetricTile(
 
         return dict()
 
-    n = int(buffer_width // step)
-    distance_slots = np.linspace(0.0, buffer_width, n+1)
+    n = int(buffer_width // width_step)
+    breaks = np.linspace(0.0, buffer_width, n+1)
 
     with rio.open(distance_raster) as ds:
-        distance = np.uint32(np.digitize(ds.read(1), distance_slots))
+        distance = np.uint32(np.digitize(ds.read(1), breaks))
 
     with rio.open(sample_raster) as ds:
         samples = ds.read(1)
@@ -290,34 +296,224 @@ def AccumulateMetricTile(
     with rio.open(data_raster) as ds:
 
         data = ds.read(band)
-        return speedup.cumulate_by_id2(data, samples, distance)
+        return speedup.cumulate_by_id2(data, samples, distance, ds.nodata)
+
+def MetricArray(cumulated, m, n):
+
+    out = np.zeros((m, n), dtype='float32')
+
+    for i in range(m):
+        for j in range(n):
+
+            if (i+1, j+1) in cumulated:
+                out[i, j] = cumulated[i+1, j+1]
+
+    return out
 
 def AccumulateMetric(axis, processes=1, tileset='default', **kwargs):
     """
-    DOCME
+    Accumulate raster data within buffer area,
+    for each spatial unit and width bins.
+
+    Parameters
+    ----------
+
+    axis: int
+
+        Axis identifier
+
+    processes: int
+
+        Number of parallel processes to execute
+        (defaults to one)
+
+    Returns
+    -------
+
+    cumulated: array(m, n)
+
+        Cumulated values for each pair (profile unit, width bin)
+
+        m: number of profile units,
+           ids in range {1..m} at index id-1
+
+        n: number of width bins,
+           bins in range {1..n}, at index bin-1
+
+        Width bins are given by the formula :
+
+            n = int(buffer_width // width_step)
+            breaks = np.linspace(0.0, buffer_width, n+1)
+            # i in {1..n}
+            bin[i] = (breaks[i-1], breaks[i])
+
+        Profile unit with ID=0 (nodata),
+        bin 0 (nodata) and
+        bin n+1 (outside buffer) are excluded.
+
+    Keyword arguments
+    -----------------
+
+    tileset: str
+
+        logical tileset
+        defaults to `default`
+
+    dataset: str
+
+        logical name of
+        raster dataset to process,
+        defaults to 'population'
+
+    band: int
+
+        band to process, if raster dataset is multibanded,
+        defaults to 1 (one-band dataset)
+
+    buffer_width: float
+
+        maximum buffer width,
+        defaults to 1000.0
+
+    width_step: float
+
+        width step for metric output,
+        defaults to 200.0
+
+    buffer_distance: str
+
+        logical name of
+        distance raster to use,
+        defaults to `ax_buffer_distance`
+
+    buffer_profile: str
+
+        logical name of
+        longitudinal unit identifier raster
+
+    Other keywords are passed to dataset filename templates.
     """
 
     kwargs.update(tileset=tileset)
+    tileindex = config.tileset(tileset)
 
-    arguments = [
-        (AccumulateMetricTile, axis, tile.row, tile.col, kwargs)
-        for tile in config.tileset(tileset).tileindex.values()
-    ]
+    def arguments():
+
+        for tile in tileindex.tiles():
+            yield (
+                AccumulateMetricTile,
+                axis,
+                tile.row,
+                tile.col,
+                kwargs
+            )
 
     cumulated = dict()
+    m = 0
+    n = 0
 
     with Pool(processes=processes) as pool:
 
-        pooled = pool.imap_unordered(starcall, arguments)
+        pooled = pool.imap_unordered(starcall, arguments())
 
-        with click.progressbar(pooled, length=len(arguments)) as iterator:
+        with click.progressbar(pooled, length=len(tileindex)) as iterator:
             for t_cumulated in iterator:
-                cumulated.update({
-                    k: cumulated.get(k, 0) + t_cumulated[k]
-                    for k in t_cumulated
-                })
 
-    return cumulated
+                if t_cumulated:
+
+                    cumulated.update({
+                        k: cumulated.get(k, 0) + t_cumulated[k]
+                        for k in t_cumulated
+                    })
+
+                    t_m = max(m for m, n in t_cumulated)
+                    t_n = max(n for m, n in t_cumulated)
+                    m = max(m, t_m)
+                    n = max(n, t_n)
+
+    # Exclude last width bin, outside of buffer
+    return MetricArray(cumulated, m, n-1)
+
+def WatershedMetrics(axis, processes=1, buffer_profile='ax_buffer_profile'):
+
+    buffer_width = 1000.0
+    width_step = 200.0
+    n = int(buffer_width // width_step)
+    breaks = np.linspace(0.0, buffer_width, n+1)
+    print(n, len(breaks))
+
+    measures = BufferMeasure(axis, processes=processes)
+
+    scale = 1e-3 # -> thousands
+    pop = scale * AccumulateMetric(
+        axis,
+        processes=processes,
+        tileset='landcover',
+        dataset='population',
+        buffer_distance='ax_buffer_distance',
+        buffer_profile=buffer_profile)
+
+    scale = 1.0
+    income = scale * AccumulateMetric(
+        axis,
+        processes=processes,
+        tileset='landcover',
+        dataset='population-income',
+        buffer_distance='ax_buffer_distance',
+        buffer_profile=buffer_profile)
+
+    m, n = pop.shape
+    lck = np.zeros((m, n, 9), dtype='float32')
+    scale = 25e-6 # 25 m² -> km²
+
+    for k in range(0, 9):
+
+        lck[:, :, k] = scale * AccumulateMetric(
+            axis,
+            processes=processes,
+            tileset='landcover',
+            dataset='landcover-separate',
+            band=k+1,
+            buffer_distance='ax_buffer_distance',
+            buffer_profile=buffer_profile)
+
+    return xr.Dataset(
+        {
+            'pop': (('measure', 'width'), pop),
+            'income': (('measure', 'width'), income),
+            'lck': (('measure', 'width', 'landcover'), lck)
+        },
+        coords={
+            'axis': axis,
+            'measure': measures,
+            'width': breaks[1:],
+            'landcover': [
+                'Water Channel',
+                'Gravel Bars',
+                'Natural Open',
+                'Forest',
+                'Grassland',
+                'Crops',
+                'Diffuse Urban',
+                'Dense Urban',
+                'Infrastructures'
+            ]
+        })
+
+def WriteWatershedMetrics(axis, data, destination='metrics_watershed', subset='buf1k'):
+
+    # output = os.path.join(config.workdir, 'AXES', 'AX%04d' % axis, 'METRICS', 'WATERSHED_METRICS_BUF1K.nc')
+    output = config.filename(destination, axis=axis, subset=subset.upper())
+
+    data.to_netcdf(
+        output, 'w',
+        encoding={
+            'pop': dict(zlib=True, complevel=9, least_significant_digit=2),
+            'income': dict(zlib=True, complevel=9, least_significant_digit=0),
+            'lck': dict(zlib=True, complevel=9, least_significant_digit=3),
+            'width': dict(least_significant_digit=0),
+            'measure': dict(least_significant_digit=0)
+        })
 
 # def workflow(axis):
 

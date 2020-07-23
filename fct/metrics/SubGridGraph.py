@@ -439,14 +439,14 @@ def SubGridProfile(axis, sourcex, sourcey, pixgraph, outlets):
     subgrid_raster = config.filename('subgrid_mask')
     output = config.filename('ax_subgrid_profile', axis=axis)
     tileset = config.tileset('landcover')
-    tileset_resolution = 10000.0
+    # tileset_resolution = 10000.0
 
-    def tileset_index(x, y):
+    # def tileset_index(x, y):
 
-        minx, _, _, maxy = tileset.bounds
-        row = int((maxy - y) // tileset_resolution)
-        col = int((x - minx) // tileset_resolution)
-        return row, col
+    #     minx, _, _, maxy = tileset.bounds
+    #     row = int((maxy - y) // tileset_resolution)
+    #     col = int((x - minx) // tileset_resolution)
+    #     return row, col
 
     with rio.open(subgrid_raster) as ds:
         i, j = ds.index(sourcex, sourcey)
@@ -481,7 +481,7 @@ def SubGridProfile(axis, sourcex, sourcey, pixgraph, outlets):
                 for k, (i, j) in enumerate(profile):
 
                     _, x, y = outlets[i, j]
-                    row, col = tileset_index(x, y)
+                    row, col = tileset.index(x, y)
 
                     if (i, j) in pixgraph:
 

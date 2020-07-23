@@ -8,7 +8,7 @@ according to D8 flow raster.
 *                                                                         *
 *   This program is free software; you can redistribute it and/or modify  *
 *   it under the terms of the GNU General Public License as published by  *
-*   the Free Software Foundation; either version 2 of the License, or     *
+*   the Free Software Foundation; either version 3 of the License, or     *
 *   (at your option) any later version.                                   *
 *                                                                         *
 ***************************************************************************
@@ -308,76 +308,6 @@ def AccumulatePopulation(processes=1):
         raster=population_tile,
         conv=1e-3,
         output=population_output)
-
-def TileLandCoverSplit(row, col, bands=1, **kwargs):
-    """
-    Split land cover classes
-    into separate contingency bands
-    """
-
-    rasterfile = kwargs['raster'](row, col)
-    output = kwargs['output'](row, col)
-
-    with rio.open(rasterfile) as ds:
-
-        data = ds.read(1)
-
-        profile = ds.profile.copy()
-        profile.update(
-            count=bands,
-            dtype='uint8',
-            nodata=255
-        )
-
-        with rio.open(output, 'w', **profile) as dst:
-            for k in range(bands):
-                
-                band = np.uint8(data == k)
-                band[data == ds.nodata] = 255
-                dst.write(band, k+1)
-
-def LandCoverSplit():
-    """
-    Split land cover classes
-    into separate contingency bands
-    """
-
-    tile_shapefile = os.path.join(workdir, 'TILESET', 'GRILLE_10K.shp')
-
-    rasterfile = lambda row, col: os.path.join(
-        workdir,
-        'GLOBAL',
-        'LANDCOVER',
-        'CESBIO_%02d_%02d.tif' % (row, col))
-
-    output = lambda row, col: os.path.join(
-        workdir,
-        'GLOBAL',
-        'ACC',
-        'CESBIO_MB_%02d_%02d.tif' % (row, col))
-
-    with fiona.open(tile_shapefile) as fs:
-
-        minx, miny, maxx, maxy = fs.bounds
-
-        with click.progressbar(fs) as iterator:
-            for feature in iterator:
-
-                properties = feature['properties']
-                x0 = properties['left']
-                y0 = properties['top']
-                x1 = properties['right']
-                y1 = properties['bottom']
-                bounds = (x0, y1, x1, y0)
-
-                row = int((maxy - y0) // 10000)
-                col = int((x0 - minx) // 10000)
-
-                TileLandCoverSplit(
-                    row, col,
-                    bands=9,
-                    raster=rasterfile,
-                    output=output)
 
 def landcover_tile(row, col):
 

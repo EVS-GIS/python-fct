@@ -8,18 +8,24 @@ Raster buffer around stream active channel
 *                                                                         *
 *   This program is free software; you can redistribute it and/or modify  *
 *   it under the terms of the GNU General Public License as published by  *
-*   the Free Software Foundation; either version 2 of the License, or     *
+*   the Free Software Foundation; either version 3 of the License, or     *
 *   (at your option) any later version.                                   *
 *                                                                         *
 ***************************************************************************
 """
 
+import os
+from operator import itemgetter
+import math
 from multiprocessing import Pool
 import numpy as np
 
 import click
 import rasterio as rio
+import fiona
+from shapely.geometry import asShape
 
+from .. import transform as fct
 from .. import speedup
 from ..tileio import (
     as_window,
@@ -27,6 +33,8 @@ from ..tileio import (
 )
 from ..config import config
 from ..cli import starcall
+from ..rasterize import rasterize_linestringz
+from .SpatialReferencing import nearest_value_and_distance
 
 def BufferDistanceTile(
         axis,
@@ -127,7 +135,6 @@ def BufferDistance(axis, buffer_width, processes=1, **kwargs):
 
     tileindex = config.tileset('landcover').tileindex
     tilefile = config.filename('ax_tiles', axis=axis)
-    resolution = 5.0
 
     with open(tilefile) as fp:
         tiles = [tuple(int(x) for x in line.split(',')) for line in fp]
@@ -151,3 +158,128 @@ def BufferDistance(axis, buffer_width, processes=1, **kwargs):
         with click.progressbar(pooled, length=len(tiles)) as iterator:
             for _ in iterator:
                 pass
+
+def BufferMeasureTile(axis, row, col, mdelta=200.0):
+    """
+    see SpatialReference
+    """
+
+    tileset = config.tileset('landcover')
+    rasterfile = tileset.tilename('ax_buffer_distance', axis=axis, row=row, col=col)
+    refaxis_shapefile = config.filename('ax_refaxis', axis=axis)
+    output = tileset.tilename('ax_buffer_profile', axis=axis, row=row, col=col)
+
+    with rio.open(rasterfile) as ds:
+
+        domain = ds.read(1)
+        height, width = domain.shape
+        refaxis_pixels = list()
+
+        def accept(i, j):
+            return all([i >= -height, i < 2*height, j >= -width, j < 2*width])
+
+        coord = itemgetter(0, 1)
+
+        mmin = float('inf')
+        mmax = float('-inf')
+
+        with fiona.open(refaxis_shapefile) as fs:
+            for feature in fs:
+
+                m0 = feature['properties'].get('M0', 0.0)
+                length = asShape(feature['geometry']).length
+
+                if m0 < mmin:
+                    mmin = m0
+
+                if m0 + length > mmax:
+                    mmax = m0 + length
+
+                coordinates = np.array([
+                    coord(p) + (m0,) for p in reversed(feature['geometry']['coordinates'])
+                ], dtype='float32')
+
+                coordinates[1:, 2] = m0 + np.cumsum(np.linalg.norm(
+                    coordinates[1:, :2] - coordinates[:-1, :2],
+                    axis=1))
+
+                coordinates[:, :2] = fct.worldtopixel(coordinates[:, :2], ds.transform)
+
+                for a, b in zip(coordinates[:-1], coordinates[1:]):
+                    for i, j, m in rasterize_linestringz(a, b):
+                        if accept(i, j):
+                            refaxis_pixels.append((i, j, m))
+
+        if not refaxis_pixels:
+            return []
+
+        mmin = math.floor(mmin / mdelta) * mdelta
+        mmax = math.ceil(mmax / mdelta) * mdelta
+
+        # Nearest using KD Tree
+
+        measure, distance = nearest_value_and_distance(
+            np.flip(np.array(refaxis_pixels), axis=0),
+            domain,
+            ds.nodata)
+
+        distance = 5.0 * distance
+        distance[domain == ds.nodata] = ds.nodata
+        measure[domain == ds.nodata] = ds.nodata
+
+        breaks = np.arange(mmin, mmax, mdelta)
+        spatial_units = np.uint32(np.digitize(measure, breaks))
+        # unit_measures = np.round(0.5 * (breaks + np.roll(breaks, 1)), 1)
+
+        profile = ds.profile.copy()
+        profile.update(
+            nodata=0,
+            dtype='uint32',
+            compress='deflate')
+
+        with rio.open(output, 'w', **profile) as dst:
+            dst.write(spatial_units, 1)
+
+        return mmin, mmax
+
+def BufferMeasure(axis, mdelta=200.0, processes=1, **kwargs):
+    """
+    Discretize buffer area along reference axis
+    """
+
+    tileindex = config.tileset('landcover').tileindex
+    tilefile = config.filename('ax_tiles', axis=axis)
+
+    kwargs.update(mdelta=mdelta)
+
+    with open(tilefile) as fp:
+        tiles = [tuple(int(x) for x in line.split(',')) for line in fp]
+
+    def arguments():
+
+        for _, row, col in tiles:
+            # if (row, col) in tileindex:
+            # tile = tileindex[row, col]
+            yield (
+                BufferMeasureTile,
+                axis,
+                row,
+                col,
+                kwargs)
+
+    mmin = float('inf')
+    mmax = float('-inf')
+
+    with Pool(processes=processes) as pool:
+
+        pooled = pool.imap_unordered(starcall, arguments())
+
+        with click.progressbar(pooled, length=len(tiles)) as iterator:
+            for t_mmin, t_mmax in iterator:
+
+                mmin = min(mmin, t_mmin)
+                mmax = max(mmax, t_mmax)
+
+    breaks = np.arange(mmin, mmax, mdelta)
+    measures = np.round(0.5 * (breaks + np.roll(breaks, 1)), 1)
+    return measures

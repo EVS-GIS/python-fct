@@ -2,15 +2,14 @@
 # coding: utf-8
 
 """
-Désagrège les données carroyées de l'INSEE
-à la résolution du raster d'occupation du sol,
-en utilisant la surface urbanisée.
+Disaggregate population data to the resolution of landcover data,
+using landcover urban classes.
 
 ***************************************************************************
 *                                                                         *
 *   This program is free software; you can redistribute it and/or modify  *
 *   it under the terms of the GNU General Public License as published by  *
-*   the Free Software Foundation; either version 2 of the License, or     *
+*   the Free Software Foundation; either version 3 of the License, or     *
 *   (at your option) any later version.                                   *
 *                                                                         *
 ***************************************************************************
@@ -25,13 +24,12 @@ import click
 import rasterio as rio
 from rasterio.windows import Window
 import fiona
+from shapely.geometry import asShape, box
 
 from .. import transform as fct
 from .. import terrain_analysis as ta
 from ..cli import starcall
 from ..config import config
-
-# workdir = '/media/crousson/Backup/TESTS/TuilesAin'
 
 def grid_extent(geometry, transform):
 
@@ -60,34 +58,25 @@ def grid_extent(geometry, transform):
     ij = fct.worldtopixel(geometry, transform)
     return np.min(ij[:, 0]), np.min(ij[:, 1]), np.max(ij[:, 0]), np.max(ij[:, 1])
 
-def TileDisaggregatePopulationData(tile):
+def DisaggregatePopulationTile(
+        tile,
+        variable='Ind',
+        tileset='landcover',
+        datasource='population',
+        landcoverset='landcover',
+        destination='population'):
     """
     Désagrège les données carroyées de l'INSEE
     à la résolution du raster d'occupation du sol,
     en utilisant la surface urbanisée.
     """
 
-    # height = int(parameter('input.height'))
-    # width = int(parameter('input.width'))
-
-    # pop_shapefile = os.path.join(workdir, 'GLOBAL', 'POPULATION', 'POP_INSEE_200M_LA93.shp')
-    # landcover_raster = os.path.join(workdir, 'GLOBAL', 'LANDCOVER', 'CESBIO_%02d_%02d.tif' % (row, col))
-    # # landcover_raster = os.path.join(workdir, 'CESBIO_2018.vrt')
-    # output = os.path.join(workdir, 'GLOBAL', 'POPULATION', 'POP_INSEE_%02d_%02d.tif' % (row, col))
-
-    pop_shapefile = config.datasource('population').filename
-    landcover_raster = config.tileset('landcover').tilename('landcover', row=tile.row, col=tile.col)
-    output = config.tileset('landcover').tilename('population', row=tile.row, col=tile.col)
-
-    # if os.path.exists(output) and not overwrite:
-    #     click.secho('Output already exists: %s' % output, fg='yellow')
-    #     return
+    pop_shapefile = config.datasource(datasource).filename
+    landcover_raster = config.tileset(tileset).tilename(landcoverset, row=tile.row, col=tile.col)
+    output = config.tileset(tileset).tilename(destination, row=tile.row, col=tile.col)
 
     with rio.open(landcover_raster) as ds:
 
-        # i, j = ds.index(x0, y0)
-        # window = Window(j, i, width, height)
-        # landcover = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
         landcover = ds.read(1)
         height, width = landcover.shape
 
@@ -96,54 +85,56 @@ def TileDisaggregatePopulationData(tile):
         urban_mask[nodata_mask] = 0
         del landcover
 
-        out = np.zeros((height, width), dtype=np.int32)
-        # transform = ds.transform * ds.transform.translation(j, i)
+        out = np.zeros((height, width), dtype=np.float32)
         transform = ds.transform
 
-        # def isdata(i, j):
+        # def accept(geom):
         #     """
-        #     Check bounds for pixel (i, j)
+        #     Assign feature to the tile containing feature's centroid
         #     """
-        #     return i >= 0 and i < ds.height and j >= 0 and j < ds.width
 
-        def accept(geom):
+        #     mini, minj, maxi, maxj = grid_extent(geom, transform)
+        #     center_i = 0.5 * (mini + maxi)
+        #     center_j = 0.5 * (minj + maxj)
 
-            mini, minj, maxi, maxj = grid_extent(geom, transform)
-            center_i = 0.5 * (mini + maxi)
-            center_j = 0.5 * (minj + maxj)
-
-            return all([
-                center_i >= 0,
-                center_i < height,
-                center_j >= 0,
-                center_j < width
-            ])
+        #     return all([
+        #         center_i >= 0,
+        #         center_i < height,
+        #         center_j >= 0,
+        #         center_j < width
+        #     ])
 
         with fiona.open(pop_shapefile) as fs:
 
-            # value_total = 0
             feature_mask = np.zeros((height, width), dtype=np.uint8)
 
             for feature in fs.filter(bbox=tile.bounds):
 
                 geometry = np.array(feature['geometry']['coordinates'][0][0], dtype='float32')
-                value = int(feature['properties']['Ind'])
 
-                if accept(geometry[:, :2]):
+                feature_geom = asShape(feature['geometry'])
+                tile_geom = box(*tile.bounds)
+                coverage = tile_geom.intersection(feature_geom).area / feature_geom.area
 
-                    # value_total += value
+                value = coverage * feature['properties'][variable]
 
-                    ta.disaggregate(
-                        geometry[:, :2],
-                        urban_mask,
-                        value,
-                        transform,
-                        feature_mask,
-                        out)
+                if value == 0:
+                    continue
 
-            # click.secho('Total value %d' % value_total)
-            # click.secho('Total count %d' % np.sum(out))
-            # click.secho('Max value %d' % np.max(out))
+                if variable == 'Ind':
+                    increment = 1.0
+                else:
+                    increment = value / (coverage * feature['properties']['Ind'])
+
+
+                ta.disaggregate(
+                    geometry[:, :2],
+                    urban_mask,
+                    value,
+                    increment,
+                    transform,
+                    feature_mask,
+                    out)
 
             out[nodata_mask] = -1
 
@@ -153,41 +144,90 @@ def TileDisaggregatePopulationData(tile):
                 transform=transform,
                 height=height,
                 width=width,
-                dtype='int32',
+                dtype='float32',
                 nodata=-1)
 
             with rio.open(output, 'w', **profile) as dst:
                 dst.write(out, 1)
 
-def DisaggregatePopulationData(processes=1, **kwargs):
+def DisaggregatePopulation(processes=1, tileset='landcover', **kwargs):
+    """
+    Disaggregate population data to the resolution of landcover data,
+    using landcover urban classes.
 
-    # tile_shapefile = os.path.join(workdir, 'TILESET', 'GRILLE_10K.shp')
+    Parameters
+    ----------
 
-    # with fiona.open(tile_shapefile) as fs:
+    processes: int
 
-    #     arguments = list()
+        Number of parallel processes to execute
+        (defaults to one)
 
-    #     for feature in fs:
+    Keyword arguments
+    -----------------
 
-    #         minx, miny, maxx, maxy = fs.bounds
+    variable: str
 
-    #         properties = feature['properties']
-    #         x0 = properties['left']
-    #         y0 = properties['top']
-    #         x1 = properties['right']
-    #         y1 = properties['bottom']
-    #         bounds = (x0, y1, x1, y0)
+        Variable to disaggregate
+        'Ind' or 'Ind_snv' in INSEE Filosofi 2015
 
-    #         row = int((maxy - y0) // 10000)
-    #         col = int((x0 - minx) // 10000)
+    tileset: str
 
-    tileindex = config.tileset('landcover').tileindex
-    arguments = [(TileDisaggregatePopulationData, tile, kwargs) for tile in tileindex.values()]
+        logical tileset
+        defaults to `landcover`
+
+    datasource: str
+
+        logical name of
+        population dataset to process,
+        defaults to `population`
+
+    landcoverset: str
+
+        logical name of
+        landcover dataset to process,
+        defaults to `landcover`
+
+    destination: str
+
+        logical name of destination dataset,
+        defaults to `population`
+
+    Other keywords are passed to dataset filename templates.
+    """
+
+    kwargs.update(tileset=tileset)
+    tileindex = config.tileset(tileset)
+
+    def arguments():
+
+        for tile in tileindex.tiles():
+            yield (
+                DisaggregatePopulationTile,
+                tile,
+                kwargs
+            )
 
     with Pool(processes=processes) as pool:
 
-        pooled = pool.imap_unordered(starcall, arguments)
+        pooled = pool.imap_unordered(starcall, arguments())
 
-        with click.progressbar(pooled, length=len(arguments)) as iterator:
+        with click.progressbar(pooled, length=len(tileindex)) as iterator:
             for _ in iterator:
                 pass
+
+def test():
+
+    config.default()
+
+    DisaggregatePopulation(
+        processes=5,
+        variable='Ind',
+        destination='population',
+        landcoverset='landcover-bdt')
+
+    DisaggregatePopulation(
+        processes=5,
+        variable='Ind_snv',
+        destination='population-income',
+        landcoverset='landcover-bdt')

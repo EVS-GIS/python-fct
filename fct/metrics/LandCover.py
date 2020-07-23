@@ -1,14 +1,25 @@
-import os
+# coding: utf-8
+
+"""
+LandCover Tiles Extraction
+
+***************************************************************************
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 3 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+***************************************************************************
+"""
+
 from multiprocessing import Pool
 import numpy as np
 
 import click
 import rasterio as rio
-from rasterio.windows import Window
-from shapely.geometry import asShape
 import fiona
 
-from .. import terrain_analysis as ta
 from ..cli import starcall
 from ..config import config
 from ..tileio import as_window
@@ -36,28 +47,17 @@ def MkLandCoverTile(tile):
 
         out = np.zeros_like(data, dtype='uint8')
 
-        for k, v in mapping.items():
-            out[data == k] = v
+        for key, value in mapping.items():
+            out[data == key] = value
 
         out[data == src_nodata] = dst_nodata
 
         return out
 
-    def shape(x0, y0, x1, y1, ds):
-
-        i0, j0 = ds.index(x0, y0)
-        i1, j1 = ds.index(x1, y1)
-        height = i1 - i0
-        width = j1 - j0
-
-        return height, width
-
-    def output(tile):
-
-        return config.tileset('landcover').tilename(
-            'landcover',
-            row=tile.row,
-            col=tile.col)
+    output = config.tileset('landcover').tilename(
+        'landcover',
+        row=tile.row,
+        col=tile.col)
 
     with rio.open(template_raster) as template:
 
@@ -97,11 +97,8 @@ def MkLandCoverTile(tile):
                 compress='deflate'
             )
 
-            with rio.open(output(tile), 'w', **profile) as dst:
+            with rio.open(output, 'w', **profile) as dst:
                 dst.write(data, 1)
-
-def configure(*args):
-    config.default()
 
 def MkLandCoverTiles(processes=1, **kwargs):
 
@@ -110,10 +107,118 @@ def MkLandCoverTiles(processes=1, **kwargs):
 
     arguments = [(MkLandCoverTile, tile, kwargs) for tile in tiles.values()]
 
-    with Pool(processes=processes, initializer=configure) as pool:
+    with Pool(processes=processes) as pool:
 
         pooled = pool.imap_unordered(starcall, arguments)
 
         with click.progressbar(pooled, length=len(arguments)) as iterator:
+            for _ in iterator:
+                pass
+
+def SeparateLandCoverClassesTile(
+        row,
+        col,
+        tileset='landcover',
+        dataset='landcover',
+        destination='landcover-separate',
+        bands=1,
+        nodata=255,
+        **kwargs):
+    """
+    Split land cover classe into separate contingency bands
+    """
+
+    rasterfile = config.tileset(tileset).tilename(
+        dataset,
+        row=row,
+        col=col,
+        **kwargs)
+
+    output = config.tileset(tileset).tilename(
+        destination,
+        row=row,
+        col=col,
+        **kwargs)
+
+    with rio.open(rasterfile) as ds:
+
+        data = ds.read(1)
+
+        profile = ds.profile.copy()
+        profile.update(
+            count=bands,
+            dtype='uint8',
+            nodata=nodata,
+            compress='deflate'
+        )
+
+        with rio.open(output, 'w', **profile) as dst:
+            for k in range(bands):
+
+                band = np.uint8(data == k)
+                band[data == ds.nodata] = nodata
+                dst.write(band, k+1)
+
+def SeparateLandCoverClasses(k, processes=1, tileset='landcover', **kwargs):
+    """
+    Split land cover classes into k separate contingency bands
+
+    Parameters
+    ----------
+
+    k: int
+
+        Number of landcover classes to separate,
+        classes numeric count are expected to be {0, ..., k-1}
+
+    processes: int
+
+        Number of parallel processes to execute
+        (defaults to one)
+
+    Keyword arguments
+    -----------------
+
+    tileset: str
+
+        logical tileset
+        defaults to `landcover`
+
+    dataset: str
+
+        logical name of
+        landcover dataset to process
+
+    destination: str
+
+        logical name of destination dataset,
+        defaults to `landcover-separate`
+
+    nodata: int
+
+        nodata value in output dataset,
+        defaults to 255
+
+    Other keywords are passed to dataset filename templates.
+    """
+
+    kwargs.update(bands=k, tileset=tileset)
+    tileset = config.tileset(tileset)
+
+    def arguments():
+
+        for tile in tileset.tiles():
+            yield (
+                SeparateLandCoverClassesTile,
+                tile.row,
+                tile.col,
+                kwargs
+            )
+
+    with Pool(processes=processes) as pool:
+
+        pooled = pool.imap_unordered(starcall, arguments())
+
+        with click.progressbar(pooled, length=len(tileset)) as iterator:
             for _ in iterator:
                 pass

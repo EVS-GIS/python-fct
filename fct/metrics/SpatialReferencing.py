@@ -34,7 +34,6 @@ from ..config import config
 from ..rasterize import rasterize_linestring, rasterize_linestringz
 from .. import transform as fct
 from .. import terrain_analysis as ta
-from .. import speedup
 
 def nearest_value_and_distance(refpixels, domain, nodata):
     """
@@ -143,8 +142,8 @@ def TileSpatialReference(axis, row, col, mdelta=200.0):
         with fiona.open(refaxis_shapefile) as fs:
             for feature in fs:
 
-                m0 = feature['properties']['M0']
-                length = feature['properties']['LENGTH']
+                m0 = feature['properties'].get('M0', 0.0)
+                length = asShape(feature['geometry']).length
 
                 if m0 < mmin:
                     mmin = m0
@@ -272,131 +271,34 @@ def TileSpatialReference(axis, row, col, mdelta=200.0):
 
         return dgos
 
-def TileHAND(axis, row, col, dataset='ax_flow_height'):
+def MapReferencePoints(axis, row, col, points, referenceset='streams-tiled'):
     """
-    see DistanceAndHeightAboveNearestDrainage
-    """
+    Project points (x, y) on reference axis.
+    Only for diagnostic purpose.
 
-    tileset = config.tileset('landcover')
+    Parameters
+    ----------
 
-    network_shapefile = config.filename('streams-tiled')
-    elevation_raster = tileset.tilename('tiled', row=row, col=col)
-    # valley_bottom_rasterfile = tileset.tilename('ax_flow_height', axis=axis, row=row, col=col)
-    valley_bottom_rasterfile = tileset.tilename(dataset, axis=axis, row=row, col=col)
-    
-    output_relative_z = tileset.tilename('ax_relative_elevation', axis=axis, row=row, col=col)
-    output_stream_distance = tileset.tilename('ax_nearest_distance', axis=axis, row=row, col=col)
+    axis: int
 
-    with rio.open(valley_bottom_rasterfile) as ds:
+        Axis identifier
 
-        click.echo('Read Valley Bottom')
+    row, col: int
 
-        valley_bottom = ds.read(1)
-        speedup.raster_buffer(valley_bottom, ds.nodata, 6.0)
-        height, width = valley_bottom.shape
-        
-        profile = ds.profile.copy()
-        profile.update(compress='deflate')
+        Tile coordinates
 
-        refaxis_pixels = list()
+    points: list of (x, y) map coordinates
 
-        click.echo('Map Stream Network')
+    referenceset:
 
-        def accept(feature):
-            
-            properties = feature['properties']
-            return properties['AXIS'] == axis
-
-        def accept_pixel(i, j):
-            return all([i >= -height, i < 2*height, j >= -width, j < 2*width])
-
-        coord = itemgetter(0, 1, 2)
-        unique = set()
-
-        with rio.open(elevation_raster) as ds2:
-            elevations = ds2.read(1)
-
-        with fiona.open(network_shapefile) as fs:
-            for feature in fs:
-
-                if accept(feature):
-
-                    coordinates = np.array([
-                        coord(p) for p in feature['geometry']['coordinates']
-                    ], dtype='float32')
-
-                    coordinates[:, :2] = ta.worldtopixel(coordinates[:, :2], ds.transform, gdal=False)
-
-                    for a, b in zip(coordinates[:-1], coordinates[1:]):
-                        for i, j, z in rasterize_linestringz(a, b):
-                            if accept_pixel(i, j) and (i, j) not in unique:
-                                # distance[i, j] = 0
-                                # measure[i, j] = m
-                                # z = elevations[i, j]
-                                refaxis_pixels.append((i, j, z))
-                                unique.add((i, j))
-
-        # output_refaxis = os.path.join(axdir, 'REF', 'REFAXIS_POINTS.shp')
-        # schema = {
-        #     'geometry': 'Point',
-        #     'properties': [
-        #         ('GID', 'int'),
-        #         ('I', 'float'),
-        #         ('J', 'float'),
-        #         ('Z', 'float')
-        #     ]
-        # }
-        # crs = fiona.crs.from_epsg(2154)
-        # options = dict(driver='ESRI Shapefile', crs=crs, schema=schema)
-
-        # if os.path.exists(output_refaxis):
-        #     mode = 'a'
-        # else:
-        #     mode = 'w'
-
-        # with fiona.open(output_refaxis, mode, **options) as fst:
-        #     for k, (i, j, z) in enumerate(refaxis_pixels):
-        #         geom = {'type': 'Point', 'coordinates': ds.xy(i, j)}
-        #         properties = {'GID': k, 'I': i, 'J': j, 'Z': float(z)}
-        #         fst.write({'geometry': geom, 'properties': properties})
-
-        if not refaxis_pixels:
-            return
-
-        click.echo('Calculate Reference & Distance Raster')
-
-        reference, distance = nearest_value_and_distance(
-            np.array(refaxis_pixels),
-            valley_bottom,
-            ds.nodata)
-
-        distance = 5.0 * distance
-
-        click.echo('Write output')
-
-        distance[valley_bottom == ds.nodata] = ds.nodata
-
-        with rio.open(output_stream_distance, 'w', **profile) as dst:
-            dst.write(distance, 1)
-
-        del distance
-
-        # elevations, _ = ReadRasterTile(row, col, 'dem1')
-
-        relative = elevations - reference
-        relative[valley_bottom == ds.nodata] = ds.nodata
-
-        with rio.open(output_relative_z, 'w', **profile) as dst:
-            dst.write(relative, 1)
-
-def MapReferencePoints(axis, row, col, points):
-    """
-    DOCME
+      - `ax_refaxis`: Reference Axis (Measure Axis)
+      - `ax_stream_network`: Theoretical stream network (axis subset)
+      - `streams-tiled`: Theoretical stream network (all segments)
     """
 
     tileset = config.tileset('landcover')
 
-    network_shapefile = config.filename('streams-tiled')
+    network_shapefile = config.filename(referenceset)
     elevation_raster = tileset.tilename('tiled', row=row, col=col)
     valley_bottom_rasterfile = tileset.tilename('ax_flow_height', axis=axis, row=row, col=col)
 
@@ -424,7 +326,6 @@ def MapReferencePoints(axis, row, col, points):
 
         with fiona.open(network_shapefile) as fs:
             for feature in fs:
-
 
                 coordinates = np.array([
                     coord(p) for p in feature['geometry']['coordinates']
@@ -515,22 +416,6 @@ def SpatialReference(axis, **kwargs):
         for _, row, col in iterator:
 
             TileSpatialReference(axis, row, col, **kwargs)
-
-def DistanceAndHeightAboveNearestDrainage(axis, **kwargs):
-    """
-    Calculate distance and height abode nearest drainage,
-    based on theoretical drainage derived from DEM.
-    """
-
-    tilefile = config.filename('ax_tiles', axis=axis)
-
-    with open(tilefile) as fp:
-        tiles = [tuple(int(x) for x in line.split(',')) for line in fp]
-
-    with click.progressbar(tiles) as iterator:
-        for _, row, col in iterator:
-
-            TileHAND(axis, row, col, **kwargs)
 
 def AggregateDGOs(axis):
     """
