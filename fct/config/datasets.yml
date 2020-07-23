@@ -485,7 +485,7 @@ ax_swath_landcover:
     Landcover swath
   type: npz
   subdir: AXES/AX%(axis)04d/SWATH/LANDCOVER
-  filename: SWATH_ELEVATION_%(gid)04d_%(kind)s.npz
+  filename: SWATH_ELEVATION_%(gid)04d_%(subset)s.npz
 
 ax_swath_axes:
   description: |
@@ -561,9 +561,9 @@ metrics_fcw:
   subdir: AXES/AX%(axis)04d/METRICS
   filename: FLUVIAL_CORRIDOR_WIDTH.nc
 
-metrics_lcc:
+metrics_lcw:
   description: |
-    Fluvial Corridor Width
+    LandCover Width
   type: metrics
   group: corridor
   status: final

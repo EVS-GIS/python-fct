@@ -102,7 +102,7 @@ def nearest_value_and_distance(refpixels, domain, nodata):
 
     return values, distance
 
-def TileSpatialReference(axis, row, col, mdelta=200.0):
+def SpatialReferenceTile(axis, row, col, mdelta=200.0):
     """
     see SpatialReference
     """
@@ -415,7 +415,7 @@ def SpatialReference(axis, **kwargs):
     with click.progressbar(tiles) as iterator:
         for _, row, col in iterator:
 
-            TileSpatialReference(axis, row, col, **kwargs)
+            SpatialReferenceTile(axis, row, col, **kwargs)
 
 def AggregateDGOs(axis):
     """

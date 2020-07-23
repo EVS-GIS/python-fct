@@ -13,7 +13,6 @@ LandCover Swath Profile
 ***************************************************************************
 """
 
-import os
 from multiprocessing import Pool
 import numpy as np
 
@@ -27,49 +26,58 @@ from ..tileio import as_window
 from ..cli import starcall
 from ..config import config
 
-# workdir = '/media/crousson/Backup/TESTS/TuilesAin'
-
-def UnitLandCoverSwath(axis, gid, bounds, landcover='continuity'):
+def UnitLandCoverSwath(
+        axis,
+        gid,
+        bounds,
+        dataset='continuity',
+        step=10.0,
+        maxz=20.0):
     """
-    Calculate Land Cover Swath Profile for Valley Unit (axis, gid)
+    Calculate land cover swath profile for longitudinal unit (axis, gid)
     """
-
-    # dgo_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'DGO.vrt')
-    # distance_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'AXIS_DISTANCE.vrt')
-    # relz_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'NEAREST_RELZ.vrt')
 
     dgo_raster = config.filename('ax_dgo', axis=axis)
-    distance_raster = config.filename('ax_axis_distance', axis=axis)
-    relz_raster = config.filename('ax_relative_elevation', axis=axis)
+    axis_distance_raster = config.filename('ax_axis_distance', axis=axis)
+    nearest_distance_raster = config.filename('ax_nearest_distance', axis=axis)
+    hand_raster = config.filename('ax_relative_elevation', axis=axis)
 
-    if landcover == 'continuity':
-        # landcover_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'CONTINUITY.vrt')
+    if dataset == 'landcover':
+        landcover_raster = config.filename('landcover')
+    elif dataset == 'continuity':
         landcover_raster = config.filename('ax_continuity', axis=axis)
     else:
-        # landcover_raster = os.path.join(workdir, 'GLOBAL', 'LANDCOVER_2018.vrt')
-        landcover_raster = config.filename('landcover')
+        raise ValueError('incorrect parameter dataset: %s' % dataset)
 
-    with rio.open(distance_raster) as ds:
+    with rio.open(landcover_raster) as ds:
 
         window = as_window(bounds, ds.transform)
-        distance = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
+        landcover = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
 
-        with rio.open(relz_raster) as ds1:
-            relz = ds1.read(1, window=window, boundless=True, fill_value=ds1.nodata)
+        with rio.open(hand_raster) as ds1:
+            hand = ds1.read(1, window=window, boundless=True, fill_value=ds1.nodata)
 
-        with rio.open(landcover_raster) as ds2:
+        with rio.open(axis_distance_raster) as ds2:
             window2 = as_window(bounds, ds2.transform)
-            landcover = ds2.read(1, window=window2, boundless=True, fill_value=ds2.nodata)
+            axis_distance = ds2.read(1, window=window2, boundless=True, fill_value=ds2.nodata)
 
-        with rio.open(dgo_raster) as ds3:
-            mask = (ds3.read(1, window=window, boundless=True, fill_value=ds3.nodata) == gid)
-            mask = mask & (relz < 20.0)
+        with rio.open(nearest_distance_raster) as ds3:
+            window3 = as_window(bounds, ds3.transform)
+            nearest_distance = ds3.read(1, window=window3, boundless=True, fill_value=ds3.nodata)
+
+        with rio.open(dgo_raster) as ds4:
+            window4 = as_window(bounds, ds4.transform)
+            mask = (ds4.read(1, window=window4, boundless=True, fill_value=ds4.nodata) == gid)
 
         assert(all([
-            relz.shape == distance.shape,
-            landcover.shape == distance.shape,
-            mask.shape == distance.shape
+            hand.shape == landcover.shape,
+            axis_distance.shape == landcover.shape,
+            nearest_distance.shape == landcover.shape,
+            mask.shape == landcover.shape
         ]))
+
+        mask = mask & (hand < maxz)
+        del hand
 
         if np.sum(mask) == 0:
 
@@ -82,29 +90,40 @@ def UnitLandCoverSwath(axis, gid, bounds, landcover='continuity'):
             )
             return axis, gid, values
 
+        min_distance = min(np.min(axis_distance[mask]), np.min(nearest_distance[mask]))
+        max_distance = max(np.max(axis_distance[mask]), np.max(nearest_distance[mask]))
+        bins = np.arange(min_distance, max_distance + step, step)
 
-        xbins = np.arange(np.min(distance[mask]), np.max(distance[mask]), 10.0)
-        binned = np.digitize(distance, xbins)
-        x = 0.5*(xbins[1:] + xbins[:-1])
-
-        density = np.zeros_like(x, dtype='int32')
+        x = 0.5*(bins[1:] + bins[:-1])
+        axis_distance_binned = np.digitize(axis_distance, bins)
+        nearest_distance_binned = np.digitize(nearest_distance, bins)
 
         # Profile density
 
-        for i in range(1, len(xbins)):
-            density[i-1] = np.sum(mask & (binned == i))
+        density = np.zeros((x.shape[0], 2), dtype='uint32')
 
         # Land cover classes count
 
-        classes = np.unique(landcover)
-        swath = np.zeros((len(x), len(classes)), dtype='uint16')
+        classes = np.unique(landcover[mask])
+        swath = np.zeros((len(x), len(classes), 2), dtype='uint16')
 
-        for k, value in enumerate(classes):
+        for i in range(1, len(bins)):
 
-            data = (landcover == value)
+            mask0 = mask & (axis_distance_binned == i)
+            mask1 = mask & (nearest_distance_binned == i)
 
-            for i in range(1, len(xbins)):
-                swath[i-1, k] = np.sum(data[mask & (binned == i)])
+            density[i-1, 0] = np.sum(mask0)
+            density[i-1, 1] = np.sum(mask1)
+
+            for k, value in enumerate(classes):
+
+                data = (landcover == value)
+
+                if density[i-1, 0] > 0:
+                    swath[i-1, k, 0] = np.sum(data[mask0])
+
+                if density[i-1, 1] > 0:
+                    swath[i-1, k, 1] = np.sum(data[mask1])
 
         values = dict(
             x=x,
@@ -113,49 +132,93 @@ def UnitLandCoverSwath(axis, gid, bounds, landcover='continuity'):
             swath=swath
         )
 
-        return axis, gid, values
+        return gid, values
 
-def LandCoverSwath(axis, kind='continuity', processes=1):
+def LandCoverSwath(axis, dataset='continuity', processes=1, **kwargs):
     """
-    DOCME
+    Generate landcover swath for every longitudinal unit
+    defined by procedure fct.metrics.SpatialReferencing.SpatialReference
+
+    Parameters
+    ----------
+
+    axis: int
+
+        Axis identifier
+
+    dataset: str
+
+        possible values :
+        - `landcover`: swath from global landcover raster
+        - `continuity`: swath from axis landcover continuity map
+
+    processes: int
+
+        Number of parallel processes to execute
+        (defaults to one)
+
+    Keyword arguments
+    -----------------
+
+    step: float
+
+        Width step,
+        ie. distance between swath measures
+        in the direction perpendicular to stream or reference axis
+
+    maxz: float
+
+        Exclude data with height above nearest drainage (hand) > maxz,
+        defaults to 20.0 m
     """
 
-    if kind not in ('std', 'continuity'):
-        click.secho('Unknown landcover swath kind %s' % kind, fg='yellow')
+    if dataset not in ('landcover', 'continuity'):
+        click.secho('Unknown swath dataset %s' % dataset, fg='yellow')
         return
 
-    # dgo_shapefile = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'REF', 'DGO.shp')
     dgo_shapefile = config.filename('ax_dgo_vector', axis=axis)
-    
-    def output(axis, gid):
-        # return os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'SWATH', 'LANDCOVER', 'SWATH_LANDCOVER_%04d.npz' % gid)
-        return config.filename('ax_swath_landcover', axis=axis, gid=gid, kind=kind.upper())
 
-    kwargs = dict(landcover=kind)
+    kwargs.update(dataset=dataset)
     profiles = dict()
-    arguments = list()
 
     with fiona.open(dgo_shapefile) as fs:
-        for feature in fs:
+        length = len(fs)
 
-            gid = feature['properties']['GID']
-            measure = feature['properties']['M']
-            geometry = asShape(feature['geometry'])
+    def arguments():
 
-            profiles[axis, gid] = [axis, gid, measure]
-            arguments.append([UnitLandCoverSwath, axis, gid, geometry.bounds, kwargs])
+        with fiona.open(dgo_shapefile) as fs:
+            for feature in fs:
+
+                gid = feature['properties']['GID']
+                measure = feature['properties']['M']
+                geometry = asShape(feature['geometry'])
+
+                profiles[axis, gid] = [axis, gid, measure]
+
+                yield (
+                    UnitLandCoverSwath,
+                    axis,
+                    gid,
+                    geometry.bounds,
+                    kwargs
+                )
 
     with Pool(processes=processes) as pool:
 
-        pooled = pool.imap_unordered(starcall, arguments)
+        pooled = pool.imap_unordered(starcall, arguments())
 
-        with click.progressbar(pooled, length=len(arguments)) as iterator:
-
-            for axis, gid, values in iterator:
+        with click.progressbar(pooled, length=length) as iterator:
+            for gid, values in iterator:
 
                 profile = profiles[axis, gid]
 
+                output = config.filename(
+                    'ax_swath_landcover',
+                    axis=axis,
+                    gid=gid,
+                    subset=dataset.upper())
+
                 np.savez(
-                    output(axis, gid),
+                    output,
                     profile=profile,
                     **values)

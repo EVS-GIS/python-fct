@@ -21,8 +21,6 @@ import fiona
 
 from ..config import config
 
-# workdir = '/media/crousson/Backup/TESTS/TuilesAin'
-
 def swath_width(selection, unit_width, density, long_length, resolution):
     """
     Measure width across swath profile at selected positions
@@ -37,7 +35,7 @@ def swath_width(selection, unit_width, density, long_length, resolution):
 
     return width
 
-def FluvialCorridorWidth(axis, long_length=200.0, resolution=5.0):
+def CorridorWidth(axis, long_length=200.0, resolution=5.0):
     """
     Defines
     -------
@@ -181,23 +179,9 @@ def FluvialCorridorWidth(axis, long_length=200.0, resolution=5.0):
 
                 fcw1_values.append(fcw1)
 
-                # values.append((gid, measure, fcw2, fcw8, fcw10, bankh1, bankh2))
-
                 gids.append(gid)
                 measures.append(measure)
                 values.append((fcw2, bankh1, bankh2))
-
-    # dtype = np.dtype([
-    #     ('gid', 'int'),
-    #     ('measure', 'float32'),
-    #     ('fcw2', 'float32'),
-    #     ('fcw8', 'float32'),
-    #     ('fcw10', 'float32'),
-    #     ('bankh1', 'float32'),
-    #     ('bankh2', 'float32')
-    # ])
-
-    # return np.sort(np.array(values, dtype=dtype), order='measure')
 
     gids = np.array(gids, dtype='uint32')
     measures = np.array(measures, dtype='float32')
@@ -220,9 +204,8 @@ def FluvialCorridorWidth(axis, long_length=200.0, resolution=5.0):
             'height': heights
         })
 
-def WriteFluvialCorridorWidth(axis, data):
+def WriteCorridorWidth(axis, data):
 
-    # output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'METRICS', 'FLUVIAL_CORRIDOR_WIDTH.nc')
     output = config.filename('metrics_fcw', axis=axis)
 
     data.to_netcdf(
@@ -235,165 +218,6 @@ def WriteFluvialCorridorWidth(axis, data):
             'fcw2': dict(zlib=True, complevel=9, least_significant_digit=1),
             'bankh1': dict(zlib=True, complevel=9, least_significant_digit=0),
             'bankh2': dict(zlib=True, complevel=9, least_significant_digit=0)
-        })
-
-def _LandCoverWidth(axis, kind, variable, long_length=200.0, resolution=5.0):
-    """
-    Aggregate LandCover Swat Data
-    """
-
-    # dgo_shapefile = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'REF', 'DGO.shp')
-    dgo_shapefile = config.filename('ax_dgo_vector', axis=axis)
-
-    gids = list()
-    measures = list()
-    values = list()
-    with fiona.open(dgo_shapefile) as fs:
-        with click.progressbar(fs) as iterator:
-            for feature in iterator:
-
-                gid = feature['properties']['GID']
-                measure = feature['properties']['M']
-                # swathfile = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'SWATH', 'CONTINUITY', 'SWATH_CONTINUITY_%04d.npz' % gid)
-                swathfile = config.filename('ax_swath_landcover', axis=axis, gid=gid, kind=kind.upper())
-                data = np.load(swathfile, allow_pickle=True)
-
-                x = data['x']
-                classes = data['classes']
-                swath = data['swath']
-
-                try:
-                    density = data['density']
-                    density_max = np.max(density)
-                except ValueError:
-                    density = np.zeros(0, dtype='uint32')
-                    density_max = 0
-
-                if density_max == 0 or x.shape[0] < 3:
-
-                    gids.append(gid)
-                    measures.append(measure)
-                    width = np.zeros((9, 2), dtype='float32')
-                    values.append(width)
-                    continue
-
-                # count = np.ma.sum(np.ma.masked_array(swath, np.isnan(swath)), axis=1)
-                dominant = np.ma.argmax(np.ma.masked_array(swath, np.isnan(swath)), axis=1)
-
-                # unit width of observations
-                unit_width = 0.5 * (np.roll(x, -1) - np.roll(x, 1))
-                unit_width[0] = x[1] - x[0]
-                unit_width[-1] = x[-1] - x[-2]
-
-                # width = np.zeros(9, dtype='float32')
-                width = np.zeros((9, 2), dtype='float32')
-
-                for k in range(len(classes)):
-
-                    if classes[k] == 255:
-                        continue
-
-                    # selection = (dominant == k)
-                    # width[classes[k]] = swath_width(selection, unit_width, density, long_length, resolution)
-
-                    selection = (dominant == k) & (x >= 0)
-                    width[classes[k], 0] = swath_width(
-                        selection,
-                        unit_width,
-                        density,
-                        long_length,
-                        resolution)
-
-                    selection = (dominant == k) & (x < 0)
-                    width[classes[k], 1] = swath_width(
-                        selection,
-                        unit_width,
-                        density,
-                        long_length,
-                        resolution)
-
-                # values.append(tuple([gid, measure] + width.tolist()))
-
-                gids.append(gid)
-                measures.append(measure)
-                values.append(width)
-
-    # dtype = [
-    #     ('gid', 'int'),
-    #     ('measure', 'float32')
-    # ] + [('lcc%d' % k, 'float32') for k in range(9)]
-
-    # return np.sort(np.array(values, dtype=np.dtype(dtype)), order='measure')
-    gids = np.array(gids, dtype='uint32')
-    measures = np.array(measures, dtype='float32')
-    data = np.array(values, dtype='float32')
-
-    return xr.Dataset(
-        {
-            'swath': ('measure', gids),
-            variable: (('measure', 'landcover', 'side'), data)
-        },
-        coords={
-            'axis': axis,
-            'measure': measures,
-            'landcover': [
-                'Water Channel',
-                'Gravel Bars',
-                'Natural Open',
-                'Forest',
-                'Grassland',
-                'Crops',
-                'Diffuse Urban',
-                'Dense Urban',
-                'Infrastructures'
-            ],
-            'side': [
-                'left',
-                'right'
-            ]
-        })
-
-def LandCoverWidth(axis, long_length=200.0, resolution=5.0):
-    """
-    Defines
-    -------
-
-    lcwk: continuity width (meter) for land cover class k
-    """
-
-    return _LandCoverWidth(
-        axis,
-        kind='std',
-        variable='lcw',
-        long_length=long_length,
-        resolution=resolution)
-
-def ContinuityWidth(axis, long_length=200.0, resolution=5.0):
-    """
-    Defines
-    -------
-
-    lcck: continuity width (meter) for land cover class k
-    """
-
-    return _LandCoverWidth(
-        axis,
-        kind='continuity',
-        variable='lcc',
-        long_length=long_length,
-        resolution=resolution)
-
-def WriteLandCoverWidth(axis, data):
-
-    # output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'METRICS', 'LANDCOVER_WIDTH.nc')
-    output = config.filename('metrics_lcc', axis=axis)
-
-    data.to_netcdf(
-        output, 'w',
-        encoding={
-            'measure': dict(zlib=True, complevel=9, least_significant_digit=0),
-            'lcw': dict(zlib=True, complevel=9, least_significant_digit=2),
-            'lcc': dict(zlib=True, complevel=9, least_significant_digit=2)
         })
 
 def test(axis=1044):
