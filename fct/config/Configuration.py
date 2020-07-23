@@ -57,13 +57,13 @@ class Configuration():
         Populate configuration from default `config.ini`
         """
         filename = os.path.join(os.path.dirname(__file__), 'config.ini')
-        self.set(*FileParser.parse(filename))
+        self.configure(*FileParser.parse(filename))
 
     def from_file(self, filename):
         """
         Populate configuration from .ini file
         """
-        self.set(*FileParser.parse(filename))
+        self.configure(*FileParser.parse(filename))
 
     def dataset(self, name):
         """
@@ -123,7 +123,7 @@ class Configuration():
         """
         return self._workspace.srid
 
-    def set(self, workspace, datasources, tilesets):
+    def configure(self, workspace, datasources, tilesets):
         """
         Populate configuration
         """
@@ -256,15 +256,30 @@ class Tileset():
     Describes a tileset from a shapefile index
     """
 
-    def __init__(self, name, index, height, width, tiledir):
+    def __init__(self, name, index, height, width, tiledir, resolution):
+        
         self._name = name
         self._index = index
         self._height = height
         self._width = width
         self._bounds = None
+        self._length = 0
         self._tileindex = None
         self._tiledir = tiledir
+        self._resolution = resolution
+        self._is_configured = False
         self.workspace = None
+
+    def configure(self):
+
+        if self._is_configured:
+            return
+
+        with fiona.open(self._index) as fs:
+            self._bounds = fs.bounds
+            self._length = len(fs)
+
+        self._is_configured = True
 
     @property
     def name(self):
@@ -288,12 +303,16 @@ class Tileset():
         return self._width
 
     @property
+    def resolution(self):
+        return self._resolution
+    
+
+    @property
     def bounds(self):
         """
         (minx, miny, maxx, maxy) bounds of this tileset
         """
-        if self._tileindex is None:
-            assert self.tileindex is not None
+        self.configure()
         return self._bounds
 
     @property
@@ -308,8 +327,6 @@ class Tileset():
 
             with fiona.open(self._index) as fs:
 
-                self._bounds = fs.bounds
-
                 for feature in fs:
                     props = feature['properties']
                     values = [props[k] for k in ('GID', 'ROW', 'COL', 'X0', 'Y0')]
@@ -321,6 +338,40 @@ class Tileset():
             self._tileindex = index
 
         return self._tileindex
+
+    def __len__(self):
+        """
+        Return number of tiles in tileindex
+        """
+
+        self.configure()
+        return self._length
+
+    def tiles(self):
+        """
+        Generator of tiles
+        """
+
+        with fiona.open(self._index) as fs:
+            for feature in fs:
+                
+                props = feature['properties']
+                values = [props[k] for k in ('GID', 'ROW', 'COL', 'X0', 'Y0')]
+                values.append(asShape(feature['geometry']).bounds)
+                values.append(self.name)
+                yield Tile(*values)
+
+
+    def index(self, x, y):
+        """
+        Return tile coordinates of real world point (x, y)
+        """
+
+        self.configure()
+        minx, _, _, maxy = self._bounds
+        row = int((maxy - y) // self._resolution)
+        col = int((x - minx) // self._resolution)
+        return row, col
 
     def tilename(self, dataset, row, col, **kwargs):
         """
@@ -418,11 +469,12 @@ class FileParser():
         Populate a Tileset object
         """
 
-        index = items.get('index', None)
-        height = int(items.get('height', 0))
-        width = int(items.get('width', 0))
-        tiledir = items.get('tiledir', '')
-        return Tileset(name, index, height, width, tiledir)
+        index = items['index']
+        tiledir = items['tiledir']
+        height = int(items['height'])
+        width = int(items['width'])
+        resolution = float(items['resolution'])
+        return Tileset(name, index, height, width, tiledir, resolution)
 
     @staticmethod
     def datasets(dstfile):

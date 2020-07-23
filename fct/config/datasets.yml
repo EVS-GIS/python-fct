@@ -2,6 +2,8 @@ tiled:
   description: |
     DEM Tiles
   type: raster
+  group: drainage
+  status: temporary
   subdir: GLOBAL/DEM
   filename: RGE5M.vrt
   tiles:
@@ -13,6 +15,8 @@ flow:
   description: |
     D8 Flow Direction, derived from DEM
   type: raster
+  group: drainage
+  status: final
   subdir: GLOBAL/DEM
   filename: FLOW_RGE5M.vrt
   tiles:
@@ -22,8 +26,11 @@ flow:
 
 acc:
   description: |
-    Accumulation raster (drainage area), derived from D8 Flow Direction
+    Accumulation raster (drainage area),
+    derived from D8 Flow Direction
   type: raster
+  group: drainage
+  status: final
   subdir: GLOBAL/DEM
   filename: ACC_RGE5M.vrt
   tiles:
@@ -36,6 +43,8 @@ outlets:
     Tile outlets, grouped per target tile (row, col).
     (gid) identifies the tile of origin.
   type: polygon
+  group: drainage
+  status: temporary
   subdir: GLOBAL/DEM
   tiles:
     tileset: landcover
@@ -46,6 +55,8 @@ outlets-glob:
   description: |
     Tile outlets, per target tile glob pattern
   type: polygon
+  group: drainage
+  status: temporary
   subdir: GLOBAL/DEM
   tiles:
     tileset: landcover
@@ -56,6 +67,8 @@ inlets:
   description: |
     Tile flow inlets
   type: polygon
+  group: drainage
+  status: temporary
   subdir: GLOBAL/DEM
   tiles:
     tileset: landcover
@@ -66,6 +79,8 @@ inlets:
   description: |
     Tile flow inlets
   type: polygon
+  group: drainage
+  status: temporary
   subdir: GLOBAL/DEM
   filename: INLETS.shp
   tiles:
@@ -77,6 +92,8 @@ inlet-sources:
   description: |
     Cross-tile stream connections
   type: polygon
+  group: drainage
+  status: temporary
   subdir: GLOBAL/DEM
   filename: SOURCES.shp
   tiles:
@@ -88,6 +105,8 @@ streams-from-sources:
   description: |
     Theoretical stream network, derived from DEM and mapped sources
   type: polygon
+  group: drainage
+  status: temporary
   subdir: GLOBAL/DEM
   filename: RHTS_NOATTR.shp
   tiles:
@@ -97,29 +116,39 @@ streams-from-sources:
 
 sources:
   description: |
-    Theoretical stream network sources, with input sources attributes
+    Theoretical stream network sources,
+    with mapped sources attributes
   type: polygon
+  group: drainage
+  status: temporary
   subdir: GLOBAL/DEM
   filename: RHTS_SOURCES.shp
 
 streams-attr:
   description: |
-    Theoretical stream network with source attributes
+    Theoretical stream network with network attributes
+    (axis identifier, axis length, Hack and Strahler order)
   type: polygon
+  group: drainage
+  status: temporary
   subdir: GLOBAL/DEM
   filename: RHTS_ATTR.shp
 
 streams-attr-sources:
   description: |
-    Theoretical stream network with source attributes
+    Theoretical stream network
+    with mapped sources attributes
   type: polygon
   subdir: GLOBAL/DEM
   filename: RHTS_ATTR_JOINED.shp
 
 streams:
   description: |
-    Theoretical stream network (final)
+    Theoretical stream network derived from DEM,
+    with attributes from mapped river network
   type: polygon
+  group: drainage
+  status: final
   subdir: GLOBAL/DEM
   filename: RHTS.shp
 
@@ -127,23 +156,14 @@ streams-tiled:
   description: |
     Stream network aggregated by axis and tiles
   type: polygon
+  group: drainage
+  status: temporary
   subdir: GLOBAL
   filename: STREAMS.shp
 
-watershed:
-  description: |
-    Watershed delineation
-  type: polygon
-  subdir: AXES/AX%(axis)04d
-  filename: WATERSHED.shp
-  tiles:
-    tileset: landcover
-    template: WATERSHED_%(row)02d_%(col)02d
-    extension: .shp
-
 landcover-default:
   description: |
-    Lorem ....
+    Default LandCover Tileset
   type: raster
   subdir: GLOBAL/LANDCOVER
   filename: LANDCOVER_2018.vrt
@@ -154,7 +174,8 @@ landcover-default:
 
 landcover-cesbio:
   description: |
-    Lorem ....
+    LandCover Tiles from CESBIO 2018,
+    derived from Sentinel 2 annual classification
   type: raster
   subdir: GLOBAL/CESBIO
   filename: LANDCOVER_CESBIO_2018.vrt
@@ -165,7 +186,8 @@ landcover-cesbio:
 
 landcover-gpk:
   description: |
-    Lorem ....
+    LandCover Tiles from GeoPeka database,
+    derived from BD Topo 2019 + RPG 2016
   type: raster
   subdir: GLOBAL/GEOPEKA
   filename: LANDCOVER_GEOPEKA_2019.vrt
@@ -176,13 +198,28 @@ landcover-gpk:
 
 landcover-bdt:
   description: |
-    Lorem ....
+    LandCover Tiles from BD Topo 2019 + RPG 2016
+    (direct rasterization)
   type: raster
   subdir: GLOBAL/BDTOPO
   filename: LANDCOVER_BDT_2019.vrt
   tiles:
     tileset: landcover
     template: LANDCOVER_BDT_2019_%(row)02d_%(col)02d
+    extension: .tif
+
+landcover-separate:
+  description: |
+    Land cover classe into separate contingency bands,
+    used to calculate accumulated watershed metrics
+  type: raster
+  group: landcover
+  status: temporary
+  subdir: GLOBAL/LANDCOVER
+  filename: LANDCOVER_CLASSES.vrt
+  tiles:
+    tileset: landcover
+    template: LANDCOVER_CLASSES_%(row)02d_%(col)02d
     extension: .tif
 
 population:
@@ -253,6 +290,8 @@ ax_tiles:
   description: |
     List of tiles intersecting given axis
   type: text
+  group: drainage
+  status: temporary
   subdir: AXES/AX%(axis)04d
   filename: TILES.csv
 
@@ -260,8 +299,32 @@ ax_refaxis:
   description: |
     Reference axis
   type: linestring
+  group: referencing
+  status: final
   subdir: AXES/AX%(axis)04d/REF
   filename: REFAXIS.shp
+
+ax_stream_network:
+  description: |
+    Theoretical stream network (axis subset)
+  type: linestring
+  group: drainage
+  status: temporary
+  subdir: AXES/AX%(axis)04d/REF
+  filename: STREAM.shp
+
+ax_watershed:
+  description: |
+    Watershed delineation
+  type: polygon
+  group: drainage
+  status: final
+  subdir: AXES/AX%(axis)04d
+  filename: WATERSHED.shp
+  tiles:
+    tileset: landcover
+    template: WATERSHED_%(row)02d_%(col)02d
+    extension: .shp
 
 ax_flow_height:
   description: |
@@ -459,6 +522,18 @@ ax_buffer_distance:
     template: BUFFER_DISTANCE_%(row)02d_%(col)02d
     extension: .tif
 
+ax_buffer_profile:
+  description: |
+    Discrete spatial units (ie. slices of buffer area)
+    along reference axis
+  type: raster
+  subdir: AXES/AX%(axis)04d
+  filename: BUFFER_PROFILE.vrt
+  tiles:
+    tileset: landcover
+    template: BUFFER_PROFILE_%(row)02d_%(col)02d
+    extension: .tif
+
 ax_subgrid_profile:
   description: |
     SubGrid Profile
@@ -481,6 +556,8 @@ metrics_fcw:
   description: |
     Fluvial Corridor Width
   type: metrics
+  group: corridor
+  status: final
   subdir: AXES/AX%(axis)04d/METRICS
   filename: FLUVIAL_CORRIDOR_WIDTH.nc
 
@@ -488,8 +565,19 @@ metrics_lcc:
   description: |
     Fluvial Corridor Width
   type: metrics
+  group: corridor
+  status: final
   subdir: AXES/AX%(axis)04d/METRICS
   filename: LANDCOVER_WIDTH.nc
+
+metrics_watershed:
+  description: |
+    Watershed Metrics
+  type: metrics
+  group: watershed
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: WATERSHED_%(subset)s.nc
 
 pdf_ax_swath_elevation:
   description: |
