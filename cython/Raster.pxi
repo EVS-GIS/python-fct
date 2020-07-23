@@ -27,7 +27,7 @@ def count_by_value(numpy.int64_t[:, :] raster):
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cumulate_by_id(A[:, :] values, unsigned int[:, :] ids):
+def cumulate_by_id(A[:, :] values, unsigned int[:, :] ids, A nodata):
     """
     Sum up values by unique IDs
     """
@@ -53,14 +53,16 @@ def cumulate_by_id(A[:, :] values, unsigned int[:, :] ids):
         for i in range(height):
             for j in range(width):
 
-                oid = ids[i, j]
-                cumulated[oid] += values[i, j]
+                if values[i, j] != nodata:
+
+                    oid = ids[i, j]
+                    cumulated[oid] += values[i, j]
 
     return cumulated
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cumulate_by_id2(A[:, :] values, unsigned int[:, :] ids1, unsigned int[:, :] ids2):
+def cumulate_by_id2(A[:, :] values, unsigned int[:, :] ids1, unsigned int[:, :] ids2, A nodata):
     """
     Sum up values by unique IDs
     """
@@ -95,10 +97,12 @@ def cumulate_by_id2(A[:, :] values, unsigned int[:, :] ids1, unsigned int[:, :] 
         for i in range(height):
             for j in range(width):
 
-                oid1 = ids1[i, j]
-                oid2 = ids2[i, j]
-                oid = Cell(oid1, oid2)
-                cumulated[oid] += values[i, j]
+                if values[i, j] != nodata:
+
+                    oid1 = ids1[i, j]
+                    oid2 = ids2[i, j]
+                    oid = Cell(oid1, oid2)
+                    cumulated[oid] += values[i, j]
 
     return cumulated
 
