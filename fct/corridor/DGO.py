@@ -7,7 +7,7 @@ Arbitrary DGO Polygon Swath Profiles
 *                                                                         *
 *   This program is free software; you can redistribute it and/or modify  *
 *   it under the terms of the GNU General Public License as published by  *
-*   the Free Software Foundation; either version 2 of the License, or     *
+*   the Free Software Foundation; either version 3 of the License, or     *
 *   (at your option) any later version.                                   *
 *                                                                         *
 ***************************************************************************
@@ -15,7 +15,6 @@ Arbitrary DGO Polygon Swath Profiles
 
 import os
 from operator import itemgetter
-import math
 
 import numpy as np
 import click
@@ -26,10 +25,9 @@ import fiona.crs
 from shapely.geometry import asShape, Point
 
 from .. import terrain_analysis as ta
-from .. import speedup
-from ..rasterize import rasterize_linestring, rasterize_linestringz
+from ..rasterize import rasterize_linestringz
 from ..tileio import as_window
-from ..drainage.SpatialReferencing import nearest_value_and_distance
+from ..metrics.SpatialReferencing import nearest_value_and_distance
 
 from .ransac import LinearModel, ransac
 
@@ -60,12 +58,12 @@ def SwathProfile(axis, gid, geometry):
         # Create DGO mask
 
         mask = features.rasterize(
-                [geometry],
-                out_shape=elevations.shape,
-                transform=transform,
-                fill=0,
-                default_value=1,
-                dtype='uint8')
+            [geometry],
+            out_shape=elevations.shape,
+            transform=transform,
+            fill=0,
+            default_value=1,
+            dtype='uint8')
 
         # Measure and distance from reference axis
 

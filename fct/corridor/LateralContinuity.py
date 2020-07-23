@@ -25,7 +25,7 @@ from .. import terrain_analysis as ta
 from ..cli import starcall
 from ..config import config
 
-def TileLateralContinuity(axis, row, col, dataset='landcover-bdt'):
+def LateralContinuityTile(axis, row, col, dataset='landcover-bdt'):
 
     tileset = config.tileset('landcover')
     landcover_raster = config.filename(dataset)
@@ -107,7 +107,7 @@ def LateralContinuity(axis, processes=1, **kwargs):
     arguments = list()
 
     for tile in tileset.tileindex.values():
-        arguments.append((TileLateralContinuity, axis, tile.row, tile.col, kwargs))
+        arguments.append((LateralContinuityTile, axis, tile.row, tile.col, kwargs))
 
     with Pool(processes=processes) as pool:
 
