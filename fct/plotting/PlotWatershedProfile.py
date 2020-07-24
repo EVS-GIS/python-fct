@@ -14,7 +14,6 @@ Watershed Metrics Plot
 """
 
 import numpy as np
-from matplotlib.ticker import EngFormatter
 from scipy.interpolate import interp1d
 import click
 
@@ -122,12 +121,20 @@ def PlotStackedProfile(ax, x, *ys, variables=None, dx=2000.0):
     ax.set_ylabel(label)
     ax.legend()
 
-def PlotPopulation(axis, width):
+def PlotPopulation(axis, width, filename=None):
 
     #pylint: disable=import-outside-toplevel
     import xarray as xr
     from .PlotCorridor import SetupPlot, SetupMeasureAxis, FinalizePlot
     from ..config import config
+
+    if filename is True:
+
+        filename = config.filename(
+            'pdf_ax_watershed_profile',
+            axis=axis,
+            variable='POP',
+            width=width)
 
     config.default()
     metric_file = config.filename('metrics_watershed', axis=axis, subset='BUF1K')
@@ -140,14 +147,27 @@ def PlotPopulation(axis, width):
     fig, ax = SetupPlot()
     PlotWatershedProfile(ax, variable['measure'], variable, 'pop')
     SetupMeasureAxis(ax, variable['measure'])
-    FinalizePlot(fig, ax, 'Population')
+    FinalizePlot(
+        fig,
+        ax,
+        'Population, buffer = %.0f m' % width,
+        filename=filename)
 
-def PlotIncome(axis, width):
+def PlotIncome(axis, width, filename=None):
 
     #pylint: disable=import-outside-toplevel
     import xarray as xr
     from .PlotCorridor import SetupPlot, SetupMeasureAxis, FinalizePlot
     from ..config import config
+
+    if filename is True:
+        
+        filename = config.filename(
+            'pdf_ax_watershed_profile',
+            axis=axis,
+            variable='SNV',
+            width=width)
+
 
     config.default()
     metric_file = config.filename('metrics_watershed', axis=axis, subset='BUF1K')
@@ -160,14 +180,26 @@ def PlotIncome(axis, width):
     fig, ax = SetupPlot()
     PlotWatershedProfile(ax, variable['measure'], variable, 'income')
     SetupMeasureAxis(ax, variable['measure'])
-    FinalizePlot(fig, ax, 'Population Revenue')
+    FinalizePlot(
+        fig,
+        ax,
+        'Population Revenue, buffer = %.0f m' % width,
+        filename=filename)
 
-def PlotLandCover(axis, landcover, width):
+def PlotLandCover(axis, landcover, width, filename=None):
 
     #pylint: disable=import-outside-toplevel
     import xarray as xr
     from .PlotCorridor import SetupPlot, SetupMeasureAxis, FinalizePlot
     from ..config import config
+
+    if filename is True:
+        
+        filename = config.filename(
+            'pdf_ax_watershed_profile',
+            axis=axis,
+            variable='K%d' % landcover,
+            width=width)
 
     config.default()
     metric_file = config.filename('metrics_watershed', axis=axis, subset='BUF1K')
@@ -181,14 +213,64 @@ def PlotLandCover(axis, landcover, width):
     fig, ax = SetupPlot()
     PlotWatershedProfile(ax, variable['measure'], variable, names[landcover])
     SetupMeasureAxis(ax, variable['measure'])
-    FinalizePlot(fig, ax, klass)
+    FinalizePlot(
+        fig,
+        ax,
+        '%s, buffer = %.0f m' % (klass.item(), width),
+        filename=filename)
 
-def PlotAgriculture(axis, width):
+def PlotNatural(axis, width, filename=None):
 
     #pylint: disable=import-outside-toplevel
     import xarray as xr
     from .PlotCorridor import SetupPlot, SetupMeasureAxis, FinalizePlot
     from ..config import config
+
+    if filename is True:
+        
+        filename = config.filename(
+            'pdf_ax_watershed_profile',
+            axis=axis,
+            variable='NATURAL',
+            width=width)
+
+    config.default()
+    metric_file = config.filename('metrics_watershed', axis=axis, subset='BUF1K')
+    data = xr.open_dataset(metric_file)
+
+    data = data.sortby(data['measure'], ascending=False)
+    ys = list()
+
+    for k in (2, 3):
+
+        klass = data['landcover'][k]
+        lck = data['lck'].sel(landcover=klass).sortby('width')
+        y = np.cumsum(lck, axis=1).sel(width=width)
+        ys.append(y)
+
+    fig, ax = SetupPlot()
+    PlotStackedProfile(ax, y['measure'], *ys, variables=('natural', 'forest'))
+    SetupMeasureAxis(ax, y['measure'])
+    FinalizePlot(
+        fig,
+        ax,
+        'Natural Areas, buffer = %.0f m' % width,
+        filename=filename)
+
+def PlotAgriculture(axis, width, filename=None):
+
+    #pylint: disable=import-outside-toplevel
+    import xarray as xr
+    from .PlotCorridor import SetupPlot, SetupMeasureAxis, FinalizePlot
+    from ..config import config
+
+    if filename is True:
+        
+        filename = config.filename(
+            'pdf_ax_watershed_profile',
+            axis=axis,
+            variable='AGRICULTURE',
+            width=width)
 
     config.default()
     metric_file = config.filename('metrics_watershed', axis=axis, subset='BUF1K')
@@ -207,14 +289,26 @@ def PlotAgriculture(axis, width):
     fig, ax = SetupPlot()
     PlotStackedProfile(ax, y['measure'], *ys, variables=('crops', 'grassland'))
     SetupMeasureAxis(ax, y['measure'])
-    FinalizePlot(fig, ax, 'Agriculture, buffer = %.0f m' % width)
+    FinalizePlot(
+        fig,
+        ax,
+        'Agriculture, buffer = %.0f m' % width,
+        filename=filename)
 
-def PlotBuiltEnvironment(axis, width):
+def PlotBuiltEnvironment(axis, width, filename=None):
 
     #pylint: disable=import-outside-toplevel
     import xarray as xr
     from .PlotCorridor import SetupPlot, SetupMeasureAxis, FinalizePlot
     from ..config import config
+
+    if filename is True:
+        
+        filename = config.filename(
+            'pdf_ax_watershed_profile',
+            axis=axis,
+            variable='BUILT',
+            width=width)
 
     config.default()
     metric_file = config.filename('metrics_watershed', axis=axis, subset='BUF1K')
@@ -233,4 +327,8 @@ def PlotBuiltEnvironment(axis, width):
     fig, ax = SetupPlot()
     PlotStackedProfile(ax, y['measure'], *ys, variables=('infrastructures', 'urban', 'diffuse'))
     SetupMeasureAxis(ax, y['measure'])
-    FinalizePlot(fig, ax, 'Built Environment, buffer = %.0f m' % width)
+    FinalizePlot(
+        fig,
+        ax,
+        'Built Environment, buffer = %.0f m' % width,
+        filename=filename)
