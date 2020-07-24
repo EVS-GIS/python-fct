@@ -13,6 +13,7 @@ LandCover Lateral Continuity Analysis
 ***************************************************************************
 """
 
+from collections import namedtuple
 from multiprocessing import Pool
 import numpy as np
 
@@ -25,20 +26,32 @@ from .. import terrain_analysis as ta
 from ..cli import starcall
 from ..config import config
 
+DatasetParameter = namedtuple('DatasetParameter', [
+    'tileset',
+    'landcover',
+    'distance',
+    'height',
+    'output'
+])
+
 def LateralContinuityTile(
         axis,
         row,
         col,
-        dataset='landcover-bdt',
+        datasets,
         maxz=20.0,
         padding=200,
-        with_infrastructures=True):
+        with_infrastructures=True,
+        **kwargs):
+    """
+    Tile Implementation
+    """
 
-    tileset = config.tileset('landcover')
-    landcover_raster = config.filename(dataset)
-    distance_raster = config.filename('ax_nearest_distance', axis=axis)
-    hand_raster = config.filename('ax_relative_elevation', axis=axis)
-    output = tileset.tilename('ax_continuity', axis=axis, row=row, col=col)
+    tileset = config.tileset(datasets.tileset)
+    landcover_raster = config.filename(datasets.landcover, **kwargs)
+    distance_raster = config.filename(datasets.distance, axis=axis, **kwargs)
+    hand_raster = config.filename(datasets.height, axis=axis, **kwargs)
+    output = tileset.tilename(datasets.output, axis=axis, row=row, col=col, **kwargs)
 
     height = tileset.height + 2*padding
     width = tileset.width + 2*padding
@@ -116,22 +129,102 @@ def LateralContinuityTile(
         with rio.open(output, 'w', **profile) as dst:
             dst.write(out[padding:-padding, padding:-padding], 1)
 
-def LateralContinuity(axis, processes=1, **kwargs):
+def LateralContinuity(
+        axis,
+        processes=1,
+        tileset='landcover',
+        landcover='landcover-bdt',
+        distance='ax_talweg_distance',
+        height='ax_nearest_height',
+        output='ax_continuity',
+        **kwargs):
     """
     Calculate LandCover Continuity from River Channel
+
+    Parameters
+    ----------
+
+    axis: int
+
+        Axis identifier
+
+    processes: int
+
+        Number of parallel processes to execute
+        (defaults to one)
+
+    Keyword Parameters
+    ------------------
+
+    tileset: str, logical name
+
+        Tileset to use,
+        defaults to `landcover`
+
+    landcover: str, logical name
+
+        Landcover data raster,
+        defaults to `landcover`
+
+    distance: str, logical name
+
+        Distance from drainage raster,
+        defaults to `ax_talweg_distance`.
+
+    height: str, logical name
+
+        Height above drainage raster,
+        defaults to `ax_nearest_height`
+
+    output: str, logical name
+
+        Continuity raster output,
+        defaults to `ax_continuity`
+
+    maxz: float
+
+        Truncate landcover data with height above maxz,
+        defaults to 20.0 m
+
+    padding: int
+
+        Number of pixels to pad tiles with,
+        defaults to 200
+
+    with_infrastructures: bool
+
+        Whether to exclude landcover infrastructure class (8)
+        from continuity analysis,
+        defaults to True
+
+    Other keywords are passed to dataset filename templates.
     """
 
-    tileset = config.tileset('landcover')
+    tileindex = config.tileset(tileset)
 
-    arguments = list()
+    datasets = DatasetParameter(
+        tileset=tileset,
+        landcover=landcover,
+        distance=distance,
+        height=height,
+        output=output
+    )
 
-    for tile in tileset.tileindex.values():
-        arguments.append((LateralContinuityTile, axis, tile.row, tile.col, kwargs))
+    def arguments():
+
+        for tile in tileindex.tiles():
+            yield (
+                LateralContinuityTile,
+                axis,
+                tile.row,
+                tile.col,
+                datasets,
+                kwargs)
 
     with Pool(processes=processes) as pool:
 
-        pooled = pool.imap_unordered(starcall, arguments)
+        pooled = pool.imap_unordered(starcall, arguments())
 
-        with click.progressbar(pooled, length=len(arguments)) as iterator:
+        with click.progressbar(pooled, length=len(tileindex)) as iterator:
             for _ in iterator:
                 pass

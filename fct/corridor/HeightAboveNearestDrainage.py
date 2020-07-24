@@ -15,7 +15,9 @@ aka. detrended DEM
 ***************************************************************************
 """
 
+from collections import namedtuple
 from operator import itemgetter
+from multiprocessing import Pool
 
 import numpy as np
 
@@ -29,41 +31,65 @@ from .. import speedup
 from ..config import config
 from ..rasterize import rasterize_linestringz
 from ..metrics import nearest_value_and_distance
+from ..cli import starcall
 
-def HeightAboveNearestDrainageTile(axis, row, col, dataset='ax_flow_height'):
+DatasetParameter = namedtuple('DatasetParameter', [
+    'elevation',
+    'drainage',
+    'mask',
+    'height',
+    'distance'
+])
+
+def DrapeLineString(coordinates, datasets, **kwargs):
+
+    elevation_raster = config.filename(datasets.elevation, **kwargs)
+
+    with rio.open(elevation_raster) as ds:
+
+        z = np.array(list(ds.sample(coordinates[:, :2], 1)))
+        coordinates[:, 2] = z[:, 0]
+
+def HeightAboveNearestDrainageTile(
+        axis,
+        row,
+        col,
+        datasets,
+        buffer_width=30.0,
+        resolution=5.0,
+        **kwargs):
     """
     see DistanceAndHeightAboveNearestDrainage
     """
 
     tileset = config.tileset('landcover')
 
-    network_shapefile = config.filename('streams-tiled')
-    elevation_raster = tileset.tilename('tiled', row=row, col=col)
+    elevation_raster = tileset.tilename(datasets.elevation, row=row, col=col, **kwargs)
+    drainage_shapefile = config.filename(datasets.drainage, axis=axis, **kwargs)
     # valley_bottom_rasterfile = tileset.tilename('ax_flow_height', axis=axis, row=row, col=col)
-    valley_bottom_rasterfile = tileset.tilename(dataset, axis=axis, row=row, col=col)
+    mask_rasterfile = tileset.tilename(datasets.mask, axis=axis, row=row, col=col, **kwargs)
 
-    output_relative_z = tileset.tilename('ax_relative_elevation', axis=axis, row=row, col=col)
-    output_stream_distance = tileset.tilename('ax_nearest_distance', axis=axis, row=row, col=col)
+    output_height = tileset.tilename(datasets.height, axis=axis, row=row, col=col, **kwargs)
+    output_distance = tileset.tilename(datasets.distance, axis=axis, row=row, col=col, **kwargs)
 
-    with rio.open(valley_bottom_rasterfile) as ds:
+    with rio.open(mask_rasterfile) as ds:
 
-        click.echo('Read Valley Bottom')
-
-        valley_bottom = ds.read(1)
-        speedup.raster_buffer(valley_bottom, ds.nodata, 6.0)
-        height, width = valley_bottom.shape
+        mask = ds.read(1)
+        speedup.raster_buffer(mask, ds.nodata, buffer_width / resolution)
+        height, width = mask.shape
 
         profile = ds.profile.copy()
         profile.update(compress='deflate')
 
         refaxis_pixels = list()
 
-        click.echo('Map Stream Network')
-
         def accept(feature):
 
             properties = feature['properties']
             return properties['AXIS'] == axis
+
+        # def intile(i, j):
+        #     return all([i >= 0, i < height, j >= 0, j < width])
 
         def accept_pixel(i, j):
             return all([i >= -height, i < 2*height, j >= -width, j < 2*width])
@@ -72,27 +98,39 @@ def HeightAboveNearestDrainageTile(axis, row, col, dataset='ax_flow_height'):
         unique = set()
 
         with rio.open(elevation_raster) as ds2:
+
             elevations = ds2.read(1)
 
-        with fiona.open(network_shapefile) as fs:
-            for feature in fs:
+            with fiona.open(drainage_shapefile) as fs:
+                for feature in fs:
 
-                if accept(feature):
+                    if accept(feature):
 
-                    coordinates = np.array([
-                        coord(p) for p in feature['geometry']['coordinates']
-                    ], dtype='float32')
+                        coordinates = np.array([
+                            coord(p) for p in feature['geometry']['coordinates']
+                        ], dtype='float32')
 
-                    coordinates[:, :2] = ta.worldtopixel(coordinates[:, :2], ds.transform, gdal=False)
+                        # override z from elevation raster
+                        # just in case we forgot to drape stream network on DEM
+                        DrapeLineString(coordinates, datasets, **kwargs)
 
-                    for a, b in zip(coordinates[:-1], coordinates[1:]):
-                        for i, j, z in rasterize_linestringz(a, b):
-                            if accept_pixel(i, j) and (i, j) not in unique:
-                                # distance[i, j] = 0
-                                # measure[i, j] = m
-                                # z = elevations[i, j]
-                                refaxis_pixels.append((i, j, z))
-                                unique.add((i, j))
+                        coordinates[:, :2] = ta.worldtopixel(coordinates[:, :2], ds.transform, gdal=False)
+
+                        for a, b in zip(coordinates[:-1], coordinates[1:]):
+
+                            # if intile(a[0], a[1]):
+                            #     a[2] = elevations[a[0], a[1]]
+
+                            # if intile(b[0], b[1]):
+                            #     b[2] = elevations[b[0], b[1]]
+
+                            for i, j, z in rasterize_linestringz(a, b):
+                                if accept_pixel(i, j) and (i, j) not in unique:
+                                    # distance[i, j] = 0
+                                    # measure[i, j] = m
+                                    # z = elevations[i, j]
+                                    refaxis_pixels.append((i, j, z))
+                                    unique.add((i, j))
 
         # output_refaxis = os.path.join(axdir, 'REF', 'REFAXIS_POINTS.shp')
         # schema = {
@@ -121,44 +159,156 @@ def HeightAboveNearestDrainageTile(axis, row, col, dataset='ax_flow_height'):
         if not refaxis_pixels:
             return
 
-        click.echo('Calculate Reference & Distance Raster')
-
         reference, distance = nearest_value_and_distance(
             np.array(refaxis_pixels),
-            valley_bottom,
+            mask,
             ds.nodata)
 
-        distance = 5.0 * distance
+        # scale distance by raster resolution
+        distance = resolution * distance
+        distance[mask == ds.nodata] = ds.nodata
 
-        click.echo('Write output')
-
-        distance[valley_bottom == ds.nodata] = ds.nodata
-
-        with rio.open(output_stream_distance, 'w', **profile) as dst:
+        with rio.open(output_distance, 'w', **profile) as dst:
             dst.write(distance, 1)
 
         del distance
 
         # elevations, _ = ReadRasterTile(row, col, 'dem1')
 
-        relative = elevations - reference
-        relative[valley_bottom == ds.nodata] = ds.nodata
+        hand = elevations - reference
+        hand[mask == ds.nodata] = ds.nodata
 
-        with rio.open(output_relative_z, 'w', **profile) as dst:
-            dst.write(relative, 1)
+        with rio.open(output_height, 'w', **profile) as dst:
+            dst.write(hand, 1)
 
-def DistanceAndHeightAboveNearestDrainage(axis, **kwargs):
+def HeightAboveNearestDrainage(
+        axis,
+        processes=1,
+        ax_tiles='ax_tiles',
+        elevation='tiled',
+        drainage='ax_drainage_network',
+        mask='ax_flow_height',
+        height='ax_nearest_height',
+        distance='ax_nearest_distance',
+        **kwargs):
     """
-    Calculate distance and height above nearest drainage,
-    based on theoretical drainage derived from DEM.
+    Calculate distance and height above nearest drainage
+
+    Parameters
+    ----------
+
+    axis: int
+
+        Axis identifier
+
+    processes: int
+
+        Number of parallel processes to execute
+        (defaults to one)
+
+    Keyword Parameters
+    ------------------
+
+    buffer_width: float
+
+        Width (real world units) of the buffer
+        used to expand domain mask,
+        defaults to 30.0 m
+
+    resolution: float
+
+        Raster resolution (real world units),
+        used to scale distance,
+        defaults to 5.0 m
+
+    ax_tiles: str, logical name
+
+        Axis list of intersecting tiles
+
+    elevation: str, logical name
+
+        Absolute elevation raster (DEM)
+
+    drainage: str, logical name
+
+        Drainage network for reference.
+        streams-tiled | ax_drainage_network | ax_talweg
+
+    mask: str, logical name
+
+        Mask raster,
+        which defines the domain area to process
+        from data/nodata values.
+        ax_flow_height | ax_valley_bottom | ax_nearest_height
+
+    height: str, logical name
+
+        Output raster for calculated height
+        above nearest drainage
+
+    distance: str, logical name
+
+        Output raster for calculated distance
+        from nearest drainage
+
+    Other keywords are passed to dataset filename templates.
     """
 
-    tilefile = config.filename('ax_tiles', axis=axis)
+    datasets = DatasetParameter(
+        elevation=elevation,
+        drainage=drainage,
+        mask=mask,
+        height=height,
+        distance=distance
+    )
 
-    with open(tilefile) as fp:
-        tiles = [tuple(int(x) for x in line.split(',')) for line in fp]
+    tilefile = config.filename(ax_tiles, axis=axis, **kwargs)
 
-    with click.progressbar(tiles) as iterator:
-        for _, row, col in iterator:
+    def arguments():
 
-            HeightAboveNearestDrainageTile(axis, row, col, **kwargs)
+        with open(tilefile) as fp:
+            for line in fp:
+                _, row, col = tuple(int(x) for x in line.split(','))
+                yield (
+                    HeightAboveNearestDrainageTile,
+                    axis,
+                    row,
+                    col,
+                    datasets,
+                    kwargs
+                )
+
+    arguments = list(arguments())
+
+    with Pool(processes=processes) as pool:
+
+        pooled = pool.imap_unordered(starcall, arguments)
+
+        with click.progressbar(pooled, length=len(arguments)) as iterator:
+            for _ in iterator:
+                pass
+
+def HeightAboveTalweg(axis, **kwargs):
+    """
+    Default parameters for height above talweg
+    """
+
+    parameters = dict(
+        processes=5,
+        drainage='ax_talweg',
+        mask='ax_nearest_height',
+        height='ax_talweg_height',
+        distance='ax_talweg_distance',
+        buffer_width=30.0,
+        resolution=5.0
+    )
+
+    parameters.update(kwargs)
+
+    click.secho('--%12s:' % 'Parameters', fg='cyan')
+    click.secho('  %12s: %d' % ('axis', axis))
+
+    for parameter, value in parameters.items():
+        click.echo('  %12s: %s' % (parameter, value))
+
+    HeightAboveNearestDrainage(axis, **parameters)

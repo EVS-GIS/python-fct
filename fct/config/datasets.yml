@@ -295,23 +295,32 @@ ax_tiles:
   subdir: AXES/AX%(axis)04d
   filename: TILES.csv
 
+ax_talweg:
+  description: |
+    Mapped river network talweg (axis subset)
+  type: linestring
+  group: drainage
+  status: temporary
+  subdir: AXES/AX%(axis)04d/REF
+  filename: TALWEG.shp
+
 ax_refaxis:
   description: |
     Reference axis
   type: linestring
-  group: referencing
+  group: spatial reference
   status: final
   subdir: AXES/AX%(axis)04d/REF
   filename: REFAXIS.shp
 
-ax_stream_network:
+ax_drainage_network:
   description: |
     Theoretical stream network (axis subset)
   type: linestring
   group: drainage
   status: temporary
   subdir: AXES/AX%(axis)04d/REF
-  filename: STREAM.shp
+  filename: DRAINAGE.shp
 
 ax_watershed:
   description: |
@@ -330,6 +339,8 @@ ax_flow_height:
   description: |
     Height above nearest drainage, following flow
   type: raster
+  group: metrology
+  status: temporary
   subdir: AXES/AX%(axis)04d
   filename: FLOW_HEIGHT.vrt
   tiles:
@@ -341,6 +352,8 @@ ax_flow_distance:
   description: |
     Distance to nearest drainage, following flow
   type: raster
+  group: metrology
+  status: temporary
   subdir: AXES/AX%(axis)04d
   filename: FLOW_DISTANCE.vrt
   tiles:
@@ -352,6 +365,8 @@ ax_axis_distance:
   description: |
     Distance to reference axis
   type: raster
+  group: metrology
+  status: temporary
   subdir: AXES/AX%(axis)04d
   filename: AXIS_DISTANCE.vrt
   tiles:
@@ -363,6 +378,8 @@ ax_axis_measure:
   description: |
     Distance (measure) along reference axis
   type: raster
+  group: spatial reference
+  status: temporary
   subdir: AXES/AX%(axis)04d
   filename: AXIS_MEASURE.vrt
   tiles:
@@ -373,7 +390,10 @@ ax_axis_measure:
 ax_dgo:
   description: |
     Spatial units discretization
+    TODO duplicate of ax_swaths, to be removed
   type: raster
+  group: spatial reference
+  status: temporary
   subdir: AXES/AX%(axis)04d
   filename: DGO.vrt
   tiles:
@@ -385,6 +405,8 @@ ax_dgo_parts:
   description: |
     Spatial units polygons, extracted from measure raster
   type: polygon
+  group: spatial reference
+  status: temporary
   subdir: AXES/AX%(axis)04d/REF
   filename: DGO_PARTS.shp
   tiles:
@@ -396,21 +418,52 @@ ax_dgo_vector:
   description: |
     Spatial units polygons,
     after cross-tile merge and invalid parts removal
+    TODO duplicate of ax_swath_features, to be removed
   type: polygon
+  group: spatial reference
+  status: temporary
   subdir: AXES/AX%(axis)04d/REF
   filename: DGO.shp
 
-ax_dgo_invalid:
+ax_swaths:
   description: |
-    Spatial units' invalid parts
+    Spatial units discretization
+  type: raster
+  group: spatial reference
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: DGO.vrt
+  tiles:
+    tileset: landcover
+    template: DGO_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_swath_features:
+  description: |
+    Spatial units polygons,
+    after cross-tile merge and invalid parts removal
   type: polygon
+  group: spatial reference
+  status: temporary
   subdir: AXES/AX%(axis)04d/REF
-  filename: DGO_DISCONNECTED.shp
+  filename: DGO.shp
+
+ax_dgo_vector:
+  description: |
+    Spatial units polygons,
+    after cross-tile merge and invalid parts removal
+  type: polygon
+  group: spatial reference
+  status: temporary
+  subdir: AXES/AX%(axis)04d/REF
+  filename: DGO.shp
 
 ax_nearest_distance:
   description: |
     Distance to nearest drainage
   type: raster
+  group: metrology
+  status: temporary
   subdir: AXES/AX%(axis)04d
   filename: NEAREST_DISTANCE.vrt
   tiles:
@@ -418,10 +471,12 @@ ax_nearest_distance:
     template: NEAREST_DISTANCE_%(row)02d_%(col)02d
     extension: .tif
 
-ax_relative_elevation:
+ax_nearest_height:
   description: |
     Height above nearest drainage (HAND)
   type: raster
+  group: metrology
+  status: temporary
   subdir: AXES/AX%(axis)04d
   filename: NEAREST_HEIGHT.vrt
   tiles:
@@ -429,10 +484,52 @@ ax_relative_elevation:
     template: NEAREST_HEIGHT_%(row)02d_%(col)02d
     extension: .tif
 
+ax_relative_elevation:
+  description: |
+    Height above nearest drainage (HAND)
+    TODO duplicate of ax_nearest_height, to be removed
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: NEAREST_HEIGHT.vrt
+  tiles:
+    tileset: landcover
+    template: NEAREST_HEIGHT_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_talweg_distance:
+  description: |
+    Distance to mapped talweg
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: TALWEG_DISTANCE.vrt
+  tiles:
+    tileset: landcover
+    template: TALWEG_DISTANCE_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_talweg_height:
+  description: |
+    Height above mapped talweg
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: TALWEG_HEIGHT.vrt
+  tiles:
+    tileset: landcover
+    template: TALWEG_HEIGHT_%(row)02d_%(col)02d
+    extension: .tif
+
 ax_valley_bottom:
   description: |
     Valley bottom extended to topographic limits
   type: raster
+  group: metrology
+  status: temporary
   subdir: AXES/AX%(axis)04d
   filename: VALLEY_BOTTOM.vrt
   tiles:
@@ -444,6 +541,8 @@ ax_valley_distance:
   description: |
     Valley bottom extended to topographic limits
   type: raster
+  group: metrology
+  status: temporary
   subdir: AXES/AX%(axis)04d
   filename: VALLEY_DISTANCE.vrt
   tiles:
@@ -455,6 +554,8 @@ ax_buffer_distance:
   description: |
     Buffer distance from active channel limits
   type: raster
+  group: metrology
+  status: temporary
   subdir: AXES/AX%(axis)04d
   filename: BUFFER_DISTANCE.vrt
   tiles:
@@ -466,12 +567,23 @@ ax_continuity:
   description: |
     Landcover continuity map
   type: raster
+  group: corridor
+  status: final
   subdir: AXES/AX%(axis)04d
   filename: LANDCOVER_CONTINUITY.vrt
   tiles:
     tileset: landcover
     template: LANDCOVER_CONTINUITY_%(row)02d_%(col)02d
     extension: .tif
+
+ax_continuity_variant:
+  description: |
+    Landcover continuity map (Variants)
+  type: raster
+  group: corridor
+  status: final
+  subdir: AXES/AX%(axis)04d
+  filename: LANDCOVER_CONTINUITY_%(variant)s.tif
 
 ax_swath_elevation:
   description: |
@@ -503,6 +615,8 @@ ax_buffer_mask:
     2 = buffer area within buffer width from active channel
     0 = elsewhere
   type: raster
+  group: metrology
+  status: temporary
   subdir: AXES/AX%(axis)04d
   filename: BUFFER_MASK.vrt
   tiles:
@@ -515,6 +629,8 @@ ax_buffer_distance:
     Distance from axis active channel,
     based on landcover continuity classes
   type: raster
+  group: metrology
+  status: temporary
   subdir: AXES/AX%(axis)04d
   filename: BUFFER_DISTANCE.vrt
   tiles:
@@ -527,6 +643,8 @@ ax_buffer_profile:
     Discrete spatial units (ie. slices of buffer area)
     along reference axis
   type: raster
+  group: metrology
+  status: temporary
   subdir: AXES/AX%(axis)04d
   filename: BUFFER_PROFILE.vrt
   tiles:
@@ -538,6 +656,8 @@ ax_subgrid_profile:
   description: |
     SubGrid Profile
   type: point
+  group: metrology
+  status: temporary
   subdir: AXES/AX%(axis)04d
   filename: SUBGRID_PROFILE.shp
 
@@ -545,6 +665,8 @@ ax_subgrid_watershed:
   description: |
     SubGrid Profile Sample Watershed
   type: raster
+  group: metrology
+  status: temporary
   subdir: AXES/AX%(axis)04d
   filename: SUBGRID_WATERSHED.vrt
   tiles:
@@ -570,6 +692,15 @@ metrics_lcw:
   subdir: AXES/AX%(axis)04d/METRICS
   filename: LANDCOVER_WIDTH.nc
 
+metrics_lcw_variant:
+  description: |
+    LandCover Width (Variants)
+  type: metrics
+  group: corridor
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: LANDCOVER_WIDTH_%(variant)s.nc
+
 metrics_watershed:
   description: |
     Watershed Metrics
@@ -583,6 +714,8 @@ pdf_ax_swath_elevation:
   description: |
     Elevation swath output, per spatial unit
   type: pdf
+  group: metrics
+  status: final
   subdir: AXES/AX%(axis)04d/PDF
   filename: SWATH_ELEVATION_%(gid)04d_%(kind)s.pdf
 
@@ -590,5 +723,25 @@ pdf_ax_swath_landcover:
   description: |
     Landcover swath output, per spatial unit
   type: pdf
+  group: metrics
+  status: final
   subdir: AXES/AX%(axis)04d/PDF/LANDCOVER
   filename: SWATH_ELEVATION_%(gid)04d_%(kind)s.pdf
+
+pdf_ax_landcover_profile:
+  description: |
+    Landcover longitudinal profile
+  type: pdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/PDF/LANDCOVER
+  filename: LANDCOVER_PROFILE_%(variant)s.pdf
+
+pdf_ax_leftright_profile:
+  description: |
+    Left bank/right bank landcover longitudinal profile
+  type: pdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/PDF/LANDCOVER
+  filename: LEFTRIGHT_PROFILE_%(variant)s.pdf

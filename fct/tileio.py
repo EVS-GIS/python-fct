@@ -15,10 +15,13 @@ Input/Output Routines
 
 import os
 import math
+import subprocess
+
 import numpy as np
 import rasterio as rio
 from rasterio.windows import Window
 from rasterio.warp import Resampling
+
 from .config import config
 from . import transform as fct
 
@@ -320,3 +323,57 @@ def PadRaster(row, col, dataset='filled', tileset='default', padding=1, **kwargs
             width=width+2*padding)
 
     return padded, profile
+
+def buildvrt(tileset, dataset, **kwargs):
+    """
+    Build GDAL Virtual Raster from tile dataset
+    """
+
+    vrt = config.filename(dataset, **kwargs)
+    tiledir = config.tileset(tileset).tiledir
+    workdir = os.path.dirname(vrt)
+    output = os.path.basename(vrt)
+    prefix, _ = os.path.splitext(output)
+
+    if not os.path.exists(vrt):
+        raise ValueError('file does not exist: %s' % vrt)
+
+    command = 'cd %(workdir)s ; find %(tiledir)s -name "%(prefix)s_*.tif" | xargs gdalbuildvrt -a_srs %(srs)s %(output)s'
+    command = command % dict(
+        workdir=workdir,
+        tiledir=tiledir,
+        prefix=prefix,
+        srs='EPSG:%d' % config.srid,
+        output=output)
+
+    subprocess.run(['/bin/bash', '-c', command], check=True)
+
+def translate(dataset, driver='gtiff', **kwargs):
+    """
+    Translate virtual raster dataset to GeoTiff or NetCDF 4
+    """
+
+    vrt = config.filename(dataset, **kwargs)
+
+    if not os.path.exists(vrt):
+        raise ValueError('file does not exist: %s' % vrt)
+
+    if driver in ('gtiff', 'tif'):
+
+        output = vrt.replace('.vrt', '.tif')
+        creation_options = '-co TILED=YES -co COMPRESS=DEFLATE'.split(' ')
+        subprocess.run(
+            ['gdal_translate', '-of', 'gtiff'] + creation_options + [vrt, output],
+            check=True)
+
+    elif driver in ('netcdf', 'nc'):
+
+        output = vrt.replace('.vrt', '.nc')
+        creation_options = '-co FORMAT=NC4 -co COMPRESS=DEFLATE -co ZLEVEL=9'.split(' ')
+        subprocess.run(
+            ['gdal_translate', '-of', 'netcdf'] + creation_options + [vrt, output],
+            check=True)
+
+    else:
+
+        raise ValueError('not a supported GDAL driver: %s' % driver)

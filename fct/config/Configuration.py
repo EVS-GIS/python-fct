@@ -316,6 +316,13 @@ class Tileset():
         return self._bounds
 
     @property
+    def tiledir(self):
+        """
+        Tile storage relative to dataset path
+        """
+        return self._tiledir
+    
+    @property
     def tileindex(self):
         """
         Index of tiles belonging to this tileset

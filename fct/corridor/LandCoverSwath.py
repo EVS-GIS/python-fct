@@ -13,6 +13,7 @@ LandCover Swath Profile
 ***************************************************************************
 """
 
+from collections import namedtuple
 from multiprocessing import Pool
 import numpy as np
 
@@ -26,28 +27,33 @@ from ..tileio import as_window
 from ..cli import starcall
 from ..config import config
 
+DatasetParameter = namedtuple('DatasetParameter', [
+    'landcover', # landcover, ax_continuity
+    'swaths', # ax_dgo
+    'swath_features', # ax_dgo_vector
+    'axis_distance', # ax_axis_distance
+    'drainage_distance', # ax_nearest_distance, ax_talweg_distance
+    'height', # ax_nearest_height
+    'output', # ax_swath_landcover
+])
+
 def UnitLandCoverSwath(
         axis,
         gid,
         bounds,
-        dataset='continuity',
+        datasets,
         step=10.0,
-        maxz=20.0):
+        maxz=20.0,
+        **kwargs):
     """
     Calculate land cover swath profile for longitudinal unit (axis, gid)
     """
 
-    dgo_raster = config.filename('ax_dgo', axis=axis)
-    axis_distance_raster = config.filename('ax_axis_distance', axis=axis)
-    nearest_distance_raster = config.filename('ax_nearest_distance', axis=axis)
-    hand_raster = config.filename('ax_relative_elevation', axis=axis)
-
-    if dataset == 'landcover':
-        landcover_raster = config.filename('landcover')
-    elif dataset == 'continuity':
-        landcover_raster = config.filename('ax_continuity', axis=axis)
-    else:
-        raise ValueError('incorrect parameter dataset: %s' % dataset)
+    landcover_raster = config.filename(datasets.landcover, axis=axis, **kwargs)
+    swath_raster = config.filename(datasets.swaths, axis=axis, **kwargs)
+    axis_distance_raster = config.filename(datasets.axis_distance, axis=axis, **kwargs)
+    nearest_distance_raster = config.filename(datasets.drainage_distance, axis=axis, **kwargs)
+    hand_raster = config.filename(datasets.height, axis=axis, **kwargs)
 
     with rio.open(landcover_raster) as ds:
 
@@ -65,7 +71,7 @@ def UnitLandCoverSwath(
             window3 = as_window(bounds, ds3.transform)
             nearest_distance = ds3.read(1, window=window3, boundless=True, fill_value=ds3.nodata)
 
-        with rio.open(dgo_raster) as ds4:
+        with rio.open(swath_raster) as ds4:
             window4 = as_window(bounds, ds4.transform)
             mask = (ds4.read(1, window=window4, boundless=True, fill_value=ds4.nodata) == gid)
 
@@ -134,7 +140,7 @@ def UnitLandCoverSwath(
 
         return gid, values
 
-def LandCoverSwath(axis, dataset='continuity', processes=1, **kwargs):
+def LandCoverSwath(axis, processes=1, **kwargs):
     """
     Generate landcover swath for every longitudinal unit
     defined by procedure fct.metrics.SpatialReferencing.SpatialReference
@@ -145,12 +151,6 @@ def LandCoverSwath(axis, dataset='continuity', processes=1, **kwargs):
     axis: int
 
         Axis identifier
-
-    dataset: str
-
-        possible values :
-        - `landcover`: swath from global landcover raster
-        - `continuity`: swath from axis landcover continuity map
 
     processes: int
 
@@ -168,25 +168,73 @@ def LandCoverSwath(axis, dataset='continuity', processes=1, **kwargs):
 
     maxz: float
 
-        Exclude data with height above nearest drainage (hand) > maxz,
+        Truncate data with height above nearest drainage (HAND) > maxz,
         defaults to 20.0 m
+
+    landcover: str, logical name
+
+        Landcover raster dataset,
+        defaults to `ax_continuity` (continuous landcover buffer swath)
+        Other values: `landcover` (total landcover swath)
+
+    swaths: str, logical name
+
+        Swath unit raster,
+        defaults to `ax_swaths`
+
+    swath_features: str, logical name
+
+        Shapefile of swath entities,
+        defaults to `ax_swath_features`
+
+    axis_distance: str, logical name
+
+        Signed distance to reference axis,
+        generates swath axis perpendicular to reference axis.
+        Defaults to `ax_axis_distance`
+
+    drainage_distance: str, logical name
+
+        Signed distance to nearest drainage,
+        distinguishes between left bank and right bank.
+        Defaults to `ax_talweg_distance`
+
+    height: str, logical name
+
+        Height above nearest drainage raster (HAND),
+        defaults to `ax_nearest_height`
+
+    output: str, logical name
+
+        Output file for each generated swath data,
+        defaults to `ax_swath_landcover`
+
+    Other keywords are passed to dataset filename templates.
     """
 
-    if dataset not in ('landcover', 'continuity'):
-        click.secho('Unknown swath dataset %s' % dataset, fg='yellow')
-        return
+    defaults = dict(
+        landcover='ax_continuity',
+        swaths='ax_swaths',
+        swath_features='ax_swath_features',
+        axis_distance='ax_axis_distance',
+        drainage_distance='ax_talweg_distance',
+        height='ax_nearest_height',
+        output='ax_swath_landcover'
+    )
 
-    dgo_shapefile = config.filename('ax_dgo_vector', axis=axis)
+    defaults.update({k: kwargs[k] for k in kwargs.keys() & defaults.keys()})
+    datasets = DatasetParameter(**defaults)
+    kwargs = {k: kwargs[k] for k in kwargs.keys() - defaults.keys()}
 
-    kwargs.update(dataset=dataset)
+    swath_shapefile = config.filename(datasets.swath_features, axis=axis, **kwargs)
     profiles = dict()
 
-    with fiona.open(dgo_shapefile) as fs:
+    with fiona.open(swath_shapefile) as fs:
         length = len(fs)
 
     def arguments():
 
-        with fiona.open(dgo_shapefile) as fs:
+        with fiona.open(swath_shapefile) as fs:
             for feature in fs:
 
                 gid = feature['properties']['GID']
@@ -200,6 +248,7 @@ def LandCoverSwath(axis, dataset='continuity', processes=1, **kwargs):
                     axis,
                     gid,
                     geometry.bounds,
+                    datasets,
                     kwargs
                 )
 
@@ -213,10 +262,10 @@ def LandCoverSwath(axis, dataset='continuity', processes=1, **kwargs):
                 profile = profiles[axis, gid]
 
                 output = config.filename(
-                    'ax_swath_landcover',
+                    datasets.output,
                     axis=axis,
                     gid=gid,
-                    subset=dataset.upper())
+                    **kwargs)
 
                 np.savez(
                     output,

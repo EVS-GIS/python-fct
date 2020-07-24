@@ -100,7 +100,7 @@ def PlotMetric(ax, data, fieldx, *args, window=1):
     if len(args) > 1:
         ax.legend()
 
-def PlotLandCoverProfile(ax, data, basis=0, window=1, proportion=False, direction='upright'):
+def PlotLandCoverProfile(ax, data, x, y, basis=0, window=1, proportion=False, direction='upright'):
 
     colors = [
         '#a5bfdd', # Water
@@ -113,8 +113,6 @@ def PlotLandCoverProfile(ax, data, basis=0, window=1, proportion=False, directio
         '#fa1524', # Urban
         '#fa1665'  # Disconnected
     ]
-
-    x = data['measure']
     
     fcw0 = data.sel(height=15.0)['fcw0']
     fcw1 = data.sel(height=15.0)['fcw1']
@@ -123,7 +121,7 @@ def PlotLandCoverProfile(ax, data, basis=0, window=1, proportion=False, directio
     fcw[fcw0 < 200.0] = fcw0[fcw0 < 200.0]
     fcw[np.isnan(fcw)] = fcw1[np.isnan(fcw)]
     
-    lcc = data['lcw'][:, :, 0] + data['lcw'][:, :, 1]
+    lcc = y
 
     if window > 1:
         fcw = fcw.rolling(measure=window, min_periods=1, center=True).mean()
@@ -369,7 +367,7 @@ def PlotCorridorLimit(ax, data, window=1, basis=2):
         ax.plot(x, fcwk - baseline, 'darkgray', linewidth = 1.0)
 
 
-def PlotLeftRightContinuityProfile(ax, data, window=1, proportion=False, direction='upright'):
+def PlotLeftRightContinuityProfile(ax, data, x, left, right, window=1, proportion=False, direction='upright'):
 
     if proportion:
         ax.set_ylabel("Cover Class Proportion")
@@ -389,11 +387,11 @@ def PlotLeftRightContinuityProfile(ax, data, window=1, proportion=False, directi
         '#fa1665'  # Disconnected
     ]
 
-    x = data['measure']
+    # x = data['measure']
     fcw = data.sel(height=15.0)['fcw0']
     # lcc = data['lcc']
-    left = data['lcc'][:, :, 0]
-    right = data['lcc'][:, :, 1]
+    # left = data[variable][:, :, 1]
+    # right = data[variable][:, :, 2]
 
     # print(fcw.shape, left.shape, right.shape)
 

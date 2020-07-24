@@ -13,6 +13,7 @@ LandCover (Buffer) Width Metrics
 ***************************************************************************
 """
 
+from collections import namedtuple
 import numpy as np
 import xarray as xr
 import click
@@ -21,18 +22,24 @@ import fiona
 from ..config import config
 from .CorridorWidth import swath_width
 
-def _LandCoverWidth(axis, dataset, variable, long_length=200.0, resolution=5.0):
+DatasetParameter = namedtuple('DatasetParameter', [
+    'swath_features', # ax_swath_features
+    'swath_data', # ax_swath_landcover
+])
+
+
+def LandCoverWidth(axis, datasets, swath_length=200.0, resolution=5.0, **kwargs):
     """
     Aggregate landCover swath data
     """
 
-    dgo_shapefile = config.filename('ax_dgo_vector', axis=axis)
+    swath_shapefile = config.filename(datasets.swath_features, axis=axis, **kwargs)
 
     gids = list()
     measures = list()
     values = list()
 
-    with fiona.open(dgo_shapefile) as fs:
+    with fiona.open(swath_shapefile) as fs:
         with click.progressbar(fs) as iterator:
             for feature in iterator:
 
@@ -40,10 +47,10 @@ def _LandCoverWidth(axis, dataset, variable, long_length=200.0, resolution=5.0):
                 measure = feature['properties']['M']
 
                 swathfile = config.filename(
-                    'ax_swath_landcover',
+                    datasets.swath_data,
                     axis=axis,
                     gid=gid,
-                    subset=dataset.upper())
+                    **kwargs)
 
                 data = np.load(swathfile, allow_pickle=True)
 
@@ -92,7 +99,7 @@ def _LandCoverWidth(axis, dataset, variable, long_length=200.0, resolution=5.0):
                         selection,
                         unit_width,
                         density[:, 0],
-                        long_length,
+                        swath_length,
                         resolution)
 
                     # Left bank width
@@ -101,7 +108,7 @@ def _LandCoverWidth(axis, dataset, variable, long_length=200.0, resolution=5.0):
                         selection,
                         unit_width,
                         density[:, 1],
-                        long_length,
+                        swath_length,
                         resolution)
 
                     # Right bank width
@@ -110,7 +117,7 @@ def _LandCoverWidth(axis, dataset, variable, long_length=200.0, resolution=5.0):
                         selection,
                         unit_width,
                         density[:, 1],
-                        long_length,
+                        swath_length,
                         resolution)
 
                 # values.append(tuple([gid, measure] + width.tolist()))
@@ -132,7 +139,7 @@ def _LandCoverWidth(axis, dataset, variable, long_length=200.0, resolution=5.0):
     return xr.Dataset(
         {
             'swath': ('measure', gids),
-            variable: (('measure', 'landcover', 'type'), data)
+            'lcw': (('measure', 'landcover', 'type'), data)
         },
         coords={
             'axis': axis,
@@ -155,7 +162,7 @@ def _LandCoverWidth(axis, dataset, variable, long_length=200.0, resolution=5.0):
             ]
         })
 
-def LandCoverTotalWidth(axis, long_length=200.0, resolution=5.0):
+def LandCoverTotalWidth(axis, subset='landcover', swath_length=200.0, resolution=5.0):
     """
     Defines
     -------
@@ -163,38 +170,47 @@ def LandCoverTotalWidth(axis, long_length=200.0, resolution=5.0):
     lcw(k): total landcover width (meter) for land cover class k
     """
 
-    return _LandCoverWidth(
-        axis,
-        dataset='landcover',
-        variable='lcw',
-        long_length=long_length,
-        resolution=resolution)
+    datasets = DatasetParameter(
+        swath_features='ax_swath_features',
+        swath_data='ax_swath_landcover'
+    )
 
-def LandCoverBufferWidth(axis, long_length=200.0, resolution=5.0):
+    return LandCoverWidth(
+        axis,
+        datasets,
+        swath_length=swath_length,
+        resolution=resolution,
+        subset=subset.upper())
+
+def ContinuousBufferWidth(axis, subset='continuity', swath_length=200.0, resolution=5.0):
     """
     Defines
     -------
 
-    lcc(k): continuous buffer width (meter) for land cover class k
+    lcw(k): continuous buffer width (meter) for land cover class k
     """
 
-    return _LandCoverWidth(
+    datasets = DatasetParameter(
+        swath_features='ax_swath_features',
+        swath_data='ax_swath_landcover'
+    )
+
+    return LandCoverWidth(
         axis,
-        dataset='continuity',
-        variable='lcc',
-        long_length=long_length,
-        resolution=resolution)
+        datasets,
+        swath_length=swath_length,
+        resolution=resolution,
+        subset=subset.upper())
 
-def WriteLandCoverWidth(axis, lcw, lcc):
+def WriteLandCoverWidth(axis, data, output='metrics_lcw', **kwargs):
 
-    output = config.filename('metrics_lcw', axis=axis)
+    output = config.filename(output, axis=axis, **kwargs)
 
-    data = lcw.merge(lcc).sortby(lcw['measure'])
+    # data = lcw.merge(lcc).sortby(lcw['measure'])
 
     data.to_netcdf(
         output, 'w',
         encoding={
             'measure': dict(zlib=True, complevel=9, least_significant_digit=0),
-            'lcw': dict(zlib=True, complevel=9, least_significant_digit=2),
-            'lcc': dict(zlib=True, complevel=9, least_significant_digit=2)
+            'lcw': dict(zlib=True, complevel=9, least_significant_digit=2)
         })
