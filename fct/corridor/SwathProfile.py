@@ -128,7 +128,7 @@ def UnitSwathProfile(axis, gid, bounds):
         valley_area = np.zeros(len(heights), dtype='uint32')
         
         for k, h in enumerate(heights):
-            valley_area[k] = np.sum(mask & (relz <= h))
+            valley_area[k] = np.sum((mask == 1) & (relz <= h))
 
         # Profile density
 
@@ -140,7 +140,7 @@ def UnitSwathProfile(axis, gid, bounds):
 
         for i in range(1, len(xbins)):
             
-            density[i-1] = np.sum((mask == 1) & (binned == i))
+            density[i-1] = np.sum(mask & (binned == i))
 
         # Absolute elevation swath profile
 
@@ -423,3 +423,4 @@ def SwathAxes(axis, processes=1):
                                 'OY': float(pt0[1])
                             }
                         })
+

@@ -448,16 +448,6 @@ ax_swath_features:
   subdir: AXES/AX%(axis)04d/REF
   filename: DGO.shp
 
-ax_dgo_vector:
-  description: |
-    Spatial units polygons,
-    after cross-tile merge and invalid parts removal
-  type: polygon
-  group: spatial reference
-  status: temporary
-  subdir: AXES/AX%(axis)04d/REF
-  filename: DGO.shp
-
 ax_nearest_distance:
   description: |
     Distance to nearest drainage
@@ -674,11 +664,29 @@ ax_subgrid_watershed:
     template: SUBGRID_WATERSHED_%(row)02d_%(col)02d
     extension: .tif
 
+ax_swath_elevation_pack:
+  description: |
+    Elevation Swath Profiles NetCDF Archive
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: ELEVATION_SWATH_PROFILES.nc
+
+ax_swath_landcover_pack:
+  description: |
+    LandCover Swath Profiles NetCDF Archive
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: LANDCOVER_SWATH_PROFILES_%(subset)s.nc
+
 metrics_fcw:
   description: |
     Fluvial Corridor Width
-  type: metrics
-  group: corridor
+  type: netcdf
+  group: metrics
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
   filename: FLUVIAL_CORRIDOR_WIDTH.nc
@@ -686,8 +694,8 @@ metrics_fcw:
 metrics_lcw:
   description: |
     LandCover Width
-  type: metrics
-  group: corridor
+  type: netcdf
+  group: metrics
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
   filename: LANDCOVER_WIDTH.nc
@@ -695,8 +703,8 @@ metrics_lcw:
 metrics_lcw_variant:
   description: |
     LandCover Width (Variants)
-  type: metrics
-  group: corridor
+  type: netcdf
+  group: metrics
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
   filename: LANDCOVER_WIDTH_%(variant)s.nc
@@ -704,8 +712,8 @@ metrics_lcw_variant:
 metrics_watershed:
   description: |
     Watershed Metrics
-  type: metrics
-  group: watershed
+  type: netcdf
+  group: metrics
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
   filename: WATERSHED_%(subset)s.nc

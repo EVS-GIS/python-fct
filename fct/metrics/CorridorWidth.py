@@ -61,12 +61,7 @@ def CorridorWidth(axis, long_length=200.0, resolution=5.0):
                 or bankh1 if no such pixels
     """
 
-    # dgo_shapefile = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'REF', 'DGO.shp')
     dgo_shapefile = config.filename('ax_dgo_vector', axis=axis)
-    # dgo_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'DGO.vrt')
-    # accumulation_raster = '/var/local/fct/RMC/ACC_RGE5M_TILES.vrt'
-    # output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'METRICS', 'DGO_DRAINAGE_AREA.csv')
-    # metrics = dict()
 
     gids = list()
     measures = list()
