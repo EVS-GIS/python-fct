@@ -335,9 +335,6 @@ def buildvrt(tileset, dataset, **kwargs):
     output = os.path.basename(vrt)
     prefix, _ = os.path.splitext(output)
 
-    if not os.path.exists(vrt):
-        raise ValueError('file does not exist: %s' % vrt)
-
     command = 'cd %(workdir)s ; find %(tiledir)s -name "%(prefix)s_*.tif" | xargs gdalbuildvrt -a_srs %(srs)s %(output)s'
     command = command % dict(
         workdir=workdir,

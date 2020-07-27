@@ -1,196 +1,464 @@
-import os
-import math
-import itertools
-from operator import itemgetter
-from collections import defaultdict
+# coding: utf-8
 
+"""
+Per Swath Unit Geomorphic Metrics
+
+***************************************************************************
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 3 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+***************************************************************************
+"""
+
+from operator import itemgetter
 import numpy as np
+import xarray as xr
 import click
 
 import rasterio as rio
-from rasterio.windows import Window
-from rasterio import features
 import fiona
 import fiona.crs
-from shapely.geometry import asShape
+from shapely.geometry import (
+    asShape,
+    MultiLineString)
 
-import terrain_analysis as ta
+from .. import transform as fct
+from ..rasterize import rasterize_linestringz
+from ..tileio import as_window
+from ..config import config
 
-workdir = '/media/crousson/Backup/TESTS/TuilesAin'
+def MetricDrainageArea(axis, **kwargs):
+    """
+    Defines
+    -------
 
-def as_window(bounds, transform):
+    drainage: upstream drainage area in km²
+    """
 
-    minx, miny, maxx, maxy = bounds
+    accumulation_raster = config.filename('acc')
+    swath_raster = config.filename('ax_swaths', axis=axis, **kwargs)
+    swath_features = config.filename('ax_swath_features', axis=axis, **kwargs)
 
-    row_offset, col_offset = ta.index(minx, maxy, transform)
-    row_end, col_end = ta.index(maxx, miny, transform)
+    with fiona.open(swath_features) as fs:
 
-    height = row_end - row_offset
-    width = col_end - col_offset
+        gids = np.zeros(len(fs), dtype='uint32')
+        measures = np.zeros(len(fs), dtype='float32')
+        drainage = np.zeros(len(fs), dtype='float32')
 
-    return Window(col_offset, row_offset, width, height)
+        with rio.open(accumulation_raster) as ds:
 
-def MetricElevation(axis):
-
-    streams_shapefile = os.path.join(workdir, 'GLOBAL', 'RHT.shp')
-    dgo_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'DGO.vrt')
-    elevation_raster = '/var/local/fct/RMC/RGEALTI.tif'
-    output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'METRICS', 'DGO_MINZ.csv')
-    
-    metrics = defaultdict(lambda: float('inf'))
-    # metrics = defaultdict(lambda: (float('inf'), float('-inf')))
-
-    gid = itemgetter(0)
-    elevation = itemgetter(1)
-
-    with rio.open(elevation_raster) as ds:
-        with rio.open(dgo_raster) as dgods:
-
-            with fiona.open(streams_shapefile) as fs:
-                with click.progressbar(fs) as iterator:
-                    for feature in iterator:
-
-                        xyz = np.array(feature['geometry']['coordinates'], dtype='float32')
-                        elevations = np.array(list(ds.sample(xyz[:, :2], 1)))
-                        dgos = np.array(list(dgods.sample(xyz[:, :2], 1)))
-
-                        obs = sorted(np.column_stack([dgos, elevations]), key=gid)
-
-                        for dgo, points in itertools.groupby(obs, key=gid):
-
-                            # zmin, zmax = metrics[dgo]
-                            # zs = list(elevation(p) for p in points)
-                            # zmin = min(zmin, min(zs))
-                            # zmax = max(zmax, max(zs))
-
-                            zmin = min(elevation(p) for p in points)
-                            metrics[dgo] = min(zmin, metrics[dgo])
-
-    with open(output, 'w') as fp:
-        for dgo in sorted(metrics.keys()):
-            fp.write('%d,%d,%f,%f\n' % ((axis, dgo) + metrics[dgo]))
-
-def MetricDrainageArea(axis):
-
-    dgo_shapefile = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'REF', 'DGO.shp')
-    dgo_raster = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'DGO.vrt')
-    accumulation_raster = '/var/local/fct/RMC/ACC_RGE5M_TILES.vrt'
-    output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'METRICS', 'DGO_DRAINAGE_AREA.csv')
-    metrics = dict()
-
-    with rio.open(accumulation_raster) as ds1:
-
-        with fiona.open(dgo_shapefile) as fs:
             with click.progressbar(fs) as iterator:
-                for feature in iterator:
+                for k, feature in enumerate(iterator):
 
                     gid = feature['properties']['GID']
-                    # measure = feature['properties']['M']
+                    gids[k] = gid
+                    measures[k] = feature['properties']['M']
                     geometry = asShape(feature['geometry'])
 
-                    window = as_window(geometry.bounds, ds1.transform)
-                    accumulation = ds1.read(1, window=window, boundless=True, fill_value=ds1.nodata)
+                    window = as_window(geometry.bounds, ds.transform)
+                    acc = ds.read(
+                        1,
+                        window=window,
+                        boundless=True,
+                        fill_value=ds.nodata)
 
-                    with rio.open(dgo_raster) as ds2:
-                        window2 = as_window(geometry.bounds, ds2.transform)
-                        mask = (ds2.read(1, window=window2, boundless=True, fill_value=ds2.nodata) == gid)
-                        mask = mask & (accumulation != ds1.nodata)
+                    with rio.open(swath_raster) as ds_swath:
 
-                    assert(accumulation.shape == mask.shape)
+                        window = as_window(geometry.bounds, ds_swath.transform)
+                        swathid = ds_swath.read(
+                            1,
+                            window=window,
+                            boundless=True,
+                            fill_value=ds_swath.nodata)
 
-                    metrics[gid] = np.ma.max(np.ma.masked_array(accumulation, ~mask))
+                    drainage[k] = np.max(acc[(acc != ds.nodata) & (swathid == gid)])
 
-    with open(output, 'w') as fp:
-        for gid in sorted(metrics.keys()):
-            fp.write('%d,%d,%.1f\n' % (axis, gid, metrics[gid]))
+    metrics = xr.Dataset(
+        {
+            'drainage': ('measure', drainage),
+            'swath': ('measure', gids),
+        },
+        coords={
+            'axis': axis,
+            'measure': measures
+        })
 
-def MetricSlope(axis, distance):
+    # Metadata
+
+    metrics['drainage'].attrs['long_name'] = 'upstream drainage area'
+    metrics['drainage'].attrs['units'] = 'km²'
+
+    metrics['axis'].attrs['long_name'] = 'stream identifier'
+    metrics['swath'].attrs['long_name'] = 'swath identifier'
+    metrics['measure'].attrs['long_name'] = 'position along reference axis'
+    metrics['measure'].attrs['units'] = 'm'
+
+    return metrics
+
+def MetricElevation(axis, **kwargs):
     """
-    DGO Slope, expressed in percent
+    Defines
+    -------
+
+    zmin: minimum z along mapped talweg
     """
 
-    filename = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'METRICS', 'DGO_MINZ.csv')
-    output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'METRICS', 'DGO_SLOPE.csv')
+    elevation_raster = config.filename('tiled', **kwargs)
+    talweg_feature = config.filename('ax_talweg', axis=axis)
+    swath_raster = config.filename('ax_swaths', axis=axis, **kwargs)
+    swath_features = config.filename('ax_swath_features', axis=axis, **kwargs)
 
-    def gid(t):
-        return int(t[1])
+    z = np.array([])
+    swathid = np.array([])
 
-    def elevation(t):
-        return float(t[2])
-        # return 0.5 * (float(t[2]) + float(t[3]))
+    with fiona.open(talweg_feature) as fs:
 
-    with open(filename) as fp:
-        data = [line.strip().split(',') for line in fp]
-        elevations = np.array([elevation(t) for t in data])
+        for feature in fs:
 
-    slope = np.diff(elevations, prepend=elevations[0]) * 100 / distance
+            coordinates = np.array(feature['geometry']['coordinates'], dtype='float32')
 
-    with open(output, 'w') as fp:
-        for k, value in enumerate(slope):
-            fp.write('%d,%d,%.3f\n' % (axis, gid(data[k]), value))
+            with rio.open(elevation_raster) as ds:
 
+                this_z = np.array(list(ds.sample(coordinates[:, :2], 1)))
+                this_z = this_z[:, 0]
+                this_z[this_z == ds.nodata] = np.nan
 
-# def AggregateMetrics(axis):
+                z = np.concatenate([z, this_z], axis=0)
 
-#     dgo_shapefile = os.path.join(workdir, 'AX%03d_DGO.shp' % axis)
-#     output = os.path.join(workdir, 'METRICS', 'AX%03d_METRICS.csv' % axis)
-#     headers = ['AXIS', 'DGO', 'MEASURE']
+            with rio.open(swath_raster) as ds:
 
-#     metrics = {
-#         'elevation': 'DGO_MINZ.csv',
-#         'slope': 'DGO_SLOPE.csv',
-#         'drainage': 'DGO_DRAINAGE_AREA.csv'
-#     }
+                this_swathid = np.array(list(ds.sample(coordinates[:, :2], 1)))
+                this_swathid = this_swathid[:, 0]
+                # swathid[swathid == ds.nodata] = 0
 
-#     values = defaultdict(dict)
+                swathid = np.concatenate([swathid, this_swathid], axis=0)
 
-#     with fiona.open(dgo_shapefile) as fs:
-#         for feature in fs:
+    with fiona.open(swath_features) as fs:
 
-#             gid = feature['properties']['GID']
-#             measure = feature['properties']['M']
-#             values[gid]['MEASURE'] = '%.0f' % measure
+        gids = np.zeros(len(fs), dtype='uint32')
+        measures = np.zeros(len(fs), dtype='float32')
+        zmin = np.zeros(len(fs), dtype='float32')
 
-#     for metric, dataset in metrics.items():
+        with click.progressbar(fs) as iterator:
+            for k, feature in enumerate(iterator):
 
-#         filename = os.path.join(workdir, 'METRICS', 'AX%03d_%s' % (axis, dataset))
+                gid = feature['properties']['GID']
+                gids[k] = gid
+                measures[k] = feature['properties']['M']
 
-#         if os.path.exists(filename):
+                mask = (~np.isnan(z)) & (swathid == gid)
+                
+                if np.sum(mask) > 0:
+                    zmin[k] = np.min(z[mask])
+                else:
+                    zmin[k] = np.nan
 
-#             headers.append(metric)
+    metrics = xr.Dataset(
+        {
+            'zmin': ('measure', zmin),
+            'swath': ('measure', gids),
+        },
+        coords={
+            'axis': axis,
+            'measure': measures
+        })
 
-#             with open(filename) as fp:
-#                 for line in fp:
-#                     t = line.strip().split(',')
-#                     gid = int(t[1])
-#                     value = t[2]
-#                     values[gid][metric] = value
+    # Metadata
 
-#     def format_values(axis, gid, values):
+    metrics['zmin'].attrs['long_name'] = 'minimum swath elevation along talweg'
+    metrics['zmin'].attrs['units'] = 'm'
+    metrics['zmin'].attrs['vertical_ref'] = config.vertical_ref
 
-#         str_values = [
-#             '%d' % axis,
-#             '%d' % gid
-#         ]
+    metrics['axis'].attrs['long_name'] = 'stream identifier'
+    metrics['swath'].attrs['long_name'] = 'swath identifier'
+    metrics['measure'].attrs['long_name'] = 'position along reference axis'
+    metrics['measure'].attrs['units'] = 'm'
 
-#         for name in headers[2:]:
-#             if name in values:
-#                 str_values.append(values[name])
-#             else:
-#                 str_values.append('nan')
+    return metrics
 
-#         return ','.join(str_values)
+# def MetricSwathSlope(axis, distance):
+#     """
+#     DGO Slope, expressed in percent
+#     """
 
+#     filename = os.path.join(config.workdir, 'AXES', 'AX%03d' % axis, 'METRICS', 'DGO_MINZ.csv')
+#     output = os.path.join(config.workdir, 'AXES', 'AX%03d' % axis, 'METRICS', 'DGO_SLOPE.csv')
+
+#     def gid(t):
+#         return int(t[1])
+
+#     def elevation(t):
+#         return float(t[2])
+#         # return 0.5 * (float(t[2]) + float(t[3]))
+
+#     with open(filename) as fp:
+#         data = [line.strip().split(',') for line in fp]
+#         elevations = np.array([elevation(t) for t in data])
+
+#     slope = np.diff(elevations, prepend=elevations[0]) * 100 / distance
 
 #     with open(output, 'w') as fp:
+#         for k, value in enumerate(slope):
+#             fp.write('%d,%d,%.3f\n' % (axis, gid(data[k]), value))
 
-#         fp.write(','.join(headers))
-#         fp.write('\n')
+def MetricSlopes(axis, **kwargs):
 
-#         for gid in sorted(values.keys()):
+    talweg_feature = config.filename('ax_talweg', axis=axis, **kwargs)
+    refaxis_feature = config.filename('ax_refaxis', axis=axis)
+    elevation_raster = config.filename('tiled', **kwargs)
+    measure_raster = config.filename('ax_axis_measure', axis=axis, **kwargs)
+    swath_raster = config.filename('ax_swaths', axis=axis, **kwargs)
+    swath_features = config.filename('ax_swath_features', axis=axis, **kwargs)
 
-#             if gid == 0:
-#                 continue
+    all_coordinates = np.zeros((0,2), dtype='float32')
+    z = np.array([])
+    m = np.array([])
+    swathid = np.array([])
 
-#             fp.write(format_values(axis, gid, values[gid]))
-#             fp.write('\n')
+    # Sort talweg segments by first point M coordinate, descending
+
+    talweg_fids = list()
+    segments = list()
+
+    with rio.open(measure_raster) as ds:
+        with fiona.open(talweg_feature) as fs:
+            for feature in fs:
+
+                fid = feature['id']
+                firstm = next(ds.sample([feature['geometry']['coordinates'][0][:2]], 1))
+                talweg_fids.append((fid, firstm))
+
+    with fiona.open(talweg_feature) as fs:
+        for fid, _ in reversed(sorted(talweg_fids, key=itemgetter(1))):
+
+            feature = fs.get(fid)
+            coordinates = np.array(feature['geometry']['coordinates'], dtype='float32')
+            segments.append(asShape(feature['geometry']))
+
+            all_coordinates = np.concatenate([all_coordinates, coordinates[:, :2]], axis=0)
+
+            with rio.open(elevation_raster) as ds:
+
+                this_z = np.array(list(ds.sample(coordinates[:, :2], 1)))
+                this_z = this_z[:, 0]
+                this_z[this_z == ds.nodata] = np.nan
+
+                z = np.concatenate([z, this_z], axis=0)
+
+            with rio.open(measure_raster) as ds:
+
+                this_m = np.array(list(ds.sample(coordinates[:, :2], 1)))
+                this_m = this_m[:, 0]
+
+                m = np.concatenate([m, this_m], axis=0)
+
+            with rio.open(swath_raster) as ds:
+
+                this_swathid = np.array(list(ds.sample(coordinates[:, :2], 1)))
+                this_swathid = this_swathid[:, 0]
+                # swathid[swathid == ds.nodata] = 0
+
+                swathid = np.concatenate([swathid, this_swathid], axis=0)
+
+    measure_raster = config.filename('ax_buffer_profile', axis=axis, **kwargs)
+
+    with fiona.open(refaxis_feature) as fs:
+
+        assert len(fs) == 1
+
+        coord = itemgetter(0, 1)
+
+        for feature in fs:
+
+            refaxis_pixels = list()
+            refaxis_m = list()
+            m0 = feature['properties'].get('M0', 0.0)
+
+            coordinates = np.array([
+                coord(p) + (m0,) for p in reversed(feature['geometry']['coordinates'])
+            ], dtype='float32')
+
+            coordinates[1:, 2] = m0 + np.cumsum(np.linalg.norm(
+                coordinates[1:, :2] - coordinates[:-1, :2],
+                axis=1))
+
+            with rio.open(swath_raster) as ds:
+
+                coordinates[:, :2] = fct.worldtopixel(coordinates[:, :2], ds.transform)
+
+                for a, b in zip(coordinates[:-1], coordinates[1:]):
+                    for i, j, mcoord in rasterize_linestringz(a, b):
+                        refaxis_pixels.append((i, j))
+                        refaxis_m.append(mcoord)
+
+                refaxis_m = np.array(refaxis_m)
+
+                refaxis_coordinates = fct.pixeltoworld(
+                    np.array(refaxis_pixels, dtype='int32'),
+                    ds.transform)
+
+                refaxis_swathid = np.array(list(ds.sample(refaxis_coordinates, 1)))
+                refaxis_swathid = refaxis_swathid[:, 0]
+
+    # s: curvilinear talweg coordinate, from upstream to downstream
+    s = np.zeros(len(all_coordinates), dtype='float32')
+    s[1:] = np.cumsum(
+        np.linalg.norm(
+            all_coordinates[1:, :] - all_coordinates[:-1, :],
+            axis=1))
+
+    talweg = MultiLineString(segments)
+
+    ref_segments = list()
+    ref_segments_vf = list()
+
+    with fiona.open(swath_features) as fs:
+
+        gids = np.zeros(len(fs), dtype='uint32')
+        measures = np.zeros(len(fs), dtype='float32')
+        values = np.zeros((len(fs), 7), dtype='float32')
+
+        with click.progressbar(fs) as iterator:
+            for k, feature in enumerate(iterator):
+
+                gid = feature['properties']['GID']
+                polygon = asShape(feature['geometry'])
+
+                gids[k] = gid
+                measures[k] = feature['properties']['M']
+
+                talweg_length = talweg.intersection(polygon).length
+                values[k, 0] = talweg_length
+
+                mask = (~np.isnan(z)) & (swathid == gid)
+
+                if np.sum(mask) > 0:
+
+                    moffset = m[mask][0]
+
+                    Y = z[mask]
+                    X = np.column_stack([
+                        s[mask] - s[mask][0],
+                        np.ones_like(Y),
+                    ])
+                    (slope_talweg, z0_talweg), sqerror_talweg, _, _ = np.linalg.lstsq(X, Y, rcond=None)
+
+                    if len(sqerror_talweg) == 0:
+                        sqerror_talweg = 0.0
+
+                    values[k, 1] = -100.0 * slope_talweg
+                    values[k, 2] = z0_talweg
+                    values[k, 3] = sqerror_talweg
+
+                    X = np.column_stack([
+                        m[mask] - moffset,
+                        np.ones_like(Y),
+                    ])
+                    (slope_valley, z0_valley), sqerror_valley, _, _ = np.linalg.lstsq(X, Y, rcond=None)
+
+                    if len(sqerror_valley) == 0:
+                        sqerror_valley = 0
+
+                    # m axis is oriented from downstream to upstream,
+                    # and yields positive slopes
+                    values[k, 4] = 100.0 * slope_valley
+                    values[k, 5] = z0_valley
+                    values[k, 6] = sqerror_valley
+
+                    mask_ref = (refaxis_swathid == gid)
+
+                    if np.sum(mask_ref) > 0:
+
+                        refaxis_z = slope_valley * (refaxis_m[mask_ref] - moffset) + z0_valley
+
+                        ref_segments.append(np.column_stack([
+                            refaxis_coordinates[mask_ref],
+                            refaxis_z,
+                            refaxis_m[mask_ref]
+                        ]))
+
+                        swathfile = config.filename('ax_swath_elevation', axis=axis, gid=gid)
+                        swathdata = np.load(swathfile, allow_pickle=True)
+
+                        slope_valley_floor = swathdata['slope_valley_floor']
+                        z0_valley_floor = swathdata['z0_valley_floor']
+
+                        if np.isnan(slope_valley_floor):
+
+                            ref_segments_vf.append(np.column_stack([
+                                refaxis_coordinates[mask_ref],
+                                refaxis_z,
+                                refaxis_m[mask_ref]
+                            ]))
+
+                        else:
+
+                            refaxis_z_vf = slope_valley_floor * (refaxis_m[mask_ref]) + z0_valley_floor
+
+                            ref_segments_vf.append(np.column_stack([
+                                refaxis_coordinates[mask_ref],
+                                refaxis_z_vf,
+                                refaxis_m[mask_ref]
+                            ]))
+
+                    else:
+
+                        ref_segments.append(np.array([]))
+                        ref_segments_vf.append(np.array([]))
+
+                else:
+
+                    values[k, :] = np.nan
+                    ref_segments.append(np.array([]))
+                    ref_segments_vf.append(np.array([]))
+
+    metrics = xr.Dataset(
+        {
+            'swath': ('measure', gids),
+            'twl': ('measure', values[:, 0]),
+            'tws': ('measure', values[:, 1]),
+            'twz0': ('measure', values[:, 2]),
+            'twse': ('measure', values[:, 3]),
+            'vfs': ('measure', values[:, 4]),
+            'vfz0': ('measure', values[:, 5]),
+            'vfse': ('measure', values[:, 6])
+        },
+        coords={
+            'axis': axis,
+            'measure': measures
+        })
+
+    # Metadata
+
+    metrics['twl'].attrs['long_name'] = 'intercepted talweg length'
+    metrics['twl'].attrs['units'] = 'm'
+
+    metrics['tws'].attrs['long_name'] = 'talweg slope'
+    metrics['tws'].attrs['unit'] = 'percent'
+
+    metrics['twz0'].attrs['long_name'] = 'talweg z-offset, at first swath point'
+    metrics['twz0'].attrs['unit'] = 'm'
+    metrics['twz0'].attrs['vertical_ref'] = config.vertical_ref
+
+    metrics['twse'].attrs['long_name'] = 'talweg slope square regression error'
+    metrics['twse'].attrs['unit'] = 'm²'
+
+    metrics['vfs'].attrs['long_name'] = 'valley slope'
+    metrics['vfs'].attrs['unit'] = 'percent'
+
+    metrics['vfz0'].attrs['long_name'] = 'valley z-offset, at first swath point'
+    metrics['vfz0'].attrs['unit'] = 'm'
+    metrics['vfz0'].attrs['vertical_ref'] = config.vertical_ref
+
+    metrics['vfse'].attrs['long_name'] = 'valley slope square regression error'
+    metrics['vfse'].attrs['unit'] = 'm²'
+
+    metrics['axis'].attrs['long_name'] = 'stream identifier'
+    metrics['swath'].attrs['long_name'] = 'swath identifier'
+    metrics['measure'].attrs['long_name'] = 'position along reference axis'
+    metrics['measure'].attrs['units'] = 'm'
+
+    return metrics, ref_segments, ref_segments_vf

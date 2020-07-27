@@ -23,6 +23,10 @@ import fiona
 Tile = namedtuple('Tile', ('gid', 'row', 'col', 'x0', 'y0', 'bounds', 'tileset'))
 DataSource = namedtuple('DataSource', ('name', 'filename', 'resolution'))
 
+def strip(s):
+    # return re.sub(' {2,}', ' ', s.strip())
+    return s.rstrip()
+
 def from_srs(srs):
     """
     Return SRID from EPSG Identifier
@@ -122,6 +126,22 @@ class Configuration():
         Return SRID
         """
         return self._workspace.srid
+
+    @property
+    def vertical_ref(self):
+        """
+        Vertical reference system for elevations
+        """
+
+        return strip("""
+            VERT_CS["NGF-IGN69 height",
+                VERT_DATUM["Nivellement General de la France - IGN69",2005,
+                    AUTHORITY["EPSG","5119"]],
+                UNIT["metre",1,
+                    AUTHORITY["EPSG","9001"]],
+                AXIS["Up",UP],
+                AUTHORITY["EPSG","5720"]]
+        """)
 
     def configure(self, workspace, datasources, tilesets):
         """

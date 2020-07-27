@@ -41,9 +41,9 @@ DatasetParameter = namedtuple('DatasetParameter', [
     'distance'
 ])
 
-def DrapeLineString(coordinates, datasets, **kwargs):
+def DrapeLineString(coordinates, dataset, **kwargs):
 
-    elevation_raster = config.filename(datasets.elevation, **kwargs)
+    elevation_raster = config.filename(dataset, **kwargs)
 
     with rio.open(elevation_raster) as ds:
 
@@ -112,7 +112,7 @@ def HeightAboveNearestDrainageTile(
 
                         # override z from elevation raster
                         # just in case we forgot to drape stream network on DEM
-                        DrapeLineString(coordinates, datasets, **kwargs)
+                        DrapeLineString(coordinates, datasets.elevation, **kwargs)
 
                         coordinates[:, :2] = ta.worldtopixel(coordinates[:, :2], ds.transform, gdal=False)
 

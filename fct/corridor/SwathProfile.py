@@ -37,7 +37,7 @@ def TileCropInvalidRegions(axis, row, col):
     """
 
     invalid_shapefile = config.filename('ax_dgo_invalid', axis=axis)
-    regions_raster = config.tileset().tilename('ax_dgo', axis=axis, row=row, col=col)
+    regions_raster = config.tileset().tilename('ax_swaths', axis=axis, row=row, col=col)
 
     if not os.path.exists(regions_raster):
         return
@@ -90,10 +90,10 @@ def UnitSwathProfile(axis, gid, bounds):
     Calculate Elevation Swath Profile for Valley Unit (axis, gid)
     """
 
-    dgo_raster = config.filename('ax_dgo', axis=axis)
+    dgo_raster = config.filename('ax_swaths', axis=axis)
     measure_raster = config.filename('ax_axis_measure', axis=axis)
     distance_raster = config.filename('ax_axis_distance', axis=axis)
-    elevation_raster = config.datasource('dem1').filename
+    elevation_raster = config.filename('tiled')
     relz_raster = config.filename('ax_relative_elevation', axis=axis)
 
     with rio.open(distance_raster) as ds:
@@ -165,8 +165,12 @@ def UnitSwathProfile(axis, gid, bounds):
         # Relative-to-valley-floor elevation swath profile
 
         swath_rel_valley = np.full((len(xbins)-1, 5), np.nan, dtype='float32')
+        slope = np.nan
+        z0 = np.nan
 
         def fit_valley_floor(fit_mask=None, error_threshold=1.0, iterations=100):
+
+            nonlocal slope, z0
 
             if fit_mask is None:
                 mask0 = mask
@@ -209,11 +213,13 @@ def UnitSwathProfile(axis, gid, bounds):
 
         values = dict(
             x=x,
-            varea=valley_area,
+            area_valley_bottom=valley_area,
+            slope_valley_floor=slope,
+            z0_valley_floor=z0,
             density=density,
-            sz=swath_absolute,
+            absz=swath_absolute,
             hand=swath_rel_stream,
-            hvf=swath_rel_valley
+            havf=swath_rel_valley
         )
 
         return axis, gid, values
@@ -223,7 +229,7 @@ def UnitSwathAxis(axis, gid, m0, bounds):
     DOCME
     """
 
-    dgo_raster = config.filename('ax_dgo', axis=axis)
+    dgo_raster = config.filename('ax_swaths', axis=axis)
     measure_raster = config.filename('ax_axis_measure', axis=axis)
     distance_raster = config.filename('ax_axis_distance', axis=axis)
     measure_weight = 0.8
@@ -269,11 +275,8 @@ def UnitSwathAxis(axis, gid, m0, bounds):
 
 def SwathProfiles(axis, processes=1):
 
-    dgo_shapefile = config.filename('ax_dgo_vector', axis=axis)
+    dgo_shapefile = config.filename('ax_swath_features', axis=axis)
     relative_errors = 0
-    
-    def output(axis, gid):
-        return config.filename('ax_swath_elevation', axis=axis, gid=gid)
 
     if processes == 1:
 
@@ -286,11 +289,13 @@ def SwathProfiles(axis, processes=1):
                     geometry = asShape(feature['geometry'])
                     _, _, values = UnitSwathProfile(axis, gid, geometry.bounds)
 
-                    if values['hvf'].size == 0:
+                    if values['havf'].size == 0:
                         relative_errors += 1
 
+                    output = config.filename('ax_swath_elevation', axis=axis, gid=gid)
+
                     np.savez(
-                        output(axis, gid),
+                        output,
                         profile=(axis, gid, measure),
                         **values)
 
@@ -323,8 +328,10 @@ def SwathProfiles(axis, processes=1):
                     if values['hvf'].size == 0:
                         relative_errors += 1
 
+                    output = config.filename('ax_swath_elevation', axis=axis, gid=gid)
+
                     np.savez(
-                        output(axis, gid),
+                        output,
                         profile=profile,
                         **values)
 
@@ -333,7 +340,7 @@ def SwathProfiles(axis, processes=1):
 
 def SwathAxes(axis, processes=1):
 
-    dgo_shapefile = config.filename('ax_dgo_vector', axis=axis)
+    dgo_shapefile = config.filename('ax_swath_features', axis=axis)
     output = config.filename('ax_swath_axes', axis=axis)
 
     driver = 'ESRI Shapefile'

@@ -21,10 +21,6 @@ import click
 
 from ..config import config
 
-def strip(s):
-    # return re.sub(' {2,}', ' ', s.strip())
-    return s.rstrip()
-
 def CreateSwathDataset(axis, dataset, **kwargs):
     """
     Creates an empty NetCDF data structure
@@ -134,15 +130,7 @@ def CreateElevationVariables(grp_elevation):
     absz.long_name = 'absolute elevation'
     # absz.standard_name = 'z'
     absz.units = 'm'
-    absz.vertical_ref= strip("""
-        VERT_CS["NGF-IGN69 height",
-            VERT_DATUM["Nivellement General de la France - IGN69",2005,
-                AUTHORITY["EPSG","5119"]],
-            UNIT["metre",1,
-                AUTHORITY["EPSG","9001"]],
-            AXIS["Up",UP],
-            AUTHORITY["EPSG","5720"]]
-    """)
+    absz.vertical_ref= config.vertical_ref
     absz.coordinates = 'axis mi di'
 
     hand = grp_elevation.createVariable('hand', 'float32', ('i', 'quantile'), **z_options)
@@ -246,7 +234,7 @@ def PackElevationSwathProfiles(
 
                 distance = data['x']
                 density = data['density']
-                varea = data['varea']
+                varea = data['vb_area']
                 absz = data['sz']
                 hand = data['hand']
                 havf = data['hvf']

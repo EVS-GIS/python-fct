@@ -61,7 +61,7 @@ def CorridorWidth(axis, long_length=200.0, resolution=5.0):
                 or bankh1 if no such pixels
     """
 
-    dgo_shapefile = config.filename('ax_dgo_vector', axis=axis)
+    dgo_shapefile = config.filename('ax_swath_features', axis=axis)
 
     gids = list()
     measures = list()
@@ -82,11 +82,11 @@ def CorridorWidth(axis, long_length=200.0, resolution=5.0):
 
                 x = data['x']
                 hand = data['hand']
-                hvf = data['hvf']
+                hvf = data['havf']
 
                 # Areal width
 
-                varea = data['varea']
+                varea = data['area_valley_bottom']
                 fcw0 = np.float32(varea * resolution**2 / long_length)
                 fcw0_values.append(fcw0)
 

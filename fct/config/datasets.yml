@@ -540,17 +540,26 @@ ax_valley_distance:
     template: VALLEY_DISTANCE_%(row)02d_%(col)02d
     extension: .tif
 
-ax_buffer_distance:
+ax_refaxis_valley_z:
   description: |
-    Buffer distance from active channel limits
-  type: raster
+    Valley floor elevation profile
+  type: npz
   group: metrology
   status: temporary
+  subdir: AXES/AX%(axis)04d/REF
+  filename: REFAXIS_VALLEY_Z.npz
+
+ax_valley_height:
+  description: |
+    Height above valley floor
+  type: raster
+  group: metrology
+  status: final
   subdir: AXES/AX%(axis)04d
-  filename: BUFFER_DISTANCE.vrt
+  filename: VALLEY_HEIGHT.vrt
   tiles:
     tileset: landcover
-    template: BUFFER_DISTANCE_%(row)02d_%(col)02d
+    template: VALLEY_HEIGHT_%(row)02d_%(col)02d
     extension: .tif
 
 ax_continuity:
