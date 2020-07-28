@@ -540,14 +540,14 @@ ax_valley_distance:
     template: VALLEY_DISTANCE_%(row)02d_%(col)02d
     extension: .tif
 
-ax_refaxis_valley_z:
+ax_refaxis_valley_profile:
   description: |
     Valley floor elevation profile
-  type: npz
+  type: netcdf
   group: metrology
   status: temporary
-  subdir: AXES/AX%(axis)04d/REF
-  filename: REFAXIS_VALLEY_Z.npz
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: REFAXIS_VALLEY_PROFILE.nc
 
 ax_valley_height:
   description: |

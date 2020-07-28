@@ -18,6 +18,7 @@ from multiprocessing import Pool
 
 from math import ceil
 import numpy as np
+import xarray as xr
 
 import click
 import rasterio as rio
@@ -30,6 +31,7 @@ from ..metrics import nearest_value_and_distance
 from ..cli import starcall
 
 DatasetParameter = namedtuple('DatasetParameter', [
+    'tileset',
     'elevation',
     'mask',
     'valley_floor',
@@ -108,7 +110,7 @@ def HeightAboveValleyFloorTile(
     see DistanceAndHeightAboveNearestDrainage
     """
 
-    tileset = config.tileset('landcover')
+    tileset = config.tileset(datasets.tileset)
 
     elevation_raster = tileset.tilename(datasets.elevation, row=row, col=col, **kwargs)
     valley_floor_file = config.filename(datasets.valley_floor, axis=axis, **kwargs)
@@ -131,10 +133,16 @@ def HeightAboveValleyFloorTile(
         def accept_pixel(i, j):
             return all([i >= -height, i < 2*height, j >= -width, j < 2*width])
 
-        data = np.load(valley_floor_file, allow_pickle=True)
-        valley_floor = data['valley_profile']
-        valley_pixels = fct.worldtopixel(valley_floor[:, :2], ds.transform)
-        valley_mask = np.zeros(valley_floor.shape[0], dtype=np.bool)
+        # data = np.load(valley_floor_file, allow_pickle=True)
+        # valley_floor = data['valley_profile']
+
+        valley_profile = xr.open_dataset(valley_floor_file)
+        valley_pixels = fct.worldtopixel(
+            np.column_stack([
+                valley_profile['x'],
+                valley_profile['y']]),
+            ds.transform)
+        valley_mask = np.zeros(valley_pixels.shape[0], dtype=np.bool)
 
         for k, (i, j) in enumerate(valley_pixels):
             valley_mask[k] = accept_pixel(i, j)
@@ -149,7 +157,7 @@ def HeightAboveValleyFloorTile(
         reference, _ = nearest_value_and_distance(
             np.column_stack([
                 valley_pixels[valley_mask],
-                valley_floor[valley_mask, 2]
+                valley_profile['z'][valley_mask]
             ]),
             mask,
             ds.nodata)
@@ -164,8 +172,9 @@ def HeightAboveValleyFloor(
         axis,
         processes=1,
         ax_tiles='ax_tiles',
+        tileset='landcover',
         elevation='tiled',
-        valley_floor='ax_refaxis_valley_z',
+        valley_floor='ax_refaxis_valley_profile',
         mask='ax_valley_bottom',
         height='ax_valley_height',
         **kwargs):
@@ -203,6 +212,10 @@ def HeightAboveValleyFloor(
 
         Axis list of intersecting tiles
 
+    tileset: str, logical name
+
+        Tileset to process
+
     elevation: str, logical name
 
         Absolute elevation raster (DEM)
@@ -228,6 +241,7 @@ def HeightAboveValleyFloor(
     """
 
     datasets = DatasetParameter(
+        tileset=tileset,
         elevation=elevation,
         valley_floor=valley_floor,
         mask=mask,
@@ -271,7 +285,51 @@ def test(axis):
     _, _, seg2 = MetricSlopes(axis)
     seg3 = AdjustRefElevationGaps(seg2)
 
-    valley_floor_file = config.filename('ax_refaxis_valley_z', axis=axis)
-    np.savez(valley_floor_file, valley_profile=np.float32(np.concatenate(seg3, axis=0)))
+    valley_floor_file = config.filename('ax_refaxis_valley_profile', axis=axis)
+    valley_profile = np.float32(np.concatenate(seg3, axis=0))
+
+    dataset = xr.Dataset(
+        {
+            'x': ('measure', valley_profile[:, 0]),
+            'y': ('measure', valley_profile[:, 1]),
+            'z': ('measure', valley_profile[:, 2])
+        },
+        coords={
+            'axis': axis,
+            'measure': valley_profile[:, 3]
+        })
+
+    dataset['x'].attrs['long_name'] = 'x coordinate'
+    dataset['x'].attrs['standard_name'] = 'projection_x_coordinate'
+    dataset['x'].attrs['units'] = 'm'
+
+    dataset['y'].attrs['long_name'] = 'y coordinate'
+    dataset['y'].attrs['standard_name'] = 'projection_y_coordinate'
+    dataset['y'].attrs['units'] = 'm'
+
+    dataset['z'].attrs['long_name'] = 'height above valley floor'
+    dataset['z'].attrs['standard_name'] = 'surface_height'
+    dataset['z'].attrs['units'] = 'm'
+    dataset['z'].attrs['grid_mapping'] = 'crs: x y'
+    dataset['z'].attrs['coordinates'] = 'x y'
+
+    dataset['axis'].attrs['long_name'] = 'stream identifier'
+    dataset['measure'].attrs['long_name'] = 'position along reference axis'
+    dataset['measure'].attrs['long_name'] = 'linear_measure_coordinate'
+    dataset['measure'].attrs['units'] = 'm'
+
+    dataset.attrs['crs'] = 'EPSG:2154'
+    dataset.attrs['FCT'] = 'Fluvial Corridor Toolbox Valley Profile 1.0.5'
+    dataset.attrs['Conventions'] = 'CF-1.8'
+
+    dataset.to_netcdf(
+        valley_floor_file,
+        'w',
+        encoding={
+            'x': dict(zlib=True, complevel=9, least_significant_digit=2),
+            'y': dict(zlib=True, complevel=9, least_significant_digit=2),
+            'z': dict(zlib=True, complevel=9, least_significant_digit=1),
+            'measure': dict(zlib=True, complevel=9, least_significant_digit=0)
+        })
 
     HeightAboveValleyFloor(axis, processes=5)
