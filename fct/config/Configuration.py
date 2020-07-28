@@ -113,6 +113,16 @@ class Configuration():
             folder,
             dst.filename(**kwargs))
 
+    def basename(self, name, **kwargs):
+        """
+        Return Dataset filename relative to workdir
+        """
+        dst = self.dataset(name)
+
+        return os.path.join(
+            dst.subdir(**kwargs),
+            dst.filename(**kwargs))
+
     @property
     def workdir(self):
         """

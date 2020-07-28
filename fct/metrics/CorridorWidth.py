@@ -55,8 +55,8 @@ def CorridorWidth(axis, long_length=200.0, resolution=5.0):
 
     bankh: estimated bank height (meter) above water channel
 
-        bankh1: opposite of minimum of swath elevation above valley floor
-        bankh2: opposite of median of swath elevation above valley floor
+        bankh1: absolute value of minimum of swath elevation above valley floor
+        bankh2: absolute value of median of swath elevation above valley floor
                 for swath pixels below -bankh1 + 1.0 m,
                 or bankh1 if no such pixels
     """
@@ -184,7 +184,7 @@ def CorridorWidth(axis, long_length=200.0, resolution=5.0):
     fcw1 = np.array(fcw1_values, dtype='float32')
     data = np.array(values, dtype='float32')
 
-    return xr.Dataset(
+    dataset = xr.Dataset(
         {
             'swath': ('measure', gids),
             'fcw0': (('measure', 'height'), fcw0),
@@ -198,6 +198,53 @@ def CorridorWidth(axis, long_length=200.0, resolution=5.0):
             'measure': measures,
             'height': heights
         })
+
+    # Metadata
+
+    dataset['swath'].attrs['long_name'] = 'swath identifier'
+
+    dataset['fcw0'].attrs['long_name'] = 'fluvial corridor width (areal method)'
+    dataset['fcw0'].attrs['units'] = 'm'
+    dataset['fcw0'].attrs['method'] = \
+        """measured at height h (m) above nearest drainage
+        as the ratio between discrete unit's
+        area and longitudinal length"""
+
+    dataset['fcw1'].attrs['long_name'] = 'fluvial corridor width (swath profile method)'
+    dataset['fcw1'].attrs['units'] = 'm'
+    dataset['fcw1'].attrs['method'] = \
+        """measured on swath profile
+        at height h (m) above nearest drainage"""
+
+    dataset['fcw2'].attrs['long_name'] = 'fluvial corridor width (valley floor method)'
+    dataset['fcw2'].attrs['units'] = 'm'
+    dataset['fcw2'].attrs['method'] = \
+        """measured on swath profile
+        at height +2.0 m above valley floor"""
+
+    dataset['bankh1'].attrs['long_name'] = 'estimated bank height above water channel'
+    dataset['bankh1'].attrs['units'] = 'm'
+    dataset['bankh1'].attrs['method'] = \
+        """absolute value of minimum of swath elevation above valley floor"""
+
+    dataset['bankh2'].attrs['long_name'] = 'estimated bank height above water channel'
+    dataset['bankh2'].attrs['units'] = 'm'
+    dataset['bankh2'].attrs['method'] = \
+        """absolute value of median of swath elevation above valley floor
+        for swath pixels below -bankh1 + 1.0 m,
+        or bankh1 if no such pixels"""
+
+    dataset['axis'].attrs['long_name'] = 'stream identifier'
+    dataset['measure'].attrs['long_name'] = 'position along reference axis'
+    dataset['measure'].attrs['units'] = 'm'
+    dataset['height'].attrs['long_name'] = 'height above nearest drainage of measurement'
+    dataset['height'].attrs['units'] = 'm'
+
+    dataset.attrs['crs'] = 'EPSG:2154'
+    dataset.attrs['FCT'] = 'Fluvial Corridor Toolbox Corridor Profile 1.0.5'
+    dataset.attrs['Conventions'] = 'CF-1.8'
+
+    return dataset
 
 def WriteCorridorWidth(axis, data):
 

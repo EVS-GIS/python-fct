@@ -128,9 +128,9 @@ def CreateElevationVariables(grp_elevation):
 
     absz = grp_elevation.createVariable('absz', 'float32', ('i', 'quantile'), **z_options)
     absz.long_name = 'absolute elevation'
-    # absz.standard_name = 'z'
+    absz.standard_name = 'surface_altitude'
     absz.units = 'm'
-    absz.vertical_ref= config.vertical_ref
+    absz.vertical_ref = config.vertical_ref
     absz.coordinates = 'axis mi di'
 
     hand = grp_elevation.createVariable('hand', 'float32', ('i', 'quantile'), **z_options)

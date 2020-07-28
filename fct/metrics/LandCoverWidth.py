@@ -23,12 +23,13 @@ from ..config import config
 from .CorridorWidth import swath_width
 
 DatasetParameter = namedtuple('DatasetParameter', [
+    'landcover',
     'swath_features', # ax_swath_features
     'swath_data', # ax_swath_landcover
 ])
 
 
-def LandCoverWidth(axis, datasets, swath_length=200.0, resolution=5.0, **kwargs):
+def LandCoverWidth(axis, method, datasets, swath_length=200.0, resolution=5.0, **kwargs):
     """
     Aggregate landCover swath data
     """
@@ -136,7 +137,7 @@ def LandCoverWidth(axis, datasets, swath_length=200.0, resolution=5.0, **kwargs)
     measures = np.array(measures, dtype='float32')
     data = np.array(values, dtype='float32')
 
-    return xr.Dataset(
+    dataset = xr.Dataset(
         {
             'swath': ('measure', gids),
             'lcw': (('measure', 'landcover', 'type'), data)
@@ -162,6 +163,30 @@ def LandCoverWidth(axis, datasets, swath_length=200.0, resolution=5.0, **kwargs)
             ]
         })
 
+    # Metadata
+
+    dataset['swath'].attrs['long_name'] = 'swath identifier'
+
+    dataset['lcw'].attrs['long_name'] = 'width of landcover class k'
+    dataset['lcw'].attrs['units'] = 'm'
+    dataset['lcw'].attrs['method'] = method
+    dataset['lcw'].attrs['source'] = config.basename(
+        datasets.landcover,
+        axis=axis,
+        **kwargs)
+
+    dataset['axis'].attrs['long_name'] = 'stream identifier'
+    dataset['measure'].attrs['long_name'] = 'position along reference axis'
+    dataset['measure'].attrs['units'] = 'm'
+    dataset['landcover'].attrs['long_name'] = 'landcover class label'
+    dataset['type'].attrs['long_name'] = 'type of width measurement'
+
+    dataset.attrs['crs'] = 'EPSG:2154'
+    dataset.attrs['FCT'] = 'Fluvial Corridor Toolbox LandCover Profile 1.0.5'
+    dataset.attrs['Conventions'] = 'CF-1.8'
+
+    return dataset
+
 def LandCoverTotalWidth(axis, subset='landcover', swath_length=200.0, resolution=5.0):
     """
     Defines
@@ -171,12 +196,14 @@ def LandCoverTotalWidth(axis, subset='landcover', swath_length=200.0, resolution
     """
 
     datasets = DatasetParameter(
+        landcover='',
         swath_features='ax_swath_features',
         swath_data='ax_swath_landcover'
     )
 
     return LandCoverWidth(
         axis,
+        'total landcover width',
         datasets,
         swath_length=swath_length,
         resolution=resolution,
@@ -191,12 +218,14 @@ def ContinuousBufferWidth(axis, subset='continuity', swath_length=200.0, resolut
     """
 
     datasets = DatasetParameter(
+        landcover='',
         swath_features='ax_swath_features',
         swath_data='ax_swath_landcover'
     )
 
     return LandCoverWidth(
         axis,
+        'continuous buffer width from river channel',
         datasets,
         swath_length=swath_length,
         resolution=resolution,

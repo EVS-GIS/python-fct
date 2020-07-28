@@ -325,7 +325,7 @@ def SwathProfiles(axis, processes=1):
 
                     profile = profiles[axis, gid]
 
-                    if values['hvf'].size == 0:
+                    if values['havf'].size == 0:
                         relative_errors += 1
 
                     output = config.filename('ax_swath_elevation', axis=axis, gid=gid)
@@ -430,4 +430,3 @@ def SwathAxes(axis, processes=1):
                                 'OY': float(pt0[1])
                             }
                         })
-

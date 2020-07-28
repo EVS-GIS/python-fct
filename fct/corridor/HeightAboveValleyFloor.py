@@ -16,11 +16,9 @@ Height above valley floor
 from collections import namedtuple
 from multiprocessing import Pool
 
-from math import ceil
 import numpy as np
 import xarray as xr
 
-import click
 import rasterio as rio
 import fiona
 import fiona.crs
@@ -37,66 +35,6 @@ DatasetParameter = namedtuple('DatasetParameter', [
     'valley_floor',
     'height'
 ])
-
-def AdjustRefElevationGaps(segments):
-    """
-    Adjust gaps in the output of metrics.Metrics.MetricSlopes()
-    """
-
-    def measure(segment):
-        """sort by m coordinate of first point"""
-        return segment[0][3]
-
-    sorted_segments = sorted(
-        [
-            np.copy(segment) for segment in segments
-            if segment.size > 0 and segment[0, 3] != segment[-1, 3]
-        ],
-        key=measure)
-
-    missing = list()
-
-    for k, segment in enumerate(sorted_segments):
-
-        if k == 0:
-            continue
-
-        m0 = segment[0, 3]
-
-        if segment[0, 2] < sorted_segments[k-1][-1, 2]:
-            
-            # z0 = 0.5 * (segment[0, 2] + sorted_segments[k-1][-1, 2])
-            z0 = sorted_segments[k-1][-1, 2]
-
-            m1 = segment[-1, 3]
-            z1 = segment[-1, 2]
-
-            # linear interpolation between z0 and z1
-            segment[:, 2] = (segment[:, 3] - m0) / (m1 - m0) * (z1 - z0) + z0
-
-        m0 = sorted_segments[k-1][-1, 3]
-        m1 = segment[0, 3]
-
-        if m1 - m0 > 50.0:
-
-            new_m = np.linspace(m1, m0, ceil((m1 - m0) / 10.0))
-            new_segment = np.zeros((len(new_m), 4), dtype='float32')
-            new_segment[:, 3] = new_m
-
-            for j in range(3):
-                
-                c0 = sorted_segments[k-1][-1, j]
-                c1 = segment[0, j]
-                
-                # linear interpolation between coordinate c0 and c1
-                new_segment[:, j] = (new_m - m0) / (m1 - m0) * (c1 - c0) + c0
-
-            missing.append(new_segment)
-
-    print(len(missing))
-    sorted_segments.extend(missing)
-
-    return sorted(sorted_segments, key=measure)
 
 def HeightAboveValleyFloorTile(
         axis,
@@ -278,7 +216,10 @@ def test(axis):
 
     #pylint: disable=import-outside-toplevel
 
-    from ..metrics.Metrics import MetricSlopes
+    from ..metrics.LongProfileMetrics import (
+        MetricSlopes,
+        AdjustRefElevationGaps,
+        ExportValleyProfile)
 
     config.default()
 
@@ -287,49 +228,6 @@ def test(axis):
 
     valley_floor_file = config.filename('ax_refaxis_valley_profile', axis=axis)
     valley_profile = np.float32(np.concatenate(seg3, axis=0))
-
-    dataset = xr.Dataset(
-        {
-            'x': ('measure', valley_profile[:, 0]),
-            'y': ('measure', valley_profile[:, 1]),
-            'z': ('measure', valley_profile[:, 2])
-        },
-        coords={
-            'axis': axis,
-            'measure': valley_profile[:, 3]
-        })
-
-    dataset['x'].attrs['long_name'] = 'x coordinate'
-    dataset['x'].attrs['standard_name'] = 'projection_x_coordinate'
-    dataset['x'].attrs['units'] = 'm'
-
-    dataset['y'].attrs['long_name'] = 'y coordinate'
-    dataset['y'].attrs['standard_name'] = 'projection_y_coordinate'
-    dataset['y'].attrs['units'] = 'm'
-
-    dataset['z'].attrs['long_name'] = 'height above valley floor'
-    dataset['z'].attrs['standard_name'] = 'surface_height'
-    dataset['z'].attrs['units'] = 'm'
-    dataset['z'].attrs['grid_mapping'] = 'crs: x y'
-    dataset['z'].attrs['coordinates'] = 'x y'
-
-    dataset['axis'].attrs['long_name'] = 'stream identifier'
-    dataset['measure'].attrs['long_name'] = 'position along reference axis'
-    dataset['measure'].attrs['long_name'] = 'linear_measure_coordinate'
-    dataset['measure'].attrs['units'] = 'm'
-
-    dataset.attrs['crs'] = 'EPSG:2154'
-    dataset.attrs['FCT'] = 'Fluvial Corridor Toolbox Valley Profile 1.0.5'
-    dataset.attrs['Conventions'] = 'CF-1.8'
-
-    dataset.to_netcdf(
-        valley_floor_file,
-        'w',
-        encoding={
-            'x': dict(zlib=True, complevel=9, least_significant_digit=2),
-            'y': dict(zlib=True, complevel=9, least_significant_digit=2),
-            'z': dict(zlib=True, complevel=9, least_significant_digit=1),
-            'measure': dict(zlib=True, complevel=9, least_significant_digit=0)
-        })
+    ExportValleyProfile(axis, valley_profile, valley_floor_file)
 
     HeightAboveValleyFloor(axis, processes=5)

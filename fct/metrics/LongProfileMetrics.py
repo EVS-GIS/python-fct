@@ -14,10 +14,12 @@ Per Swath Unit Geomorphic Metrics
 """
 
 from operator import itemgetter
-import numpy as np
-import xarray as xr
-import click
+from math import ceil
 
+import numpy as np
+
+import click
+import xarray as xr
 import rasterio as rio
 import fiona
 import fiona.crs
@@ -150,7 +152,7 @@ def MetricElevation(axis, **kwargs):
                 measures[k] = feature['properties']['M']
 
                 mask = (~np.isnan(z)) & (swathid == gid)
-                
+
                 if np.sum(mask) > 0:
                     zmin[k] = np.min(z[mask])
                 else:
@@ -169,6 +171,7 @@ def MetricElevation(axis, **kwargs):
     # Metadata
 
     metrics['zmin'].attrs['long_name'] = 'minimum swath elevation along talweg'
+    metrics['zmin'].attrs['standard_name'] = 'surface_altitude'
     metrics['zmin'].attrs['units'] = 'm'
     metrics['zmin'].attrs['vertical_ref'] = config.vertical_ref
 
@@ -462,3 +465,156 @@ def MetricSlopes(axis, **kwargs):
     metrics['measure'].attrs['units'] = 'm'
 
     return metrics, ref_segments, ref_segments_vf
+
+def AdjustRefElevationGaps(segments):
+    """
+    Adjust gaps in the output of MetricSlopes()
+    """
+
+    def measure(segment):
+        """sort by m coordinate of first point"""
+        return segment[0][3]
+
+    sorted_segments = sorted(
+        [
+            np.copy(segment) for segment in segments
+            if segment.size > 0 and segment[0, 3] != segment[-1, 3]
+        ],
+        key=measure)
+
+    missing = list()
+
+    for k, segment in enumerate(sorted_segments):
+
+        if k == 0:
+            continue
+
+        m0 = segment[0, 3]
+
+        if segment[0, 2] < sorted_segments[k-1][-1, 2]:
+
+            # z0 = 0.5 * (segment[0, 2] + sorted_segments[k-1][-1, 2])
+            z0 = sorted_segments[k-1][-1, 2]
+
+            m1 = segment[-1, 3]
+            z1 = segment[-1, 2]
+
+            # linear interpolation between z0 and z1
+            segment[:, 2] = (segment[:, 3] - m0) / (m1 - m0) * (z1 - z0) + z0
+
+        m0 = sorted_segments[k-1][-1, 3]
+        m1 = segment[0, 3]
+
+        if m1 - m0 > 50.0:
+
+            new_m = np.linspace(m1, m0, ceil((m1 - m0) / 10.0))
+            new_segment = np.zeros((len(new_m), 4), dtype='float32')
+            new_segment[:, 3] = new_m
+
+            for j in range(3):
+
+                c0 = sorted_segments[k-1][-1, j]
+                c1 = segment[0, j]
+
+                # linear interpolation between coordinate c0 and c1
+                new_segment[:, j] = (new_m - m0) / (m1 - m0) * (c1 - c0) + c0
+
+            missing.append(new_segment)
+
+    # print(len(missing))
+    sorted_segments.extend(missing)
+
+    return sorted(sorted_segments, key=measure)
+
+def ExportValleyProfile(axis, valley_profile, destination):
+
+    dataset = xr.Dataset(
+        {
+            'x': ('measure', valley_profile[:, 0]),
+            'y': ('measure', valley_profile[:, 1]),
+            'z': ('measure', valley_profile[:, 2])
+        },
+        coords={
+            'axis': axis,
+            'measure': valley_profile[:, 3]
+        })
+
+    dataset['x'].attrs['long_name'] = 'x coordinate'
+    dataset['x'].attrs['standard_name'] = 'projection_x_coordinate'
+    dataset['x'].attrs['units'] = 'm'
+
+    dataset['y'].attrs['long_name'] = 'y coordinate'
+    dataset['y'].attrs['standard_name'] = 'projection_y_coordinate'
+    dataset['y'].attrs['units'] = 'm'
+
+    dataset['z'].attrs['long_name'] = 'height above valley floor'
+    dataset['z'].attrs['standard_name'] = 'surface_height'
+    dataset['z'].attrs['units'] = 'm'
+    dataset['z'].attrs['grid_mapping'] = 'crs: x y'
+    dataset['z'].attrs['coordinates'] = 'x y'
+
+    dataset['axis'].attrs['long_name'] = 'stream identifier'
+    dataset['measure'].attrs['long_name'] = 'position along reference axis'
+    dataset['measure'].attrs['long_name'] = 'linear_measure_coordinate'
+    dataset['measure'].attrs['units'] = 'm'
+
+    dataset.attrs['crs'] = 'EPSG:2154'
+    dataset.attrs['FCT'] = 'Fluvial Corridor Toolbox Valley Profile 1.0.5'
+    dataset.attrs['Conventions'] = 'CF-1.8'
+
+    dataset.to_netcdf(
+        destination,
+        'w',
+        encoding={
+            'x': dict(zlib=True, complevel=9, least_significant_digit=2),
+            'y': dict(zlib=True, complevel=9, least_significant_digit=2),
+            'z': dict(zlib=True, complevel=9, least_significant_digit=1),
+            'measure': dict(zlib=True, complevel=9, least_significant_digit=0)
+        })
+
+def ExportLongProfile(dataset, destination):
+
+    dataset.attrs['crs'] = 'EPSG:2154'
+    dataset.attrs['FCT'] = 'Fluvial Corridor Toolbox Long Profile 1.0.5'
+    dataset.attrs['Conventions'] = 'CF-1.8'
+
+    dataset.to_netcdf(
+        destination,
+        'w',
+        encoding={
+            'swath': dict(zlib=True, complevel=9),
+            'zmin': dict(zlib=True, complevel=9, least_significant_digit=1),
+            'drainage': dict(zlib=True, complevel=9, least_significant_digit=3),
+            'twl': dict(zlib=True, complevel=9, least_significant_digit=0),
+            'tws': dict(zlib=True, complevel=9, least_significant_digit=3),
+            'twz0': dict(zlib=True, complevel=9, least_significant_digit=1),
+            'twse': dict(zlib=True, complevel=9, least_significant_digit=3),
+            'vfs': dict(zlib=True, complevel=9, least_significant_digit=3),
+            'vfz0': dict(zlib=True, complevel=9, least_significant_digit=1),
+            'vfse':dict(zlib=True, complevel=9, least_significant_digit=3),
+            'measure': dict(zlib=True, complevel=9, least_significant_digit=0)
+        })
+
+def LongProfileMetrics(axis):
+
+    click.echo('Gather long profile metrics')
+    m1 = MetricDrainageArea(axis)
+    m2 = MetricElevation(axis)
+    m3, seg1, seg2 = MetricSlopes(axis)
+
+    click.echo('Write long profile metrics')
+    metrics = m1.merge(m2).merge(m3)
+    metrics_file = config.filename('metrics_long_profile', axis=axis)
+    ExportLongProfile(metrics, metrics_file)
+
+    click.echo('Write reference axis talweg profile')
+    segments = AdjustRefElevationGaps(seg1)
+    valley_profile = np.float32(np.concatenate(segments, axis=0))
+    valley_floor_file = config.filename('ax_refaxis_talweg_profile', axis=axis)
+    ExportValleyProfile(axis, valley_profile, valley_floor_file)
+
+    click.echo('Write reference axis valley profile')
+    segments = AdjustRefElevationGaps(seg2)
+    valley_profile = np.float32(np.concatenate(segments, axis=0))
+    valley_floor_file = config.filename('ax_refaxis_valley_profile', axis=axis)
+    ExportValleyProfile(axis, valley_profile, valley_floor_file)

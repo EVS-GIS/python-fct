@@ -477,7 +477,7 @@ def WatershedMetrics(axis, processes=1, buffer_profile='ax_buffer_profile'):
             buffer_distance='ax_buffer_distance',
             buffer_profile=buffer_profile)
 
-    return xr.Dataset(
+    dataset = xr.Dataset(
         {
             'pop': (('measure', 'width'), pop),
             'income': (('measure', 'width'), income),
@@ -499,6 +499,34 @@ def WatershedMetrics(axis, processes=1, buffer_profile='ax_buffer_profile'):
                 'Infrastructures'
             ]
         })
+
+    # Metadata
+
+    dataset['pop'].attrs['long_name'] = 'resident population'
+    dataset['pop'].attrs['units'] = 'thousands'
+    dataset['pop'].attrs['source'] = 'INSEE, Filosofi 2015, données carroyées résolution 200 m'
+
+    dataset['income'].attrs['long_name'] = 'sum of normalized household income'
+    dataset['income'].attrs['units'] = 'euros'
+    dataset['income'].attrs['source'] = 'INSEE, Filosofi 2015, données carroyées résolution 200 m'
+
+    dataset['lck'].attrs['long_name'] = 'area of landcover class k'
+    dataset['lck'].attrs['standard_name'] = 'landcover_area'
+    dataset['lck'].attrs['units'] = 'km²'
+    dataset['lck'].attrs['source'] = 'BD Topo 2019, Registre parcellaire graphique 2016'
+
+    dataset['axis'].attrs['long_name'] = 'stream identifier'
+    dataset['measure'].attrs['long_name'] = 'position along reference axis'
+    dataset['measure'].attrs['units'] = 'm'
+    dataset['width'].attrs['long_name'] = 'buffer width of measurement'
+    dataset['width'].attrs['units'] = 'm'
+    dataset['landcover'].attrs['long_name'] = 'landcover class label'
+
+    dataset.attrs['crs'] = 'EPSG:2154'
+    dataset.attrs['FCT'] = 'Fluvial Corridor Toolbox Watershed Profile 1.0.5'
+    dataset.attrs['Conventions'] = 'CF-1.8'
+
+    return dataset
 
 def WriteWatershedMetrics(axis, data, destination='metrics_watershed', subset='buf1k'):
 
