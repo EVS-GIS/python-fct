@@ -2,6 +2,8 @@
 
 The Fluvial Corridor Toolbox is a set of geoalgorithms for measuring fluvial features and processes.
 
+![Corridor Width Profile Example (River le Var, France)](docs/img/width_profile.png)
+
 ## Acknowledgements
 
 The toolbox is developed within the programme
