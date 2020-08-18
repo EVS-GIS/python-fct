@@ -23,21 +23,25 @@ def FlatDepth(row, col, min_drainage=5.0, **kwargs):
     # from scipy.ndimage.morphology import binary_closing
 
     # reference_raster = config.filename('tiled', row=row, col=col)
-    filled_raster = config.filename('filled', row=row, col=col)
+    filled_raster = config.tileset().tilename('dem-drainage-resolved', row=row, col=col)
     # flow_raster = config.filename('flow', row=row, col=col)
     # acc_raster = config.filename('acc', row=row, col=col)
     # labels_raster = config.filename('flat_labels', row=row, col=col)
-    output = config.filename('flats', row=row, col=col)
+    output = config.tileset().tilename('depression-depth-map', row=row, col=col)
     overwrite = kwargs.get('overwrite', False)
 
     if os.path.exists(output) and not overwrite:
         # click.secho('Output already exists: %s' % output, fg='yellow')
         return
 
+    reference_raster = config.tileset().tilename('dem', row=row, col=col)
+    with rio.open(reference_raster) as ds:
+        reference = ds.read(1)
+
     with rio.open(filled_raster) as ds:
 
         # reference = ds.read(1)
-        reference, transform, nodata = ReadRasterTile(row, col, 'dem', 'dem2')
+        # reference, transform, nodata = ReadRasterTile(row, col, 'dem1', 'dem2')
         filled = ds.read(1)
         
         flow = ta.flowdir(filled, ds.nodata)

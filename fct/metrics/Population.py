@@ -4,6 +4,7 @@
 """
 Disaggregate population data to the resolution of landcover data,
 using landcover urban classes.
+TODO move outside metrics => data preparation
 
 ***************************************************************************
 *                                                                         *
@@ -61,7 +62,7 @@ def grid_extent(geometry, transform):
 def DisaggregatePopulationTile(
         tile,
         variable='Ind',
-        tileset='landcover',
+        tileset='default',
         datasource='population',
         landcoverset='landcover',
         destination='population'):
@@ -150,7 +151,7 @@ def DisaggregatePopulationTile(
             with rio.open(output, 'w', **profile) as dst:
                 dst.write(out, 1)
 
-def DisaggregatePopulation(processes=1, tileset='landcover', **kwargs):
+def DisaggregatePopulation(processes=1, tileset='default', **kwargs):
     """
     Disaggregate population data to the resolution of landcover data,
     using landcover urban classes.

@@ -16,7 +16,10 @@ Configuration Classes
 import os
 from collections import namedtuple
 from configparser import ConfigParser
+from base64 import urlsafe_b64encode
 import yaml
+import click
+
 from shapely.geometry import asShape
 import fiona
 
@@ -60,7 +63,16 @@ class Configuration():
         """
         Populate configuration from default `config.ini`
         """
-        filename = os.path.join(os.path.dirname(__file__), 'config.ini')
+
+        if 'FCT_CONFIG' in os.environ:
+            filename = os.environ['FCT_CONFIG']
+            click.secho('Configuration from environment', fg='yellow')
+            click.secho('FCT_CONFIG=%s' % filename, fg='yellow')
+            if not os.path.exists(filename):
+                raise ValueError('%s does not exist (from environment FCT_CONFIG)' % filename)
+        else:
+            filename = os.path.join(os.path.dirname(__file__), 'config.ini')
+       
         self.configure(*FileParser.parse(filename))
 
     def from_file(self, filename):
@@ -75,6 +87,19 @@ class Configuration():
         """
         return self._workspace.dataset(name)
 
+    def temporary_dataset(self, name):
+
+        template = self.dataset(name)
+
+        while True:
+
+            temp = template.mktemp()
+
+            if temp.name not in self._workspace._datasets:
+
+                self._workspace._datasets[temp.name] = temp
+                return temp
+
     def fileset(self, names, **kwargs):
         """
         Return list of Dataset filename instances
@@ -88,6 +113,12 @@ class Configuration():
         """
         Return Tileset definition
         """
+
+        if name == 'default':
+            if 'FCT_TILESET' in os.environ:
+                if os.environ['FCT_TILESET'] in self._tilesets:
+                    name = os.environ['FCT_TILESET']
+
         return self._tilesets[name]
 
     def datasource(self, name):
@@ -183,6 +214,21 @@ class Dataset():
 
         if tilename == '':
             self._tilename = name.upper() + '_%(row)02d_%(col)02d'
+
+    def mktemp(self):
+        
+        suffix = urlsafe_b64encode(os.urandom(6)).decode('ascii')
+        temp_name = '_'.join([self._name, suffix])
+        basename, extension = os.path.splitext(self._filename)
+        temp_filename = '_'.join([basename, suffix]) + extension
+        temp_tilename = ''
+
+        return Dataset(
+            temp_name,
+            temp_filename,
+            temp_tilename,
+            os.path.join(self._subdir, 'TEMP'),
+            self._ext)
 
     @property
     def name(self):
@@ -483,10 +529,16 @@ class FileParser():
                     else:
                         raise KeyError(value)
 
-        datasets = FileParser.datasets(
-            os.path.join(
-                os.path.dirname(configfile),
-                'datasets.yml'))
+        dstfile = os.path.join(
+            os.path.dirname(configfile),
+            'datasets.yml')
+
+        if not os.path.exists(dstfile):
+            dstfile = os.path.join(
+                os.path.dirname(__file__),
+                'datasets.yml')
+
+        datasets = FileParser.datasets(dstfile)
 
         return Workspace(workspace, datasets), datasources, tilesets
 

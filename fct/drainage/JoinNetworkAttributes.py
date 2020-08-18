@@ -24,15 +24,42 @@ from shapely.geometry import asShape
 
 from ..config import config
 
-def JoinNetworkAttributes():
+def JoinNetworkAttributes(
+        sourcefile='sources',
+        networkfile='streams-attr',
+        destination='streams-attr-sources'):
+    """
+    Join source attributes to network segments,
+    based on network structure and CDENTITEHY hierarchy.
 
-    # sources_shapefile = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/RHTS_SOURCES.shp'
-    # network_shapefile = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/RHTS.shp'
-    # output = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/RHTS_ATTR.shp'
+    Parameters
+    ----------
 
-    sources_shapefile = config.filename('sources')
-    network_shapefile = config.filename('streams-attr')
-    output = config.filename('streams-attr-sources')
+    sourcefile: str, logical name
+        
+        Point dataset representing network sources,
+        with attributes:
+            - NODE (<= GID)
+            - CDENTITEHY
+            - TOPONYME
+            - AXIS
+            - HACK
+
+    networkfile: str, logicial name
+        LineString dataset representing network segments
+        with attributes:
+            - NODEA
+            - NODEB
+    
+    destination: str, logical name
+        
+        Output dataset
+    """
+
+
+    sources_shapefile = config.filename(sourcefile)
+    network_shapefile = config.filename(networkfile)
+    output = config.filename(destination)
 
     graph = dict()
     rgraph = defaultdict(list)
@@ -46,6 +73,10 @@ def JoinNetworkAttributes():
 
                 fid = feature['id']
                 properties = feature['properties']
+
+                if 'MAIN' in properties and properties['MAIN'] == 0:
+                    continue
+
                 a = properties['NODEA']
                 b = properties['NODEB']
 
@@ -183,13 +214,28 @@ def JoinNetworkAttributes():
 
                     dst.write(feature)
 
-def UpdateLengthOrder():
+def UpdateLengthOrder(
+        joined='streams-attr-sources',
+        destination='streams'):
+    """
+    Update HACK et LENAXIS fields
+    according to network connectivity and AXIS identifier
 
-    # network_shapefile = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/RHTS_ATTR.shp'
-    # output = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/RHTS_HACK.shp'
+    Parameters
+    ----------
 
-    network_shapefile = config.filename('streams-attr-sources')
-    output = config.filename('streams')
+    joined: str, logical name
+
+        LineString dataset,
+        output of procedure JoinNetworkAttributes()
+
+    destination: str, logical name
+        
+        Output dataset
+    """
+
+    network_shapefile = config.filename(joined)
+    output = config.filename(destination)
 
     graph = dict()
     indegree = Counter()

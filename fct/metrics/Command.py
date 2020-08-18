@@ -17,7 +17,7 @@ import click
 
 from ..config import config
 from .LandCover import MkLandCoverTiles
-from .Population import DisaggregatePopulationData
+from .Population import DisaggregatePopulation
 from .SubGrid import (
     DefineSubGridMask,
     AggregatePopulation,
@@ -43,14 +43,21 @@ def landcover(processes=1):
     MkLandCoverTiles(processes)
 
 @cli.command()
+@click.argument('variable')
+@click.argument('destination')
+@click.option('--landcoverset', '-lc', default='landcover-bdt')
 @click.option('--processes', '-j', default=1, help="Execute j parallel processes")
-def population(processes=1):
+def population(variable, destination, landcoverset, processes=1):
     """
     Disaggregate population data to match the resolution of landcover data
     """
 
     config.default()
-    DisaggregatePopulationData(processes)
+    DisaggregatePopulation(
+        processes=processes,
+        variable=variable,
+        destination=destination,
+        landcoverset=landcoverset)
 
 @cli.group()
 def subgrid():

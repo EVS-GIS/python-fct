@@ -16,7 +16,7 @@ def tileindex():
     """
     Return default tileindex
     """
-    return config.tileset('drainage').tileindex
+    return config.tileset().tileindex
 
 def WatershedUnitAreas(dataset='labels', coeff=25e-6):
     """
@@ -36,7 +36,7 @@ def WatershedUnitAreas(dataset='labels', coeff=25e-6):
         for row, col in progress:
 
             tile = tile_index[row, col].gid
-            label_raster = config.filename(dataset, row=row, col=col)
+            label_raster = config.tileset().tilename(dataset, row=row, col=col)
 
             with rio.open(label_raster) as ds:
         

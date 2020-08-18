@@ -9,21 +9,29 @@ import math
 
 import rasterio as rio
 import fiona
+from shapely.geometry import (
+    asShape,
+    box
+)
 
 from .. import terrain_analysis as ta
 from ..config import config
 from ..rasterize import rasterize_linestringz
 
-def DrapeNetworkAndAdjustElevations():
+def DrapeNetworkAndAdjustElevations(dataset):
     """
     Drape hydrography vectors on DEM
     and adjust elevation profile to ensure
     monotonic decreasing z across network.
     """
 
-    dem_vrt = '/var/local/fct/RMC/DEM_RGE5M_TILES2.vrt'
-    vectorfile = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/HYDROGRAPHY.shp'
-    output = '/var/local/fct/RMC/TILES2/HYDROGRAPHY.shp'
+    # dem_vrt = '/var/local/fct/RMC/DEM_RGE5M_TILES2.vrt'
+    # vectorfile = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/HYDROGRAPHY.shp'
+    # output = '/var/local/fct/RMC/TILES2/HYDROGRAPHY.shp'
+
+    dem_vrt = config.filename(dataset)
+    networkfile = config.filename('stream-network-cartography')
+    output = config.filename('stream-network-draped')
 
     graph = defaultdict(list)
     indegree = Counter()
@@ -32,7 +40,7 @@ def DrapeNetworkAndAdjustElevations():
     click.secho('Drape Stream Vectors on DEM', fg='cyan')
 
     with rio.open(dem_vrt) as ds:
-        with fiona.open(vectorfile) as fs:
+        with fiona.open(networkfile) as fs:
 
             feature_count = len(fs)
             options = dict(driver=fs.driver, crs=fs.crs, schema=fs.schema)
@@ -91,33 +99,71 @@ def DrapeNetworkAndAdjustElevations():
                     if indegree[node] == 0:
                         queue.append(node)
 
-def DispatchHydrographyToTiles():
+def SplitStreamNetworkIntoTiles():
 
-    src = '/var/local/fct/RMC/TILES2/HYDROGRAPHY_TILED.shp'
-    tileindex = config.tileset('drainage').tileindex
+    tileset = config.tileset()
+    networkfile = config.filename('stream-network-draped')
 
-    def rowcol(feature):
-        return feature['properties']['ROW'], feature['properties']['COL']
+    with fiona.open(networkfile) as fs:
 
-    with fiona.open(src) as fs:
-        options = dict(driver=fs.driver, crs=fs.crs, schema=fs.schema)
-        features = sorted(list(fs), key=rowcol)
+        properties = fs.schema['properties'].copy()
+        properties.update(
+            ROW='int',
+            COL='int'
+        )
 
-    groups = itertools.groupby(features, key=rowcol)
+        schema = dict(
+            geometry=fs.schema['geometry'],
+            properties=properties)
 
-    with click.progressbar(groups, length=len(tileindex)) as progress:
-        for (row, col), features in progress:
-            with fiona.open(config.filename('hydrography', row=row, col=col), 'w', **options) as fst:
-                for feature in features:
-                    fst.write(feature)
+        options = dict(driver=fs.driver, crs=fs.crs, schema=schema)
 
-def BurnTile(tileset, row, col, burn_delta=0.0):
+        with click.progressbar(tileset.tiles(), length=len(tileset)) as iterator:
+            for tile in iterator:
+
+                output = config.tileset().tilename('stream-network-draped', row=tile.row, col=tile.col)
+                with fiona.open(output, 'w', **options) as dst:
+
+                    tile_geom = box(*tile.bounds)
+
+                    for feature in fs.filter(bbox=tile.bounds):
+
+                        intersection = asShape(feature['geometry']).intersection(tile_geom)
+                        props = feature['properties'].copy()
+                        props.update(ROW=tile.row, COL=tile.col)
+                        dst.write({
+                            'geometry': intersection.__geo_interface__,
+                            'properties': props
+                        })
+
+
+# def DispatchHydrographyToTiles():
+
+#     src = '/var/local/fct/RMC/TILES2/HYDROGRAPHY_TILED.shp'
+#     tileindex = config.tileset().tileindex
+
+#     def rowcol(feature):
+#         return feature['properties']['ROW'], feature['properties']['COL']
+
+#     with fiona.open(src) as fs:
+#         options = dict(driver=fs.driver, crs=fs.crs, schema=fs.schema)
+#         features = sorted(list(fs), key=rowcol)
+
+#     groups = itertools.groupby(features, key=rowcol)
+
+#     with click.progressbar(groups, length=len(tileindex)) as progress:
+#         for (row, col), features in progress:
+#             with fiona.open(config.filename('hydrography', row=row, col=col), 'w', **options) as fst:
+#                 for feature in features:
+#                     fst.write(feature)
+
+def BurnTile(dataset, row, col, burn_delta=0.0):
     """
     DOCME
     """
 
-    elevation_raster = config.filename(tileset, row=row, col=col)
-    hydrography = config.filename('hydrography', row=row, col=col)
+    elevation_raster = config.tileset().tilename(dataset, row=row, col=col)
+    hydrography = config.tileset().tilename('stream-network-draped', row=row, col=col)
 
     with rio.open(elevation_raster) as ds:
 

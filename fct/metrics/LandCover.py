@@ -2,6 +2,7 @@
 
 """
 LandCover Tiles Extraction
+TODO move outside metrics => data preparation
 
 ***************************************************************************
 *                                                                         *
@@ -26,7 +27,7 @@ from ..tileio import as_window
 
 def MkLandCoverTile(tile):
 
-    template_raster = config.datasource('dem1').filename
+    template_raster = config.datasource('dem').filename
     landcover_raster = config.datasource('landcover').filename
     mapping_file = config.datasource('landcover-mapping').filename
 
@@ -54,8 +55,8 @@ def MkLandCoverTile(tile):
 
         return out
 
-    output = config.tileset('landcover').tilename(
-        'landcover',
+    output = config.tileset().tilename(
+        'landcover-cesbio',
         row=tile.row,
         col=tile.col)
 
@@ -103,7 +104,7 @@ def MkLandCoverTile(tile):
 def MkLandCoverTiles(processes=1, **kwargs):
 
     # tile_shapefile = os.path.join(workdir, 'TILESET', 'GRILLE_10K.shp')
-    tiles = config.tileset('landcover').tileindex
+    tiles = config.tileset().tileindex
 
     arguments = [(MkLandCoverTile, tile, kwargs) for tile in tiles.values()]
 
@@ -118,7 +119,7 @@ def MkLandCoverTiles(processes=1, **kwargs):
 def SeparateLandCoverClassesTile(
         row,
         col,
-        tileset='landcover',
+        tileset='default',
         dataset='landcover',
         destination='landcover-separate',
         bands=1,
@@ -159,7 +160,7 @@ def SeparateLandCoverClassesTile(
                 band[data == ds.nodata] = nodata
                 dst.write(band, k+1)
 
-def SeparateLandCoverClasses(k, processes=1, tileset='landcover', **kwargs):
+def SeparateLandCoverClasses(k, processes=1, tileset='default', **kwargs):
     """
     Split land cover classes into k separate contingency bands
 

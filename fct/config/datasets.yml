@@ -1,14 +1,246 @@
-tiled:
+# Mapped hydrography
+
+stream-network-cartography-in:
   description: |
-    DEM Tiles
+    Stream network derived from cartography
+    (input dataset)
+  type: polygon
+  group: drainage
+  status: input
+  subdir: GLOBAL/INPUT
+  filename: REFERENTIEL_HYDRO.shp
+
+stream-network-cartography:
+  description: |
+    Stream network derived from cartography
+    with sources attributes and updates HACK and LENAXIS fields
+  type: polygon
+  group: drainage
+  status: input
+  subdir: GLOBAL
+  filename: REFERENTIEL_HYDRO.shp
+
+stream-network-cartography-backup:
+  description: |
+    Stream network derived from cartography
+    with sources attributes and updates HACK and LENAXIS fields
+  type: polygon
+  group: drainage
+  status: backup
+  subdir: GLOBAL
+  filename: REFERENTIEL_HYDRO_BAK.shp
+
+sources-cartography-in:
+  description: |
+    Stream network sources from cartography
+    (input dataset)
+  type: polygon
+  group: drainage
+  status: input
+  subdir: GLOBAL/INPUT
+  filename: SOURCES.shp
+
+sources-cartography:
+  description: |
+    Stream network sources from cartography,
+    working selection
+  type: polygon
+  group: drainage
+  status: final
+  subdir: GLOBAL
+  filename: SOURCES.shp
+
+# DEM and drainage calculation
+
+dem:
+  description: |
+    Tiles extracted from input DEM.
+    During the extraction process,
+    nodata area are filled with data from
+    low resolution secondary DEM.
   type: raster
   group: drainage
   status: temporary
   subdir: GLOBAL/DEM
-  filename: RGE5M.vrt
+  filename: DEM.vrt
   tiles:
     tileset: landcover
-    template: RGE5M_%(row)02d_%(col)02d
+    template: DEM_%(row)02d_%(col)02d
+    extension: .tif
+
+tiled:
+  description: |
+    DEM Tiles
+    TODO duplicate of dem, to be removed
+  type: raster
+  group: drainage
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: DEM.vrt
+  tiles:
+    tileset: landcover
+    template: DEM_%(row)02d_%(col)02d
+    extension: .tif
+
+smoothed:
+  description: |
+    Smoothed DEM
+  type: raster
+  group: drainage
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: SMOOTHED.vrt
+  tiles:
+    tileset: landcover
+    template: SMOOTHED_%(row)02d_%(col)02d
+    extension: .tif
+
+stream-network-draped:
+  description: |
+    Stream network derived from cartography
+    draped on DEM
+  type: polygon
+  group: drainage
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: DRAPED_HYDROGRAPHY.shp
+  tiles:
+    tileset: landcover
+    template: DRAPED_HYDROGRAPHY_%(row)02d_%(col)02d
+    extension: .shp
+
+dem-filled:
+  description: |
+    DEM tiles,
+    depression filling procedure,
+    first pass: individual tile processing
+  type: raster
+  group: drainage
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: FILLED.vrt
+  tiles:
+    tileset: landcover
+    template: FILLED_%(row)02d_%(col)02d
+    extension: .tif
+
+dem-watershed-labels:
+  description: |
+    Watershed labels
+    (depression filling procedure)
+  type: raster
+  group: drainage
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: WATERSHED_LABELS.vrt
+  tiles:
+    tileset: landcover
+    template: WATERSHED_LABELS_%(row)02d_%(col)02d
+    extension: .tif
+
+dem-watershed-graph:
+  description: |
+    Cross-tile watershed connection graph
+    (depression filling procedure)
+  type: npz
+  group: drainage
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: WATERSHED_GRAPH.npz
+  tiles:
+    tileset: landcover
+    template: WATERSHED_GRAPH_%(row)02d_%(col)02d
+    extension: .npz
+
+dem-tile-spillover:
+  description: |
+    Tile spillovers, z resolution of dem-watershed-graph
+    (depression filling procedure)
+  type: npz
+  group: drainage
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: WATERSHED_SPILLOVER.npz
+
+dem-filled-resolved:
+  description: |
+    filled DEM tiles,
+    depression filling procedure,
+    second pass: cross-tile resolution based on spillover graph
+  type: raster
+  group: drainage
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: RESOLVED.vrt
+  tiles:
+    tileset: landcover
+    template: RESOLVED_%(row)02d_%(col)02d
+    extension: .tif
+
+dem-flat-labels:
+  description: |
+    Flat labels
+    (depression filling procedure)
+  type: raster
+  group: drainage
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: FLAT_LABELS.vrt
+  tiles:
+    tileset: landcover
+    template: FLAT_LABELS_%(row)02d_%(col)02d
+    extension: .tif
+
+dem-flat-graph:
+  description: |
+    Cross-tile flat connection graph
+    (depression filling procedure)
+  type: npz
+  group: drainage
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: FLAT_GRAPH.npz
+  tiles:
+    tileset: landcover
+    template: FLAT_GRAPH_%(row)02d_%(col)02d
+    extension: .npz
+
+dem-flat-spillover:
+  description: |
+    Tile spillovers, z resolution of dem-flat-graph
+    (depression filling procedure)
+  type: npz
+  group: drainage
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: FLAT_SPILLOVER.npz
+
+dem-drainage-resolved:
+  description: |
+    filled DEM tiles,
+    depression filling procedure,
+    second pass: cross-tile resolution based on spillover graph
+  type: raster
+  group: drainage
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: DRAINAGE_RESOLVED.vrt
+  tiles:
+    tileset: landcover
+    template: DRAINAGE_RESOLVED_%(row)02d_%(col)02d
+    extension: .tif
+
+depression-depth-map:
+  description: |
+    Raster map of DEM depressions
+  type: raster
+  group: drainage
+  status: final
+  subdir: GLOBAL/DEM
+  filename: DEPRESSIONS.vrt
+  tiles:
+    tileset: landcover
+    template: DEPRESSIONS_%(row)02d_%(col)02d
     extension: .tif
 
 flow:
@@ -70,18 +302,6 @@ inlets:
   group: drainage
   status: temporary
   subdir: GLOBAL/DEM
-  tiles:
-    tileset: landcover
-    template: INLETS_%(row)02d_%(col)02d
-    extension: .shp
-
-inlets:
-  description: |
-    Tile flow inlets
-  type: polygon
-  group: drainage
-  status: temporary
-  subdir: GLOBAL/DEM
   filename: INLETS.shp
   tiles:
     tileset: landcover
@@ -101,10 +321,25 @@ inlet-sources:
     template: SOURCES_%(row)02d_%(col)02d
     extension: .shp
 
+dem-drainage-network:
+  description: |
+    Theoretical stream network derived from DEM
+  type: linestring
+  group: drainage
+  status: final
+  subdir: GLOBAL/DEM
+  filename: DRAINAGE.shp
+  tiles:
+    tileset: landcover
+    template: DRAINAGE_%(row)02d_%(col)02d
+    extension: .shp
+
+# Drainage network preparation
+
 streams-from-sources:
   description: |
     Theoretical stream network, derived from DEM and mapped sources
-  type: polygon
+  type: linestring
   group: drainage
   status: temporary
   subdir: GLOBAL/DEM
@@ -118,7 +353,7 @@ sources:
   description: |
     Theoretical stream network sources,
     with mapped sources attributes
-  type: polygon
+  type: point
   group: drainage
   status: temporary
   subdir: GLOBAL/DEM
@@ -128,7 +363,7 @@ streams-attr:
   description: |
     Theoretical stream network with network attributes
     (axis identifier, axis length, Hack and Strahler order)
-  type: polygon
+  type: linestring
   group: drainage
   status: temporary
   subdir: GLOBAL/DEM
@@ -138,7 +373,7 @@ streams-attr-sources:
   description: |
     Theoretical stream network
     with mapped sources attributes
-  type: polygon
+  type: linestring
   subdir: GLOBAL/DEM
   filename: RHTS_ATTR_JOINED.shp
 
@@ -146,7 +381,7 @@ streams:
   description: |
     Theoretical stream network derived from DEM,
     with attributes from mapped river network
-  type: polygon
+  type: linestring
   group: drainage
   status: final
   subdir: GLOBAL/DEM
@@ -155,11 +390,13 @@ streams:
 streams-tiled:
   description: |
     Stream network aggregated by axis and tiles
-  type: polygon
+  type: linestring
   group: drainage
   status: temporary
   subdir: GLOBAL
   filename: STREAMS.shp
+
+# Input Thematic Data (landcover/population)
 
 landcover-default:
   description: |
@@ -181,7 +418,7 @@ landcover-cesbio:
   filename: LANDCOVER_CESBIO_2018.vrt
   tiles:
     tileset: landcover
-    template: LANDCOVER_CESBIO_%(row)02d_%(col)02d
+    template: LANDCOVER_CESBIO_2018_%(row)02d_%(col)02d
     extension: .tif
 
 landcover-gpk:
@@ -244,6 +481,8 @@ population-income:
     template: SNV_2015_%(row)02d_%(col)02d
     extension: .tif
 
+# Subgrid support data
+
 subgrid_mask:
   description: |
     SubGrid Mask
@@ -265,6 +504,8 @@ subgrid_graph:
   subdir: SUBGRID
   filename: SUBGRID_GRAPH.shp
 
+# Subgrid aggregates
+
 subgrid_population:
   description: |
     SubGrid Population
@@ -285,6 +526,8 @@ subgrid_dominant_landcover:
   type: raster
   subdir: SUBGRID
   filename: LANDCOVER_DOMINANT_2018.tif
+
+# Per axis datasets
 
 ax_tiles:
   description: |

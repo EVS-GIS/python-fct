@@ -7,11 +7,11 @@ Fluvial Corridor Toolbox
 
 import os
 import glob
-from functools import wraps
-from multiprocessing import Pool
+from shutil import copyfile
 import click
 
 from ..config import config
+from ..tileio import buildvrt
 from .. import __version__ as version
 
 from .Tiles import DatasourceToTiles
@@ -75,11 +75,17 @@ def rename_fileset(source, destination, overwrite):
     Rename fileset
     """
 
+    config.default()
+
     src = config.filename(source)
     dest = config.filename(destination)
 
     if not os.path.exists(src):
         click.echo('Not found %s' % os.path.basename(src))
+        return
+
+    if os.path.exists(destination) and not overwrite:
+        click.secho('Not overwriting %s' % destination)
         return
 
     src = os.path.splitext(src)[0]
@@ -94,6 +100,41 @@ def rename_fileset(source, destination, overwrite):
             return
 
         os.rename(src + extension, dest + extension)
+
+@files.command('copy')
+@click.argument('source')
+@click.argument('destination')
+@overwritable
+def copy_fileset(source, destination, overwrite):
+    """
+    Rename fileset
+    """
+
+    config.default()
+
+    src = config.filename(source)
+    dest = config.filename(destination)
+
+    if not os.path.exists(src):
+        click.echo('Not found %s' % os.path.basename(src))
+        return
+
+    if os.path.exists(destination) and not overwrite:
+        click.secho('Not overwriting %s' % destination)
+        return
+
+    src = os.path.splitext(src)[0]
+    dest = os.path.splitext(dest)[0]
+
+    for name in glob.glob(src + '.*'):
+
+        extension = os.path.splitext(name)[1]
+
+        if os.path.exists(dest + extension) and not overwrite:
+            click.secho('Not overwriting %s' % dest)
+            return
+
+        copyfile(src + extension, dest + extension)
 
 @files.command('delete')
 @click.argument('name')
@@ -206,3 +247,14 @@ def extract(datasource, tileset, dataset, processes=1):
 
     config.default()
     DatasourceToTiles(datasource, tileset, dataset, processes)
+
+@tiles.command('buildvrt')
+@click.argument('tileset')
+@click.argument('dataset')
+def vrt(tileset, dataset):
+    """
+    Build GDAL Virtual Raster (VRT) from dataset tiles
+    """
+
+    config.default()
+    buildvrt(tileset, dataset)

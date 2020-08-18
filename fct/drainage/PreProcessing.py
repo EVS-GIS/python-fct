@@ -39,7 +39,6 @@ import numpy as np
 import click
 import rasterio as rio
 from rasterio.features import rasterize
-from rasterio.windows import Window
 import fiona
 import fiona.crs
 
@@ -59,7 +58,7 @@ def tileindex():
     """
     Return default tileindex
     """
-    return config.tileset('drainage').tileindex
+    return config.tileset().tileindex
 
 def silent(msg):
     pass
@@ -101,7 +100,13 @@ def TileExtendedBoundingBox(row, col, padding=20):
             feature = {'geometry': geom, 'properties': props}
             dst.write(feature)
 
-def ExtractAndPatchTile(row, col, overwrite, verbose=False, smooth=5):
+def ExtractAndPatchTile(
+        row, col,
+        overwrite=True,
+        verbose=False,
+        smooth=0,
+        exterior='exterior-domain',
+        exterior_data=9000.0):
     """
     Remplit les zones NODATA du MNT de résolution 5 m (RGE Alti 5 m)
     avec les valeurs interpolées de la BD Alti 25 m
@@ -109,19 +114,13 @@ def ExtractAndPatchTile(row, col, overwrite, verbose=False, smooth=5):
 
     from scipy.ndimage import uniform_filter as ndfilter
 
-    tile_index = tileindex()
-    DEM = config.datasource('dem1').filename
-    LOWRES = config.datasource('dem2').filename
+    # tile_index = tileindex()
+    # noout = config.tileset().noout
 
-    tile_height = config.tileset('drainage').height
-    tile_width = config.tileset('drainage').width
-    noout = config.tileset('drainage').noout
-    
-    if (row, col) not in tile_index:
-        return
+    # if (row, col) not in tile_index:
+    #     return
 
-    tile = tile_index[row, col]
-    output = config.filename('tiled', row=row, col=col)
+    output = config.tileset().tilename('dem', row=row, col=col)
 
     if verbose:
 
@@ -146,7 +145,7 @@ def ExtractAndPatchTile(row, col, overwrite, verbose=False, smooth=5):
 
         # row_offset, col_offset = ds.index(tile.x0, tile.y0)
 
-    elevations, profile = ReadRasterTile(row, col, 'dem', 'dem2', padding=smooth)
+    elevations, profile = ReadRasterTile(row, col, 'dem1', 'dem2', padding=smooth)
     transform = profile['transform']
     nodata = profile['nodata']
 
@@ -160,16 +159,18 @@ def ExtractAndPatchTile(row, col, overwrite, verbose=False, smooth=5):
     else:
         out = elevations
 
-    with fiona.open(config.datasource('exterior-domain').filename) as fs:
-        mask = rasterize(
-            [f['geometry'] for f in fs],
-            out_shape=out.shape,
-            transform=transform,
-            fill=0,
-            default_value=1,
-            dtype='uint8')
+    if exterior and exterior != 'off':
 
-    out[(out == nodata) & (mask == 1)] = noout
+        with fiona.open(config.datasource(exterior).filename) as fs:
+            mask = rasterize(
+                [f['geometry'] for f in fs],
+                out_shape=out.shape,
+                transform=transform,
+                fill=0,
+                default_value=1,
+                dtype='uint8')
+
+        out[(out == nodata) & (mask == 1)] = exterior_data
 
     # profile = ds.profile.copy()
     # profile.update(
@@ -183,40 +184,32 @@ def ExtractAndPatchTile(row, col, overwrite, verbose=False, smooth=5):
     with rio.open(output, 'w', **profile) as dst:
         dst.write(out, 1)
 
-def MeanFilter(row, col, overwrite, verbose=False, size=5):
+def MeanFilter(
+        row, col,
+        overwrite=True,
+        window=5):
     """
-    Smooth elevations by applying a mean filter on a square window of size `size`
+    Smooth elevations by applying a mean filter
+    on a square window of size `size`
     """
 
     from scipy.ndimage import uniform_filter as ndfilter
 
-    tile_index = tileindex()
+    # tile_index = tileindex()
 
-    if (row, col) not in tile_index:
-        return
+    # if (row, col) not in tile_index:
+    #     return
 
-    output = config.filename('smoothed', row=row, col=col)
-    
-    if verbose:
-
-        def info(msg):
-            click.secho(msg, fg='cyan')
-
-        def step(msg):
-            click.secho(msg, fg='yellow')
-
-    else:
-
-        info = step = silent
+    output = config.tileset().tilename('smoothed', row=row, col=col)
 
     if os.path.exists(output) and not overwrite:
-        info('Output already exists: %s' % output)
+        click.secho('Output already exists: %s' % output, fg='yellow')
         return
 
-    with rio.open(config.filename('tiled', row=row, col=col)) as ds:
+    with rio.open(config.tileset().tilename('dem', row=row, col=col)) as ds:
 
         data = ds.read(1)
-        out = ndfilter(data, size)
+        out = ndfilter(data, window)
         out[data == ds.nodata] = ds.nodata
 
         profile = ds.profile.copy()
@@ -225,7 +218,13 @@ def MeanFilter(row, col, overwrite, verbose=False, size=5):
             dst.write(data, 1)
 
 
-def FillDepressions(row, col, burn=-1.0, overwrite=False, verbose=False):
+def FillDepressions(
+        row, col,
+        dataset='dem',
+        burn=-1.0,
+        exterior_data=9000.0,
+        overwrite=True,
+        verbose=False):
     """
     Identifie et numérote les bassins versants
     et les zones continues de même altitude,
@@ -237,8 +236,10 @@ def FillDepressions(row, col, burn=-1.0, overwrite=False, verbose=False):
     if (row, col) not in tile_index:
         return
 
-    noout = config.tileset('drainage').noout
-    outputs = config.fileset(['prefilled', 'labels', 'graph'], row=row, col=col)
+    # outputs = config.fileset(['prefilled', 'labels', 'graph'], row=row, col=col)
+    output_filled = config.tileset().tilename('dem-filled', row=row, col=col)
+    output_labels = config.tileset().tilename('dem-watershed-labels', row=row, col=col)
+    output_graph = config.tileset().tilename('dem-watershed-graph', row=row, col=col)
 
     if verbose:
 
@@ -252,14 +253,14 @@ def FillDepressions(row, col, burn=-1.0, overwrite=False, verbose=False):
 
         info = step = silent
 
-    for output in outputs.values():
+    for output in [output_filled, output_labels, output_graph]:
         if os.path.exists(output) and not overwrite:
             info('Output already exists: %s' % output)
             return 
 
     info('Processing tile (%02d, %02d)' % (row, col))
 
-    with rio.open(config.filename('tiled', row=row, col=col)) as ds:
+    with rio.open(config.tileset().tilename(dataset, row=row, col=col)) as ds:
 
         profile = ds.profile.copy()
         nodata = ds.nodata
@@ -267,11 +268,11 @@ def FillDepressions(row, col, burn=-1.0, overwrite=False, verbose=False):
         if burn < 0:
             elevations = ds.read(1)
         else:
-            elevations = BurnTile('tiled', row, col, burn)
+            elevations = BurnTile(dataset, row, col, burn)
 
     step('Label flats')
 
-    labels, graph = ta.watershed_labels(elevations, nodata, noout)
+    labels, graph = ta.watershed_labels(elevations, nodata, exterior_data)
     labels = np.uint32(labels)
 
     step('Write filled DEM')
@@ -281,7 +282,7 @@ def FillDepressions(row, col, burn=-1.0, overwrite=False, verbose=False):
         tiled='yes'
     )
 
-    with rio.open(outputs['prefilled'], 'w', **profile) as dst:
+    with rio.open(output_filled, 'w', **profile) as dst:
         dst.write(elevations, 1)
 
     step('Write labels and watershed graph')
@@ -292,11 +293,11 @@ def FillDepressions(row, col, burn=-1.0, overwrite=False, verbose=False):
         dtype=np.uint32,
         nodata=0)
 
-    with rio.open(outputs['labels'], 'w', **profile) as dst:
+    with rio.open(output_labels, 'w', **profile) as dst:
         dst.write(labels, 1)
 
     np.savez(
-        outputs['graph'],
+        output_graph,
         z=np.array([
             elevations[0, :],
             elevations[:, -1],
@@ -307,7 +308,7 @@ def FillDepressions(row, col, burn=-1.0, overwrite=False, verbose=False):
             labels[:, -1],
             np.flip(labels[-1, :], axis=0),
             np.flip(labels[:, 0], axis=0)]),
-        graph=np.array(list(graph.items()))
+        graph=np.array(list(graph.items()), dtype=object)
     )
 
 def ResolveMinimumZ(graph, nodata, epsilon=0.002):
@@ -640,7 +641,8 @@ def Spillover(overwrite):
     entre les différentes tuiles
     """
 
-    output = config.filename('spillover')
+    output = config.filename('dem-tile-spillover')
+
     if os.path.exists(output) and not overwrite:
         click.secho('Output already exists: %s' % output, fg='yellow')
         return
@@ -653,7 +655,7 @@ def Spillover(overwrite):
     nodata = -99999.0
 
     def tiledatafn(row, col):
-        return config.filename('graph', row=row, col=col)
+        return config.tileset().tilename('dem-watershed-graph', row=row, col=col)
 
     with click.progressbar(tile_index) as progress:
         for row, col in progress:
@@ -739,14 +741,14 @@ def ApplyFlatZ(row, col, **kwargs):
     tile_index = tileindex()
     tile = tile_index[row, col]
 
-    minz_file = config.filename('spillover')
+    minz_file = config.filename('dem-tile-spillover')
     minimum_z = np.load(minz_file)['minz']
 
     index = {int(w): z for t, w, z in minimum_z if int(t) == tile.gid}
 
-    filled_raster = config.filename('prefilled', row=row, col=col)
-    label_raster = config.filename('labels', row=row, col=col)
-    output = config.filename('filled', row=row, col=col)
+    filled_raster = config.tileset().tilename('dem-filled', row=row, col=col)
+    label_raster = config.tileset().tilename('dem-watershed-labels', row=row, col=col)
+    output = config.tileset().tilename('dem-filled-resolved', row=row, col=col)
 
     def info(msg):
         click.secho(msg, fg='yellow')

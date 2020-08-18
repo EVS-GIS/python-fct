@@ -17,10 +17,16 @@ from ..cli import (
     verbosable
 )
 
-from .Burn import BurnTile
+from .Burn import (
+    BurnTile,
+    DrapeNetworkAndAdjustElevations,
+    SplitStreamNetworkIntoTiles
+)
+
 from .PreProcessing import (
     TileExtendedBoundingBox,
     ExtractAndPatchTile,
+    MeanFilter,
     FillDepressions,
     Spillover,
     ApplyFlatZ
@@ -55,7 +61,14 @@ from .StreamSources import (
     AggregateStreamsFromSources
 )
 
+from .JoinNetworkAttributes import (
+    JoinNetworkAttributes,
+    UpdateLengthOrder
+)
+
+# TODO use environment variable FCT_CONFIG
 config.default()
+# config.from_file('/media/crousson/Backup/PRODUCTION/SECTEUR/LezAigues/config.ini')
 
 def workdir():
     """
@@ -95,12 +108,33 @@ def burn():
 @parallel(prepare, ExtractAndPatchTile)
 @verbosable
 @overwritable
-@click.option('--smooth', default=5, help='Smooth window')
+@click.option('--smooth', default=0, help='Smooth window')
+@click.option('--exterior', default='exterior-domain', help='Exterior domain logical name')
+@click.option('--exterior-data', default=9000.0, help='Value for exterior domain area')
 def mktiles():
     """
     Extract and Patch DEM Tiles
     """
     return tileindex()
+
+@parallel(prepare, MeanFilter)
+@overwritable
+@click.option('--window', default=5, help='Smooth window (pixels)')
+def smooth():
+    """
+    Smooth DEM by applying a mean filter on a window defined by size
+    """
+    return tileindex()
+
+@prepare.command()
+@click.option('--dataset', '-ds', default='smoothed', help='DEM dataset logical name')
+def drape(dataset):
+    """
+    Drape hydrography on DEM and split network into tiles
+    """
+
+    DrapeNetworkAndAdjustElevations(dataset)
+    SplitStreamNetworkIntoTiles()
 
 @prepare.command()
 @click.option('--padding', default=20, help='Number of pixels of padding')
@@ -122,9 +156,11 @@ def boxes(padding):
             TileExtendedBoundingBox(row, col, padding)
 
 @parallel(prepare, FillDepressions)
-@click.option('--burn', '-b', default=-1.0, help='Burn delta >= 0 (in meters)')
 @overwritable
 @verbosable
+@click.option('--dataset', '-ds', default='smoothed', help='DEM dataset logical name')
+@click.option('--burn', '-b', default=-1.0, help='Burn delta >= 0 (in meters)')
+@click.option('--exterior-data', default=9000.0, help='Value for exterior domain area')
 def fill():
     """
     Priority-Flood Depressions Filling
@@ -200,6 +236,7 @@ def flow():
 
 @parallel(flow, FlowDirection, 'calculate')
 @overwritable
+@click.option('--exterior', default='exterior-domain', help='Exterior domain logical name')
 def flowdir():
     """
     Calculate Flow Direction Tiles
@@ -229,11 +266,12 @@ def drainage():
     pass
 
 @aggregate(drainage, 'dispatch')
-def dispatch():
+@click.option('--exterior', default='exterior-inlets', help='Exterior flow logical name')
+def dispatch(exterior):
     """
     Dispatch Drainage Contribution accross Tiles
     """
-    InletAreas()
+    InletAreas(exterior)
 
 @parallel(drainage, FlowAccumulation)
 @overwritable
@@ -279,6 +317,23 @@ def streams():
     Create Stream Network from Mapped Sources
     """
     pass
+
+@streams.command()
+@click.argument('sourcefile')
+@click.argument('networkfile')
+@click.argument('destination')
+def join(sourcefile, networkfile, destination):
+    """
+    Join source attributes to network segments,
+    and update axis length
+    """
+
+    temp = config.temporary_dataset(destination)
+    click.echo('Intermediate result: %s -> %s' % (temp.name, temp.filename()))
+    click.echo('JoinNetworkAttributes')
+    JoinNetworkAttributes(sourcefile, networkfile, temp.name)
+    click.echo('UpdateLengthOrder')
+    UpdateLengthOrder(temp.name, destination)
 
 @aggregate(streams, 'sources')
 def sources():

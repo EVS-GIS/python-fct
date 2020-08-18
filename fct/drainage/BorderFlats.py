@@ -30,7 +30,7 @@ def tileindex():
     """
     Return default tileindex
     """
-    return config.tileset('drainage').tileindex
+    return config.tileset().tileindex
 
 def LabelBorderFlats(row, col, **kwargs):
     """
@@ -38,11 +38,11 @@ def LabelBorderFlats(row, col, **kwargs):
     """
 
     # elevation_raster = filename('filled', row=row, col=col)
-    label_raster = config.dataset('labels').filename(row=row, col=col)
+    label_raster = config.tileset().tilename('dem-watershed-labels', row=row, col=col)
 
     # with rio.open(elevation_raster) as ds:
 
-    elevations, profile = PadRaster(row, col)
+    elevations, profile = PadRaster(row, col, dataset='dem-filled-resolved')
     nodata = profile['nodata']
     flow = ta.flowdir(elevations, nodata)
     flat_labels = speedup.borderflat_labels(flow, elevations)
@@ -65,11 +65,12 @@ def LabelBorderFlats(row, col, **kwargs):
         labels = labels[1:-1, 1:-1]
 
         profile = ds.profile.copy()
-        output = config.filename('flat_labels', row=row, col=col)
+        output = config.tileset().tilename('dem-flat-labels', row=row, col=col)
+        
         with rio.open(output, 'w', **profile) as dst:
             dst.write(labels, 1)
 
-        output = config.filename('flat_graph', row=row, col=col)
+        output = config.tileset().tilename('dem-flat-graph', row=row, col=col)
         np.savez(
             output,
             z=np.array([
@@ -83,7 +84,7 @@ def LabelBorderFlats(row, col, **kwargs):
                 np.flip(labels[-1, :], axis=0),
                 np.flip(labels[:, 0], axis=0)]),
             flatindex=flatindex,
-            graph=np.array(list(graph.items()))
+            graph=np.array(list(graph.items()), dtype=object)
         )
 
 def ConnectTiles(row, col, **kwargs):
@@ -101,7 +102,9 @@ def ConnectTiles(row, col, **kwargs):
     exterior = (-1, 1)
 
     def read_data(i, j):
-        return np.load(config.filename("flat_graph", row=i, col=j), allow_pickle=True)
+        return np.load(
+            config.tileset().tilename("dem-flat-graph", row=i, col=j),
+            allow_pickle=True)
 
     data = read_data(row, col)
     graph = dict()
@@ -387,12 +390,12 @@ def ResolveFlatSpillover(epsilon=0.0005):
     click.secho('Resolve Minimum Z', fg='cyan')
     directed, ulinks = ResolveMinimumZ(graph, epsilon=epsilon)
     click.secho('Calculate Watershed Areas', fg='cyan')
-    unitareas = WatershedUnitAreas('flat_labels')
+    unitareas = WatershedUnitAreas('dem-flat-labels')
     areas = WatershedCumulativeAreas(directed, unitareas)
     click.secho('Ensure epsilon Gradient : %f m' % epsilon, fg='cyan')
     resolved = EnsureEpsilonGradient(directed, ulinks, areas, epsilon=epsilon)
 
-    output = config.filename('flat_spillover')
+    output = config.filename('dem-flat-spillover')
     minz = [watershed + (resolved[watershed][1],) for watershed in resolved]
     np.savez(output, minz=np.array(minz))
 
@@ -408,15 +411,15 @@ def ApplyMinimumZ(row, col, overwrite, **kwargs):
     tile_index = tileindex()
     tile = tile_index[row, col]
 
-    filled_raster = config.filename('filled', row=row, col=col)
-    label_raster = config.filename('flat_labels', row=row, col=col)
-    output = config.filename('resolved', row=row, col=col)
+    filled_raster = config.tileset().tilename('dem-filled-resolved', row=row, col=col)
+    label_raster = config.tileset().tilename('dem-flat-labels', row=row, col=col)
+    output = config.tileset().tilename('dem-drainage-resolved', row=row, col=col)
 
     if os.path.exists(output) and not overwrite:
         click.secho('Output already exists: %s' % output, fg='yellow')
         return
 
-    minz_file = config.filename('flat_spillover')
+    minz_file = config.filename('dem-flat-spillover')
     minimum_z = np.load(minz_file)['minz']
 
     index = {int(w): z for t, w, z in minimum_z if int(t) == tile.gid}

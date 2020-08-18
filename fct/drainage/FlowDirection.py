@@ -35,8 +35,7 @@ from heapq import heappush, heappop
 # import richdem as rd
 from ..config import config
 from .. import terrain_analysis as ta
-from .. import speedup
-from ..tileio import ReadRasterTile, PadRaster
+from ..tileio import PadRaster
 
 # def FlowDirection(row, col):
 
@@ -62,14 +61,11 @@ from ..tileio import ReadRasterTile, PadRaster
 #         with rio.open(output, 'w', **profile) as dst:
 #             dst.write(flow[1:-1, 1:-1], 1)
 
-# TILESET = 'drainage'
-TILESET = 'default'
-
 def tileindex():
     """
     Return default tileindex
     """
-    return config.tileset(TILESET).tileindex
+    return config.tileset().tileindex
 
 def WallFlats(padded, nodata):
 
@@ -111,14 +107,18 @@ def WallFlats(padded, nodata):
     return fixed
 
 
-def FlowDirection(row, col, overwrite, **kwargs):
+def FlowDirection(
+        row, col,
+        exterior='exterior-domain',
+        overwrite=True,
+        **kwargs):
     """
     Resolve flats drainage direction and
     calculate D8 flow direction from adjusted elevations.
     """
 
     # elevation_raster = config.filename('filled', row=row, col=col)
-    output = config.tileset(TILESET).filename('flow', row=row, col=col)
+    output = config.tileset().tilename('flow', row=row, col=col)
 
     if os.path.exists(output) and not overwrite:
         click.secho('Output already exists: %s' % output, fg='yellow')
@@ -127,7 +127,7 @@ def FlowDirection(row, col, overwrite, **kwargs):
     # with rio.open(elevation_raster) as ds:
 
     # padded = PadRaster(row, col, 'filled')
-    padded, profile = PadRaster(row, col, 'resolved')
+    padded, profile = PadRaster(row, col, 'dem-drainage-resolved')
     transform = profile['transform']
     nodata = profile['nodata']
 
@@ -178,16 +178,18 @@ def FlowDirection(row, col, overwrite, **kwargs):
     # rd.FillDepressions(extended, True, True, 'D8')
     # flow = ta.flowdir(padded, ds.nodata)
 
-    with fiona.open(config.datasource('exterior-domain').filename) as fs:
-        mask = rasterize(
-            [f['geometry'] for f in fs],
-            out_shape=flow.shape,
-            transform=transform,
-            fill=0,
-            default_value=1,
-            dtype='uint8')
+    if exterior and exterior != 'off':
 
-    flow[mask == 1] = -1
+        with fiona.open(config.datasource('exterior').filename) as fs:
+            mask = rasterize(
+                [f['geometry'] for f in fs],
+                out_shape=flow.shape,
+                transform=transform,
+                fill=0,
+                default_value=1,
+                dtype='uint8')
+
+        flow[mask == 1] = -1
 
     # noout = float(parameter('input.noout'))
     # with rio.open(config.filename('tiled', row=row, col=col)) as ds2:
@@ -231,7 +233,7 @@ def Outlets(row, col, verbose=False):
 
     # read_tile_index()
 
-    flow_raster = config.tileset(TILESET).tilename('flow', row=row, col=col)
+    flow_raster = config.tileset().tilename('flow', row=row, col=col)
 
     gid = tile_index[(row, col)].gid
     tiles = defaultdict(list)
@@ -316,7 +318,7 @@ def Outlets(row, col, verbose=False):
                 continue
 
             target = tile_index[(trow, tcol)].gid
-            output = config.tileset(TILESET).tilename('outlets', row=trow, col=tcol, gid=gid)
+            output = config.tileset().tilename('outlets', row=trow, col=tcol, gid=gid)
 
             # if os.path.exists(output):
             #     mode = 'a'
@@ -375,11 +377,11 @@ def AggregateOutlets():
     with click.progressbar(tile_index) as progress:
         for row, col in progress:
 
-            output = config.tileset(TILESET).tilename('inlets', row=row, col=col)
+            output = config.tileset().tilename('inlets', row=row, col=col)
 
             with fiona.open(output, 'w', **options) as dst:
 
-                pattern = config.tileset(TILESET).tilename(
+                pattern = config.tileset().tilename(
                     'outlets-glob',
                     row=row,
                     col=col)

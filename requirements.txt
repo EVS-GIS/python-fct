@@ -1,5 +1,7 @@
+cython
 numpy>=1.18
 xarray>=0.15
+netcdf4>=1.5.4
 scipy>=1.4
 rasterio>=1.1
 fiona>=1.8.6

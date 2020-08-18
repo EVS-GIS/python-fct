@@ -440,24 +440,24 @@ def MetricSlopes(axis, **kwargs):
     metrics['twl'].attrs['units'] = 'm'
 
     metrics['tws'].attrs['long_name'] = 'talweg slope'
-    metrics['tws'].attrs['unit'] = 'percent'
+    metrics['tws'].attrs['units'] = 'percent'
 
     metrics['twz0'].attrs['long_name'] = 'talweg z-offset, at first swath point'
-    metrics['twz0'].attrs['unit'] = 'm'
+    metrics['twz0'].attrs['units'] = 'm'
     metrics['twz0'].attrs['vertical_ref'] = config.vertical_ref
 
     metrics['twse'].attrs['long_name'] = 'talweg slope square regression error'
-    metrics['twse'].attrs['unit'] = 'm²'
+    metrics['twse'].attrs['units'] = 'm²'
 
     metrics['vfs'].attrs['long_name'] = 'valley slope'
-    metrics['vfs'].attrs['unit'] = 'percent'
+    metrics['vfs'].attrs['units'] = 'percent'
 
     metrics['vfz0'].attrs['long_name'] = 'valley z-offset, at first swath point'
-    metrics['vfz0'].attrs['unit'] = 'm'
+    metrics['vfz0'].attrs['units'] = 'm'
     metrics['vfz0'].attrs['vertical_ref'] = config.vertical_ref
 
     metrics['vfse'].attrs['long_name'] = 'valley slope square regression error'
-    metrics['vfse'].attrs['unit'] = 'm²'
+    metrics['vfse'].attrs['units'] = 'm²'
 
     metrics['axis'].attrs['long_name'] = 'stream identifier'
     metrics['swath'].attrs['long_name'] = 'swath identifier'

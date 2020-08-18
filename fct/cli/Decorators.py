@@ -43,7 +43,7 @@ def pretty_time_delta(delta):
 def command_info(command, ntiles, kwargs):
 
     start_time = time.time()
-    tileset = config.tileset('default')
+    tileset = config.tileset()
     workdir = config.workdir
 
     processes = kwargs.get('processes', 0)
@@ -122,7 +122,7 @@ def parallel(group, tilefun, name=None):
         """
 
         @group.command(name)
-        @click.option('--tile', type=(int, int), default=(None, None), help='Process only one tile')
+        @click.option('--tile', type=(int, int), default=(None, None), help='Process only tile (ROW, COL)')
         @click.option('--processes', '-j', default=1, help="Execute j parallel processes")
         @click.option('--progress', '-p', default=False, help="Display progress bar", is_flag=True)
         @wraps(fun)
