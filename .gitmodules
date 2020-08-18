@@ -1,0 +1,3 @@
+[submodule "terrain"]
+	path = terrain
+	url = https://github.com/tramebleue/fct-terrain-analysis

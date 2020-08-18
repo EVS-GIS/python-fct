@@ -33,7 +33,7 @@ extensions = [
 
     Extension(
         'fct.terrain_analysis',
-        ['cython/terrain/terrain_analysis.pyx'],
+        ['terrain/cython/terrain_analysis.pyx'],
         language='c++',
         include_dirs=[numpy.get_include()]
     )
