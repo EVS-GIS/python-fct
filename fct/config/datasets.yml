@@ -5,7 +5,7 @@ stream-network-cartography-in:
     Stream network derived from cartography
     (input dataset)
   type: polygon
-  group: drainage
+  group: hydrography
   status: input
   subdir: GLOBAL/INPUT
   filename: REFERENTIEL_HYDRO.shp
@@ -15,9 +15,9 @@ stream-network-cartography:
     Stream network derived from cartography
     with sources attributes and updates HACK and LENAXIS fields
   type: polygon
-  group: drainage
+  group: hydrography
   status: input
-  subdir: GLOBAL
+  subdir: GLOBAL/REFHYDRO
   filename: REFERENTIEL_HYDRO.shp
 
 stream-network-cartography-backup:
@@ -25,17 +25,17 @@ stream-network-cartography-backup:
     Stream network derived from cartography
     with sources attributes and updates HACK and LENAXIS fields
   type: polygon
-  group: drainage
+  group: hydrography
   status: backup
-  subdir: GLOBAL
+  subdir: GLOBAL/REFHYDRO
   filename: REFERENTIEL_HYDRO_BAK.shp
 
 sources-cartography-in:
   description: |
     Stream network sources from cartography
     (input dataset)
-  type: polygon
-  group: drainage
+  type: point
+  group: hydrography
   status: input
   subdir: GLOBAL/INPUT
   filename: SOURCES.shp
@@ -44,11 +44,21 @@ sources-cartography:
   description: |
     Stream network sources from cartography,
     working selection
-  type: polygon
-  group: drainage
+  type: point
+  group: hydrography
   status: final
-  subdir: GLOBAL
+  subdir: GLOBAL/REFHYDRO
   filename: SOURCES.shp
+
+outlets-cartography:
+  description: |
+    Stream network outlets from cartography,
+    working selection
+  type: point
+  group: hydrography
+  status: final
+  subdir: GLOBAL/REFHYDRO
+  filename: Outlets.shp
 
 # DEM and drainage calculation
 
@@ -250,10 +260,10 @@ flow:
   group: drainage
   status: final
   subdir: GLOBAL/DEM
-  filename: FLOW_RGE5M.vrt
+  filename: FLOW.vrt
   tiles:
     tileset: landcover
-    template: FLOW_RGE5M_%(row)02d_%(col)02d
+    template: FLOW_%(row)02d_%(col)02d
     extension: .tif
 
 acc:
@@ -264,10 +274,10 @@ acc:
   group: drainage
   status: final
   subdir: GLOBAL/DEM
-  filename: ACC_RGE5M.vrt
+  filename: ACCUMULATION.vrt
   tiles:
     tileset: landcover
-    template: ACC_RGE5M_%(row)02d_%(col)02d
+    template: ACCUMULATION_%(row)02d_%(col)02d
     extension: .tif
 
 outlets:

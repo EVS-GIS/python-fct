@@ -1,0 +1,45 @@
+# Subgrid support data
+
+subgrid_mask:
+  description: |
+    SubGrid Mask
+  type: raster
+  subdir: SUBGRID
+  filename: SUBGRID_MASK.tif
+
+subgrid_outlets:
+  description: |
+    SubGrid Outlets
+  type: point
+  subdir: SUBGRID
+  filename: SUBGRID_OUTLETS.shp
+
+subgrid_graph:
+  description: |
+    SubGrid Topography Graph
+  type: linestring
+  subdir: SUBGRID
+  filename: SUBGRID_GRAPH.shp
+
+# Subgrid aggregates
+
+subgrid_population:
+  description: |
+    SubGrid Population
+  type: raster
+  subdir: SUBGRID
+  filename: POP_2015.tif
+
+subgrid_landcover:
+  description: |
+    SubGrid LandCover
+  type: raster
+  subdir: SUBGRID
+  filename: LANDCOVER_2018.tif
+
+subgrid_dominant_landcover:
+  description: |
+    SubGrid Dominant LandCover
+  type: raster
+  subdir: SUBGRID
+  filename: LANDCOVER_DOMINANT_2018.tif

@@ -1,3 +1,18 @@
+# coding: utf-8
+
+"""
+Fluvial Corridor Toolbox Setup
+
+***************************************************************************
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 3 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+***************************************************************************
+"""
+
 from setuptools import setup, find_packages
 from distutils.extension import Extension
 import numpy
@@ -58,8 +73,9 @@ setup(
     ],
     entry_points='''
         [console_scripts]
-            fct=fct.cli.Command:info
-            fct-files=fct.cli.Command:cli
+            fct=fct.cli.InfoCommand:cli
+            fct-files=fct.cli.FileCommand:cli
+            fct-tiles=fct.cli.TileCommand:cli
             fct-drainage=fct.drainage.Command:cli
             fct-metrics=fct.metrics.Command:cli
     ''',

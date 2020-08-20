@@ -1,0 +1,113 @@
+# Per axis datasets
+# Corridor descriptors
+
+ax_continuity:
+  description: |
+    Landcover continuity map
+  type: raster
+  group: corridor
+  status: final
+  subdir: AXES/AX%(axis)04d
+  filename: LANDCOVER_CONTINUITY.vrt
+  tiles:
+    tileset: landcover
+    template: LANDCOVER_CONTINUITY_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_continuity_variant:
+  description: |
+    Landcover continuity map (Variants)
+  type: raster
+  group: corridor
+  status: final
+  subdir: AXES/AX%(axis)04d
+  filename: LANDCOVER_CONTINUITY_%(variant)s.tif
+
+ax_swath_elevation:
+  description: |
+    Elevation swath
+  type: npz
+  subdir: AXES/AX%(axis)04d/SWATH/ELEVATION
+  filename: SWATH_ELEVATION_%(gid)04d.npz
+
+ax_swath_landcover:
+  description: |
+    Landcover swath
+  type: npz
+  subdir: AXES/AX%(axis)04d/SWATH/LANDCOVER
+  filename: SWATH_ELEVATION_%(gid)04d_%(subset)s.npz
+
+ax_swath_axes:
+  description: |
+    Spatial unit (swath) distance axis
+    (orthogonal to reference axis)
+  type: linestring
+  subdir: AXES/AX%(axis)04d/REF
+  filename: SWATH_AXIS.shp
+
+ax_buffer_mask:
+  description: |
+    Buffer area calculated from axis active channel,
+    based on landcover continuity classes.
+    1 = active channel
+    2 = buffer area within buffer width from active channel
+    0 = elsewhere
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: BUFFER_MASK.vrt
+  tiles:
+    tileset: landcover
+    template: BUFFER_MASK_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_buffer_distance:
+  description: |
+    Distance from axis active channel,
+    based on landcover continuity classes
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: BUFFER_DISTANCE.vrt
+  tiles:
+    tileset: landcover
+    template: BUFFER_DISTANCE_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_buffer_profile:
+  description: |
+    Discrete spatial units (ie. slices of buffer area)
+    along reference axis
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: BUFFER_PROFILE.vrt
+  tiles:
+    tileset: landcover
+    template: BUFFER_PROFILE_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_subgrid_profile:
+  description: |
+    SubGrid Profile
+  type: point
+  group: metrology
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: SUBGRID_PROFILE.shp
+
+ax_subgrid_watershed:
+  description: |
+    SubGrid Profile Sample Watershed
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: SUBGRID_WATERSHED.vrt
+  tiles:
+    tileset: landcover
+    template: SUBGRID_WATERSHED_%(row)02d_%(col)02d
+    extension: .tif

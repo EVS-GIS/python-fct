@@ -14,6 +14,7 @@ Configuration Classes
 """
 
 import os
+import glob
 from collections import namedtuple
 from configparser import ConfigParser
 from base64 import urlsafe_b64encode
@@ -100,14 +101,14 @@ class Configuration():
                 self._workspace._datasets[temp.name] = temp
                 return temp
 
-    def fileset(self, names, **kwargs):
-        """
-        Return list of Dataset filename instances
-        """
-        return [
-            self.filename(name, **kwargs)
-            for name in names
-        ]
+    # def fileset(self, names, **kwargs):
+    #     """
+    #     Return list of Dataset filename instances
+    #     """
+    #     return [
+    #         self.filename(name, **kwargs)
+    #         for name in names
+    #     ]
 
     def tileset(self, name='default'):
         """
@@ -201,9 +202,10 @@ class Dataset():
     Describes an output dataset
     """
 
-    def __init__(self, name, filename='', tilename='', subdir='', ext='.tif'):
+    def __init__(self, name, properties, filename='', tilename='', subdir='', ext='.tif'):
 
         self._name = name
+        self._properties = properties
         self._filename = filename
         self._tilename = tilename
         self._subdir = subdir
@@ -236,6 +238,11 @@ class Dataset():
         Return dataset's name
         """
         return self._name
+
+    @property
+    def properties(self):
+        return self._properties
+    
 
     def subdir(self, **kwargs):
         """
@@ -300,9 +307,9 @@ class Workspace():
         """
         Return named Dataset
         """
-        
-        if not name in self._datasets:
-            self._datasets[name] = Dataset(name)
+
+        # if not name in self._datasets:
+        #     self._datasets[name] = Dataset(name)
 
         return self._datasets[name]
 
@@ -469,7 +476,11 @@ class Tileset():
             self._tiledir)
 
         if not os.path.exists(folder):
-            os.makedirs(folder)
+            try:
+                os.makedirs(folder)
+            except FileExistsError as error:
+                if not os.path.isdir(folder):
+                    raise error
 
         return os.path.join(
             folder,
@@ -529,16 +540,8 @@ class FileParser():
                     else:
                         raise KeyError(value)
 
-        dstfile = os.path.join(
-            os.path.dirname(configfile),
-            'datasets.yml')
-
-        if not os.path.exists(dstfile):
-            dstfile = os.path.join(
-                os.path.dirname(__file__),
-                'datasets.yml')
-
-        datasets = FileParser.datasets(dstfile)
+        datasets = FileParser.datasets(
+            FileParser.load_dataset_yaml(configfile))
 
         return Workspace(workspace, datasets), datasources, tilesets
 
@@ -566,16 +569,76 @@ class FileParser():
         return Tileset(name, index, height, width, tiledir, resolution)
 
     @staticmethod
-    def datasets(dstfile):
+    def load_dataset_yaml_file(filename):
+
+        click.echo('Loading dataset definitions from %s' % filename)
+
+        with open(filename) as fp:
+            return yaml.safe_load(fp)
+
+    @staticmethod
+    def load_dataset_yaml_dir(dirname):
+
+        click.echo('Loading dataset definitions from %s' % dirname)
+
+        data = dict()
+
+        for name in glob.glob(os.path.join(dirname, '*.yml')):
+            with open(name) as fp:
+                data.update(yaml.safe_load(fp))
+
+        return data
+
+    @staticmethod
+    def load_dataset_yaml(configfile):
         """
-        Read YAML Dataset definitions
+        Read dataset definitions from `datasets` directory
+        or from ``datasets.yml`
+        """
+
+        dstdir = os.path.join(
+            os.path.dirname(configfile),
+            'datasets')
+
+        if os.path.isdir(dstdir):
+
+            return FileParser.load_dataset_yaml_dir(dstdir)
+
+
+        dstfile = os.path.join(
+            os.path.dirname(configfile),
+            'datasets.yml')
+
+        if os.path.exists(dstfile):
+
+            return FileParser.load_dataset_yaml_file(dstfile)
+
+        dstdir = os.path.join(
+            os.path.dirname(__file__),
+            'datasets')
+
+        if os.path.isdir(dstdir):
+
+            return FileParser.load_dataset_yaml_dir(dstdir)
+
+        dstfile = os.path.join(
+            os.path.dirname(__file__),
+            'datasets.yml')
+
+        if os.path.exists(dstfile):
+
+            return FileParser.load_dataset_yaml_file(dstfile)
+
+        raise ValueError('Cannot find dataset definition files')
+
+    @staticmethod
+    def datasets(data):
+        """
+        Read YAML dataset definitions
         and return a dict of datasets
         """
 
         datasets = dict()
-
-        with open(dstfile) as fp:
-            data = yaml.safe_load(fp)
 
         for name in data:
 
@@ -592,7 +655,7 @@ class FileParser():
                 tilename = None
                 ext = None
 
-            dst = Dataset(name, filename, tilename, subdir, ext)
+            dst = Dataset(name, data[name], filename, tilename, subdir, ext)
             datasets[name] = dst
 
         return datasets

@@ -1,0 +1,150 @@
+# Distance and height raster support
+
+ax_flow_height:
+  description: |
+    Height above nearest drainage, following flow
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: FLOW_HEIGHT.vrt
+  tiles:
+    tileset: landcover
+    template: FLOW_HEIGHT_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_flow_distance:
+  description: |
+    Distance to nearest drainage, following flow
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: FLOW_DISTANCE.vrt
+  tiles:
+    tileset: landcover
+    template: FLOW_DISTANCE_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_nearest_distance:
+  description: |
+    Distance to nearest drainage
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: NEAREST_DISTANCE.vrt
+  tiles:
+    tileset: landcover
+    template: NEAREST_DISTANCE_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_nearest_height:
+  description: |
+    Height above nearest drainage (HAND)
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: NEAREST_HEIGHT.vrt
+  tiles:
+    tileset: landcover
+    template: NEAREST_HEIGHT_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_relative_elevation:
+  description: |
+    Height above nearest drainage (HAND)
+    TODO duplicate of ax_nearest_height, to be removed
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: NEAREST_HEIGHT.vrt
+  tiles:
+    tileset: landcover
+    template: NEAREST_HEIGHT_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_talweg_distance:
+  description: |
+    Distance to mapped talweg
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: TALWEG_DISTANCE.vrt
+  tiles:
+    tileset: landcover
+    template: TALWEG_DISTANCE_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_talweg_height:
+  description: |
+    Height above mapped talweg
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: TALWEG_HEIGHT.vrt
+  tiles:
+    tileset: landcover
+    template: TALWEG_HEIGHT_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_valley_bottom:
+  description: |
+    Valley bottom extended to topographic limits
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: VALLEY_BOTTOM.vrt
+  tiles:
+    tileset: landcover
+    template: VALLEY_BOTTOM_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_valley_distance:
+  description: |
+    Valley bottom extended to topographic limits
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: VALLEY_DISTANCE.vrt
+  tiles:
+    tileset: landcover
+    template: VALLEY_DISTANCE_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_refaxis_talweg_profile:
+  description: |
+    Valley floor elevation profile (based on talweg points only)
+  type: netcdf
+  group: metrology
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: REFAXIS_TALWEG_PROFILE.nc
+
+ax_refaxis_valley_profile:
+  description: |
+    Valley floor elevation profile (based on swath profiles)
+  type: netcdf
+  group: metrology
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: REFAXIS_VALLEY_PROFILE.nc
+
+ax_valley_height:
+  description: |
+    Height above valley floor
+  type: raster
+  group: corridor
+  status: final
+  subdir: AXES/AX%(axis)04d
+  filename: VALLEY_HEIGHT.vrt
+  tiles:
+    tileset: landcover
+    template: VALLEY_HEIGHT_%(row)02d_%(col)02d
+    extension: .tif

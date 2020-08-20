@@ -1,0 +1,149 @@
+# Per axis datasets
+# Metrology raster support and swath units definition
+
+refaxis:
+  description: |
+    Reference axis (global dataset)
+  type: linestring
+  group: spatial reference
+  status: final
+  subdir: GLOBAL/REFHYDRO
+  filename: REFAXIS.shp
+
+ax_tiles:
+  description: |
+    List of tiles intersecting given axis
+  type: text
+  group: drainage
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: TILES.csv
+
+ax_talweg:
+  description: |
+    Mapped river network talweg (axis subset)
+  type: linestring
+  group: drainage
+  status: temporary
+  subdir: AXES/AX%(axis)04d/REF
+  filename: TALWEG.shp
+
+ax_refaxis:
+  description: |
+    Reference axis
+  type: linestring
+  group: spatial reference
+  status: final
+  subdir: AXES/AX%(axis)04d/REF
+  filename: REFAXIS.shp
+
+ax_drainage_network:
+  description: |
+    Theoretical stream network (axis subset)
+  type: linestring
+  group: drainage
+  status: temporary
+  subdir: AXES/AX%(axis)04d/REF
+  filename: DRAINAGE.shp
+
+ax_watershed:
+  description: |
+    Watershed delineation
+  type: polygon
+  group: drainage
+  status: final
+  subdir: AXES/AX%(axis)04d
+  filename: WATERSHED.shp
+  tiles:
+    tileset: landcover
+    template: WATERSHED_%(row)02d_%(col)02d
+    extension: .shp
+
+ax_axis_distance:
+  description: |
+    Distance to reference axis
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: AXIS_DISTANCE.vrt
+  tiles:
+    tileset: landcover
+    template: AXIS_DISTANCE_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_axis_measure:
+  description: |
+    Distance (measure) along reference axis
+  type: raster
+  group: spatial reference
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: AXIS_MEASURE.vrt
+  tiles:
+    tileset: landcover
+    template: AXIS_MEASURE_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_dgo:
+  description: |
+    Spatial units discretization
+    TODO duplicate of ax_swaths, to be removed
+  type: raster
+  group: spatial reference
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: DGO.vrt
+  tiles:
+    tileset: landcover
+    template: DGO_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_dgo_parts:
+  description: |
+    Spatial units polygons, extracted from measure raster
+  type: polygon
+  group: spatial reference
+  status: temporary
+  subdir: AXES/AX%(axis)04d/REF
+  filename: DGO_PARTS.shp
+  tiles:
+    tileset: landcover
+    template: DGO_%(row)02d_%(col)02d
+    extension: .shp
+
+ax_dgo_vector:
+  description: |
+    Spatial units polygons,
+    after cross-tile merge and invalid parts removal
+    TODO duplicate of ax_swath_polygons, to be removed
+  type: polygon
+  group: spatial reference
+  status: temporary
+  subdir: AXES/AX%(axis)04d/REF
+  filename: DGO.shp
+
+ax_swaths:
+  description: |
+    Spatial units discretization
+  type: raster
+  group: spatial reference
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: DGO.vrt
+  tiles:
+    tileset: landcover
+    template: DGO_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_swath_polygons:
+  description: |
+    Spatial units polygons,
+    after cross-tile merge and invalid parts removal
+  type: polygon
+  group: spatial reference
+  status: temporary
+  subdir: AXES/AX%(axis)04d/REF
+  filename: DGO.shp
+
+

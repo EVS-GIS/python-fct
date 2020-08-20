@@ -1,0 +1,61 @@
+# Mapped hydrography
+
+stream-network-cartography-in:
+  description: |
+    Stream network derived from cartography
+    (input dataset)
+  type: linestring
+  group: hydrography
+  status: input
+  subdir: GLOBAL/INPUT
+  filename: REFERENTIEL_HYDRO.shp
+
+stream-network-cartography:
+  description: |
+    Stream network derived from cartography
+    with sources attributes and updates HACK and LENAXIS fields
+  type: linestring
+  group: hydrography
+  status: input
+  subdir: GLOBAL/REFHYDRO
+  filename: REFERENTIEL_HYDRO.shp
+
+stream-network-cartography-backup:
+  description: |
+    Stream network derived from cartography
+    with sources attributes and updates HACK and LENAXIS fields
+  type: linestring
+  group: hydrography
+  status: backup
+  subdir: GLOBAL/REFHYDRO
+  filename: REFERENTIEL_HYDRO_BAK.shp
+
+sources-cartography-in:
+  description: |
+    Stream network sources from cartography
+    (input dataset)
+  type: point
+  group: hydrography
+  status: input
+  subdir: GLOBAL/INPUT
+  filename: SOURCES.shp
+
+sources-cartography:
+  description: |
+    Stream network sources from cartography,
+    working selection
+  type: point
+  group: hydrography
+  status: final
+  subdir: GLOBAL/REFHYDRO
+  filename: SOURCES.shp
+
+outlets-cartography:
+  description: |
+    Stream network outlets from cartography,
+    working selection
+  type: point
+  group: hydrography
+  status: final
+  subdir: GLOBAL/REFHYDRO
+  filename: Outlets.shp

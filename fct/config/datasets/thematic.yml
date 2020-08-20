@@ -1,0 +1,84 @@
+# Input Thematic Data (landcover/population)
+
+landcover-default:
+  description: |
+    Default LandCover Tileset
+  type: raster
+  subdir: GLOBAL/LANDCOVER
+  filename: LANDCOVER_2018.vrt
+  tiles:
+    tileset: landcover
+    template: LANDCOVER_%(row)02d_%(col)02d
+    extension: .tif
+
+landcover-cesbio:
+  description: |
+    LandCover Tiles from CESBIO 2018,
+    derived from Sentinel 2 annual classification
+  type: raster
+  subdir: GLOBAL/CESBIO
+  filename: LANDCOVER_CESBIO_2018.vrt
+  tiles:
+    tileset: landcover
+    template: LANDCOVER_CESBIO_2018_%(row)02d_%(col)02d
+    extension: .tif
+
+landcover-gpk:
+  description: |
+    LandCover Tiles from GeoPeka database,
+    derived from BD Topo 2019 + RPG 2016
+  type: raster
+  subdir: GLOBAL/GEOPEKA
+  filename: LANDCOVER_GEOPEKA_2019.vrt
+  tiles:
+    tileset: landcover
+    template: LANDCOVER_GEOPEKA_2019_%(row)02d_%(col)02d
+    extension: .tif
+
+landcover-bdt:
+  description: |
+    LandCover Tiles from BD Topo 2019 + RPG 2016
+    (direct rasterization)
+  type: raster
+  subdir: GLOBAL/BDTOPO
+  filename: LANDCOVER_BDT_2019.vrt
+  tiles:
+    tileset: landcover
+    template: LANDCOVER_BDT_2019_%(row)02d_%(col)02d
+    extension: .tif
+
+landcover-separate:
+  description: |
+    Land cover classe into separate contingency bands,
+    used to calculate accumulated watershed metrics
+  type: raster
+  group: landcover
+  status: temporary
+  subdir: GLOBAL/LANDCOVER
+  filename: LANDCOVER_CLASSES.vrt
+  tiles:
+    tileset: landcover
+    template: LANDCOVER_CLASSES_%(row)02d_%(col)02d
+    extension: .tif
+
+population:
+  description: |
+    Population (2015)
+  type: raster
+  subdir: GLOBAL/POPULATION
+  filename: POP_2015.vrt
+  tiles:
+    tileset: landcover
+    template: POP_2015_%(row)02d_%(col)02d
+    extension: .tif
+
+population-income:
+  description: |
+    Normalized Household Income (2015)
+  type: raster
+  subdir: GLOBAL/POPULATION
+  filename: SNV_2015.vrt
+  tiles:
+    tileset: landcover
+    template: SNV_2015_%(row)02d_%(col)02d
+    extension: .tif
