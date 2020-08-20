@@ -152,7 +152,7 @@ dem-watershed-graph:
     template: WATERSHED_GRAPH_%(row)02d_%(col)02d
     extension: .npz
 
-dem-tile-spillover:
+dem-watershed-spillover:
   description: |
     Tile spillovers, z resolution of dem-watershed-graph
     (depression filling procedure)
@@ -230,7 +230,7 @@ dem-drainage-resolved:
     template: DRAINAGE_RESOLVED_%(row)02d_%(col)02d
     extension: .tif
 
-depression-depth-map:
+depression-depth:
   description: |
     Raster map of DEM depressions
   type: raster
@@ -293,6 +293,7 @@ outlets-glob:
   tiles:
     tileset: landcover
     template: OUTLETS_%(row)02d_%(col)02d_*
+    glob: OUTLETS_%(row)02d_%(col)02d_*
     extension: .geojson
 
 inlets:
