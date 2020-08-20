@@ -401,7 +401,7 @@ def ResolveFlatSpillover(epsilon=0.0005):
 
     click.secho('Saved to : %s' % output, fg='green')
 
-def ApplyMinimumZ(row, col, overwrite, **kwargs):
+def DispatchFlatMinimumZ(row, col, overwrite, **kwargs):
     """
     Ajuste l'altitude des dépressions en bordure de tuile,
     et calcule la carte des dépressions

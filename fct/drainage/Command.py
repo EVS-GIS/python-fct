@@ -23,22 +23,25 @@ from .Burn import (
     SplitStreamNetworkIntoTiles
 )
 
-from .PreProcessing import (
+from .PrepareDEM import (
     TileExtendedBoundingBox,
     ExtractAndPatchTile,
-    MeanFilter,
-    FillDepressions,
-    Spillover,
-    ApplyFlatZ
+    MeanFilter
+)
+
+from .DepressionFill import (
+    LabelWatersheds,
+    ResolveWatershedSpillover,
+    DispatchWatershedMinimumZ
 )
 
 from .BorderFlats import (
     LabelBorderFlats,
     ResolveFlatSpillover,
-    ApplyMinimumZ
+    DispatchFlatMinimumZ
 )
 
-from .FlatMap import FlatDepth
+from .FlatMap import DepressionDepthMap
 
 from .FlowDirection import (
     FlowDirection,
@@ -50,15 +53,17 @@ from .StreamNetwork import (
     InletAreas,
     FlowAccumulation,
     StreamToFeature,
+    AggregateStreams,
     NoFlowPixels,
-    AggregateNoFlowPixels,
-    AggregateStreams
+    AggregateNoFlowPixels
 )
 
 from .StreamSources import (
     InletSources,
     StreamToFeatureFromSources,
-    AggregateStreamsFromSources
+    AggregateStreamsFromSources,
+    NoFlowPixels as NoFlowPixelsFromSources,
+    AggregateNoFlowPixels as AggregateNoFlowPixelsFromSources,
 )
 
 from .JoinNetworkAttributes import (
@@ -155,29 +160,37 @@ def boxes(padding):
         for row, col in progress:
             TileExtendedBoundingBox(row, col, padding)
 
-@parallel(prepare, FillDepressions)
+@cli.group()
+def watershed():
+    """
+    Depression filling procedure.
+    Part 1: generate cross-tile watershed graph
+            and identify flat areas
+    """
+
+@parallel(watershed, LabelWatersheds, 'labels')
 @overwritable
 @verbosable
 @click.option('--dataset', '-ds', default='smoothed', help='DEM dataset logical name')
 @click.option('--burn', '-b', default=-1.0, help='Burn delta >= 0 (in meters)')
 @click.option('--exterior-data', default=9000.0, help='Value for exterior domain area')
-def fill():
+def watershed_labels():
     """
     Priority-Flood Depressions Filling
     """
     return tileindex()
 
-@aggregate(prepare)
+@aggregate(watershed, 'resolve')
 @overwritable
-def spillover(overwrite):
+def watershed_resolve(overwrite):
     """
     Build Spillover Graph and Resolve Watersheds' Minimum Z
     """
-    Spillover(overwrite)
+    ResolveWatershedSpillover(overwrite)
 
-@parallel(prepare, ApplyFlatZ)
+@parallel(watershed, DispatchWatershedMinimumZ, 'dispatch')
 @overwritable
-def applyz():
+def watershed_dispatch():
     """
     Raise Flat Regions to their Minimum Z
     (Flat Filling)
@@ -185,22 +198,23 @@ def applyz():
     return tileindex()
 
 @cli.group()
-def flats():
+def flat():
     """
-    Tile-border flats processing
+    Depression filling procedure.
+    Part 2: flat drainage resolution
     """
     pass
 
-@parallel(flats, LabelBorderFlats)
-def labelflats():
+@parallel(flat, LabelBorderFlats, 'labels')
+def flat_labels():
     """
     Label tile border flats
     """
     return tileindex()
 
-@aggregate(flats, 'spillover')
+@aggregate(flat, 'resolve')
 @click.option('--epsilon', '-e', default=0.0005, help='epsilon gradient')
-def flatspillover(epsilon):
+def flat_resolve(epsilon):
     """
     Build border flats spillover graph,
     and resolve watershed's minimum z
@@ -209,15 +223,15 @@ def flatspillover(epsilon):
     """
     ResolveFlatSpillover(epsilon)
 
-@parallel(flats, ApplyMinimumZ)
+@parallel(flat, DispatchFlatMinimumZ, 'dispatch')
 @overwritable
-def applyminz():
+def flat_dispacth():
     """
     Apply flat spillover minimum Z to DEM tiles
     """
     return tileindex()
 
-@parallel(flats, FlatDepth)
+@parallel(flat, DepressionDepthMap)
 @overwritable
 def depthmap():
     """
@@ -356,3 +370,18 @@ def aggregate_from_sources():
     Aggregate Stream Network
     """
     AggregateStreamsFromSources()
+
+@parallel(streams, NoFlowPixelsFromSources, 'noflow')
+# @click.option('--min_drainage', '-a', default=5.0, help='Minimum Drainage Area in km²')
+def noflow_from_sources():
+    """
+    Find Problematic No Flow Pixels on Stream Network
+    """
+    return tileindex()
+
+@aggregate(streams, 'aggregate-noflow')
+def aggregate_noflow_from_sources():
+    """
+    Aggregate No Flow Shapefiles
+    """
+    AggregateNoFlowPixelsFromSources()

@@ -222,7 +222,7 @@ outlets:
   description: |
     Tile outlets, grouped per target tile (row, col).
     (gid) identifies the tile of origin.
-  type: polygon
+  type: point
   group: drainage
   status: temporary
   subdir: GLOBAL/DEM
@@ -234,7 +234,7 @@ outlets:
 outlets-glob:
   description: |
     Tile outlets, per target tile glob pattern
-  type: polygon
+  type: point
   group: drainage
   status: temporary
   subdir: GLOBAL/DEM
@@ -247,7 +247,7 @@ outlets-glob:
 inlets:
   description: |
     Tile flow inlets
-  type: polygon
+  type: point
   group: drainage
   status: temporary
   subdir: GLOBAL/DEM
@@ -257,10 +257,23 @@ inlets:
     template: INLETS_%(row)02d_%(col)02d
     extension: .shp
 
+inlet-areas:
+  description: |
+    Tile flow inlets
+    with calculated upstream area contribution
+  type: point
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: INLET_AREAS.shp
+  tiles:
+    tileset: landcover
+    template: INLET_AREAS_%(row)02d_%(col)02d
+    extension: .shp
+
 inlet-sources:
   description: |
     Cross-tile stream connections
-  type: polygon
+  type: point
   group: drainage
   status: temporary
   subdir: GLOBAL/DEM
@@ -281,4 +294,94 @@ dem-drainage-network:
   tiles:
     tileset: landcover
     template: DRAINAGE_%(row)02d_%(col)02d
+    extension: .shp
+
+# Drainage network preparation
+
+streams-from-sources:
+  description: |
+    Theoretical stream network,
+    derived from DEM and mapped sources
+  type: linestring
+  group: drainage
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: RHTS_NOATTR.shp
+  tiles:
+    tileset: landcover
+    template: RHTS_%(row)02d_%(col)02d
+    extension: .shp
+
+sources:
+  description: |
+    Theoretical stream network sources,
+    with mapped sources attributes
+  type: point
+  group: drainage
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: RHTS_SOURCES.shp
+
+streams-attr:
+  description: |
+    Theoretical stream network with network attributes
+    (axis identifier, axis length, Hack and Strahler order)
+  type: linestring
+  group: drainage
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: RHTS_ATTR.shp
+
+streams-attr-sources:
+  description: |
+    Theoretical stream network
+    with mapped sources attributes
+  type: linestring
+  subdir: GLOBAL/DEM
+  filename: RHTS_ATTR_JOINED.shp
+
+streams:
+  description: |
+    Theoretical stream network derived from DEM,
+    with attributes from mapped river network
+  type: linestring
+  group: drainage
+  status: final
+  subdir: GLOBAL/DEM
+  filename: RHTS.shp
+
+streams-tiled:
+  description: |
+    Stream network aggregated by axis and tiles
+  type: linestring
+  group: drainage
+  status: temporary
+  subdir: GLOBAL
+  filename: STREAMS.shp
+
+noflow:
+  description: |
+    No flow pixels to be fixed in flow raster
+  type: point
+  group: drainage
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: NOFLOW.shp
+  tiles:
+    tileset: landcover
+    template: NOFLOW_%(row)02d_%(col)02d
+    extension: .shp
+
+noflow-from-sources:
+  description: |
+    No flow pixels to be fixed
+    in drainage network from mapped sources
+  type: point
+  group: drainage
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: NOFLOW_RHTS.shp
+  tiles:
+    tileset: landcover
+    template: NOFLOW_RHTS_%(row)02d_%(col)02d
     extension: .shp

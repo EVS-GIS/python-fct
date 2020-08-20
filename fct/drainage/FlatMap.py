@@ -13,7 +13,7 @@ from .. import speedup
 from ..config import config
 from ..tileio import ReadRasterTile
 
-def FlatDepth(row, col, min_drainage=5.0, **kwargs):
+def DepressionDepthMap(row, col, **kwargs):
     """
     Calculate raster map
     of how much flat cells have been raised
@@ -27,7 +27,7 @@ def FlatDepth(row, col, min_drainage=5.0, **kwargs):
     # flow_raster = config.filename('flow', row=row, col=col)
     # acc_raster = config.filename('acc', row=row, col=col)
     # labels_raster = config.filename('flat_labels', row=row, col=col)
-    output = config.tileset().tilename('depression-depth-map', row=row, col=col)
+    output = config.tileset().tilename('depression-depth', row=row, col=col)
     overwrite = kwargs.get('overwrite', False)
 
     if os.path.exists(output) and not overwrite:

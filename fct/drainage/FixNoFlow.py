@@ -31,12 +31,12 @@ def tileindex():
     """
     Return default tileindex
     """
-    return config.tileset('drainage').tileindex
+    return config.tileset().tileindex
 
 origin_x = float('inf')
 origin_y = float('-inf')
-size_x = 5.0*config.tileset('drainage').width
-size_y = 5.0*config.tileset('drainage').height
+size_x = 5.0*config.tileset().width
+size_y = 5.0*config.tileset().height
 
 for tile in tileindex().values():
     origin_x = min(origin_x, tile.x0)

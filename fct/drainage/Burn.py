@@ -129,12 +129,27 @@ def SplitStreamNetworkIntoTiles():
                     for feature in fs.filter(bbox=tile.bounds):
 
                         intersection = asShape(feature['geometry']).intersection(tile_geom)
-                        props = feature['properties'].copy()
-                        props.update(ROW=tile.row, COL=tile.col)
-                        dst.write({
-                            'geometry': intersection.__geo_interface__,
-                            'properties': props
-                        })
+
+                        if intersection.geometryType() == 'LineString':
+
+                            props = feature['properties'].copy()
+                            props.update(ROW=tile.row, COL=tile.col)
+                            dst.write({
+                                'geometry': intersection.__geo_interface__,
+                                'properties': props
+                            })
+
+                        elif intersection.geometryType() in ('MultiLineString', 'GeometryCollection'):
+
+                            for geom in intersection.geoms:
+                                if geom.geometryType() == 'LineString':
+
+                                    props = feature['properties'].copy()
+                                    props.update(ROW=tile.row, COL=tile.col)
+                                    dst.write({
+                                        'geometry': geom.__geo_interface__,
+                                        'properties': props
+                                    })
 
 
 # def DispatchHydrographyToTiles():

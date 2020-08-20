@@ -31,16 +31,15 @@ import fiona.crs
 import rasterio as rio
 
 from .. import speedup
+from .. import transform as fct
 from .. import terrain_analysis as ta
 from ..config import config
-
-TILESET = 'default'
 
 def tileindex():
     """
     Return default tileindex
     """
-    return config.tileset(TILESET).tileindex
+    return config.tileset().tileindex
 
 def CreateSourcesGraph():
     """
@@ -48,22 +47,23 @@ def CreateSourcesGraph():
     """
 
     tile_index = tileindex()
-    DEM = config.datasource('dem1').filename
-    sources = config.datasource('sources').filename
+    dem_rasterfile = config.filename('dem')
+    # sources = config.datasource('sources').filename
+    sources = config.filename('sources-cartography')
 
     click.secho('Build sources graph', fg='cyan')
 
     graph = dict()
     indegree = Counter()
 
-    dem = rio.open(DEM)
+    dem = rio.open(dem_rasterfile)
 
     with click.progressbar(tile_index) as progress:
         for row, col in progress:
 
             tile = tile_index[(row, col)].gid
-            inlet_shapefile = config.tileset(TILESET).tilename('inlets', row=row, col=col)
-            flow_raster = config.tileset(TILESET).tilename('flow', row=row, col=col)
+            inlet_shapefile = config.tileset().tilename('inlets', row=row, col=col)
+            flow_raster = config.tileset().tilename('flow', row=row, col=col)
 
             with rio.open(flow_raster) as ds:
 
@@ -113,10 +113,11 @@ def CreateSourcesGraph():
                         # connect inlet->tile outlet
 
                         locti, loctj = ta.outlet(flow, loci, locj)
-                        ti, tj = dem.index(*ds.xy(locti, loctj))
 
                         if (locti, loctj) == (loci, locj):
                             continue
+
+                        ti, tj = dem.index(*ds.xy(locti, loctj))
                         
                         if ti >= 0 and tj >= 0:
                             graph[(tile, i, j)] = (tile, ti, tj, 0)
@@ -139,7 +140,7 @@ def TileInletSources(tile, keys, areas):
     col = tile.col
     gid = tile.gid
 
-    output = config.tileset(TILESET).tilename(
+    output = config.tileset().tilename(
         'inlet-sources',
         row=row,
         col=col)
@@ -154,7 +155,7 @@ def TileInletSources(tile, keys, areas):
     }
     options = dict(driver=driver, crs=crs, schema=schema)
 
-    dem_file = config.datasource('dem1').filename
+    dem_file = config.filename('dem')
     dem = rio.open(dem_file)
 
     cum_areas = defaultdict(lambda: 0.0)
@@ -210,10 +211,10 @@ def StreamToFeatureFromSources(row, col, min_drainage):
     ci = [ -1, -1,  0,  1,  1,  1,  0, -1 ]
     cj = [  0,  1,  1,  1,  0, -1, -1, -1 ]
 
-    flow_raster = config.tileset(TILESET).tilename('flow', row=row, col=col)
-    acc_raster = config.tileset(TILESET).tilename('acc', row=row, col=col)
-    sources = config.tileset(TILESET).tilename('inlet-sources', row=row, col=col)
-    output = config.tileset(TILESET).tilename('streams-from-sources', row=row, col=col)
+    flow_raster = config.tileset().tilename('flow', row=row, col=col)
+    acc_raster = config.tileset().tilename('acc', row=row, col=col)
+    sources = config.tileset().tilename('inlet-sources', row=row, col=col)
+    output = config.tileset().tilename('streams-from-sources', row=row, col=col)
 
     driver = 'ESRI Shapefile'
     schema = {
@@ -302,7 +303,7 @@ def AggregateStreamsFromSources():
 
             for row, col in progress:
 
-                shapefile = config.tileset(TILESET).tilename(
+                shapefile = config.tileset().tilename(
                     'streams-from-sources',
                     row=row,
                     col=col)
@@ -311,3 +312,98 @@ def AggregateStreamsFromSources():
                     for feature in fs:
                         feature['properties']['GID'] = next(gid)
                         dst.write(feature)
+
+def NoFlowPixels(row, col):
+
+    flow_raster = config.tileset().tilename('flow', row=row, col=col)
+    # acc_raster = config.tileset().tilename('acc', row=row, col=col)
+    stream_features = config.tileset().tilename('streams-from-sources', row=row, col=col)
+    output = config.tileset().tilename('noflow-from-sources', row=row, col=col)
+
+    driver = 'ESRI Shapefile'
+    schema = {
+        'geometry': 'Point',
+        'properties': [
+            ('GID', 'int'),
+            ('ROW', 'int:4'),
+            ('COL', 'int:4')
+        ]
+    }
+    crs = fiona.crs.from_epsg(2154)
+    options = dict(driver=driver, crs=crs, schema=schema)
+
+    with rio.open(flow_raster) as ds:
+
+        flow = ds.read(1)
+        height, width = flow.shape
+
+        streams = np.zeros_like(flow, dtype='int16')
+
+        with fiona.open(stream_features) as fs:
+            for feature in fs:
+
+                coordinates = np.array(feature['geometry']['coordinates'], dtype='float32')
+                pixels = fct.worldtopixel(coordinates, ds.transform)
+                
+                for i, j in pixels:
+                    if 0 <= i < height and 0 <= j < width:
+                        streams[i, j] = 1
+
+                # pixels = np.array([
+                #     (i, j)
+                #     for i, j in fct.worldtopixel(coordinates, ds.transform)
+                #     if 0 <= i < height and 0 <= j < width
+                # ])
+
+                # streams[pixels[:, 0], pixels[:, 1]] = 1
+
+        with fiona.open(output, 'w', **options) as dst:
+
+            pixels = speedup.noflow(streams, flow)
+
+            if pixels:
+
+                coordinates = ta.pixeltoworld(
+                    np.int32(pixels),
+                    ds.transform,
+                    gdal=False)
+
+                for current, point in enumerate(coordinates):
+                    dst.write({
+                        'type': 'Feature',
+                        'geometry': {'type': 'Point', 'coordinates': point},
+                        'properties': {'GID': current, 'ROW': row, 'COL': col}
+                    })
+
+def AggregateNoFlowPixels():
+    """
+    Aggregate No Flow Shapefiles
+    """
+
+    tile_index = tileindex()
+    output = config.filename('noflow-from-sources')
+
+    driver = 'ESRI Shapefile'
+    schema = {
+        'geometry': 'Point',
+        'properties': [
+            ('GID', 'int'),
+            ('ROW', 'int'),
+            ('COL', 'int')
+        ]
+    }
+    crs = fiona.crs.from_epsg(2154)
+    options = dict(driver=driver, crs=crs, schema=schema)
+
+    gid = itertools.count(1)
+
+    with fiona.open(output, 'w', **options) as dst:
+        with click.progressbar(tile_index) as progress:
+            for row, col in progress:
+                with fiona.open(config.tileset().tilename('noflow-from-sources', row=row, col=col)) as fs:
+                    for feature in fs:
+                        feature['properties']['GID'] = next(gid)
+                        dst.write(feature)
+
+    count = next(gid) - 1
+    click.secho('Found %d not-flowing stream nodes' % count, fg='cyan')
