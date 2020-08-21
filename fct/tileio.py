@@ -324,7 +324,7 @@ def PadRaster(row, col, dataset='filled', tileset='default', padding=1, **kwargs
 
     return padded, profile
 
-def buildvrt(tileset, dataset, **kwargs):
+def buildvrt(tileset, dataset, suffix=True, **kwargs):
     """
     Build GDAL Virtual Raster from tile dataset
     """
@@ -333,7 +333,10 @@ def buildvrt(tileset, dataset, **kwargs):
     tiledir = config.tileset(tileset).tiledir
     workdir = os.path.dirname(vrt)
     output = os.path.basename(vrt)
-    prefix, _ = os.path.splitext(output)
+    prefix, extension = os.path.splitext(output)
+
+    if suffix:
+        output = ''.join([prefix, '_', tiledir, extension])
 
     command = 'cd %(workdir)s ; find %(tiledir)s -name "%(prefix)s_*.tif" | xargs gdalbuildvrt -a_srs %(srs)s %(output)s'
     command = command % dict(
@@ -345,7 +348,7 @@ def buildvrt(tileset, dataset, **kwargs):
 
     subprocess.run(['/bin/bash', '-c', command], check=True)
 
-def translate(dataset, driver='gtiff', **kwargs):
+def translate(dataset, driver='gtiff', suffix=None, **kwargs):
     """
     Translate virtual raster dataset to GeoTiff or NetCDF 4
     """
@@ -357,7 +360,14 @@ def translate(dataset, driver='gtiff', **kwargs):
 
     if driver in ('gtiff', 'tif'):
 
-        output = vrt.replace('.vrt', '.tif')
+        # output = vrt.replace('.vrt', '.tif')
+        basename, _ = os.path.splitext(vrt)
+
+        if suffix:
+            output = basename + suffix + '.tif'
+        else:
+            output = basename + '.tif'
+
         creation_options = '-co TILED=YES -co COMPRESS=DEFLATE'.split(' ')
         subprocess.run(
             ['gdal_translate', '-of', 'gtiff'] + creation_options + [vrt, output],

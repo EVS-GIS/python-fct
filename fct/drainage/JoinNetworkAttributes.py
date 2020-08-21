@@ -57,9 +57,9 @@ def JoinNetworkAttributes(
     """
 
 
-    sources_shapefile = config.filename(sourcefile)
-    network_shapefile = config.filename(networkfile)
-    output = config.filename(destination)
+    sources_shapefile = config.filename(sourcefile) # filename ok
+    network_shapefile = config.filename(networkfile) # filename ok
+    output = config.filename(destination) # filename ok
 
     graph = dict()
     rgraph = defaultdict(list)
@@ -234,8 +234,8 @@ def UpdateLengthOrder(
         Output dataset
     """
 
-    network_shapefile = config.filename(joined)
-    output = config.filename(destination)
+    network_shapefile = config.filename(joined) # filename ok
+    output = config.filename(destination) # filename ok
 
     graph = dict()
     indegree = Counter()

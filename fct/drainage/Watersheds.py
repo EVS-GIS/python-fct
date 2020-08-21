@@ -92,7 +92,7 @@ def Watershed(row, col, seeds, axis=1, tmp=''):
 
     flow, profile = PadRaster(row, col, 'flow', padding=1)
     transform = profile['transform']
-    destination = config.filename('watershed', row=row, col=col, axis=axis)
+    destination = config.tileset().tilename('watershed', row=row, col=col, axis=axis)
     height, width = flow.shape
 
     if os.path.exists(destination):
@@ -158,7 +158,7 @@ def VectorizeTile(wid, row, col):
     DOCME
     """
 
-    rasterfile = config.filename('watershed-u', row=row, col=col, wid=wid)
+    rasterfile = config.tileset().tilename('watershed-u', row=row, col=col, wid=wid)
 
     if os.path.exists(rasterfile):
 
@@ -182,7 +182,7 @@ def Vectorize(axis, processes=1):
     DOCME
     """
 
-    output = config.filename('watershed', axis=axis)
+    output = config.filename('watershed', axis=axis) # filename ok
 
     epsg = 2154
     schema = {

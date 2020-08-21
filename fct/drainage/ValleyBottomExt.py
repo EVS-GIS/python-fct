@@ -239,7 +239,7 @@ def MkValleyBottomNoDataTile(axis, row, col):
 
 def CopyValleyBottom(axis, processes=1, **kwargs):
 
-    tilefile = config.filename('ax_tiles', axis=axis)
+    tilefile = config.tileset().filename('ax_tiles', axis=axis)
     arguments = list()
 
     with open(tilefile) as fp:
@@ -319,7 +319,7 @@ def ExtendValleyBottomToTopographicLimits(axis, processes=1):
     g_tiles = set()
     tile = itemgetter(4, 5)
 
-    tilefile = config.filename('ax_tiles', axis=axis)
+    tilefile = config.tileset().filename('ax_tiles', axis=axis)
 
     with open(tilefile) as fp:
         tiles = [tuple(int(x) for x in line.split(',')) for line in fp]
@@ -345,7 +345,7 @@ def ExtendValleyBottomToTopographicLimits(axis, processes=1):
 
     click.secho('Save axis tiles list', fg='cyan')
 
-    output = config.filename('ax_tiles', axis=axis)
+    output = config.tileset().filename('ax_tiles', axis=axis)
 
     with open(output, 'w') as fp:
         for row, col in sorted(g_tiles):

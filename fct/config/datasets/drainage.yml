@@ -312,6 +312,19 @@ streams-from-sources:
     template: RHTS_%(row)02d_%(col)02d
     extension: .shp
 
+drainage-raster-from-sources:
+  description: |
+    Rasterization of streams-from-sources
+  type: raster
+  group: drainage
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: RHTS_RASTER.vrt
+  tiles:
+    tileset: landcover
+    template: RHTS_RASTER_%(row)02d_%(col)02d
+    extension: .tif
+
 sources:
   description: |
     Theoretical stream network sources,
@@ -372,6 +385,15 @@ noflow:
     template: NOFLOW_%(row)02d_%(col)02d
     extension: .shp
 
+noflow-targets:
+  description: |
+    No flow pixels' resolved downstream connections
+  type: point
+  group: drainage
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: NOFLOW_TARGETS.shp
+
 noflow-from-sources:
   description: |
     No flow pixels to be fixed
@@ -385,3 +407,12 @@ noflow-from-sources:
     tileset: landcover
     template: NOFLOW_RHTS_%(row)02d_%(col)02d
     extension: .shp
+
+noflow-targets-from-sources:
+  description: |
+    No flow pixels' resolved downstream connections
+  type: point
+  group: drainage
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: NOFLOW_RHTS_TARGETS.shp

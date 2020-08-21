@@ -48,7 +48,7 @@ def CreateOutletsGraph(exterior='exterior-inlets'):
     """
 
     tile_index = tileindex()
-    elevation_raster = config.filename('dem')
+    elevation_raster = config.tileset().filename('dem')
 
     click.secho('Build outlets graph', fg='cyan')
 
@@ -180,7 +180,7 @@ def TileInletAreas(tile, keys, areas):
     options = dict(driver=driver, crs=crs, schema=schema)
 
     # provide world/pixel geotransform
-    dem_file = config.filename('dem')
+    dem_file = config.tileset().filename('dem')
     dem = rio.open(dem_file)
 
     cum_areas = defaultdict(lambda: 0.0)
@@ -364,7 +364,7 @@ def AggregateNoFlowPixels():
     """
 
     tile_index = tileindex()
-    output = config.filename('noflow')
+    output = config.tileset().filename('noflow')
 
     driver = 'ESRI Shapefile'
     schema = {
@@ -398,7 +398,7 @@ def AggregateStreams():
     """
 
     tile_index = tileindex()
-    output = config.filename('dem-drainage-network')
+    output = config.tileset().filename('dem-drainage-network')
 
     driver = 'ESRI Shapefile'
     schema = {

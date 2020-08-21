@@ -372,7 +372,7 @@ def aggregate_from_sources():
     AggregateStreamsFromSources()
 
 @parallel(streams, NoFlowPixelsFromSources, 'noflow')
-# @click.option('--min_drainage', '-a', default=5.0, help='Minimum Drainage Area in km²')
+@click.option('--min_drainage', '-a', default=5.0, help='Minimum Drainage Area in km²')
 def noflow_from_sources():
     """
     Find Problematic No Flow Pixels on Stream Network
@@ -385,3 +385,14 @@ def aggregate_noflow_from_sources():
     Aggregate No Flow Shapefiles
     """
     AggregateNoFlowPixelsFromSources()
+
+from .FixNoFlow import DrainageRaster
+
+@parallel(streams, DrainageRaster, 'rasterize')
+@click.option('--min_drainage', '-a', default=5.0, help='Minimum Drainage Area in km²')
+def drainage_raster():
+    """
+    Rasterize back drainage network
+    """
+
+    return tileindex()

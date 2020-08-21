@@ -1,17 +1,27 @@
 # coding: utf-8
 
+"""
+Calculate Depression Depth Map
+
+***************************************************************************
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+***************************************************************************
+"""
+
 import os
-from collections import defaultdict, Counter
 import numpy as np
 
-import click
 import rasterio as rio
 from rasterio.features import sieve
 
 from .. import terrain_analysis as ta
 from .. import speedup
 from ..config import config
-from ..tileio import ReadRasterTile
 
 def DepressionDepthMap(row, col, **kwargs):
     """
@@ -22,11 +32,10 @@ def DepressionDepthMap(row, col, **kwargs):
 
     # from scipy.ndimage.morphology import binary_closing
 
-    # reference_raster = config.filename('tiled', row=row, col=col)
+    # reference_raster = config.tileset().filename('tiled', row=row, col=col)
     filled_raster = config.tileset().tilename('dem-drainage-resolved', row=row, col=col)
-    # flow_raster = config.filename('flow', row=row, col=col)
-    # acc_raster = config.filename('acc', row=row, col=col)
-    # labels_raster = config.filename('flat_labels', row=row, col=col)
+    # filled_raster = config.tileset().tilename('dem-filled-resolved', row=row, col=col)
+
     output = config.tileset().tilename('depression-depth', row=row, col=col)
     overwrite = kwargs.get('overwrite', False)
 
@@ -86,10 +95,10 @@ def FlatMap(row, col, min_drainage, **kwargs):
 
     from scipy.ndimage.morphology import binary_closing
 
-    dem_raster = config.filename('filled', row=row, col=col)
-    flow_raster = config.filename('flow', row=row, col=col)
-    acc_raster = config.filename('acc', row=row, col=col)
-    output = config.filename('flatmap', row=row, col=col)
+    dem_raster = config.tileset().tilename('filled', row=row, col=col)
+    flow_raster = config.tileset().tilename('flow', row=row, col=col)
+    acc_raster = config.tileset().tilename('acc', row=row, col=col)
+    output = config.tileset().tilename('flatmap', row=row, col=col)
 
     with rio.open(dem_raster) as ds:
 

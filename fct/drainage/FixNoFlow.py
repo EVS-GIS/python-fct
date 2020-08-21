@@ -19,39 +19,61 @@ import rasterio as rio
 import fiona
 import click
 
+from .. import transform as fct
 from ..config import config
 
-def workdir():
+def DrainageRaster(row, col, min_drainage=5.0):
     """
-    Return default working directory
-    """
-    return config.workdir
-
-def tileindex():
-    """
-    Return default tileindex
-    """
-    return config.tileset().tileindex
-
-origin_x = float('inf')
-origin_y = float('-inf')
-size_x = 5.0*config.tileset().width
-size_y = 5.0*config.tileset().height
-
-for tile in tileindex().values():
-    origin_x = min(origin_x, tile.x0)
-    origin_y = max(origin_y, tile.y0)
-
-def xy2tile(x, y):
-    """
-    DOCME
+    Rasterize back drainage network
     """
 
-    row = (origin_y - y) // size_y
-    col = (x - origin_x) // size_x
-    return int(row), int(col)
+    acc_raster = config.tileset().tilename(
+        'acc',
+        row=row,
+        col=col)
 
-def FixNoFlow(x0, y0, min_drainage=5.0, fix=False):
+    stream_features = config.tileset().tilename(
+        'streams-from-sources',
+        row=row,
+        col=col)
+
+    output = config.tileset().tilename(
+        'drainage-raster-from-sources',
+        row=row,
+        col=col)
+
+    with rio.open(acc_raster) as ds:
+
+        acc = ds.read(1)
+
+        if min_drainage > 0:
+            streams = np.int16(acc > min_drainage)
+        else:
+            streams = np.zeros_like(acc, dtype='int16')
+
+        streams[acc == ds.nodata] = -1
+        height, width = streams.shape
+
+        profile = ds.profile.copy()
+
+    with fiona.open(stream_features) as fs:
+        for feature in fs:
+
+            coordinates = np.array(feature['geometry']['coordinates'], dtype='float32')
+            pixels = fct.worldtopixel(coordinates, ds.transform)
+
+            for i, j in pixels:
+                if 0 <= i < height and 0 <= j < width:
+                    streams[i, j] = 1
+
+    profile.update(
+        dtype='int16',
+        nodata=-1)
+
+    with rio.open(output, 'w', **profile) as dst:
+        dst.write(streams, 1)
+
+def FixNoFlow(x0, y0, tileset1, tileset2, min_drainage=5.0, fix=False):
     """
     DOCME
     """
@@ -60,20 +82,28 @@ def FixNoFlow(x0, y0, min_drainage=5.0, fix=False):
     cj = [  0,  1,  1,  1,  0, -1, -1, -1 ]
     upward = [ 16,  32,  64,  128,  1,  2,  4,  8 ]
 
-    flow1_data = acc1_data = np.array(0)
+    flow1_data = acc1_data = stream1_data = np.array(0)
     height = width = 0
     ds = None
     profile = dict()
 
-    flow_raster1 = '/var/local/fct/RMC/FLOW_RGE5M_TILES.vrt'
-    acc_raster1 = '/var/local/fct/RMC/ACC_RGE5M_TILES.vrt'
+    # flow_raster1 = '/var/local/fct/RMC/FLOW_RGE5M_TILES.vrt'
+    # acc_raster1 = '/var/local/fct/RMC/ACC_RGE5M_TILES.vrt'
+    flow_raster1 = config.tileset(tileset1).filename('flow')
+    acc_raster1 = config.tileset(tileset1).filename('acc')
+    stream_raster1 = config.tileset(tileset1).filename('drainage-raster-from-sources')
     flow1ds = rio.open(flow_raster1)
     acc1ds = rio.open(acc_raster1)
-    
-    flow_raster2 = '/var/local/fct/RMC/FLOW_RGE5M_TILES2.vrt'
-    acc_raster2 = '/var/local/fct/RMC/ACC_RGE5M_TILES2.vrt'
+    stream1ds = rio.open(stream_raster1)
+
+    # flow_raster2 = '/var/local/fct/RMC/FLOW_RGE5M_TILES2.vrt'
+    # acc_raster2 = '/var/local/fct/RMC/ACC_RGE5M_TILES2.vrt'
+    flow_raster2 = config.tileset(tileset2).filename('flow')
+    # acc_raster2 = config.tileset(tileset2).filename('acc')
+    stream_raster2 = config.tileset(tileset2).filename('drainage-raster-from-sources')
     flow2ds = rio.open(flow_raster2)
-    acc2ds = rio.open(acc_raster2)
+    # acc2ds = rio.open(acc_raster2)
+    stream2ds = rio.open(stream_raster2)
 
     def read_tile(row, col):
         """
@@ -84,16 +114,24 @@ def FixNoFlow(x0, y0, min_drainage=5.0, fix=False):
         nonlocal profile
         nonlocal flow1_data
         nonlocal acc1_data
+        nonlocal stream1_data
         nonlocal height
         nonlocal width
 
         # click.echo('Reading tile (%d, %d)' % (row, col))
 
-        flow_raster1 = config.filename('flow', row=row, col=col)
-        acc_raster1 = config.filename('acc', row=row, col=col)
+        flow_raster1 = config.tileset(tileset1).tilename('flow', row=row, col=col)
+        acc_raster1 = config.tileset(tileset1).tilename('acc', row=row, col=col)
+        stream_raster1 = config.tileset(tileset1).tilename(
+            'drainage-raster-from-sources',
+            row=row,
+            col=col)
 
         with rio.open(acc_raster1) as ds:
             acc1_data = ds.read(1)
+
+        with rio.open(stream_raster1) as ds:
+            stream1_data = ds.read(1)
 
         with rio.open(flow_raster1) as ds:
             profile = ds.profile.copy()
@@ -101,13 +139,13 @@ def FixNoFlow(x0, y0, min_drainage=5.0, fix=False):
             height, width = flow1_data.shape
 
     def intile(i, j):
-         return all([i >= 0, i < height, j >= 0, j < width])
+        return 0 <= i < height and 0 <= j < width
 
     def flow1(i, j):
 
         if intile(i, j):
             return flow1_data[i, j]
-        
+
         x, y = ds.xy(i, j)
         return int(next(flow1ds.sample([(x, y)], 1)))
 
@@ -115,33 +153,55 @@ def FixNoFlow(x0, y0, min_drainage=5.0, fix=False):
 
         if intile(i, j):
             return acc1_data[i, j]
-        
+
         x, y = ds.xy(i, j)
         return float(next(acc1ds.sample([(x, y)], 1)))
 
+    # def streams1(i, j):
+    #     return acc1(i, j) > min_drainage
+
     def streams1(i, j):
-        return acc1(i, j) > min_drainage
+
+        if intile(i, j):
+            return stream1_data[i, j] == 1
+
+        x, y = ds.xy(i, j)
+        return int(next(stream1ds.sample([(x, y)], 1))) == 1
 
     def flow2(i, j):
         x, y = ds.xy(i, j)
         return int(next(flow2ds.sample([(x, y)], 1)))
 
+    # def streams2(i, j):
+    #     x, y = ds.xy(i, j)
+    #     return bool(next(acc2ds.sample([(x, y)], 1)) > min_drainage)
+
     def streams2(i, j):
         x, y = ds.xy(i, j)
-        return bool(next(acc2ds.sample([(x, y)], 1)) > min_drainage)
+        return int(next(stream2ds.sample([(x, y)], 1))) == 1
 
-    def write_tile(row, col):
+    if fix:
 
-        if fix:
+        def write_tile(row, col):
 
-            flow_raster1 = config.filename('flow', row=row, col=col)
+            flow_raster1 = config.tileset().tilename('flow', row=row, col=col)
 
             with rio.open(flow_raster1, 'w', **profile) as dst:
                 dst.write(flow1_data, 1)
 
-    row, col = xy2tile(x0, y0)
+    else:
+
+        def write_tile(row, col): #pylint:disable=unused-argument
+            """ no-op """
+
+    # row, col = xy2tile(x0, y0)
+    row, col = config.tileset(tileset1).index(x0, y0)
     read_tile(row, col)
     i, j = ds.index(x0, y0)
+
+    # step 1. walk upstream on drainage 1
+    #         until we reach a common point
+    #         between drainage 1 and drainage 2
 
     while not streams2(i, j):
 
@@ -153,7 +213,7 @@ def FixNoFlow(x0, y0, min_drainage=5.0, fix=False):
         for k in range(8):
 
             ik, jk = i + ci[k], j + cj[k]
-            
+
             if flow1(ik, jk) == upward[k]:
                 acck = acc1(ik, jk)
                 if acck > max_acck:
@@ -166,7 +226,8 @@ def FixNoFlow(x0, y0, min_drainage=5.0, fix=False):
 
             if not intile(i, j):
                 x, y = ds.xy(i, j)
-                row, col = xy2tile(x, y)
+                # row, col = xy2tile(x, y)
+                row, col = config.tileset(tileset1).index(x, y)
                 read_tile(row, col)
                 i, j = ds.index(x, y)
 
@@ -174,10 +235,13 @@ def FixNoFlow(x0, y0, min_drainage=5.0, fix=False):
 
             raise ValueError('No match for (%f, %f)' % (x0, y0))
 
+    # step2. walk downstream on drainage 2
+    #        until we leave drainage 1
+
     while streams1(i, j):
 
         direction = flow2(i, j)
-        if direction == -1 or direction == 0:
+        if direction in (-1, 0):
             break
 
         flow1_data[i, j] = direction
@@ -188,14 +252,20 @@ def FixNoFlow(x0, y0, min_drainage=5.0, fix=False):
 
             write_tile(row, col)
             x, y = ds.xy(i, j)
-            row, col = xy2tile(x, y)
+            # row, col = xy2tile(x, y)
+            row, col = config.tileset(tileset1).index(x, y)
             read_tile(row, col)
             i, j = ds.index(x, y)
+
+    # step3. walk downstream on drainage 2
+    #        until we get back on drainage 1 ;
+    #        update drainage 1 to reflect drainage 2
+    #        as we walk downstream
 
     while not streams1(i, j):
 
         direction = flow2(i, j)
-        if direction == -1 or direction == 0:
+        if direction in (-1, 0):
             break
 
         flow1_data[i, j] = direction
@@ -206,7 +276,8 @@ def FixNoFlow(x0, y0, min_drainage=5.0, fix=False):
 
             write_tile(row, col)
             x, y = ds.xy(i, j)
-            row, col = xy2tile(x, y)
+            # row, col = xy2tile(x, y)
+            row, col = config.tileset(tileset1).index(x, y)
             read_tile(row, col)
             i, j = ds.index(x, y)
 
@@ -214,26 +285,47 @@ def FixNoFlow(x0, y0, min_drainage=5.0, fix=False):
 
     flow1ds.close()
     acc1ds.close()
+    stream1ds.close()
     flow2ds.close()
-    acc2ds.close()
+    # acc2ds.close()
+    stream2ds.close()
 
     return ds.xy(i, j)
 
-def test(fix=False):
+def test(tileset1='10k', tileset2='10kbis', fix=False):
+    """
+    TODO finalize
+    DOCME
+    """
 
-    noflow = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/NOFLOW_RGE5M_ALL.shp'
-    targets = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/NOFLOW_TARGETS.shp'
+    # noflow = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/NOFLOW_RGE5M_ALL.shp'
+    # targets = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/NOFLOW_TARGETS.shp'
+
+    # noflow = config.tileset(tileset1).filename('noflow')
+    # targets = config.tileset(tileset1).filename('noflow-targets')
+
+    config.default()
+    noflow = config.tileset(tileset1).filename('noflow-from-sources')
+    targets = config.tileset(tileset1).filename('noflow-targets-from-sources')
 
     with fiona.open(noflow) as fs:
+
         options = dict(driver=fs.driver, crs=fs.crs, schema=fs.schema)
+
         with fiona.open(targets, 'w', **options) as dst:
             with click.progressbar(fs) as progress:
+
                 for f in progress:
+
                     x, y = f['geometry']['coordinates']
+
                     try:
-                        tox, toy = FixNoFlow(x, y, fix=fix)
+
+                        tox, toy = FixNoFlow(x, y, tileset1, tileset2, fix=fix)
                         f['geometry']['coordinates'] = [tox, toy]
                         dst.write(f)
-                    except ValueError as e:
-                        print(f['properties']['GID'], e)
+
+                    except ValueError as error:
+
+                        print(f['properties']['GID'], error)
                         continue

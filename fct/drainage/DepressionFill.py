@@ -187,7 +187,7 @@ def ResolveWatershedSpillover(overwrite):
     entre les différentes tuiles
     """
 
-    output = config.filename('dem-watershed-spillover')
+    output = config.tileset().filename('dem-watershed-spillover')
 
     if os.path.exists(output) and not overwrite:
         click.secho('Output already exists: %s' % output, fg='yellow')
@@ -285,7 +285,7 @@ def DispatchWatershedMinimumZ(row, col, **kwargs):
     tile_index = tileindex()
     tile = tile_index[row, col]
 
-    minz_file = config.filename('dem-watershed-spillover')
+    minz_file = config.tileset().filename('dem-watershed-spillover')
     minimum_z = np.load(minz_file)['minz']
 
     index = {int(w): z for t, w, z in minimum_z if int(t) == tile.gid}

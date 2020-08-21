@@ -47,9 +47,9 @@ def CreateSourcesGraph():
     """
 
     tile_index = tileindex()
-    dem_rasterfile = config.filename('dem')
+    dem_rasterfile = config.tileset().filename('dem')
     # sources = config.datasource('sources').filename
-    sources = config.filename('sources-cartography')
+    sources = config.filename('sources-cartography') # filename ok
 
     click.secho('Build sources graph', fg='cyan')
 
@@ -155,7 +155,7 @@ def TileInletSources(tile, keys, areas):
     }
     options = dict(driver=driver, crs=crs, schema=schema)
 
-    dem_file = config.filename('dem')
+    dem_file = config.tileset().filename('dem')
     dem = rio.open(dem_file)
 
     cum_areas = defaultdict(lambda: 0.0)
@@ -281,7 +281,7 @@ def AggregateStreamsFromSources():
     """
 
     tile_index = tileindex()
-    output = config.filename('streams-from-sources')
+    output = config.tileset().filename('streams-from-sources')
 
     driver = 'ESRI Shapefile'
     schema = {
@@ -313,10 +313,10 @@ def AggregateStreamsFromSources():
                         feature['properties']['GID'] = next(gid)
                         dst.write(feature)
 
-def NoFlowPixels(row, col):
+def NoFlowPixels(row, col, min_drainage):
 
     flow_raster = config.tileset().tilename('flow', row=row, col=col)
-    # acc_raster = config.tileset().tilename('acc', row=row, col=col)
+    acc_raster = config.tileset().tilename('acc', row=row, col=col)
     stream_features = config.tileset().tilename('streams-from-sources', row=row, col=col)
     output = config.tileset().tilename('noflow-from-sources', row=row, col=col)
 
@@ -337,7 +337,9 @@ def NoFlowPixels(row, col):
         flow = ds.read(1)
         height, width = flow.shape
 
-        streams = np.zeros_like(flow, dtype='int16')
+        # streams = np.zeros_like(flow, dtype='int16')
+        with rio.open(acc_raster) as ds2:
+            streams = np.int16(ds2.read(1) > min_drainage)
 
         with fiona.open(stream_features) as fs:
             for feature in fs:
@@ -381,7 +383,7 @@ def AggregateNoFlowPixels():
     """
 
     tile_index = tileindex()
-    output = config.filename('noflow-from-sources')
+    output = config.tileset().filename('noflow-from-sources')
 
     driver = 'ESRI Shapefile'
     schema = {

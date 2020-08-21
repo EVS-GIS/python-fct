@@ -1,11 +1,23 @@
 # coding: utf-8
 
+"""
+DEM Burning
+Match mapped stream network and DEM by adjusting stream's elevation
+
+***************************************************************************
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+***************************************************************************
+"""
+
 import os
 from collections import defaultdict, Counter
 import numpy as np
 import click
-import itertools
-import math
 
 import rasterio as rio
 import fiona
@@ -29,9 +41,9 @@ def DrapeNetworkAndAdjustElevations(dataset):
     # vectorfile = '/media/crousson/Backup/PRODUCTION/RGEALTI/RMC/HYDROGRAPHY.shp'
     # output = '/var/local/fct/RMC/TILES2/HYDROGRAPHY.shp'
 
-    dem_vrt = config.filename(dataset)
-    networkfile = config.filename('stream-network-cartography')
-    output = config.filename('stream-network-draped')
+    dem_vrt = config.tileset().filename(dataset)
+    networkfile = config.filename('stream-network-cartography') # filename ok
+    output = config.filename('stream-network-draped') # filename ok
 
     graph = defaultdict(list)
     indegree = Counter()
@@ -102,7 +114,7 @@ def DrapeNetworkAndAdjustElevations(dataset):
 def SplitStreamNetworkIntoTiles():
 
     tileset = config.tileset()
-    networkfile = config.filename('stream-network-draped')
+    networkfile = config.filename('stream-network-draped') # filename ok
 
     with fiona.open(networkfile) as fs:
 
@@ -168,7 +180,7 @@ def SplitStreamNetworkIntoTiles():
 
 #     with click.progressbar(groups, length=len(tileindex)) as progress:
 #         for (row, col), features in progress:
-#             with fiona.open(config.filename('hydrography', row=row, col=col), 'w', **options) as fst:
+#             with fiona.open(config.tileset().filename('hydrography', row=row, col=col), 'w', **options) as fst:
 #                 for feature in features:
 #                     fst.write(feature)
 
@@ -197,5 +209,8 @@ def BurnTile(dataset, row, col, burn_delta=0.0):
                         for px, py, z in rasterize_linestringz(a, b):
                             if all([py >= 0, py < height, px >= 0, px < width, not np.isinf(z)]):
                                 elevations[py, px] = z - burn_delta
+        else:
+
+            click.secho('File not found: %s' % hydrography, fg='yellow')
 
     return elevations

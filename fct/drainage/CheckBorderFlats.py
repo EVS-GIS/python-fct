@@ -101,7 +101,7 @@ def CheckBorderFlats(directed, graph, row, col, dlinks, ulinks, epsilon=0.001):
     ulinks = dict()
 
     def read_data(i, j):
-        return np.load(config.filename('graph', row=i, col=j), allow_pickle=True)
+        return np.load(config.tileset().filename('dem-watershed-graph', row=i, col=j), allow_pickle=True)
 
     def isupstream(origin, target):
 

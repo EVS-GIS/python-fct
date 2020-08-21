@@ -32,8 +32,6 @@ Séquence :
 """
 
 import os
-from collections import defaultdict
-from heapq import heappush, heappop
 import numpy as np
 
 import click
@@ -43,10 +41,8 @@ import fiona
 import fiona.crs
 
 from ..config import config
-from .. import terrain_analysis as ta
-from .. import speedup
 from ..tileio import ReadRasterTile
-from .Burn import BurnTile
+
 
 def workdir():
     """
@@ -65,7 +61,7 @@ def silent(msg):
 
 def TileExtendedBoundingBox(row, col, padding=20):
 
-    template = config.filename('patched', row=row, col=col)
+    template = config.tileset().filename('dem', row=row, col=col)
     output = os.path.join(workdir(), 'TILEBOXES.shp')
 
     crs = fiona.crs.from_epsg(2154)

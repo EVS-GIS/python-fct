@@ -395,7 +395,7 @@ def ResolveFlatSpillover(epsilon=0.0005):
     click.secho('Ensure epsilon Gradient : %f m' % epsilon, fg='cyan')
     resolved = EnsureEpsilonGradient(directed, ulinks, areas, epsilon=epsilon)
 
-    output = config.filename('dem-flat-spillover')
+    output = config.tileset().filename('dem-flat-spillover')
     minz = [watershed + (resolved[watershed][1],) for watershed in resolved]
     np.savez(output, minz=np.array(minz))
 
@@ -419,7 +419,7 @@ def DispatchFlatMinimumZ(row, col, overwrite, **kwargs):
         click.secho('Output already exists: %s' % output, fg='yellow')
         return
 
-    minz_file = config.filename('dem-flat-spillover')
+    minz_file = config.tileset().filename('dem-flat-spillover')
     minimum_z = np.load(minz_file)['minz']
 
     index = {int(w): z for t, w, z in minimum_z if int(t) == tile.gid}

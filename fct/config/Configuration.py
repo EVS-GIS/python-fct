@@ -257,6 +257,22 @@ class Dataset():
         """
         return self._ext
 
+    @property
+    def basename(self):
+
+        if self._tilename is None:
+            raise ValueError('Dataset %s does not have tiles' % self.name)
+
+        if '_%' in self._tilename:
+            parts = self._tilename.split('_%')
+            return parts[0]
+
+        if '%' in self._tilename:
+            parts = self._tilename.split('%')
+            return parts[0]
+
+        return self._tilename
+
     def filename(self, **kwargs):
         """
         Return filename instance
@@ -463,6 +479,28 @@ class Tileset():
         col = int((x - minx) // self._resolution)
         return row, col
 
+    def filename(self, dataset, **kwargs):
+        """
+        Return dataset main file with tileset qualifier
+        """
+
+        dst = self.workspace.dataset(dataset)
+
+        folder = os.path.join(
+            self.workspace.workdir,
+            dst.subdir(**kwargs))
+
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+
+        basename = os.path.join(
+            folder,
+            dst.filename(**kwargs))
+
+        basename, extension = os.path.splitext(basename)
+
+        return ''.join([basename, '_', self._tiledir, extension])
+
     def tilename(self, dataset, row, col, **kwargs):
         """
         Return full-path filename instance for specific tile
@@ -473,7 +511,8 @@ class Tileset():
         folder = os.path.join(
             self.workspace.workdir,
             dst.subdir(**kwargs),
-            self._tiledir)
+            self._tiledir,
+            dst.basename)
 
         if not os.path.exists(folder):
             try:
@@ -536,7 +575,15 @@ class FileParser():
             elif section == 'Tilesets':
                 for key, value in parser.items(section):
                     if value in tilesets:
+
                         tilesets[key] = tilesets[value]
+
+                        if 'FCT_TILEDIR' in os.environ:
+                            if 'FCT_TILESET' in os.environ and os.environ['FCT_TILESET'] == key:
+                                tiledir = os.environ['FCT_TILEDIR']
+                                tilesets[key]._tiledir = tiledir
+                                click.secho('Override %s\'s tile directory to %s' % (key, tiledir), fg='cyan')
+
                     else:
                         raise KeyError(value)
 
@@ -566,6 +613,7 @@ class FileParser():
         height = int(items['height'])
         width = int(items['width'])
         resolution = float(items['resolution'])
+
         return Tileset(name, index, height, width, tiledir, resolution)
 
     @staticmethod

@@ -17,14 +17,15 @@ import os
 import glob
 import click
 
-from ..config import config
-from ..tileio import buildvrt
 from .. import __version__ as version
+from ..config import config
+from ..tileio import (
+    buildvrt,
+    translate
+)
 
 from .Tiles import DatasourceToTiles
-from .Options import (
-    overwritable
-)
+from .Options import overwritable
 
 @click.group()
 def cli():
@@ -103,7 +104,7 @@ def delete(name, ext):
 
             os.unlink(src)
 
-@cli.command('extract')
+@cli.command()
 @click.argument('datasource')
 @click.argument('tileset')
 @click.argument('dataset')
@@ -120,10 +121,22 @@ def extract(datasource, tileset, dataset, processes=1):
 @cli.command('buildvrt')
 @click.argument('tileset')
 @click.argument('dataset')
-def vrt(tileset, dataset):
+@click.option('--suffix/--no-suffix', default=True, help='Append tileset suffix')
+def vrt(tileset, dataset, suffix):
     """
     Build GDAL Virtual Raster (VRT) from dataset tiles
     """
 
     config.default()
-    buildvrt(tileset, dataset)
+    buildvrt(tileset, dataset, suffix)
+
+@cli.command()
+@click.argument('dataset')
+@click.option('--driver', default='gtiff', help='Output format: gtiff or netcdf')
+def export(dataset, driver):
+    """
+    Export Virtual Raster (VRT) dataset to solid format GTiff or NetCDF
+    """
+
+    config.default()
+    translate(dataset, driver)

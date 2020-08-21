@@ -52,7 +52,7 @@ def border(height, width):
 
 def ReadSeeds(axis):
 
-    shapefile = config.filename('streams-tiled')
+    shapefile = config.tileset().filename('streams-tiled')
 
     def accept(feature):
         properties = feature['properties']
@@ -272,7 +272,7 @@ def ValleyBottom(axis, processes=1):
     DOCME
     """
 
-    output = config.filename('ax_tiles', axis=axis)
+    output = config.tileset().filename('ax_tiles', axis=axis)
 
     g_tiles = set()
     tile = itemgetter(4, 5)

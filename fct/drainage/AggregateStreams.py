@@ -23,8 +23,8 @@ from ..config import config
 
 def AggregateSegmentsByAxisAndTile(max_length=10e3):
 
-    source = config.filename('streams')
-    output = config.filename('streams-tiled')
+    source = config.filename('streams') # filename ok ?
+    output = config.tileset().filename('streams-tiled')
 
     graph = dict()
     indegree = Counter()

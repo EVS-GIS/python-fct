@@ -19,47 +19,20 @@ Sequence :
 ***************************************************************************
 """
 
-import click
 import os
 import glob
+from collections import defaultdict
+import numpy as np
+
+import click
 import rasterio as rio
 from rasterio.features import rasterize
-from rasterio.windows import Window
-from rasterio.warp import Resampling
 import fiona
 import fiona.crs
-import numpy as np
-from collections import namedtuple, defaultdict, Counter
-from heapq import heappush, heappop
 
-# import richdem as rd
 from ..config import config
 from .. import terrain_analysis as ta
 from ..tileio import PadRaster
-
-# def FlowDirection(row, col):
-
-#     read_tile_index()
-
-#     output = os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_FLOW.tif' % (row, col))
-
-#     def filename(row, col):
-#         return os.path.join(workdir, 'RGE5M_TILE_%02d_%02d_FILLED2.tif' % (row, col))
-
-#     with rio.open(filename(row, col)) as ds:
-
-#         padded = PadElevations(row, col, filename)
-
-#         padded = rd.rdarray(padded, no_data=ds.nodata)
-#         rd.BreachDepressions(padded, True, 'D8')
-#         rd.FillDepressions(padded, True, True, 'D8')
-#         flow = ta.flowdir(padded, ds.nodata)
-
-#         profile = ds.profile.copy()
-#         profile.update(compress='deflate', dtype=np.int16, nodata=-1)
-
-#         with rio.open(output, 'w', **profile) as dst:
-#             dst.write(flow[1:-1, 1:-1], 1)
 
 def tileindex():
     """
@@ -117,7 +90,7 @@ def FlowDirection(
     calculate D8 flow direction from adjusted elevations.
     """
 
-    # elevation_raster = config.filename('filled', row=row, col=col)
+    # elevation_raster = config.tileset().filename('filled', row=row, col=col)
     output = config.tileset().tilename('flow', row=row, col=col)
 
     if os.path.exists(output) and not overwrite:
@@ -192,7 +165,7 @@ def FlowDirection(
         flow[mask == 1] = -1
 
     # noout = float(parameter('input.noout'))
-    # with rio.open(config.filename('tiled', row=row, col=col)) as ds2:
+    # with rio.open(config.tileset().filename('tiled', row=row, col=col)) as ds2:
     #     flow[ds2.read(1) == noout] = -1
 
     # profile = ds.profile.copy()
@@ -240,7 +213,7 @@ def Outlets(row, col, verbose=False):
 
     # def readz(trow, tcol, x, y):
 
-    #     with rio.open(config.tileset(TILESET).tilename('filled', row=trow, col=tcol)) as src:
+    #     with rio.open(config.tileset().tilename('filled', row=trow, col=tcol)) as src:
     #         return float(next(src.sample([(x, y)], 1)))
 
     with rio.open(flow_raster) as ds:
@@ -249,9 +222,6 @@ def Outlets(row, col, verbose=False):
         flow = ds.read(1)
         mask = np.ones_like(flow, dtype=np.uint8)
         outlets, targets = ta.tile_outlets(flow, mask)
-
-        # output = config.filename('outlets', row=row, col=col)
-        # with fiona.open(output, 'w', **options) as dst:
 
         for current, (ti, tj) in enumerate(targets):
 
