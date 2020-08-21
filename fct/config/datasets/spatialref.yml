@@ -45,20 +45,7 @@ ax_drainage_network:
   status: temporary
   subdir: AXES/AX%(axis)04d/REF
   filename: DRAINAGE.shp
-
-ax_watershed:
-  description: |
-    Watershed delineation
-  type: polygon
-  group: drainage
-  status: final
-  subdir: AXES/AX%(axis)04d
-  filename: WATERSHED.shp
-  tiles:
-    tileset: landcover
-    template: WATERSHED_%(row)02d_%(col)02d
-    extension: .shp
-
+  
 ax_axis_distance:
   description: |
     Distance to reference axis

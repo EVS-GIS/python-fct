@@ -52,7 +52,8 @@ def border(height, width):
 
 def ReadSeeds(axis):
 
-    shapefile = config.tileset().filename('streams-tiled')
+    # shapefile = config.tileset().filename('streams-tiled')
+    shapefile = config.tileset().filename('ax_drainage_network', axis=axis)
 
     def accept(feature):
         properties = feature['properties']
@@ -74,7 +75,7 @@ def TileValleyBottom(axis, row, col, seeds):
     output_flow_height = config.tileset('landcover').tilename('ax_flow_height', axis=axis, row=row, col=col)
     output_flow_distance = config.tileset('landcover').tilename('ax_flow_distance', axis=axis, row=row, col=col)
 
-    elevations, profile = PadRaster(row, col, 'tiled', padding=1)
+    elevations, profile = PadRaster(row, col, 'dem', padding=1)
     transform = profile['transform']
     nodata = profile['nodata']
     flow, _ = PadRaster(row, col, 'flow', padding=1)

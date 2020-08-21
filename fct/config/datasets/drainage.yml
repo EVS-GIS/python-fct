@@ -47,7 +47,7 @@ stream-network-draped:
   description: |
     Stream network derived from cartography
     draped on DEM
-  type: polygon
+  type: linestring
   group: drainage
   status: temporary
   subdir: GLOBAL/DEM
@@ -180,15 +180,16 @@ dem-drainage-resolved:
 
 depression-depth:
   description: |
-    Raster map of DEM depressions
+    Raster map of DEM depressions,
+    depth relative to pour point elevation
   type: raster
   group: drainage
   status: final
   subdir: GLOBAL/DEM
-  filename: DEPRESSIONS.vrt
+  filename: DEPRESSION_DEPTH.vrt
   tiles:
     tileset: landcover
-    template: DEPRESSIONS_%(row)02d_%(col)02d
+    template: DEPRESSION_DEPTH_%(row)02d_%(col)02d
     extension: .tif
 
 flow:
@@ -416,3 +417,30 @@ noflow-targets-from-sources:
   status: temporary
   subdir: GLOBAL/DEM
   filename: NOFLOW_RHTS_TARGETS.shp
+
+ax_watershed_raster:
+  description: |
+    Watershed delineation
+  type: raster
+  group: drainage
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: WATERSHED.vrt
+  tiles:
+    tileset: landcover
+    template: WATERSHED_%(row)02d_%(col)02d
+    extension: .tif
+
+
+ax_watershed:
+  description: |
+    Watershed delineation
+  type: polygon
+  group: drainage
+  status: final
+  subdir: AXES/AX%(axis)04d
+  filename: WATERSHED.shp
+  tiles:
+    tileset: landcover
+    template: WATERSHED_%(row)02d_%(col)02d
+    extension: .shp

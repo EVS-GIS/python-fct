@@ -227,6 +227,7 @@ class Dataset():
 
         return Dataset(
             temp_name,
+            self._properties.copy(),
             temp_filename,
             temp_tilename,
             os.path.join(self._subdir, 'TEMP'),

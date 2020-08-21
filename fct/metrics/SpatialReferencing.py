@@ -20,6 +20,7 @@ from operator import itemgetter
 # from collections import defaultdict
 
 import numpy as np
+from scipy.spatial import cKDTree
 
 import click
 import rasterio as rio
@@ -27,7 +28,6 @@ from rasterio import features
 import fiona
 import fiona.crs
 from shapely.geometry import asShape
-from scipy.spatial import cKDTree
 
 from ..config import config
 # from ..tileio import ReadRasterTile

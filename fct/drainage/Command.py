@@ -396,3 +396,21 @@ def drainage_raster():
     """
 
     return tileindex()
+
+@cli.command('watershed')
+@click.argument('axis', type=click.INT)
+@click.option('--processes', '-j', default=1)
+def delineate_watershed(axis, processes):
+    """
+    Delineate watershed from drainage network/flow raster
+    """
+
+    #pylint:disable=import-outside-toplevel
+
+    from .Watersheds import (
+        Watershed,
+        VectorizeWatershed
+    )
+
+    Watershed(axis, processes)
+    VectorizeWatershed(axis, processes)
