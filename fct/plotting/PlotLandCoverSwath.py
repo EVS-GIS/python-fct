@@ -32,8 +32,8 @@ def plot_swath(x, classes, swath, direction='forward', title=None, filename=None
     ax.spines['right'].set_linewidth(1)
     ax.spines['bottom'].set_linewidth(1)
     
-    ax.set_ylabel("Cover Class Proportion")
-    ax.set_xlabel("Distance from reference axis (m)")
+    ax.set_ylabel("Cover Class Proportion", fontsize=14)
+    ax.set_xlabel("Distance from reference axis (m)", fontsize=14)
     ax.tick_params(axis='both', width=1, pad = 2)
     for tick in ax.xaxis.get_major_ticks():
         tick.set_pad(2)

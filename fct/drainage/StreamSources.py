@@ -19,6 +19,7 @@ Sequence :
 ***************************************************************************
 """
 
+import os
 from collections import defaultdict, Counter
 import itertools
 from operator import itemgetter
@@ -216,6 +217,12 @@ def StreamToFeatureFromSources(row, col, min_drainage):
     sources = config.tileset().tilename('inlet-sources', row=row, col=col)
     output = config.tileset().tilename('streams-from-sources', row=row, col=col)
 
+    if not os.path.exists(sources):
+        click.secho(
+            '\nMissing inlet-sources for tile (%d, %d)' % (row, col),
+            fg='yellow')
+        return
+
     driver = 'ESRI Shapefile'
     schema = {
         'geometry': 'LineString',
@@ -308,10 +315,11 @@ def AggregateStreamsFromSources():
                     row=row,
                     col=col)
 
-                with fiona.open(shapefile) as fs:
-                    for feature in fs:
-                        feature['properties']['GID'] = next(gid)
-                        dst.write(feature)
+                if os.path.exists(shapefile):
+                    with fiona.open(shapefile) as fs:
+                        for feature in fs:
+                            feature['properties']['GID'] = next(gid)
+                            dst.write(feature)
 
 def NoFlowPixels(row, col, min_drainage):
 
@@ -319,6 +327,12 @@ def NoFlowPixels(row, col, min_drainage):
     acc_raster = config.tileset().tilename('acc', row=row, col=col)
     stream_features = config.tileset().tilename('streams-from-sources', row=row, col=col)
     output = config.tileset().tilename('noflow-from-sources', row=row, col=col)
+
+    if not os.path.exists(stream_features):
+        click.secho(
+            '\nMissing streams-from-sources for tile (%d, %d)' % (row, col),
+            fg='yellow')
+        return
 
     driver = 'ESRI Shapefile'
     schema = {
@@ -402,10 +416,14 @@ def AggregateNoFlowPixels():
     with fiona.open(output, 'w', **options) as dst:
         with click.progressbar(tile_index) as progress:
             for row, col in progress:
-                with fiona.open(config.tileset().tilename('noflow-from-sources', row=row, col=col)) as fs:
-                    for feature in fs:
-                        feature['properties']['GID'] = next(gid)
-                        dst.write(feature)
+
+                filename = config.tileset().tilename('noflow-from-sources', row=row, col=col)
+                
+                if os.path.exists(filename):
+                    with fiona.open(filename) as fs:
+                        for feature in fs:
+                            feature['properties']['GID'] = next(gid)
+                            dst.write(feature)
 
     count = next(gid) - 1
     click.secho('Found %d not-flowing stream nodes' % count, fg='cyan')

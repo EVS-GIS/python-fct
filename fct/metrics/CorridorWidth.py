@@ -61,7 +61,7 @@ def CorridorWidth(axis, long_length=200.0, resolution=5.0):
                 or bankh1 if no such pixels
     """
 
-    dgo_shapefile = config.filename('ax_swath_features', axis=axis)
+    dgo_shapefile = config.filename('ax_swath_polygons', axis=axis)
 
     gids = list()
     measures = list()

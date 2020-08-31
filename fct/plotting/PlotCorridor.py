@@ -42,12 +42,26 @@ def SetupPlot():
 
     return fig, ax
 
-def SetupMeasureAxis(ax, x):
-
-    ax.set_xlabel("Location along reference axis (from network outlet)")
+def SetupMeasureAxis(
+        ax,
+        x,
+        title='Location along reference axis (from network outlet)',
+        direction=-1,
+        fontsize=None):
+    
     formatter = EngFormatter(unit='m')
     ax.xaxis.set_major_formatter(formatter)
-    ax.set_xlim([np.max(x), np.min(x)])
+
+    if direction >= 0:
+        ax.set_xlim([np.min(x), np.max(x)])
+    else:
+        ax.set_xlim([np.max(x), np.min(x)])
+
+    if title:
+        if fontsize:
+            ax.set_xlabel(title, fontsize=fontsize)
+        else:
+            ax.set_xlabel(title)
 
 def FinalizePlot(fig, ax, title='', filename=None):
 
@@ -387,6 +401,18 @@ def PlotLeftRightContinuityProfile(ax, data, x, left, right, window=1, proportio
         '#fa1665'  # Disconnected
     ]
 
+    labels = [
+        'water',
+        'gravel bar',
+        'natural veg.',
+        'riparian for.',
+        'grassland',
+        'crops',
+        'diffuse urban',
+        'dense urban',
+        'infrastructures'
+    ]
+
     # x = data['measure']
     fcw = data.sel(height=15.0)['fcw0']
     # lcc = data['lcc']
@@ -475,7 +501,8 @@ def PlotLeftRightContinuityProfile(ax, data, x, left, right, window=1, proportio
                         sign*(cumulative[:, side] - baseline[:, side]),
                         facecolor=colors[variable],
                         alpha=0.7,
-                        interpolate=True)
+                        interpolate=True,
+                        label=labels[variable] if side == 0 else None)
                     if variable < lcck.shape[1]-2:
                         ax.plot(
                             xk,
