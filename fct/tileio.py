@@ -371,7 +371,7 @@ def translate(dataset, driver='gtiff', suffix=None, **kwargs):
     Translate virtual raster dataset to GeoTiff or NetCDF 4
     """
 
-    vrt = config.filename(dataset, **kwargs)
+    vrt = config.tileset().filename(dataset, **kwargs)
 
     if not os.path.exists(vrt):
         raise ValueError('file does not exist: %s' % vrt)

@@ -23,6 +23,7 @@ def continuity_analysis(
         LandCoverClass[:, :] out,
         float[:, :] distance,
         unsigned char[:, :] state,
+        float[:, :] cost=None,
         LandCoverClass max_class=0,
         float min_distance=0.0,
         float max_distance=0.0,
@@ -69,6 +70,10 @@ def continuity_analysis(
     Other Parameters
     ----------------
 
+    cost: array-like, same shape and type as `landcover`
+        Optional cost matrix
+        to account for in shortest distance computation.
+
     max_class: uint8
 
         Stop exploration when reaching cells
@@ -101,7 +106,7 @@ def continuity_analysis(
         Py_ssize_t width, height
         Py_ssize_t i, j, ik, jk
         short k
-        float dist
+        float dist, dx
 
         Cell ij, ijk
         ShortestEntry entry
@@ -109,6 +114,7 @@ def continuity_analysis(
         # unsigned char[:, :] state
         map[Cell, Cell] ancestors
         float[:, :] jitteri, jitterj
+        bint withcost = False
 
     height = landcover.shape[0]
     width = landcover.shape[1]
@@ -118,6 +124,11 @@ def continuity_analysis(
     assert state.shape[0] == height and state.shape[1] == width
     assert out.shape[0] == height and out.shape[1] == width
     assert distance.shape[0] == height and distance.shape[1] == width
+
+    if cost is not None:
+
+        assert cost.shape[0] == height and cost.shape[1] == width
+        withcost = True
 
     if jitter > 0:
 
@@ -183,7 +194,10 @@ def continuity_analysis(
                 
                 out[i, j] = max[LandCoverClass](landcover[i, j], out[ik, jk])
                 
-                if i == ik or j == jk:
+                if out[i, j] <= 1:
+                    # Bonne idée ou pas ?
+                    distance[i, j] = 0
+                elif i == ik or j == jk:
                     distance[i, j] = distance[ik, jk] + 1
                 else:
                     distance[i, j] = distance[ik, jk] + 1.4142135623730951 # sqrt(2)
@@ -206,7 +220,7 @@ def continuity_analysis(
 
             if dist > min_distance:
                 
-                if max_class > 0 and landcover[i, j] > max_class:
+                if max_class > 0 and out[i, j] > max_class:
                     continue
 
                 if max_height > 0 and heights[i, j] > max_height:
@@ -231,16 +245,21 @@ def continuity_analysis(
 
                 if jitter > 0:
 
-                    dist += sqrt(
+                    dx = sqrt(
                         (i + jitteri[i, j] - ik - jitteri[ik, jk])**2 +
                         (j + jitterj[i, j] - jk - jitterj[ik, jk])**2)
 
                 else:
 
                     if i == ik or j == jk:
-                        dist += 1
+                        dx = 1
                     else:
-                        dist += 1.4142135623730951 # sqrt(2)
+                        dx = 1.4142135623730951 # sqrt(2)
+
+                if withcost:
+                    dist += cost[i, j] * dx
+                else:
+                    dist += dx
 
                 if state[ik, jk] == 0:
 

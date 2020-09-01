@@ -56,7 +56,24 @@ ax_continuity_variant:
   group: corridor
   status: final
   subdir: AXES/AX%(axis)04d
-  filename: LANDCOVER_CONTINUITY_%(variant)s.tif
+  filename: LANDCOVER_CONTINUITY_%(variant)s.vrt
+  tiles:
+    tileset: landcover
+    template: LANDCOVER_CONTINUITY_%(variant)s_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_natural_corridor:
+  description: |
+    Natural corridor in continuity with river channel
+  type: raster
+  group: corridor
+  status: final
+  subdir: AXES/AX%(axis)04d
+  filename: NATURAL_CORRIDOR.vrt
+  tiles:
+    tileset: landcover
+    template: NATURAL_CORRIDOR_%(row)02d_%(col)02d
+    extension: .tif
 
 ax_swath_elevation:
   description: |
