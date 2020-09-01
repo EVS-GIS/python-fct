@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Valley Bottom Extraction Algorithms
+Shortest Maximum
 
 ***************************************************************************
 *                                                                         *
@@ -13,105 +13,66 @@ Valley Bottom Extraction Algorithms
 ***************************************************************************
 """
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
-def valley_bottom_initstate(
-        float[:, :] reference,
-        float nodata):
-    """
-    Find boundary cells in raster `reference`,
-    ie. cells with data value neighbouring no-data cells.
-    """
-
-    cdef:
-
-        Py_ssize_t width, height
-        Py_ssize_t i, j, ik, jk
-        short k
-        unsigned char[:, :] state
-
-    height = reference.shape[0]
-    width = reference.shape[1]
-    state = np.zeros((height, width), dtype=np.uint8)
-
-    with nogil:
-
-        # Sequential scan
-        # Search for data cells neighbouring nodata cells
-
-        for i in range(height):
-            for j in range(width):
-
-                if reference[i, j] != nodata:
-
-                    for k in range(8):
-
-                        ik = i + ci[k]
-                        jk = j + cj[k]
-
-                        if ingrid(height, width, ik, jk) and reference[ik, jk] == nodata:
-
-                            state[i, j] = 1 # discovered
-                            break
-
-    return state
+ctypedef unsigned char LandCoverClass
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def valley_bottom_shortest(
-        float[:, :] elevations,
+def continuity_analysis(
+        LandCoverClass[:, :] landcover,
+        float[:, :] heights,
+        LandCoverClass[:, :] out,
+        float[:, :] distance,
         unsigned char[:, :] state,
-        float[:, :] reference=None,
-        float[:, :] distance=None,
-        float max_dz=0.0,
+        LandCoverClass max_class=0,
         float min_distance=0.0,
         float max_distance=0.0,
+        float max_height=0.0,
         float jitter=0.4):
     """
-    Valley Bottom, based on shortest distance space exploration
+    Assign to each input cell the maximum value on the shortest path
+    to the nearest origin (reference) cell.
 
     Input Parameters
     ----------------
 
-    elevations: array-like, dtype=float32
-        
-        Digital elevation model (DEM) raster (ndim=2)
+    landcover: array-like, ndims=2, dtype=uint8
+
+        Landcover raster with ordered class count
+    
+    heights: array-like, same shape as `landcover`, dtype=float32
+
+        Heights relative to stream or drainage network,
+        used as exploration stop criteria
 
     Input/Output Parameters
     -----------------------
 
-    state: array-like, same shape as `elevations`, dtype=uint8
+    out: array-like, same shape and type as `landcover`
+        
+        Maximum landcover class on the path to the nearest origin cell.
+        `out` is modified in place,
+        origin cells value are left unchanged,
+        and propagated to nearest neighbors.
+
+    distance: array-like, same shape and type as `landcover`
+        
+        Shortest distance in pixels to the nearest origin cell
+        in `landcover`.
+        Must be initialized to zeros,
+        but can be reused between iterations.
+
+    state: array-like, same shape as `landcover`, dtype=uint8
 
         input: 0 = space to explore, 1 = start cells, 255 = no data
         output: 2 = resolved cells, 255 = no data
 
-    reference: array-like, dtype=float32, same shape as `elevations`
-        
-        Reference elevation raster,
-        that is modified in place during processing.
-        
-        For each cell, the reference elevation is the elevation of
-        the nearest cell on the stream network.
-        
-        If not provided, `reference` is copied from `elevations`
-        where `state` == 1 before processing.
-
-    distance: array-like, dtype=float32, same shape as `elevations`
-        
-        Optional raster of distance to reference cells,
-        otherwise initialized to zeros.
-
-    Other parameters
+    Other Parameters
     ----------------
 
-    max_dz: float
-        
-        Optional maximum elevation difference from reference cell.
-        Set to 0 to disable elevation stop criteria (default).
-        Using max dz stop criteria
-        changes the meaning of shortest :)
-        But you can try max dz significantly greater than your target,
-        and threshold your output afterwards.
+    max_class: uint8
+
+        Stop exploration when reaching cells
+        with class > max_class in `landcover`
 
     min_distance: float
 
@@ -119,20 +80,20 @@ def valley_bottom_shortest(
         whatever other stop criteria
 
     max_distance: float
-        
-        Optional maximum distance to reference cell.
-        Set to 0 to disable distance stop criteria (default).
+
+        Stop exploration when reaching cells
+        with distance > max_distance
+
+    max_height: float
+
+        Stop exploration when reaching cells
+        with height > max_height in `heights`
 
     jitter: float
 
         Amplitude of jitter to add to grid locations
         in order to avoid grid artefacts.
         Disable jitter with jitter = 0
-
-    References
-    ----------
-
-    TODO
     """
 
     cdef:
@@ -148,14 +109,14 @@ def valley_bottom_shortest(
         # unsigned char[:, :] state
         map[Cell, Cell] ancestors
         float[:, :] jitteri, jitterj
-        bint copyref = False
 
-    height = elevations.shape[0]
-    width = elevations.shape[1]
+    height = landcover.shape[0]
+    width = landcover.shape[1]
     # state = np.zeros((height, width), dtype=np.uint8)
 
-    assert reference.shape[0] == height and reference.shape[1] == width
+    assert heights.shape[0] == height and heights.shape[1] == width
     assert state.shape[0] == height and state.shape[1] == width
+    assert out.shape[0] == height and out.shape[1] == width
     assert distance.shape[0] == height and distance.shape[1] == width
 
     if jitter > 0:
@@ -163,19 +124,11 @@ def valley_bottom_shortest(
         jitteri = np.float32(np.random.normal(0, jitter, (height, width)))
         jitterj = np.float32(np.random.normal(0, jitter, (height, width)))
 
-
-    if reference is None:
-        reference = np.zeros((height, width), dtype=np.float32)
-        copyref = True
-
-    if distance is None:
-        distance = np.zeros((height, width), dtype=np.float32)
-
     with nogil:
 
-        # Clamp jitter
-
         if jitter > 0:
+
+            # Clamp jitter
 
             for i in range(height):
                 for j in range(width):
@@ -198,11 +151,11 @@ def valley_bottom_shortest(
 
                 if state[i, j] == 1:
 
-                    if copyref:
-                        reference[i, j] = elevations[i, j]
-                    
-                    entry = ShortestEntry(-distance[i, j], Cell(i, j))
+                    entry = ShortestEntry(0, Cell(i, j))
                     queue.push(entry)
+                    # state[i, j] = 1 # seen
+                    # distance[i, j] = 0
+                    out[i, j] = landcover[i, j]
 
         # Dijkstra iteration
 
@@ -217,7 +170,6 @@ def valley_bottom_shortest(
             j = ij.second
 
             if state[i, j] == 2:
-                # already settled
                 continue
 
             if distance[i, j] < dist:
@@ -229,31 +181,35 @@ def valley_bottom_shortest(
                 ik = ijk.first
                 jk = ijk.second
                 
-                # if state[i, j] != 255:
-                reference[i, j] = reference[ik, jk]
+                out[i, j] = max[LandCoverClass](landcover[i, j], out[ik, jk])
                 
                 if i == ik or j == jk:
                     distance[i, j] = distance[ik, jk] + 1
                 else:
-                    distance[i, j] = distance[ik, jk] + 1.4142135 # sqrt(2) float32
+                    distance[i, j] = distance[ik, jk] + 1.4142135623730951 # sqrt(2)
                 
                 ancestors.erase(ij)
+
+            else:
+
+                out[i, j] = landcover[i, j]
+                distance[i, j] = 0
             
             state[i, j] = 2 # settled
 
-            # Stop criteria
+            # Stop Criteria
 
             dist = distance[i, j]
-        
+
             if max_distance > 0 and dist > max_distance:
                 continue
 
             if dist > min_distance:
+                
+                if max_class > 0 and landcover[i, j] > max_class:
+                    continue
 
-                # Using max dz stop criteria for shortest
-                # changes the meaning of shortest :)
-
-                if max_dz > 0 and elevations[i, j] - reference[i, j] > max_dz:
+                if max_height > 0 and heights[i, j] > max_height:
                     continue
 
             # Iterate over direct neighbor cells
@@ -275,20 +231,23 @@ def valley_bottom_shortest(
 
                 if jitter > 0:
 
-                    dist = distance[i, j] + sqrt(
+                    dist += sqrt(
                         (i + jitteri[i, j] - ik - jitteri[ik, jk])**2 +
                         (j + jitterj[i, j] - jk - jitterj[ik, jk])**2)
 
                 else:
 
-                    dist = distance[i, j] + sqrt((i - ik)**2 + (j - jk)**2)
+                    if i == ik or j == jk:
+                        dist += 1
+                    else:
+                        dist += 1.4142135623730951 # sqrt(2)
 
                 if state[ik, jk] == 0:
 
                     ijk = Cell(ik, jk)
                     entry = ShortestEntry(-dist, ijk)
                     queue.push(entry)
-                    state[ik, jk] = 1 # discovered
+                    state[ik, jk] = 1 # seen
                     distance[ik, jk] = dist
                     ancestors[ijk] = ij
 
@@ -301,5 +260,3 @@ def valley_bottom_shortest(
                         queue.push(entry)
                         distance[ik, jk] = dist
                         ancestors[ijk] = ij
-
-    return np.asarray(reference)

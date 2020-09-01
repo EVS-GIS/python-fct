@@ -31,6 +31,24 @@ def tileindex():
     """
     return config.tileset().tileindex
 
+def border(height, width):
+    """
+    Generate a sequence of pixel (row, col)
+    over the border of an array of shape (height, width)
+    """
+
+    offset = 0
+    for i in (0, height-1):
+        for j in range(offset, width+offset-1):
+            yield i, j
+        offset = 1
+
+    offset = 1
+    for j in (0, width-1):
+        for i in range(offset, height+offset-1):
+            yield i, j
+        offset = 0
+
 def as_window(bounds, transform):
     """
     Convert real world bounds (minx, miny, maxx, maxy)
