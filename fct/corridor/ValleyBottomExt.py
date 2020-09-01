@@ -36,7 +36,7 @@ from .ValleyBottom import (
     border
 )
 
-def ExtendValleyBottomTile(axis, row, col, spillovers):
+def ExtendValleyBottomTile(axis, row, col, spillovers, max_distance):
     """
     ExtendValleyBottomToTopographicLimits Workhorse
     """
@@ -50,7 +50,7 @@ def ExtendValleyBottomTile(axis, row, col, spillovers):
     elevations, profile1 = PadRaster(
         row,
         col,
-        dataset='tiled',
+        dataset='dem',
         tileset='landcover',
         padding=1)
 
@@ -97,7 +97,7 @@ def ExtendValleyBottomTile(axis, row, col, spillovers):
         nodata1,
         distance,
         max_dz=0.0,
-        max_distance=200.0)
+        max_distance=max_distance)
 
     valley_bottom = elevations - reference
     valley_bottom[(elevations == nodata1) | (reference == nodata1)] = nodata2
@@ -147,7 +147,7 @@ def ExtendValleyBottomTile(axis, row, col, spillovers):
 
     return spillovers, (output_height, output_distance)
 
-def ExtendValleyBottomIteration(axis, spillovers, processes=1):
+def ExtendValleyBottomIteration(axis, spillovers, max_distance, processes=1):
 
     attributes = itemgetter(0, 1, 2, 3)
     tile = itemgetter(4, 5)
@@ -162,7 +162,7 @@ def ExtendValleyBottomIteration(axis, spillovers, processes=1):
         for (row, col), seeds in tiles:
 
             seeds = [attributes(seed) for seed in seeds if not np.isnan(seed[0])]
-            t_spillover, outputs = ExtendValleyBottomTile(axis, row, col, seeds)
+            t_spillover, outputs = ExtendValleyBottomTile(axis, row, col, seeds, max_distance)
             g_spillover.extend(t_spillover)
 
             for tmpfile in outputs:
@@ -176,7 +176,7 @@ def ExtendValleyBottomIteration(axis, spillovers, processes=1):
 
         for (row, col), seeds in tiles:
             seeds = [attributes(seed) for seed in seeds]
-            arguments.append((ExtendValleyBottomTile, axis, row, col, seeds, kwargs))
+            arguments.append((ExtendValleyBottomTile, axis, row, col, seeds, max_distance, kwargs))
 
         with Pool(processes=processes) as pool:
 
@@ -298,7 +298,7 @@ def ClipValleyBottom(axis, tiles, maxz):
                 dst.write(data, 1)
 
 
-def ExtendValleyBottomToTopographicLimits(axis, processes=1):
+def ExtendValleyBottomToTopographicLimits(axis, max_distance, processes=1):
     """
     Extend valley bottom to topographic limits,
     using shortest path space exploration.
@@ -334,7 +334,7 @@ def ExtendValleyBottomToTopographicLimits(axis, processes=1):
         tiles = set([tile(s) for s in spillovers])
         g_tiles.update(tiles)
         iteration += 1
-        spillovers = ExtendValleyBottomIteration(axis, spillovers, processes)
+        spillovers = ExtendValleyBottomIteration(axis, spillovers, max_distance, processes)
 
     click.echo('Done after %d iterations' % iteration)
 

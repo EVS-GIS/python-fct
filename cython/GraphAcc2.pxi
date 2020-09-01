@@ -1,5 +1,20 @@
 # coding: utf-8
 
+"""
+Graph accumulation / drainage area calculation
+Same as graph_acc, but with (row, col) tile coordinates
+rather than index tile coordinate.
+
+***************************************************************************
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 3 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+***************************************************************************
+"""
+
 ctypedef pair[int, int] Tile
 ctypedef pair[int, int] IPixel
 ctypedef pair[Tile, IPixel] TileCoord

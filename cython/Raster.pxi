@@ -1,5 +1,18 @@
 # coding: utf-8
 
+"""
+Generic raster processing/aggregate algorithms
+
+***************************************************************************
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 3 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+***************************************************************************
+"""
+
 @cython.wraparound(False)
 @cython.boundscheck(False)
 def count_by_value(numpy.int64_t[:, :] raster):

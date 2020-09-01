@@ -1,5 +1,18 @@
 # coding: utf-8
 
+"""
+Graph accumulation / drainage area calculation
+
+***************************************************************************
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 3 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+***************************************************************************
+"""
+
 @cython.wraparound(False)
 @cython.boundscheck(False)
 def graph_acc(dict graph_in, float coeff=25e-6):
