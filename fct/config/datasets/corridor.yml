@@ -49,6 +49,32 @@ ax_continuity:
     template: LANDCOVER_CONTINUITY_%(row)02d_%(col)02d
     extension: .tif
 
+ax_continuity_state:
+  description: |
+    Landcover continuity map
+  type: raster
+  group: corridor
+  status: temporary
+  subdir: AXES/AX%(axis)04d/TEMP
+  filename: LANDCOVER_CONTINUITY_STATE.vrt
+  tiles:
+    tileset: landcover
+    template: LANDCOVER_CONTINUITY_STATE_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_continuity_distance:
+  description: |
+    Landcover continuity map
+  type: raster
+  group: corridor
+  status: temporary
+  subdir: AXES/AX%(axis)04d/TEMP
+  filename: LANDCOVER_CONTINUITY_DISTANCE.vrt
+  tiles:
+    tileset: landcover
+    template: LANDCOVER_CONTINUITY_DISTANCE_%(row)02d_%(col)02d
+    extension: .tif
+
 ax_continuity_variant:
   description: |
     Landcover continuity map (Variants)

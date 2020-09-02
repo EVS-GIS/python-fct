@@ -180,12 +180,15 @@ def HeightAboveNearestDrainageTile(
         with rio.open(output_distance, 'w', **profile) as dst:
             dst.write(distance, 1)
 
-        del distance
+        # del distance
 
         # elevations, _ = ReadRasterTile(row, col, 'dem1')
 
         hand = elevations - reference
         hand[mask == ds.nodata] = ds.nodata
+
+        # clip heights
+        hand[((hand < -5.0) & (distance > 1000.0)) | (hand > 15.0)] = ds.nodata
 
         with rio.open(output_height, 'w', **profile) as dst:
             dst.write(hand, 1)
@@ -303,7 +306,7 @@ def HeightAboveNearestDrainage(
 
 def HeightAboveTalweg(axis, **kwargs):
     """
-    Default parameters for height above talweg
+    Default parameters for HAND with talweg reference
     """
 
     parameters = dict(

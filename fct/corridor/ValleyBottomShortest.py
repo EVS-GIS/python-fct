@@ -195,9 +195,9 @@ def ValleyBottomIteration(axis, params, spillovers, processes=1, **kwargs):
 
         for (row, col), seeds in tiles:
             seeds = [coordxy(seed) + values(seed) for seed in seeds]
-            t_spillover, tmpfile = ValleyBottomTile(axis, row, col, seeds, params)
+            t_spillover, tmps = ValleyBottomTile(axis, row, col, seeds, params)
             g_spillover.extend(t_spillover)
-            tmpfiles.append(tmpfile)
+            tmpfiles.extend(tmps)
 
         for tmpfile in tmpfiles:
             os.rename(tmpfile, tmpfile.replace('.tif' + params.tmp, '.tif'))
@@ -237,7 +237,7 @@ def ValleyBottom(axis, processes=1):
         dataset_distance='ax_shortest_distance',
         max_dz=20.0,
         min_distance=20,
-        max_distance=1000,
+        max_distance=5000,
         jitter=0.4,
         tmp='.tmp'
     )

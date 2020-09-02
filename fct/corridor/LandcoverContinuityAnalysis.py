@@ -13,9 +13,7 @@ LandCover Lateral Continuity Analysis
 ***************************************************************************
 """
 
-from operator import itemgetter
 from collections import namedtuple
-import itertools
 from multiprocessing import Pool
 import numpy as np
 
@@ -24,7 +22,6 @@ import rasterio as rio
 from rasterio.windows import Window
 import fiona
 
-from .. import transform as fct
 from .. import speedup
 from ..cli import starcall
 from ..config import config
@@ -41,29 +38,58 @@ ContinuityParams = namedtuple('ContinuityParams', [
     'with_infrastructures'
 ])
 
-def ContinuityTile(
-        axis,
-        row,
-        col,
-        # seeds,
-        params,
-        **kwargs):
+def costf_default(landcover):
+    """
+    Default landcover cost function
+    """
+
+    cost = np.ones_like(landcover, dtype='float32')
+    # cost[landcover == 0] = 0.05
+    cost[landcover == 5] = 5.0
+    cost[landcover == 6] = 5.0
+    cost[landcover == 7] = 10.0
+    cost[landcover == 8] = 100.0
+
+    return cost
+
+def ContinuityTile(axis, row, col, params, mode='init', **kwargs):
     """
     Tile Implementation
     """
 
-    padding = params.padding
-    # tileset = config.tileset(params.tileset)
     tileset = config.tileset()
-    landcover_raster = tileset.filename(params.landcover, **kwargs)
-    distance_raster = tileset.filename(params.distance, axis=axis, **kwargs)
-    height_raster = tileset.filename(params.height, axis=axis, **kwargs)
-    output = tileset.tilename(params.output, axis=axis, row=row, col=col, **kwargs)
 
-    height = tileset.height + 2*params.padding
-    width = tileset.width + 2*params.padding
-    tile_index = tileset.tileindex
-    tile = tile_index[row, col]
+    landcover_raster = tileset.filename(params.landcover, **kwargs)
+
+    distance_raster = tileset.filename(params.distance, axis=axis, **kwargs)
+
+    height_raster = tileset.filename(params.height, axis=axis, **kwargs)
+
+    output = tileset.tilename(
+        params.output,
+        axis=axis,
+        row=row,
+        col=col,
+        **kwargs)
+
+    output_state = tileset.tilename(
+        'ax_continuity_state',
+        axis=axis,
+        row=row,
+        col=col,
+        **kwargs)
+
+    output_distance = tileset.tilename(
+        'ax_continuity_distance',
+        axis=axis,
+        row=row,
+        col=col,
+        **kwargs)
+
+    padding = params.padding
+    height = tileset.height + 2*padding
+    width = tileset.width + 2*padding
+    tile = tileset.tileindex[row, col]
 
     with rio.open(height_raster) as ds1:
 
@@ -80,9 +106,12 @@ def ContinuityTile(
         with rio.open(landcover_raster) as ds3:
 
             profile = ds3.profile.copy()
+            nodata = ds3.nodata
+
             i, j = ds3.index(tile.x0, tile.y0)
             window3 = Window(j - padding, i - padding, width, height)
-            landcover = ds3.read(1, window=window3, boundless=True, fill_value=ds3.nodata)
+            landcover = ds3.read(1, window=window3, boundless=True, fill_value=nodata)
+
             transform = ds3.transform * ds3.transform.translation(
                 i - padding,
                 j - padding)
@@ -92,65 +121,107 @@ def ContinuityTile(
             infrastructure_mask = (landcover == 8)
             landcover[infrastructure_mask] = 2
 
-        # coord = itemgetter(0, 1)
-        # pixels = fct.worldtopixel(np.array([coord(seed) for seed in seeds], dtype='float32'), transform)
-        # intile = np.array([0 <= i < height and 0 <= j < width for i, j in pixels])
-        # pixels = pixels[intile]
+        out = np.array([])
+        distance = np.array([])
+        state = np.array([])
 
-        # state = np.zeros_like(landcover, dtype='uint8')
-        # state[(nearest_height == ds1.nodata) | (nearest_height > params.max_height)] = 255
-        # state[pixels[:, 0], pixels[:, 1]] = 1
+        def init_state():
+            """
+            Initialize state array with respect to processing mode
 
-        state = np.uint8(nearest_distance == 0)
-        state[(nearest_height == ds1.nodata) | (nearest_height > params.max_height)] = 255
-        del nearest_distance
+            - init mode: initialize from stream cells,
+                         ie. cells having nearest_distance = 0
 
-        # TODO externalize cost function f(landcover)
-        cost = np.ones_like(landcover, dtype='float32')
-        # cost[landcover == 0] = 0.05
-        cost[landcover == 5] = 5.0
-        cost[landcover == 6] = 5.0
-        cost[landcover == 7] = 10.0
-        cost[landcover == 8] = 100.0
+            - reiterate mode: lookup for resolved boundary cells,
+                              ie. cells with previous state = 2 neighbouring nodata cells
+            """
 
-        # landcover = np.float32(landcover) + 1
-        # landcover[distance == 0] = 0
+            nonlocal out
+            nonlocal distance
+            nonlocal state
 
-        # Truncate data outside of valley bottom
-        # landcover[(heights == ds1.nodata) | (heights > params.max_height)] = ds3.nodata
+            if mode == 'reiterate':
 
-        # Shortest max analysis
-        out = np.full_like(landcover, ds3.nodata)
-        distance = np.zeros_like(landcover, dtype='float32')
+                state_raster = tileset.filename('ax_continuity_state', axis=axis, **kwargs)
+                continuity_raster = tileset.filename(params.output, axis=axis, **kwargs)
+                distance_raster = tileset.filename('ax_continuity_distance', axis=axis, **kwargs)
 
-        speedup.continuity_analysis(
-            landcover,
-            nearest_height,
-            out,
-            distance,
-            state,
-            cost=cost,
-            max_class=params.max_class,
-            min_distance=20.0,
-            max_distance=0.0,
-            max_height=params.max_height,
-            jitter=0.4)
+                with rio.open(state_raster) as ds4:
 
-        # Reclass stream pixels as water pixels
-        # out[landcover == 0] = 1
-        # out = np.uint8(out) - 1
+                    i, j = ds4.index(tile.x0, tile.y0)
+                    window4 = Window(j - padding, i - padding, width, height)
+                    state = ds4.read(1, window=window4, boundless=True, fill_value=ds4.nodata)
 
-        if not params.with_infrastructures:
-            # Restore infrastructures
-            out[infrastructure_mask & (out != ds3.nodata)] = 8
+                with rio.open(continuity_raster) as ds4:
 
-        # Restore water (landcover = 0) to water (0),
-        # if within active channel (out = 1)
-        out[(landcover == 0) & (out == 1)] = 0
+                    out = ds4.read(1, window=window4, boundless=True, fill_value=ds4.nodata)
+
+                with rio.open(distance_raster) as ds4:
+
+                    distance = ds4.read(1, window=window4, boundless=True, fill_value=ds4.nodata)
+
+                count = speedup.continuity_analysis_restate(state, nearest_height, params.max_height)
+                state[(nearest_height == ds1.nodata) | (nearest_height > params.max_height)] = 255
+
+            else:
+
+                state = np.uint8(nearest_distance == 0)
+                state[(nearest_height == ds1.nodata) | (nearest_height > params.max_height)] = 255
+                out = np.full_like(landcover, nodata)
+                distance = np.zeros_like(landcover, dtype='float32')
+                count = np.sum(state == 1)
+
+            return count
+
+        if init_state() > 0:
+
+            # Continuity analysis on shortest path
+
+            del nearest_distance
+            cost = costf_default(landcover)
+
+            for max_class, max_height in [
+                    (3, 10.0),
+                    (4, 15.0),
+                    (5, 15.0),
+                    (0, params.max_height)
+                ]:
+
+                state[state == 5] = 1
+
+                # if max_class > params.max_class:
+                #     break
+
+                speedup.continuity_analysis(
+                    landcover,
+                    nearest_height,
+                    out,
+                    distance,
+                    state,
+                    cost=cost,
+                    max_class=max_class,
+                    min_distance=20.0,
+                    max_distance=0.0,
+                    max_height=max_height,
+                    jitter=0.4)
+
+            if not params.with_infrastructures:
+                # Restore infrastructures
+                out[infrastructure_mask & (out != nodata)] = 8
+
+            # Restore water (landcover = 0) to water (0),
+            # if within active channel (out = 1)
+
+            out[(landcover == 0) & (out == 1)] = 0
 
         # Crop out nodata and padded border
-        out[landcover == ds3.nodata] = ds3.nodata
+
+        out[landcover == nodata] = nodata
         out = out[padding:-padding, padding:-padding]
+        state = state[padding:-padding, padding:-padding]
+        distance = distance[padding:-padding, padding:-padding]
+
+        # Output
 
         height, width = out.shape
         transform = ds1.transform * ds1.transform.translation(j0, i0)
@@ -163,6 +234,14 @@ def ContinuityTile(
 
         with rio.open(output, 'w', **profile) as dst:
             dst.write(out, 1)
+
+        with rio.open(output_state, 'w', **profile) as dst:
+            dst.write(state, 1)
+
+        profile.update(dtype='float32', nodata=ds2.nodata)
+
+        with rio.open(output_distance, 'w', **profile) as dst:
+            dst.write(distance, 1)
 
 def LandcoverContinuityAnalysis(
         axis,
@@ -285,9 +364,9 @@ def LandcoverContinuityAnalysis(
 
         with open(tilefile) as fp:
             for line in fp:
-                
+
                 row, col = tuple(int(x) for x in line.split(','))
-                
+
                 yield (
                     ContinuityTile,
                     axis,
@@ -305,21 +384,16 @@ def LandcoverContinuityAnalysis(
             for _ in iterator:
                 pass
 
-    # def generate_seeds(feature):
+def test(axis):
 
-    #     for point in feature['geometry']['coordinates']:
-    #         x, y = point[:2]
-    #         row, col = config.tileset().index(x, y)
-    #         yield (row, col, x, y, 0)
+    # pylint:disable=import-outside-toplevel
+    from ..tileio import buildvrt
 
-    # network_shapefile = config.filename('ax_talweg', axis=axis)
+    config.default()
 
-    # with fiona.open(network_shapefile) as fs:
-
-    #     seeds = [
-    #         seed
-    #         for feature in fs
-    #         for seed in generate_seeds(feature)
-    #     ]
-
-    # ContinuityIteration(axis, params, processes, **kwargs)
+    LandcoverContinuityAnalysis(axis=axis, processes=6)
+    buildvrt('default', 'ax_continuity', axis=axis)
+    buildvrt('default', 'ax_continuity_state', axis=axis)
+    buildvrt('default', 'ax_continuity_distance', axis=axis)
+    click.pause()
+    LandcoverContinuityAnalysis(axis=axis, processes=6, mode='reiterate')

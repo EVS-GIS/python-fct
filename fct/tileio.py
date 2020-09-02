@@ -181,13 +181,18 @@ def DownsampleRasterTile(row, col, dataset1, dataset2=None, factor=2):
 
     return data, profile
 
-def PadRaster(row, col, dataset='filled', tileset='default', padding=1, **kwargs):
+def PadRaster(
+        row, col,
+        dataset='filled',
+        tileset='default',
+        padding=1,
+        **kwargs):
     """
     Assemble a n-pixels padded raster,
     with borders from neighboring tiles.
     """
 
-    tile_index = tileindex()
+    tile_index = config.tileset(tileset).tileindex
     rasterfile = config.tileset(tileset).tilename(dataset, row=row, col=col, **kwargs)
 
     with rio.open(rasterfile) as ds:

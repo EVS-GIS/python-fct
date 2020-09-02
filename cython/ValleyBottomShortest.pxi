@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# coding: utf-8
 
 """
 Valley Bottom Extraction Algorithms
@@ -82,8 +82,18 @@ def valley_bottom_shortest(
 
     state: array-like, same shape as `elevations`, dtype=uint8
 
-        input: 0 = space to explore, 1 = start cells, 255 = no data
-        output: 2 = resolved cells, 255 = no data
+        input:
+        
+            0 = space to explore
+            1 = start cells
+            255 = no data
+        
+        output:
+        
+            2 = resolved cells
+            3 = height limit
+            4 = distance limit
+            255 = no data
 
     reference: array-like, dtype=float32, same shape as `elevations`
         
@@ -216,7 +226,7 @@ def valley_bottom_shortest(
             i = ij.first
             j = ij.second
 
-            if state[i, j] == 2:
+            if state[i, j] >= 2:
                 # already settled
                 continue
 
@@ -246,6 +256,7 @@ def valley_bottom_shortest(
             dist = distance[i, j]
         
             if max_distance > 0 and dist > max_distance:
+                state[i, j] = 4 # distance limit
                 continue
 
             if dist > min_distance:
@@ -253,7 +264,8 @@ def valley_bottom_shortest(
                 # Using max dz stop criteria for shortest
                 # changes the meaning of shortest :)
 
-                if max_dz > 0 and elevations[i, j] - reference[i, j] > max_dz:
+                if max_dz > 0 and not (-max_dz < elevations[i, j] - reference[i, j] <= max_dz):
+                    state[i, j] = 3 # height limit
                     continue
 
             # Iterate over direct neighbor cells
