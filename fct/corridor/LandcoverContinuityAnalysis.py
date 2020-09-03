@@ -13,6 +13,9 @@ LandCover Lateral Continuity Analysis
 ***************************************************************************
 """
 
+import os
+from operator import itemgetter
+import itertools
 from collections import namedtuple
 from multiprocessing import Pool
 import numpy as np
@@ -20,11 +23,15 @@ import numpy as np
 import click
 import rasterio as rio
 from rasterio.windows import Window
-import fiona
 
 from .. import speedup
 from ..cli import starcall
 from ..config import config
+from .. import transform as fct
+from ..tileio import (
+    PadRaster,
+    border
+)
 
 ContinuityParams = namedtuple('ContinuityParams', [
     # 'tileset',
@@ -32,10 +39,13 @@ ContinuityParams = namedtuple('ContinuityParams', [
     'distance',
     'height',
     'output',
-    'max_height',
-    'max_class',
-    'padding',
-    'with_infrastructures'
+    'output_state',
+    'output_distance',
+    'iterations',
+    'costf',
+    'vb_max_height',
+    'with_infra',
+    'tmp'
 ])
 
 def costf_default(landcover):
@@ -52,18 +62,27 @@ def costf_default(landcover):
 
     return cost
 
-def ContinuityTile(axis, row, col, params, mode='init', **kwargs):
+def ContinuityTile(axis, row, col, seeds, params, **kwargs):
     """
     Tile Implementation
     """
 
+    # DEBUG
+
+    # if (row, col) == (41, 5):
+
+    #     def print_debug():
+        
+    #         print('\nprocessing %d spillovers for tile (41, 5)' % len(seeds))
+    #         if seeds:
+    #             value = itemgetter(2)
+    #             values = sorted(seeds, key=value)
+    #             for v, group in itertools.groupby(values, key=value):
+    #                 print('%d: %d' % (v, sum(1 for s in group)))
+
+    #     print_debug()
+
     tileset = config.tileset()
-
-    landcover_raster = tileset.filename(params.landcover, **kwargs)
-
-    distance_raster = tileset.filename(params.distance, axis=axis, **kwargs)
-
-    height_raster = tileset.filename(params.height, axis=axis, **kwargs)
 
     output = tileset.tilename(
         params.output,
@@ -73,189 +92,455 @@ def ContinuityTile(axis, row, col, params, mode='init', **kwargs):
         **kwargs)
 
     output_state = tileset.tilename(
-        'ax_continuity_state',
+        params.output_state,
         axis=axis,
         row=row,
         col=col,
         **kwargs)
 
     output_distance = tileset.tilename(
-        'ax_continuity_distance',
+        params.output_distance,
         axis=axis,
         row=row,
         col=col,
         **kwargs)
 
-    padding = params.padding
-    height = tileset.height + 2*padding
-    width = tileset.width + 2*padding
+    padding = 1
     tile = tileset.tileindex[row, col]
 
-    with rio.open(height_raster) as ds1:
+    landcover, profile = PadRaster(
+        row, col,
+        params.landcover,
+        padding=padding)
 
-        i0, j0 = ds1.index(tile.x0, tile.y0)
-        window1 = Window(j0 - padding, i0 - padding, width, height)
-        nearest_height = ds1.read(1, window=window1, boundless=True, fill_value=ds1.nodata)
+    transform = profile['transform']
+    nodata = profile['nodata']
+    height, width = landcover.shape
 
-        with rio.open(distance_raster) as ds2:
+    if not params.with_infra:
+        # Remove infrastructures
+        infrastructure_mask = (landcover == 8)
+        landcover[infrastructure_mask] = 2
 
-            i, j = ds2.index(tile.x0, tile.y0)
-            window2 = Window(j - padding, i - padding, width, height)
-            nearest_distance = ds2.read(1, window=window2, boundless=True, fill_value=ds2.nodata)
+    def BoundlessRaster(row, col, dataset):
+        """
+        Read tile with some padding,
+        handling the case if the tile does not exist.
+        """
 
-        with rio.open(landcover_raster) as ds3:
+        filename = tileset.tilename(dataset, axis=axis, row=row, col=col, **kwargs)
 
-            profile = ds3.profile.copy()
-            nodata = ds3.nodata
+        if os.path.exists(filename):
 
-            i, j = ds3.index(tile.x0, tile.y0)
-            window3 = Window(j - padding, i - padding, width, height)
-            landcover = ds3.read(1, window=window3, boundless=True, fill_value=nodata)
+            raster, profile = PadRaster(row, col, dataset, axis=axis, **kwargs)
+            nodata = profile['nodata']
 
-            transform = ds3.transform * ds3.transform.translation(
-                i - padding,
-                j - padding)
+        else:
 
-        if not params.with_infrastructures:
-            # Remove infrastructures
-            infrastructure_mask = (landcover == 8)
-            landcover[infrastructure_mask] = 2
+            filename = tileset.filename(dataset, axis=axis, **kwargs)
+            assert os.path.exists(filename)
 
-        out = np.array([])
-        distance = np.array([])
-        state = np.array([])
+            with rio.open(filename) as ds:
+                i0, j0 = ds.index(tile.x0, tile.y0)
+                window = Window(j0 - padding, i0 - padding, width, height)
+                raster = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
+                nodata = ds.nodata
 
-        def init_state():
-            """
-            Initialize state array with respect to processing mode
+        return raster, nodata
 
-            - init mode: initialize from stream cells,
-                         ie. cells having nearest_distance = 0
+    nearest_height, nearest_height_nodata = BoundlessRaster(row, col, params.height)
+    nearest_distance, nearest_distance_nodata = BoundlessRaster(row, col, params.distance)
 
-            - reiterate mode: lookup for resolved boundary cells,
-                              ie. cells with previous state = 2 neighbouring nodata cells
-            """
+    if os.path.exists(output):
 
-            nonlocal out
-            nonlocal distance
-            nonlocal state
+        out, _ = PadRaster(row, col, params.output, axis=axis, padding=padding, **kwargs)
+        distance, _ = PadRaster(row, col, params.output_distance, axis=axis, padding=padding)
+        state, _ = PadRaster(row, col, params.output_state, axis=axis, padding=padding)
 
-            if mode == 'reiterate':
+    else:
 
-                state_raster = tileset.filename('ax_continuity_state', axis=axis, **kwargs)
-                continuity_raster = tileset.filename(params.output, axis=axis, **kwargs)
-                distance_raster = tileset.filename('ax_continuity_distance', axis=axis, **kwargs)
+        out = np.full_like(landcover, nodata)
+        # distance = np.full_like(nearest_distance, nearest_distance_nodata, dtype='float32')
+        distance = np.zeros_like(nearest_distance, dtype='float32')
+        state = np.uint8(nearest_distance == 0)
 
-                with rio.open(state_raster) as ds4:
+    state[
+        (nearest_height == nearest_height_nodata) |
+        (nearest_height > params.vb_max_height)
+    ] = 255
 
-                    i, j = ds4.index(tile.x0, tile.y0)
-                    window4 = Window(j - padding, i - padding, width, height)
-                    state = ds4.read(1, window=window4, boundless=True, fill_value=ds4.nodata)
+    if seeds:
 
-                with rio.open(continuity_raster) as ds4:
+        coordxy = itemgetter(0, 1)
+        pixels = fct.worldtopixel(
+            np.array([coordxy(seed) for seed in seeds], dtype='float32'),
+            transform)
+        intile = np.array([0 <= i < height and 0 <= j < width for i, j in pixels])
 
-                    out = ds4.read(1, window=window4, boundless=True, fill_value=ds4.nodata)
+        seed_value = np.array([seed[2] for seed in seeds], dtype='uint8')
+        seed_distance = np.array([seed[3] for seed in seeds], dtype='float32')
 
-                with rio.open(distance_raster) as ds4:
+        pixels = pixels[intile]
+        seed_value = seed_value[intile]
+        seed_distance = seed_distance[intile]
 
-                    distance = ds4.read(1, window=window4, boundless=True, fill_value=ds4.nodata)
+        recorded_distance = distance[pixels[:, 0], pixels[:, 1]]
+        shortest = (
+            (recorded_distance == nearest_distance_nodata) |
+            (recorded_distance == 0) |
+            (seed_distance < recorded_distance)
+        )
 
-                count = speedup.continuity_analysis_restate(state, nearest_height, params.max_height)
-                state[(nearest_height == ds1.nodata) | (nearest_height > params.max_height)] = 255
+        # DEBUG
 
-            else:
+        # if (row, col) == (41, 5):
+        #     print('%d selected spillover' % np.sum(shortest))
 
-                state = np.uint8(nearest_distance == 0)
-                state[(nearest_height == ds1.nodata) | (nearest_height > params.max_height)] = 255
-                out = np.full_like(landcover, nodata)
-                distance = np.zeros_like(landcover, dtype='float32')
-                count = np.sum(state == 1)
+        pixels = pixels[shortest]
+        out[pixels[:, 0], pixels[:, 1]] = seed_value[shortest]
+        distance[pixels[:, 0], pixels[:, 1]] = seed_distance[shortest]
+        state[pixels[:, 0], pixels[:, 1]] = 1
 
-            return count
+    # Continuity analysis on shortest path
 
-        if init_state() > 0:
+    del nearest_distance
+    cost = params.costf(landcover)
+    control = np.copy(out)
 
-            # Continuity analysis on shortest path
+    # xt = 860000.0
+    # yt = 6653000.0
+    # it, jt = fct.index(xt, yt, transform)
 
-            del nearest_distance
-            cost = costf_default(landcover)
+    # if  0 <= it < height and 0 <= jt < width:
+    #     print('\n--', (xt, yt), (row, col), (it, jt), '------')
+    #     print('landcover', landcover[it, jt])
+    #     print('height', nearest_height[it, jt])
+    #     print('distance', distance[it, jt])
+    #     print('out class', out[it, jt])
+    #     print('state', state[it, jt])
 
-            for max_class, max_height in [
-                    (3, 10.0),
-                    (4, 15.0),
-                    (5, 15.0),
-                    (0, params.max_height)
-                ]:
+    # unlock previously resolved cells
+    state[state == 2] = 6
 
-                state[state == 5] = 1
+    for max_class, max_height in params.iterations:
 
-                # if max_class > params.max_class:
-                #     break
+        # reiterate from max_class limit
+        state[state == 5] = 1
 
-                speedup.continuity_analysis(
-                    landcover,
-                    nearest_height,
-                    out,
-                    distance,
-                    state,
-                    cost=cost,
-                    max_class=max_class,
-                    min_distance=20.0,
-                    max_distance=0.0,
-                    max_height=max_height,
-                    jitter=0.4)
+        speedup.continuity_analysis(
+            landcover,
+            nearest_height,
+            out,
+            distance,
+            state,
+            cost=cost,
+            max_class=max_class,
+            min_distance=20.0,
+            max_distance=0.0,
+            max_height=max_height,
+            jitter=0.4)
 
-            if not params.with_infrastructures:
-                # Restore infrastructures
-                out[infrastructure_mask & (out != nodata)] = 8
+        # restore unresolved cells' state
+        state[state == 1] = 6
 
-            # Restore water (landcover = 0) to water (0),
-            # if within active channel (out = 1)
+    # if  0 <= it < height and 0 <= jt < width:
+    #     print('-- after iteration', (row, col), '------')
+    #     print('distance', distance[it, jt])
+    #     print('out class', out[it, jt])
+    #     print('state', state[it, jt])
 
-            out[(landcover == 0) & (out == 1)] = 0
+    def extract_spillovers():
 
-        # Crop out nodata and padded border
+        spillovers = [
+            (i, j) for i, j in border(height, width)
+            if control[i, j] != out[i, j]
+        ]
 
-        out[landcover == nodata] = nodata
-        out = out[padding:-padding, padding:-padding]
-        state = state[padding:-padding, padding:-padding]
-        distance = distance[padding:-padding, padding:-padding]
+        if spillovers:
 
-        # Output
+            xy = fct.pixeltoworld(np.array(spillovers, dtype='int32'), transform)
 
-        height, width = out.shape
-        transform = ds1.transform * ds1.transform.translation(j0, i0)
-        profile.update(
-            driver='GTiff',
-            height=height,
-            width=width,
-            transform=transform,
-            compress='deflate')
+            def attributes(k, ij):
+                """
+                Returns (row, col, x, y, height, distance)
+                """
 
-        with rio.open(output, 'w', **profile) as dst:
-            dst.write(out, 1)
+                i, j = ij
 
-        with rio.open(output_state, 'w', **profile) as dst:
-            dst.write(state, 1)
+                if i == 0:
+                    prow = row - 1
+                elif i == height-1:
+                    prow = row + 1
+                else:
+                    prow = row
 
-        profile.update(dtype='float32', nodata=ds2.nodata)
+                if j == 0:
+                    pcol = col - 1
+                elif j == width-1:
+                    pcol = col + 1
+                else:
+                    pcol = col
 
-        with rio.open(output_distance, 'w', **profile) as dst:
-            dst.write(distance, 1)
+                return (prow, pcol) + tuple(xy[k]) + (out[i, j], distance[i, j])
 
-def LandcoverContinuityAnalysis(
-        axis,
-        processes=1,
-        ax_tiles='ax_shortest_tiles',
-        # tileset='landcover',
+            spillovers = [
+                attributes(k, ij)
+                for k, ij in enumerate(spillovers)
+            ]
+
+        return spillovers
+
+    # DEBUG
+
+    # if (row, col) == (42, 5):
+    #     print('\noutput (0, 1000)', control[0, 1000], state[0, 1000], landcover[0, 1000], out[0, 1000])
+    #     print('output (1, 1000)', control[1, 1000], state[1, 1000], landcover[1, 1000], out[1, 1000])
+    #     print('ouput (0, 1005)', control[0, 1005], state[0, 1005], landcover[0, 1005], out[0, 1005])
+    #     print('ouput (1, 1005)', control[1, 1005], state[1, 1005], landcover[1, 1005], out[1, 1005])
+
+    spillovers = extract_spillovers()
+
+    # restore unresolved cells' state
+    state[state == 6] = 2
+
+    if not params.with_infra:
+        # Restore infrastructures
+        out[infrastructure_mask & (out != nodata)] = 8
+
+    # Restore water (landcover = 0) to water (0),
+    # if within active channel (out = 1)
+
+    out[(landcover == 0) & (out == 1)] = 0
+
+    # Crop out nodata and padded border
+
+    out[landcover == nodata] = nodata
+    out = out[padding:-padding, padding:-padding]
+    state = state[padding:-padding, padding:-padding]
+    distance = distance[padding:-padding, padding:-padding]
+
+    # Output
+
+    height, width = out.shape
+    transform = transform * transform.translation(padding, padding)
+
+    output += params.tmp
+    output_state += params.tmp
+    output_distance += params.tmp
+
+    profile.update(
+        driver='GTiff',
+        height=height,
+        width=width,
+        transform=transform,
+        compress='deflate')
+
+    with rio.open(output, 'w', **profile) as dst:
+        dst.write(out, 1)
+
+    with rio.open(output_state, 'w', **profile) as dst:
+        dst.write(state, 1)
+
+    profile.update(dtype='float32', nodata=nearest_distance_nodata)
+
+    with rio.open(output_distance, 'w', **profile) as dst:
+        dst.write(distance, 1)
+
+    # DEBUG
+
+    # if (row, col) == (42, 5):
+
+    #     tile = itemgetter(0, 1)
+    #     count = sum(1 for s in spillovers if tile(s) == (41, 5))
+    #     print('\n%d spillovers from (42, 5) to (41, 5)' % count)
+
+    return spillovers, (output, output_state, output_distance)
+
+def ContinuityIteration(axis, params, spillovers, ntiles, processes=1, **kwargs):
+    """
+    Iteration over spillovers' destination tiles
+    """
+
+    tile = itemgetter(0, 1)
+    coordxy = itemgetter(2, 3)
+    values = itemgetter(4, 5)
+
+    spillovers = sorted(spillovers, key=tile)
+    tiles = itertools.groupby(spillovers, key=tile)
+
+    g_spillover = list()
+    tmpfiles = list()
+
+    if processes == 1:
+
+        for (row, col), seeds in tiles:
+            seeds = [coordxy(seed) + values(seed) for seed in seeds]
+            t_spillover, tmps = ContinuityTile(axis, row, col, seeds, params)
+            g_spillover.extend(t_spillover)
+            tmpfiles.extend(tmps)
+
+        for tmpfile in tmpfiles:
+            os.rename(tmpfile, tmpfile.replace('.tif' + params.tmp, '.tif'))
+
+    else:
+
+        def arguments():
+
+            for (row, col), seeds in tiles:
+
+                seeds = [coordxy(seed) + values(seed) for seed in seeds]
+                yield (
+                    ContinuityTile,
+                    axis,
+                    row,
+                    col,
+                    seeds,
+                    params,
+                    kwargs
+                )
+
+        with Pool(processes=processes) as pool:
+
+            pooled = pool.imap_unordered(starcall, arguments())
+            
+            with click.progressbar(pooled, length=ntiles) as iterator:
+                for t_spillover, tmps in iterator:
+                    g_spillover.extend(t_spillover)
+                    tmpfiles.extend(tmps)
+
+        for tmpfile in tmpfiles:
+            os.rename(tmpfile, tmpfile.replace('.tif' + params.tmp, '.tif'))
+
+    return g_spillover
+
+def ContinuityFirstIteration(axis, params, ax_tiles, processes, **kwargs):
+    """
+    First tile iteration with empty seed list.
+    """
+
+    tilefile = config.tileset().filename(ax_tiles, axis=axis, **kwargs)
+
+    def length():
+
+        with open(tilefile) as fp:
+            return sum(1 for line in fp)
+
+    def arguments():
+
+        with open(tilefile) as fp:
+            for line in fp:
+
+                row, col = tuple(int(x) for x in line.split(','))
+
+                yield (
+                    ContinuityTile,
+                    axis,
+                    row,
+                    col,
+                    [],
+                    params,
+                    kwargs
+                )
+
+    g_spillover = list()
+    tmpfiles = list()
+
+    with Pool(processes=processes) as pool:
+
+        pooled = pool.imap_unordered(starcall, arguments())
+
+        with click.progressbar(pooled, length=length()) as iterator:
+            for t_spillover, tmps in iterator:
+                g_spillover.extend(t_spillover)
+                tmpfiles.extend(tmps)
+
+        # with click.progressbar(pooled, length=len(arguments)) as bar:
+        #     for t_spillover in bar:
+        #         g_spillover.extend(t_spillover)
+
+    for tmpfile in tmpfiles:
+        os.rename(tmpfile, tmpfile.replace('.tif' + params.tmp, '.tif'))
+
+    return g_spillover
+
+def ContinuityDefaultParameters():
+    """
+    Default parameters for extracting continuity map.
+    """
+
+    iterations = [
+        (3, 10.0),
+        (4, 15.0),
+        (5, 15.0),
+        (0, 20.0)
+    ]
+
+    return dict(
         landcover='landcover-bdt',
         distance='ax_nearest_distance',
         height='ax_nearest_height',
         output='ax_continuity',
-        padding=200,
-        max_height=20.0,
-        max_class=0,
-        with_infrastructures=True,
+        output_state='ax_continuity_state',
+        output_distance='ax_continuity_distance',
+        vb_max_height=20.0,
+        iterations=iterations,
+        costf=costf_default,
+        with_infra=True,
+        tmp='.tmp'
+    )
+
+def NoInfrastructureParameters():
+    """
+    Parameter set for extracting continuity map,
+    without processing infrastructures as barriers.
+
+    Other parameters are inherited
+    from ContinuityDefaultParameters().
+    """
+
+    parameters = ContinuityDefaultParameters()
+    parameters.update(
+        output='ax_continuity_variant',
+        variant='NOINFRA',
+        with_infra=False,
+    )
+
+    return parameters
+
+def NaturalCorridorDefaultParameters():
+    """
+    Parameter set for extracting natural corridor:
+    open natural, forest, (wet) grassland
+    directly connected to the river.
+
+    Other parameters are inherited
+    from ContinuityDefaultParameters().
+    """
+
+    iterations = [
+        (3, 10.0),
+        (4, 15.0)
+    ]
+
+    parameters = ContinuityDefaultParameters()
+    parameters.update(
+        landcover='landcover-bdt',
+        distance='ax_nearest_distance',
+        height='ax_nearest_height',
+        output='ax_natural_corridor',
+        output_state='ax_natural_corridor_state',
+        output_distance='ax_natural_corridor_distance',
+        iterations=iterations,
+        with_infra=True
+    )
+
+    return parameters
+
+def LandcoverContinuityAnalysis(
+        axis,
+        ax_tiles='ax_shortest_tiles',
+        processes=1,
+        maxiter=10,
         **kwargs):
     """
     Calculate LandCover Continuity from River Channel
@@ -305,10 +590,10 @@ def LandcoverContinuityAnalysis(
         Truncate landcover data with height above maxz,
         defaults to 20.0 m
 
-    padding: int
+    # padding: int
 
-        Number of pixels to pad tiles with,
-        defaults to 200
+    #     Number of pixels to pad tiles with,
+    #     defaults to 200
 
     with_infrastructures: bool
 
@@ -319,81 +604,47 @@ def LandcoverContinuityAnalysis(
     Other keywords are passed to dataset filename templates.
     """
 
-    params = ContinuityParams(
-        # tileset=tileset,
-        landcover=landcover,
-        distance=distance,
-        height=height,
-        output=output,
-        padding=padding,
-        max_height=max_height,
-        max_class=max_class,
-        with_infrastructures=with_infrastructures
-    )
-
-    # tile = itemgetter(0, 1)
-    # xyvalue = itemgetter(2, 3, 4)
-
-    # spillovers = sorted(seeds, key=tile)
-    # tiles = itertools.groupby(spillovers, key=tile)
-
-    # def arguments():
-
-        # for (row, col), seeds in tiles:
-
-        #     seeds = [xyvalue(seed) for seed in seeds]
-
-        #     yield (
-        #         ContinuityTile,
-        #         axis,
-        #         row,
-        #         col,
-        #         seeds,
-        #         params,
-        #         kwargs
-        #     )
-
-    tilefile = config.tileset().filename(ax_tiles, axis=axis, **kwargs)
-
-    def length():
-
-        with open(tilefile) as fp:
-            return sum(1 for line in fp)
-
-    def arguments():
-
-        with open(tilefile) as fp:
-            for line in fp:
-
-                row, col = tuple(int(x) for x in line.split(','))
-
-                yield (
-                    ContinuityTile,
-                    axis,
-                    row,
-                    col,
-                    params,
-                    kwargs
-                )
-
-    with Pool(processes=processes) as pool:
-
-        pooled = pool.imap_unordered(starcall, arguments())
-
-        with click.progressbar(pooled, length=length()) as iterator:
-            for _ in iterator:
-                pass
-
-def test(axis):
-
     # pylint:disable=import-outside-toplevel
-    from ..tileio import buildvrt
+    from ..tileio import buildvrt, translate
 
-    config.default()
+    parameters = ContinuityDefaultParameters()
 
-    LandcoverContinuityAnalysis(axis=axis, processes=6)
-    buildvrt('default', 'ax_continuity', axis=axis)
-    buildvrt('default', 'ax_continuity_state', axis=axis)
-    buildvrt('default', 'ax_continuity_distance', axis=axis)
-    click.pause()
-    LandcoverContinuityAnalysis(axis=axis, processes=6, mode='reiterate')
+    parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
+    kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
+    params = ContinuityParams(**parameters)
+
+    count = 1
+    tile = itemgetter(0, 1)
+    g_tiles = set()
+
+    click.echo('Iteration %02d --' % count)
+    seeds = ContinuityFirstIteration(axis, params, ax_tiles, processes=processes, **kwargs)
+
+    while seeds:
+
+        count += 1
+
+        if count > maxiter:
+            click.secho('Stopping after %d iterations' % maxiter, fg='yellow')
+            break
+
+        seeds = [s for s in seeds if tile(s) in config.tileset().tileindex]
+        tiles = {tile(s) for s in seeds}
+        g_tiles.update(tiles)
+        click.echo('Iteration %02d -- %d spillovers, %d tiles' % (count, len(seeds), len(tiles)))
+
+        seeds = ContinuityIteration(axis, params, seeds, len(tiles), processes=processes, **kwargs)
+
+    else:
+
+        click.secho('Ok', fg='green')
+
+    click.secho('Building output VRTs', fg='cyan')
+    buildvrt('default', params.output, axis=axis)
+
+    # click.secho('Materialize output VRTs to GeoTIFF', fg='cyan')
+
+    # if params.with_infra:
+    #     translate(params.output, axis=axis, **kwargs)
+    # else:
+    #     translate(params.output, axis=axis, **kwargs)

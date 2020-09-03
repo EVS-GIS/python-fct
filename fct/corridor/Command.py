@@ -109,3 +109,71 @@ def hand(axis, vrt, processes):
         click.secho('Building output VRTs', fg='cyan')
         buildvrt('default', parameters['height'], axis=axis)
         buildvrt('default', parameters['distance'], axis=axis)
+
+@cli.command()
+@click.argument('axis', type=int)
+@parallel_opt
+@click.option('--maxiter', '-it', default=10, help='Stop after max iterations')
+@click.option('--infra/--no-infra', default=True, help='Account for infrastructures in space fragmentation')
+def natural(axis, processes, maxiter, infra):
+    """
+    Extract natural corridor from landcover
+    within valley bottom
+    """
+
+    # pylint: disable=import-outside-toplevel
+    from .LandcoverContinuityAnalysis import (
+        LandcoverContinuityAnalysis,
+        NaturalCorridorDefaultParameters
+    )
+
+    config.default()
+    parameters = NaturalCorridorDefaultParameters()
+    parameters.update(with_infra=infra)
+
+    start_time = PrintCommandInfo('natural corridor', axis, processes, parameters)
+
+    LandcoverContinuityAnalysis(
+        axis=axis,
+        processes=processes,
+        maxiter=maxiter,
+        **parameters)
+
+    elapsed = time.time() - start_time
+    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
+@cli.command()
+@click.argument('axis', type=int)
+@parallel_opt
+@click.option('--maxiter', '-it', default=10, help='Stop after max iterations')
+@click.option('--infra/--no-infra', default=True, help='Account for infrastructures in space fragmentation')
+def continuity(axis, processes, maxiter, infra):
+    """
+    Extract natural corridor from landcover
+    within valley bottom
+    """
+
+    # pylint: disable=import-outside-toplevel
+    from .LandcoverContinuityAnalysis import (
+        LandcoverContinuityAnalysis,
+        ContinuityDefaultParameters,
+        NoInfrastructureParameters
+    )
+
+    config.default()
+
+    if infra:
+        parameters = ContinuityDefaultParameters()
+    else:
+        parameters = NoInfrastructureParameters()
+
+    start_time = PrintCommandInfo('landcover continuity analysis', axis, processes, parameters)
+
+    LandcoverContinuityAnalysis(
+        axis=axis,
+        processes=processes,
+        maxiter=maxiter,
+        **parameters)
+
+    elapsed = time.time() - start_time
+    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))

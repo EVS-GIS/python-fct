@@ -158,8 +158,9 @@ def ValleyBottomTile(axis, row, col, seeds, params):
 
     heights = heights[1:-1, 1:-1]
     distance = distance[1:-1, 1:-1]
-    height, width = heights.shape
+    state = state[1:-1, 1:-1]
 
+    height, width = heights.shape
     transform = transform * transform.translation(1, 1)
     profile.update(
         dtype='float32',

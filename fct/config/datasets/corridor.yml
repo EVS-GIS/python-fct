@@ -115,6 +115,32 @@ ax_natural_corridor:
     template: NATURAL_CORRIDOR_%(row)02d_%(col)02d
     extension: .tif
 
+ax_natural_corridor_state:
+  description: |
+    Landcover continuity map
+  type: raster
+  group: corridor
+  status: temporary
+  subdir: AXES/AX%(axis)04d/TEMP
+  filename: NATURAL_CORRIDOR_STATE.vrt
+  tiles:
+    tileset: landcover
+    template: NATURAL_CORRIDOR_STATE_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_natural_corridor_distance:
+  description: |
+    Landcover continuity map
+  type: raster
+  group: corridor
+  status: temporary
+  subdir: AXES/AX%(axis)04d/TEMP
+  filename: LANDCOVER_CONTINUITY_DISTANCE.vrt
+  tiles:
+    tileset: landcover
+    template: NATURAL_CORRIDOR_DISTANCE_%(row)02d_%(col)02d
+    extension: .tif
+
 ax_swath_elevation:
   description: |
     Elevation swath

@@ -184,7 +184,7 @@ def continuity_analysis(
                     # state[i, j] = 1 # seen
                     # distance[i, j] = 0
 
-                elif state[i, j] >= 2:
+                elif state[i, j] > 2:
 
                     state[i, j] = 1
                     
@@ -239,7 +239,7 @@ def continuity_analysis(
                 state[i, j] = 4 # distance limit
                 continue
 
-            if dist > min_distance:
+            if min_distance > 0 and dist > min_distance:
                 
                 if max_class > 0 and out[i, j] > max_class:
                     state[i, j] = 5 # class limit
