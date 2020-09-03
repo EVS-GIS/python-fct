@@ -31,3 +31,8 @@ quiet_opt = click.option(
     '--quiet/--no-quiet', '-q',
     default=False,
     help='Suppress message output ?')
+
+parallel_opt = click.option(
+    '--processes', '-j',
+    default=1,
+    help="Execute j parallel processes")

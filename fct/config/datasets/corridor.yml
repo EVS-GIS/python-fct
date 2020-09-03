@@ -1,19 +1,6 @@
 # Per axis datasets
 # Corridor descriptors
 
-ax_shortest_distance:
-  description: |
-    Shortest path distance to stream talweg
-  type: raster
-  group: metrology
-  status: temporary
-  subdir: AXES/AX%(axis)04d
-  filename: SHORTEST_DISTANCE.vrt
-  tiles:
-    tileset: landcover
-    template: SHORTEST_DISTANCE_%(row)02d_%(col)02d
-    extension: .tif
-
 ax_shortest_height:
   description: |
     Height above stream talweg following shortest path
@@ -25,6 +12,33 @@ ax_shortest_height:
   tiles:
     tileset: landcover
     template: SHORTEST_HEIGHT_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_shortest_distance:
+  description: |
+    Shortest path distance to stream talweg
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: AXES/AX%(axis)04d/TEMP
+  filename: SHORTEST_DISTANCE.vrt
+  tiles:
+    tileset: landcover
+    template: SHORTEST_DISTANCE_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_shortest_state:
+  description: |
+    Temporary processing state for shortest height,
+    saved between iterations
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: AXES/AX%(axis)04d/TEMP
+  filename: SHORTEST_STATE.vrt
+  tiles:
+    tileset: landcover
+    template: SHORTEST_STATE_%(row)02d_%(col)02d
     extension: .tif
 
 ax_shortest_tiles:

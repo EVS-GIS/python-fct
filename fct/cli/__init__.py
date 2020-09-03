@@ -23,5 +23,6 @@ from .Decorators import (
 
 from .Options import (
     overwritable,
-    verbosable
+    verbosable,
+    parallel_opt
 )

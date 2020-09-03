@@ -28,9 +28,8 @@ from .SubGrid import (
 @click.group()
 def cli():
     """
-    DOCME
+    Metrics extraction module
     """
-    pass
 
 @cli.command()
 @click.option('--processes', '-j', default=1, help="Execute j parallel processes")

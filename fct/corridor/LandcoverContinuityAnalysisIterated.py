@@ -207,6 +207,9 @@ def ContinuityTile(axis, row, col, seeds, params, **kwargs):
             max_height=max_height,
             jitter=0.4)
 
+        # restore unresolved cells' state
+        state[state == 1] = 2
+
     def extract_spillovers():
 
         spillovers = [
@@ -406,6 +409,7 @@ def LandcoverContinuityAnalysis(
         axis,
         ax_tiles='ax_shortest_tiles',
         processes=1,
+        maxiter=10,
         **kwargs):
     """
     Calculate LandCover Continuity from River Channel
@@ -504,6 +508,10 @@ def LandcoverContinuityAnalysis(
     while seeds:
 
         count += 1
+
+        if count > maxiter:
+            break
+
         seeds = [s for s in seeds if tile(s) in config.tileset().tileindex]
         tiles = {tile(s) for s in seeds}
         g_tiles.update(tiles)
@@ -511,9 +519,8 @@ def LandcoverContinuityAnalysis(
 
         seeds = ContinuityIteration(axis, params, seeds, len(tiles), processes=processes, **kwargs)
 
-    tiles = {tile(s) for s in seeds}
-    g_tiles.update(tiles)
-
-    click.secho('Ok', fg='green')
+    # tiles = {tile(s) for s in seeds}
+    # g_tiles.update(tiles)
 
     buildvrt('default', 'ax_continuity', axis=axis)
+    click.secho('Ok', fg='green')

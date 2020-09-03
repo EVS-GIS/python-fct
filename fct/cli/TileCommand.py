@@ -109,14 +109,15 @@ def delete(name, ext):
 @click.argument('tileset')
 @click.argument('dataset')
 @click.option('--processes', '-j', default=1, help="Execute j parallel processes")
-def extract(datasource, tileset, dataset, processes=1):
+@overwritable
+def extract(datasource, tileset, dataset, processes=1, overwrite=False):
     """
     Extract Tiles from Datasource for tiles defined in Tileset,
     and store as Dataset.
     """
 
     config.default()
-    DatasourceToTiles(datasource, tileset, dataset, processes)
+    DatasourceToTiles(datasource, tileset, dataset, processes, overwrite=overwrite)
 
 @cli.command('buildvrt')
 @click.argument('tileset')

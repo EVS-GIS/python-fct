@@ -176,7 +176,9 @@ def continuity_analysis(
 
                 if state[i, j] == 1:
 
-                    out[i, j] = landcover[i, j]
+                    if out[i, j] == 255:
+                        out[i, j] = landcover[i, j] # <- the problem
+
                     entry = ShortestEntry(-distance[i, j], Cell(i, j))
                     queue.push(entry)
                     # state[i, j] = 1 # seen
@@ -300,52 +302,3 @@ def continuity_analysis(
                         queue.push(entry)
                         distance[ik, jk] = dist
                         ancestors[ijk] = ij
-
-@cython.boundscheck(False)
-@cython.wraparound(False)
-def continuity_analysis_restate(
-    unsigned char[:, :] state,
-    float[:, :] heights,
-    float max_height):
-    """
-    DOCME
-    """
-
-    cdef:
-
-        Py_ssize_t width, height, count = 0
-        Py_ssize_t i, j, ik, jk
-        short k
-
-
-    height = state.shape[0]
-    width = state.shape[1]
-
-    assert heights.shape[0] == height and heights.shape[1] == width
-
-    with nogil:
-
-        for i in range(height):
-            for j in range(width):
-
-                if state[i, j] == 2:
-                    
-                    for k in range(8):
-                        
-                        ik = i + ci[k]
-                        jk = j + cj[k]
-                        
-                        if ingrid(height, width, ik, jk) and (
-                                (state[ik, jk] == 255 and heights[ik, jk] <= max_height)
-                                or state[ik, jk] == 0
-                            ):
-                            
-                            state[i, j] = 1
-                            count += 1
-                            break
-
-                elif state[i, j] == 255 and heights[i, j] <= max_height:
-
-                    state[i, j] = 0
-
-    return count

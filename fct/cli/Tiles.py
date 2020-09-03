@@ -13,6 +13,7 @@ DOCME
 ***************************************************************************
 """
 
+import os
 from multiprocessing import Pool
 import click
 
@@ -21,10 +22,13 @@ from ..config import config
 from ..tileio import as_window
 from ..cli import starcall
 
-def ExtractTile(datasource, dataset, tile):
+def ExtractTile(datasource, dataset, tile, overwrite=False):
 
     raster = config.datasource(datasource).filename
     output = config.tileset(tile.tileset).tilename(dataset, row=tile.row, col=tile.col)
+
+    if os.path.exists(output) and not overwrite:
+        return
 
     with rio.open(raster) as ds:
 

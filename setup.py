@@ -77,6 +77,7 @@ setup(
             fct-files=fct.cli.FileCommand:cli
             fct-tiles=fct.cli.TileCommand:cli
             fct-drainage=fct.drainage.Command:cli
+            fct-corridor=fct.corridor.Command:cli
             fct-metrics=fct.metrics.Command:cli
     ''',
     classifiers=[

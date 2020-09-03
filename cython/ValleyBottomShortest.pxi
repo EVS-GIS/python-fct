@@ -206,13 +206,21 @@ def valley_bottom_shortest(
         for i in range(height):
             for j in range(width):
 
-                if state[i, j] == 1:
+                if state[i, j] == 255: # no-data
+
+                    continue
+
+                if state[i, j] == 1: # start
 
                     if copyref:
                         reference[i, j] = elevations[i, j]
                     
                     entry = ShortestEntry(-distance[i, j], Cell(i, j))
                     queue.push(entry)
+
+                elif state[i, j] >= 2: # settled at previous iteration
+                                       # -> discovered, and available for reiteration
+                    state[i, j] = 1 
 
         # Dijkstra iteration
 
@@ -226,8 +234,7 @@ def valley_bottom_shortest(
             i = ij.first
             j = ij.second
 
-            if state[i, j] >= 2:
-                # already settled
+            if state[i, j] >= 2: # already settled
                 continue
 
             if distance[i, j] < dist:

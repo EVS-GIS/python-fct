@@ -56,40 +56,41 @@ def ValleyBottomTile(axis, row, col, seeds, params):
     nodata = profile['nodata']
     height, width = elevations.shape
 
-    output_heights = config.tileset().tilename('ax_shortest_height', axis=axis, row=row, col=col)
+    output_height = config.tileset().tilename('ax_shortest_height', axis=axis, row=row, col=col)
     output_distance = config.tileset().tilename('ax_shortest_distance', axis=axis, row=row, col=col)
+    output_state = config.tileset().tilename('ax_shortest_state', axis=axis, row=row, col=col)
 
-    if os.path.exists(output_heights):
+    if os.path.exists(output_height):
 
         heights, _ = PadRaster(row, col, 'ax_shortest_height', axis=axis, padding=1)
         distance, _ = PadRaster(row, col, 'ax_shortest_distance', axis=axis, padding=1)
+        state, _ = PadRaster(row, col, 'ax_shortest_state', axis=axis, padding=1)
 
     else:
 
         heights = np.full((height, width), nodata, dtype='float32')
         distance = np.full((height, width), nodata, dtype='float32')
+        state = np.zeros((height, width), dtype='uint8')
+        state[elevations == nodata] = 255
 
     coord = itemgetter(0, 1)
     pixels = fct.worldtopixel(np.array([coord(seed) for seed in seeds], dtype='float32'), transform)
     intile = np.array([0 <= i < height and 0 <= j < width for i, j in pixels])
 
-    spillover_heights = np.array([seed[2] for seed in seeds], dtype='float32')
-    spillover_distance = np.array([seed[3] for seed in seeds], dtype='float32')
+    seed_heights = np.array([seed[2] for seed in seeds], dtype='float32')
+    seed_distance = np.array([seed[3] for seed in seeds], dtype='float32')
 
     pixels = pixels[intile]
-    spillover_heights = spillover_heights[intile]
-    spillover_distance = spillover_distance[intile]
+    seed_heights = seed_heights[intile]
+    seed_distance = seed_distance[intile]
 
     recorded_distance = distance[pixels[:, 0], pixels[:, 1]]
-    shortest = (recorded_distance == nodata) | (spillover_distance < recorded_distance)
+    shortest = (recorded_distance == nodata) | (seed_distance < recorded_distance)
 
     pixels = pixels[shortest]
-    heights[pixels[:, 0], pixels[:, 1]] = spillover_heights[shortest]
-    distance[pixels[:, 0], pixels[:, 1]] = spillover_distance[shortest]
+    heights[pixels[:, 0], pixels[:, 1]] = seed_heights[shortest]
+    distance[pixels[:, 0], pixels[:, 1]] = seed_distance[shortest]
 
-    state = np.zeros((height, width), dtype='uint8')
-    state[elevations == nodata] = 255
-    state[heights != nodata] = 2
     state[pixels[:, 0], pixels[:, 1]] = 1
     control = np.copy(state)
 
@@ -112,6 +113,9 @@ def ValleyBottomTile(axis, row, col, seeds, params):
     ]
 
     del control
+
+    # restore unresolved cells' state
+    state[state == 1] = 2
 
     heights = elevations - reference
     heights[(state == 0) | (state == 255)] = nodata
@@ -149,7 +153,6 @@ def ValleyBottomTile(axis, row, col, seeds, params):
             for k, ij in enumerate(spillovers)
         ]
 
-    del state
     del elevations
     del reference
 
@@ -165,18 +168,24 @@ def ValleyBottomTile(axis, row, col, seeds, params):
         transform=transform,
         compress='deflate')
 
-    output_heights += params.tmp
+    output_height += params.tmp
     output_distance += params.tmp
+    output_state += params.tmp
 
-    with rio.open(output_heights, 'w', **profile) as dst:
+    with rio.open(output_height, 'w', **profile) as dst:
         dst.write(heights, 1)
 
     with rio.open(output_distance, 'w', **profile) as dst:
         dst.write(distance, 1)
 
-    return spillovers, (output_heights, output_distance)
+    profile.update(dtype='uint8', nodata=255)
 
-def ValleyBottomIteration(axis, params, spillovers, processes=1, **kwargs):
+    with rio.open(output_state, 'w', **profile) as dst:
+        dst.write(state, 1)
+
+    return spillovers, (output_height, output_distance, output_state)
+
+def ValleyBottomIteration(axis, params, spillovers, ntiles, processes=1, **kwargs):
     """
     DOCME
     """
@@ -214,9 +223,10 @@ def ValleyBottomIteration(axis, params, spillovers, processes=1, **kwargs):
         with Pool(processes=processes) as pool:
 
             pooled = pool.imap_unordered(starcall, arguments())
-            for t_spillover, tmps in pooled:
-                g_spillover.extend(t_spillover)
-                tmpfiles.extend(tmps)
+            with click.progressbar(pooled, length=ntiles) as iterator:
+                for t_spillover, tmps in iterator:
+                    g_spillover.extend(t_spillover)
+                    tmpfiles.extend(tmps)
 
             # with click.progressbar(pooled, length=len(arguments)) as bar:
             #     for t_spillover in bar:
@@ -227,12 +237,9 @@ def ValleyBottomIteration(axis, params, spillovers, processes=1, **kwargs):
 
     return g_spillover
 
-def ValleyBottom(axis, processes=1):
-    """
-    DOCME
-    """
+def ValleyBottomDefaultParameters():
 
-    params = ShortestParams(
+    return dict(
         dataset_height='ax_shortest_height',
         dataset_distance='ax_shortest_distance',
         max_dz=20.0,
@@ -241,6 +248,17 @@ def ValleyBottom(axis, processes=1):
         jitter=0.4,
         tmp='.tmp'
     )
+
+def ValleyBottom(axis, processes=1, **kwargs):
+    """
+    DOCME
+    """
+
+    parameters = ValleyBottomDefaultParameters()
+
+    parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
+    kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
+    params = ShortestParams(**parameters)
 
     def generate_seeds(feature):
 
@@ -263,9 +281,6 @@ def ValleyBottom(axis, processes=1):
     tile = itemgetter(0, 1)
     g_tiles = set()
 
-    click.secho('Axis = %d' % axis, fg='cyan')
-    click.secho('Running %d processes' % processes, fg='yellow')
-
     while seeds:
 
         count += 1
@@ -273,7 +288,7 @@ def ValleyBottom(axis, processes=1):
         g_tiles.update(tiles)
         click.echo('Iteration %02d -- %d spillovers, %d tiles' % (count, len(seeds), len(tiles)))
 
-        seeds = ValleyBottomIteration(axis, params, seeds, processes)
+        seeds = ValleyBottomIteration(axis, params, seeds, len(tiles), processes)
 
     tiles = {tile(s) for s in seeds}
     g_tiles.update(tiles)
