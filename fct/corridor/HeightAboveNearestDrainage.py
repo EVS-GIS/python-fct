@@ -141,54 +141,25 @@ def HeightAboveNearestDrainageTile(
                                     refaxis_pixels.append((i, j, z))
                                     unique.add((i, j))
 
-        # output_refaxis = os.path.join(axdir, 'REF', 'REFAXIS_POINTS.shp')
-        # schema = {
-        #     'geometry': 'Point',
-        #     'properties': [
-        #         ('GID', 'int'),
-        #         ('I', 'float'),
-        #         ('J', 'float'),
-        #         ('Z', 'float')
-        #     ]
-        # }
-        # crs = fiona.crs.from_epsg(2154)
-        # options = dict(driver='ESRI Shapefile', crs=crs, schema=schema)
+        if refaxis_pixels:
 
-        # if os.path.exists(output_refaxis):
-        #     mode = 'a'
-        # else:
-        #     mode = 'w'
+            reference, distance = nearest_value_and_distance(
+                np.array(refaxis_pixels),
+                mask,
+                ds.nodata)
 
-        # with fiona.open(output_refaxis, mode, **options) as fst:
-        #     for k, (i, j, z) in enumerate(refaxis_pixels):
-        #         geom = {'type': 'Point', 'coordinates': ds.xy(i, j)}
-        #         properties = {'GID': k, 'I': i, 'J': j, 'Z': float(z)}
-        #         fst.write({'geometry': geom, 'properties': properties})
+            distance = distance * params.resolution
+            distance[mask == ds.nodata] = ds.nodata
 
-        if not refaxis_pixels:
-            return
+            hand = elevations - reference
+            hand[mask == ds.nodata] = ds.nodata
 
-        reference, distance = nearest_value_and_distance(
-            np.array(refaxis_pixels),
-            mask,
-            ds.nodata)
+        else:
 
-        # scale distance by raster resolution
-        distance = params.resolution * distance
-        distance[mask == ds.nodata] = ds.nodata
+            hand = distance = np.full((height, width), ds.nodata, dtype='float32')
 
         with rio.open(output_distance, 'w', **profile) as dst:
             dst.write(distance, 1)
-
-        # del distance
-
-        # elevations, _ = ReadRasterTile(row, col, 'dem1')
-
-        hand = elevations - reference
-        hand[mask == ds.nodata] = ds.nodata
-
-        # clip heights
-        hand[((hand < -5.0) & (distance > 1000.0)) | (hand > 15.0)] = ds.nodata
 
         with rio.open(output_height, 'w', **profile) as dst:
             dst.write(hand, 1)
@@ -304,29 +275,102 @@ def HeightAboveNearestDrainage(
             for _ in iterator:
                 pass
 
-def HeightAboveTalweg(axis, **kwargs):
+def HeightAboveTalwegDefaultParameters():
     """
     Default parameters for HAND with talweg reference
     """
 
-    parameters = dict(
-        processes=6,
+    return dict(
         elevation='dem',
         ax_tiles='ax_shortest_tiles',
         drainage='ax_talweg',
         mask='ax_shortest_height',
         height='ax_nearest_height',
         distance='ax_nearest_distance',
-        buffer_width=30.0,
+        buffer_width=0.0,
         resolution=5.0
     )
 
-    parameters.update(kwargs)
+ClipParams = namedtuple('ClipParams', [
+    'height',
+    'distance',
+    'dist_resolution',
+    'max_slope',
+    'min_distance',
+    'max_height'
+])
 
-    click.secho('--%12s:' % 'Parameters', fg='cyan')
-    click.secho('  %12s: %d' % ('axis', axis))
+def ClipHeightTile(axis, row, col, params, **kwargs):
 
-    for parameter, value in parameters.items():
-        click.echo('  %12s: %s' % (parameter, value))
+    tileset = config.tileset()
+    height_raster = tileset.tilename(params.height, axis=axis, row=row, col=col, **kwargs)
+    distance_raster = tileset.tilename(params.distance, axis=axis, row=row, col=col, **kwargs)
 
-    HeightAboveNearestDrainage(axis, **parameters)
+    with rio.open(height_raster) as ds:
+        hand = ds.read(1)
+        profile = ds.profile.copy()
+        nodata = ds.nodata
+
+    with rio.open(distance_raster) as ds:
+        distance = ds.read(1)
+
+    hand[
+        (hand < -params.max_slope * params.dist_resolution * distance)
+        & (params.dist_resolution * distance > params.min_distance)
+        | (hand > params.max_height)
+    ] = nodata
+
+    profile.update(compress='deflate')
+
+    with rio.open(height_raster, 'w', **profile) as dst:
+        dst.write(hand, 1)
+
+def ClipDefaultParameters():
+
+    return dict(
+        height='ax_nearest_height',
+        distance='ax_nearest_distance',
+        dist_resolution=1.0,
+        max_slope=0.01,
+        min_distance=1000.0,
+        max_height=20.0
+    )
+
+def ClipHeight(axis, ax_tiles='ax_shortest_tiles', processes=1, **kwargs):
+
+    parameters = ClipDefaultParameters()
+
+    parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
+    kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
+    params = ClipParams(**parameters)
+
+    print(params)
+
+    tilefile = config.tileset().filename(ax_tiles, axis=axis, **kwargs)
+
+    def length():
+
+        with open(tilefile) as fp:
+            return sum(1 for line in fp)
+
+    def arguments():
+
+        with open(tilefile) as fp:
+            for line in fp:
+                row, col = tuple(int(x) for x in line.split(','))
+                yield (
+                    ClipHeightTile,
+                    axis,
+                    row,
+                    col,
+                    params,
+                    kwargs
+                )
+
+    with Pool(processes=processes) as pool:
+
+        pooled = pool.imap_unordered(starcall, arguments())
+
+        with click.progressbar(pooled, length=length()) as iterator:
+            for _ in iterator:
+                pass

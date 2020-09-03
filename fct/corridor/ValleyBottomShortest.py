@@ -48,7 +48,7 @@ ShortestParams = namedtuple(
 
 def ValleyBottomTile(axis, row, col, seeds, params):
     """
-    DOCME
+    Valley bottom shortest path exploration
     """
 
     elevations, profile = PadRaster(row, col, 'dem', padding=1)
@@ -125,12 +125,12 @@ def ValleyBottomTile(axis, row, col, seeds, params):
 
         xy = fct.pixeltoworld(np.array(spillovers, dtype='int32'), transform)
 
-        def attributes(k, p):
+        def attributes(k, ij):
             """
             Returns (row, col, x, y, height, distance)
             """
 
-            i, j = p
+            i, j = ij
 
             if i == 0:
                 prow = row - 1
@@ -187,7 +187,7 @@ def ValleyBottomTile(axis, row, col, seeds, params):
 
 def ValleyBottomIteration(axis, params, spillovers, ntiles, processes=1, **kwargs):
     """
-    DOCME
+    Multiprocessing wrapper for ValleyBottomTile
     """
 
     tile = itemgetter(0, 1)
@@ -238,6 +238,9 @@ def ValleyBottomIteration(axis, params, spillovers, ntiles, processes=1, **kwarg
     return g_spillover
 
 def ValleyBottomDefaultParameters():
+    """
+    Default parameters
+    """
 
     return dict(
         dataset_height='ax_shortest_height',
@@ -251,7 +254,7 @@ def ValleyBottomDefaultParameters():
 
 def ValleyBottom(axis, processes=1, **kwargs):
     """
-    DOCME
+    Valley bottom extraction procedure - shortest path exploration
     """
 
     parameters = ValleyBottomDefaultParameters()

@@ -38,7 +38,7 @@ def PrintCommandInfo(command, axis, processes, parameters):
     for parameter, value in parameters.items():
         click.echo('  %16s: %s' % (parameter, value))
 
-    click.secho('-- Start time      : %s' % datetime.fromtimestamp(start_time))
+    click.secho('-- Start time     : %s' % datetime.fromtimestamp(start_time))
     click.secho('Running %d processes' % processes, fg='yellow')
 
     return start_time
@@ -49,13 +49,7 @@ def cli():
     Fluvial corridor delineation module
     """
 
-@cli.group()
-def height():
-    """
-    Calculate relative heights from DEM
-    """
-
-@height.command()
+@cli.command()
 @click.argument('axis', type=int)
 @click.option('--vrt/--no--vrt', default=True, help='Build VRT after processing')
 @parallel_opt
@@ -65,7 +59,10 @@ def shortest(axis, vrt, processes):
     """
 
     # pylint: disable=import-outside-toplevel
-    from .ValleyBottomShortest import ValleyBottom, ValleyBottomDefaultParameters
+    from .ValleyBottomShortest import (
+        ValleyBottom,
+        ValleyBottomDefaultParameters
+    )
 
     config.default()
     parameters = ValleyBottomDefaultParameters()
@@ -79,5 +76,36 @@ def shortest(axis, vrt, processes):
     if vrt:
 
         click.secho('Building output VRTs', fg='cyan')
-        buildvrt('default', parameters['dataset_height'], axis=1)
-        buildvrt('default', parameters['dataset_distance'], axis=1)
+        buildvrt('default', parameters['dataset_height'], axis=axis)
+        buildvrt('default', parameters['dataset_distance'], axis=axis)
+
+@cli.command()
+@click.argument('axis', type=int)
+@click.option('--vrt/--no--vrt', default=True, help='Build VRT after processing')
+@parallel_opt
+def hand(axis, vrt, processes):
+    """
+    Refine shortest height output with HAND
+    (height above nearest drainage)
+    """
+
+    # pylint: disable=import-outside-toplevel
+    from .HeightAboveNearestDrainage import (
+        HeightAboveNearestDrainage,
+        HeightAboveTalwegDefaultParameters
+    )
+
+    config.default()
+    parameters = HeightAboveTalwegDefaultParameters()
+    start_time = PrintCommandInfo('height above nearest drainage', axis, processes, parameters)
+
+    HeightAboveNearestDrainage(axis=axis, processes=processes, **parameters)
+
+    elapsed = time.time() - start_time
+    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
+    if vrt:
+
+        click.secho('Building output VRTs', fg='cyan')
+        buildvrt('default', parameters['height'], axis=axis)
+        buildvrt('default', parameters['distance'], axis=axis)
