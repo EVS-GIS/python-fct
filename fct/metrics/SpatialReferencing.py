@@ -17,7 +17,8 @@ Measure along Reference Axis, Space Discretization
 import os
 import math
 from operator import itemgetter
-# from collections import defaultdict
+from collections import namedtuple
+from multiprocessing import Pool
 
 import numpy as np
 from scipy.spatial import cKDTree
@@ -34,6 +35,7 @@ from ..config import config
 from ..rasterize import rasterize_linestring, rasterize_linestringz
 from .. import transform as fct
 from .. import terrain_analysis as ta
+from ..cli import starcall
 
 def nearest_value_and_distance(refpixels, domain, nodata):
     """
@@ -102,34 +104,84 @@ def nearest_value_and_distance(refpixels, domain, nodata):
 
     return values, distance
 
-def SpatialReferenceTile(axis, row, col, mdelta=200.0):
+SpatialReferenceParams = namedtuple('SpatialReferenceParams', [
+    'ax_mask',
+    'ax_reference',
+    'output_distance',
+    'output_measure',
+    'output_units_raster',
+    'output_units_shapefile',
+    'mdelta'
+])
+
+def DefaultParameters():
+    """
+    Default parameters
+    """
+
+    return dict(
+        ax_mask='ax_nearest_height',
+        ax_reference='ax_refaxis',
+        output_distance='ax_axis_distance',
+        output_measure='ax_axis_measure',
+        output_units_raster='ax_dgo',
+        output_units_shapefile='ax_dgo_parts',
+        mdelta=200.0
+    )
+
+def NaturalCorridorParameters():
+    """
+    Parameter set for natural corridor longitudinal disaggregation
+    """
+
+    return dict(
+        ax_mask='ax_natural_corridor',
+        ax_reference='ax_talweg',
+        output_distance='ax_talweg_distance',
+        output_measure='ax_talweg_measure',
+        output_units_raster='ax_natural_corridor_units_raster',
+        output_units_shapefile='ax_natural_corridor_units',
+        mdelta=200.0
+    )
+
+def SpatialReferenceTile(axis, row, col, params, **kwargs):
     """
     see SpatialReference
     """
 
-    tileset = config.tileset('landcover')
-    # valley_bottom_rasterfile = tileset.tilename('ax_flow_height', axis=axis, row=row, col=col)
-    valley_bottom_rasterfile = tileset.tilename('ax_relative_elevation', axis=axis, row=row, col=col)
-    refaxis_shapefile = config.filename('ax_refaxis', axis=axis)
+    tileset = config.tileset()
+    # height_raster = tileset.tilename('ax_flow_height', axis=axis, row=row, col=col)
 
-    output_distance = tileset.tilename('ax_axis_distance', axis=axis, row=row, col=col)
-    output_measure = tileset.tilename('ax_axis_measure', axis=axis, row=row, col=col)
-    output_dgo = tileset.tilename('ax_dgo', axis=axis, row=row, col=col)
-    output_dgo_shapefile = tileset.tilename('ax_dgo_parts', axis=axis, row=row, col=col)
+    def _tilename(dataset):
+        return tileset.tilename(
+            dataset,
+            axis=axis,
+            row=row,
+            col=col)
 
-    with rio.open(valley_bottom_rasterfile) as ds:
+    refaxis_shapefile = config.filename(params.ax_reference, axis=axis)
+    mask_raster = _tilename(params.ax_mask)
 
-        click.echo('Read Valley Bottom')
+    output_distance = _tilename(params.output_distance)
+    output_measure = _tilename(params.output_measure)
+    output_units_raster = _tilename(params.output_units_raster)
+    output_units_shapefile = _tilename(params.output_units_shapefile)
+
+    mdelta = params.mdelta
+
+    with rio.open(mask_raster) as ds:
+
+        # click.echo('Read Valley Bottom')
 
         # valley_bottom = speedup.raster_buffer(ds.read(1), ds.nodata, 6.0)
-        valley_bottom = ds.read(1)
-        height, width = valley_bottom.shape
+        mask = ds.read(1)
+        height, width = mask.shape
 
         # distance = np.full_like(valley_bottom, ds.nodata)
         # measure = np.copy(distance)
         refaxis_pixels = list()
 
-        click.echo('Map Stream Network')
+        # click.echo('Map Stream Network')
 
         def accept(i, j):
             return all([i >= -height, i < 2*height, j >= -width, j < 2*width])
@@ -177,7 +229,7 @@ def SpatialReferenceTile(axis, row, col, mdelta=200.0):
         mmin = math.floor(mmin / mdelta) * mdelta
         mmax = math.ceil(mmax / mdelta) * mdelta
 
-        click.echo('Calculate Measure & Distance Raster')
+        # click.echo('Calculate Measure & Distance Raster')
 
         # Option 1, shortest distance
 
@@ -193,17 +245,18 @@ def SpatialReferenceTile(axis, row, col, mdelta=200.0):
 
         measure, distance = nearest_value_and_distance(
             np.flip(np.array(refaxis_pixels), axis=0),
-            valley_bottom,
+            np.float32(mask),
             ds.nodata)
 
+        nodata = -99999.0
         distance = 5.0 * distance
-        distance[valley_bottom == ds.nodata] = ds.nodata
-        measure[valley_bottom == ds.nodata] = ds.nodata
+        distance[mask == ds.nodata] = nodata
+        measure[mask == ds.nodata] = nodata
 
-        click.echo('Write output')
+        # click.echo('Write output')
 
         profile = ds.profile.copy()
-        profile.update(compress='deflate')
+        profile.update(compress='deflate', dtype='float32', nodata=nodata)
 
         with rio.open(output_distance, 'w', **profile) as dst:
             dst.write(distance, 1)
@@ -211,17 +264,17 @@ def SpatialReferenceTile(axis, row, col, mdelta=200.0):
         with rio.open(output_measure, 'w', **profile) as dst:
             dst.write(measure, 1)
 
-        click.echo('Create DGOs')
+        # click.echo('Create DGOs')
 
-        breaks = np.arange(mmin, mmax, mdelta)
+        breaks = np.arange(mmin, mmax + mdelta, mdelta)
         dgo = np.int32(np.digitize(measure, breaks))
         dgo_measures = np.round(0.5 * (breaks + np.roll(breaks, 1)), 1)
 
         profile.update(nodata=0, dtype='int32')
-        with rio.open(output_dgo, 'w', **profile) as dst:
+        with rio.open(output_units_raster, 'w', **profile) as dst:
             dst.write(dgo, 1)
 
-        click.echo('Vectorize DGOs')
+        # click.echo('Vectorize DGOs')
 
         polygons = features.shapes(
             dgo,
@@ -244,7 +297,7 @@ def SpatialReferenceTile(axis, row, col, mdelta=200.0):
         count = 0
         dgos = list()
 
-        with fiona.open(output_dgo_shapefile, 'w', **options) as fst:
+        with fiona.open(output_units_shapefile, 'w', **options) as fst:
             for polygon, gid in polygons:
                 
                 geom = asShape(polygon).buffer(0.0)
@@ -271,6 +324,96 @@ def SpatialReferenceTile(axis, row, col, mdelta=200.0):
 
         return dgos
 
+def SpatialReference(axis, ax_tiles='ax_tiles', processes=1, **kwargs):
+    """
+    Calculate measurement support rasters and
+    create discrete longitudinal units along the reference axis
+    """
+
+    parameters = DefaultParameters()
+    parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
+    kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
+    params = SpatialReferenceParams(**parameters)
+
+    tilefile = config.tileset().filename(ax_tiles, axis=axis)
+
+    def length():
+
+        with open(tilefile) as fp:
+            return sum(1 for line in fp)
+
+    def arguments():
+
+        with open(tilefile) as fp:
+            tiles = [tuple(int(x) for x in line.split(',')) for line in fp]
+
+        for row, col in tiles:
+            yield (
+                SpatialReferenceTile,
+                axis,
+                row,
+                col,
+                params,
+                kwargs
+            )
+
+    with Pool(processes=processes) as pool:
+
+        pooled = pool.imap_unordered(starcall, arguments())
+
+        with click.progressbar(pooled, length=length()) as iterator:
+            for _ in iterator:
+                pass
+
+def AggregateSpatialUnits(axis, ax_tiles='ax_tiles', **kwargs):
+    """
+    Aggregate units tiles together
+    """
+
+    parameters = DefaultParameters()
+    parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
+    kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
+    params = SpatialReferenceParams(**parameters)
+
+    output = config.filename(params.output_units_shapefile, axis=axis)
+
+    schema = {
+        'geometry': 'Polygon',
+        'properties': [
+            ('GID', 'int'),
+            ('AXIS', 'int:4'),
+            ('ROW', 'int:3'),
+            ('COL', 'int:3'),
+            ('M', 'float:10.2')
+        ]
+    }
+    crs = fiona.crs.from_epsg(2154)
+    options = dict(driver='ESRI Shapefile', crs=crs, schema=schema)
+
+    tilefile = config.tileset().filename(ax_tiles, axis=axis)
+
+    with open(tilefile) as fp:
+        tiles = [tuple(int(x) for x in line.split(',')) for line in fp]
+
+    with fiona.open(output, 'w', **options) as dst:
+        with click.progressbar(tiles) as iterator:
+
+            for row, col in iterator:
+
+                shapefile = config.tileset().tilename(
+                    params.output_units_shapefile,
+                    axis=axis,
+                    row=row,
+                    col=col)
+
+                if os.path.exists(shapefile):
+
+                    with fiona.open(shapefile) as fs:
+
+                        for feature in fs:
+                            feature['properties'].update(AXIS=axis)
+                            dst.write(feature)
+
 def MapReferencePoints(axis, row, col, points, referenceset='streams-tiled'):
     """
     Project points (x, y) on reference axis.
@@ -296,10 +439,10 @@ def MapReferencePoints(axis, row, col, points, referenceset='streams-tiled'):
       - `streams-tiled`: Theoretical stream network (all segments)
     """
 
-    tileset = config.tileset('landcover')
+    tileset = config.tileset()
 
     network_shapefile = config.filename(referenceset)
-    elevation_raster = tileset.tilename('tiled', row=row, col=col)
+    elevation_raster = tileset.tilename('dem', row=row, col=col)
     valley_bottom_rasterfile = tileset.tilename('ax_flow_height', axis=axis, row=row, col=col)
 
     # output = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'REFPOINTS_%02d_%02d.shp' % (row, col))
@@ -400,63 +543,3 @@ def MapReferencePoints(axis, row, col, points, referenceset='streams-tiled'):
                     }
                 }
                 fst.write(feature)
-
-def SpatialReference(axis, **kwargs):
-    """
-    Calculate measurement support rasters and
-    create discrete longitudinal units along the reference axis
-    """
-
-    tilefile = config.filename('ax_tiles', axis=axis)
-
-    with open(tilefile) as fp:
-        tiles = [tuple(int(x) for x in line.split(',')) for line in fp]
-
-    with click.progressbar(tiles) as iterator:
-        for _, row, col in iterator:
-
-            SpatialReferenceTile(axis, row, col, **kwargs)
-
-def AggregateDGOs(axis):
-    """
-    Aggregate DGO tiles together
-    """
-
-    output = config.filename('ax_dgo_parts', axis=axis)
-
-    schema = {
-        'geometry': 'Polygon',
-        'properties': [
-            ('GID', 'int'),
-            ('AXIS', 'int:4'),
-            ('ROW', 'int:3'),
-            ('COL', 'int:3'),
-            ('M', 'float:10.2')
-        ]
-    }
-    crs = fiona.crs.from_epsg(2154)
-    options = dict(driver='ESRI Shapefile', crs=crs, schema=schema)
-
-    tilefile = config.filename('ax_tiles', axis=axis)
-
-    with open(tilefile) as fp:
-        tiles = [tuple(int(x) for x in line.split(',')) for line in fp]
-
-    with fiona.open(output, 'w', **options) as dst:
-        with click.progressbar(tiles) as iterator:
-
-            for _, row, col in iterator:
-
-                shapefile = config.tileset('landcover').tilename(
-                    'ax_dgo_parts',
-                    axis=axis,
-                    row=row,
-                    col=col)
-
-                if os.path.exists(shapefile):
-
-                    with fiona.open(shapefile) as fs:
-
-                        for feature in fs:
-                            feature['properties'].update(AXIS=axis)
-                            dst.write(feature)

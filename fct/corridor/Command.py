@@ -122,7 +122,7 @@ def natural(axis, processes, maxiter, infra):
     """
 
     # pylint: disable=import-outside-toplevel
-    from .LandcoverContinuityAnalysis import (
+    from .LayeredContinuityAnalysis import (
         LandcoverContinuityAnalysis,
         NaturalCorridorDefaultParameters
     )
@@ -175,6 +175,45 @@ def continuity(axis, processes, maxiter, infra):
         processes=processes,
         maxiter=maxiter,
         **parameters)
+
+    elapsed = time.time() - start_time
+    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
+@cli.group()
+def disaggregate():
+    """
+    Disaggregate spatial object into longitudinal units
+    """
+
+@disaggregate.command('natural')
+@click.argument('axis', type=int)
+@click.option('--length', default=200.0, help='unit length / disaggregation step')
+@parallel_opt
+def disaggregate_natural(axis, length, processes):
+    """
+    Disaggregate natural corridor into longitudinal units
+    """
+
+    # pylint: disable=import-outside-toplevel
+    from ..metrics.SpatialReferencing import (
+        SpatialReference,
+        AggregateSpatialUnits,
+        NaturalCorridorParameters
+    )
+
+    config.default()
+
+    parameters = NaturalCorridorParameters()
+    parameters.update(mdelta=length, ax_tiles='ax_shortest_tiles')
+
+    start_time = PrintCommandInfo('natural corridor disaggregation', axis, processes, parameters)
+
+    SpatialReference(
+        axis=axis,
+        processes=processes,
+        **parameters)
+
+    AggregateSpatialUnits(axis, **parameters)
 
     elapsed = time.time() - start_time
     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))

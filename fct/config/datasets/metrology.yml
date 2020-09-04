@@ -66,19 +66,6 @@ ax_relative_elevation:
     template: NEAREST_HEIGHT_%(row)02d_%(col)02d
     extension: .tif
 
-ax_talweg_distance:
-  description: |
-    Distance to mapped talweg
-  type: raster
-  group: metrology
-  status: temporary
-  subdir: AXES/AX%(axis)04d
-  filename: TALWEG_DISTANCE.vrt
-  tiles:
-    tileset: landcover
-    template: TALWEG_DISTANCE_%(row)02d_%(col)02d
-    extension: .tif
-
 ax_talweg_height:
   description: |
     Height above mapped talweg

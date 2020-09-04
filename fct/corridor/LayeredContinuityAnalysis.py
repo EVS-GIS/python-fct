@@ -437,6 +437,7 @@ def NaturalCorridorDefaultParameters():
         output_state='ax_natural_corridor_state',
         output_distance='ax_natural_corridor_distance',
         max_class=4, # Grassland
+        vb_max_height=8.0,
         with_infra=True
     )
 

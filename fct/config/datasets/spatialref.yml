@@ -61,7 +61,7 @@ ax_axis_distance:
 
 ax_axis_measure:
   description: |
-    Distance (measure) along reference axis
+    Location (measure) along reference axis
   type: raster
   group: spatial reference
   status: temporary
@@ -71,6 +71,60 @@ ax_axis_measure:
     tileset: landcover
     template: AXIS_MEASURE_%(row)02d_%(col)02d
     extension: .tif
+
+ax_talweg_distance:
+  description: |
+    Distance to mapped talweg
+  type: raster
+  group: spatial reference
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: TALWEG_DISTANCE.vrt
+  tiles:
+    tileset: landcover
+    template: TALWEG_DISTANCE_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_talweg_measure:
+  description: |
+    Location (measure) along cartography talweg
+  type: raster
+  group: spatial reference
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: TALWEG_MEASURE.vrt
+  tiles:
+    tileset: landcover
+    template: TALWEG_MEASURE_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_natural_corridor_units_raster:
+  description: |
+    Natural corridor longitudinal units
+    (raster intermediate result)
+    TODO duplicate of ax_swaths, to be removed
+  type: raster
+  group: spatial reference
+  status: temporary
+  subdir: AXES/AX%(axis)04d/TEMP
+  filename: NATURAL_CORRIDOR_UNITS.vrt
+  tiles:
+    tileset: landcover
+    template: NATURAL_CORRIDOR_UNITS_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_natural_corridor_units:
+  description: |
+    Natural corridor longitudinal units
+  type: polygon
+  group: spatial reference
+  status: final
+  subdir: AXES/AX%(axis)04d/REF
+  filename: NATURAL_CORRIDOR_UNITS.shp
+  tiles:
+    tileset: landcover
+    template: NATURAL_CORRIDOR_UNITS_%(row)02d_%(col)02d
+    extension: .shp
 
 ax_dgo:
   description: |
