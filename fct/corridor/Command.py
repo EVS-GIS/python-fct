@@ -154,7 +154,8 @@ def continuity(axis, processes, maxiter, infra):
     """
 
     # pylint: disable=import-outside-toplevel
-    from .LandcoverContinuityAnalysis import (
+    # from .LandcoverContinuityAnalysis import (
+    from .LayeredContinuityAnalysis import (
         LandcoverContinuityAnalysis,
         ContinuityDefaultParameters,
         NoInfrastructureParameters
