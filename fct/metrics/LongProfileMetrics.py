@@ -211,7 +211,7 @@ def MetricSlopes(axis, **kwargs):
 
     talweg_feature = config.filename('ax_talweg', axis=axis, **kwargs)
     refaxis_feature = config.filename('ax_refaxis', axis=axis)
-    elevation_raster = config.filename('tiled', **kwargs)
+    elevation_raster = config.filename('dem', **kwargs)
     measure_raster = config.filename('ax_axis_measure', axis=axis, **kwargs)
     swath_raster = config.filename('ax_swaths', axis=axis, **kwargs)
     swath_features = config.filename('ax_swath_features', axis=axis, **kwargs)

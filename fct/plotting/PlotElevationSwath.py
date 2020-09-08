@@ -89,7 +89,7 @@ def PlotSwath(axis, gid, kind='absolute', output=None):
 
     # filename = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'SWATH', 'ELEVATION', 'SWATH_%04d.npz' % gid)
 
-    if kind not in ('absolute', 'hand', 'hvf'):
+    if kind not in ('absolute', 'hand', 'havf'):
         click.secho('Unknown swath kind %s' % kind, fg='yellow')
         return
 
@@ -104,7 +104,7 @@ def PlotSwath(axis, gid, kind='absolute', output=None):
 
         if kind == 'absolute':
 
-            swath = data['sz']
+            swath = data['absz']
             ylabel = 'Elevation (m NGF)'
 
         elif kind == 'hand':
@@ -112,9 +112,9 @@ def PlotSwath(axis, gid, kind='absolute', output=None):
             swath = data['hand']
             ylabel = 'Height above nearest drainage (m)'
 
-        elif kind == 'hvf':
+        elif kind == 'havf':
 
-            swath = data['hvf']
+            swath = data['havf']
             ylabel = 'Height above valley floor (m)'
 
             if swath.size == 0:
@@ -131,6 +131,9 @@ def PlotSwath(axis, gid, kind='absolute', output=None):
                     axis=axis,
                     gid=gid,
                     kind=kind.upper())
+
+            print(x.shape)
+            print(swath.shape)
 
             plot_swath(-x, swath, ylabel, title, output)
         else:

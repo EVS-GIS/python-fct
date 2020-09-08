@@ -114,7 +114,7 @@ def raster_buffer(
 
                             break
 
-        # Djiskstra iteration
+        # Dijkstra iteration
 
         while not queue.empty():
 

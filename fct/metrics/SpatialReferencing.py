@@ -22,6 +22,7 @@ from multiprocessing import Pool
 
 import numpy as np
 from scipy.spatial import cKDTree
+import xarray as xr
 
 import click
 import rasterio as rio
@@ -32,8 +33,10 @@ from shapely.geometry import asShape
 
 from ..config import config
 # from ..tileio import ReadRasterTile
+from ..tileio import as_window
 from ..rasterize import rasterize_linestring, rasterize_linestringz
 from .. import transform as fct
+from .. import speedup
 from .. import terrain_analysis as ta
 from ..cli import starcall
 
@@ -109,23 +112,57 @@ SpatialReferenceParams = namedtuple('SpatialReferenceParams', [
     'ax_reference',
     'output_distance',
     'output_measure',
-    'output_units_raster',
-    'output_units_shapefile',
+    'output_swaths_raster',
+    'output_swaths_shapefile',
+    'output_swaths_defs',
     'mdelta'
 ])
 
-def DefaultParameters():
+# def DefaultParameters():
+#     """
+#     Default parameters (valley swath units)
+#     """
+
+#     return dict(
+#         ax_mask='ax_nearest_height',
+#         ax_reference='ax_refaxis',
+#         output_distance='ax_axis_distance',
+#         output_measure='ax_axis_measure',
+#         output_swaths_raster='ax_dgo',
+#         output_swaths_shapefile='ax_dgo_parts',
+#         output_swaths_defs='ax_dgo_defs',
+#         mdelta=200.0
+#     )
+
+def ValleyBottomParameters():
     """
-    Default parameters
+    Default parameters (valley swath units)
     """
 
     return dict(
-        ax_mask='ax_nearest_height',
+        ax_mask='ax_valley_mask',
         ax_reference='ax_refaxis',
         output_distance='ax_axis_distance',
         output_measure='ax_axis_measure',
-        output_units_raster='ax_dgo',
-        output_units_shapefile='ax_dgo_parts',
+        output_swaths_raster='ax_valley_swaths',
+        output_swaths_shapefile='ax_valley_swaths_polygons',
+        output_swaths_defs='ax_valley_swaths_defs',
+        mdelta=200.0
+    )
+
+def ExtendedCorridorParameters():
+    """
+    Parameter set for extended corridor longitudinal disaggregation
+    """
+
+    return dict(
+        ax_mask='ax_corridor_mask',
+        ax_reference='ax_talweg',
+        output_distance='ax_talweg_distance',
+        output_measure='ax_talweg_measure',
+        output_swaths_raster='ax_corridor_swaths',
+        output_swaths_shapefile='ax_corridor_swaths_polygons',
+        output_swaths_defs='ax_corridor_swaths_defs',
         mdelta=200.0
     )
 
@@ -139,8 +176,9 @@ def NaturalCorridorParameters():
         ax_reference='ax_talweg',
         output_distance='ax_talweg_distance',
         output_measure='ax_talweg_measure',
-        output_units_raster='ax_natural_corridor_units_raster',
-        output_units_shapefile='ax_natural_corridor_units',
+        output_swaths_raster='ax_natural_corridor_swaths',
+        output_swaths_shapefile='ax_natural_corridor_swaths_polygons',
+        output_swaths_defs='ax_natural_corridor_units_defs',
         mdelta=200.0
     )
 
@@ -164,8 +202,7 @@ def SpatialReferenceTile(axis, row, col, params, **kwargs):
 
     output_distance = _tilename(params.output_distance)
     output_measure = _tilename(params.output_measure)
-    output_units_raster = _tilename(params.output_units_raster)
-    output_units_shapefile = _tilename(params.output_units_shapefile)
+    output_swaths_raster = _tilename(params.output_swaths_raster)
 
     mdelta = params.mdelta
 
@@ -267,62 +304,41 @@ def SpatialReferenceTile(axis, row, col, params, **kwargs):
         # click.echo('Create DGOs')
 
         breaks = np.arange(mmin, mmax + mdelta, mdelta)
-        dgo = np.int32(np.digitize(measure, breaks))
-        dgo_measures = np.round(0.5 * (breaks + np.roll(breaks, 1)), 1)
+        dgo = np.uint32(np.digitize(measure, breaks))
 
-        profile.update(nodata=0, dtype='int32')
-        with rio.open(output_units_raster, 'w', **profile) as dst:
+        def calculate_attrs():
+
+            coordm = np.round(0.5 * (breaks + np.roll(breaks, 1)), 1)
+            boxes = speedup.flat_boxes(dgo)
+
+            if not boxes:
+                return dict()
+
+            maximinj = itemgetter(2, 1)
+            minimaxj = itemgetter(0, 3)
+
+            lowerleft = fct.pixeltoworld(np.array([
+                maximinj(box) for box in boxes.values()
+            ], dtype='int32'), ds.transform)
+
+            upperright = fct.pixeltoworld(np.array([
+                minimaxj(box) for box in boxes.values()
+            ], dtype='int32'), ds.transform)
+
+            bounds = np.column_stack([lowerleft, upperright])
+
+            return {
+                label: (coordm[label], bounds[k])
+                for k, label in enumerate(boxes)
+                if label > 0
+            }
+
+        profile.update(nodata=0, dtype='uint32')
+
+        with rio.open(output_swaths_raster, 'w', **profile) as dst:
             dst.write(dgo, 1)
 
-        # click.echo('Vectorize DGOs')
-
-        polygons = features.shapes(
-            dgo,
-            dgo > 0,
-            connectivity=8,
-            transform=ds.transform)
-
-        schema = {
-            'geometry': 'Polygon',
-            'properties': [
-                ('GID', 'int'),
-                ('AXIS', 'int:4'),
-                ('ROW', 'int:3'),
-                ('COL', 'int:3'),
-                ('M', 'float:10.2')
-            ]
-        }
-        crs = fiona.crs.from_epsg(2154)
-        options = dict(driver='ESRI Shapefile', crs=crs, schema=schema)
-        count = 0
-        dgos = list()
-
-        with fiona.open(output_units_shapefile, 'w', **options) as fst:
-            for polygon, gid in polygons:
-                
-                geom = asShape(polygon).buffer(0.0)
-                measure = float(dgo_measures[int(gid)])
-                feature = {
-                    'geometry': geom.__geo_interface__,
-                    'properties': {
-                        'GID': int(gid),
-                        'AXIS': axis,
-                        'ROW': row,
-                        'COL': col,
-                        'M': measure
-                    }
-                }
-                
-                fst.write(feature)
-                count += 1
-
-                dgos.append((measure, int(gid), axis, row, col))
-
-        # click.echo('Created %d DGOs' % count)
-        # click.echo('DGO Range = %d - %d' % (1, len(breaks)))
-        # click.echo('Measure Range =  %.0f - %.0f' % (np.min(breaks), np.max(breaks)))
-
-        return dgos
+        return calculate_attrs()
 
 def SpatialReference(axis, ax_tiles='ax_tiles', processes=1, **kwargs):
     """
@@ -330,7 +346,7 @@ def SpatialReference(axis, ax_tiles='ax_tiles', processes=1, **kwargs):
     create discrete longitudinal units along the reference axis
     """
 
-    parameters = DefaultParameters()
+    parameters = ValleyBottomParameters()
     parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
     kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
     params = SpatialReferenceParams(**parameters)
@@ -357,62 +373,292 @@ def SpatialReference(axis, ax_tiles='ax_tiles', processes=1, **kwargs):
                 kwargs
             )
 
+    g_attrs = dict()
+
+    def merge_bounds(bounds1, bounds2):
+
+        return (
+            min(bounds1[0], bounds2[0]),
+            min(bounds1[1], bounds2[1]),
+            max(bounds1[2], bounds2[2]),
+            max(bounds1[3], bounds2[3]),
+        )
+
+    def merge(attrs):
+
+        if not attrs:
+            # multiprocessing unpickles empty dict as list
+            return
+
+        g_attrs.update({
+            key: (
+                g_attrs[key][0],
+                merge_bounds(g_attrs[key][1], attrs[key][1])
+            )
+            for key in attrs.keys() & g_attrs.keys()
+        })
+
+        g_attrs.update({
+            key: (attrs[key][0], tuple(attrs[key][1]))
+            for key in attrs.keys() - g_attrs.keys()
+        })
+
     with Pool(processes=processes) as pool:
 
         pooled = pool.imap_unordered(starcall, arguments())
 
         with click.progressbar(pooled, length=length()) as iterator:
-            for _ in iterator:
-                pass
+            for attrs in iterator:
+                merge(attrs)
 
-def AggregateSpatialUnits(axis, ax_tiles='ax_tiles', **kwargs):
-    """
-    Aggregate units tiles together
-    """
+    return g_attrs
 
-    parameters = DefaultParameters()
+def ExportSpatialUnitDefs(axis, attrs, **kwargs):
+
+    parameters = ValleyBottomParameters()
     parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
     kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
     params = SpatialReferenceParams(**parameters)
 
-    output = config.filename(params.output_units_shapefile, axis=axis)
+    labels = np.array([label for label in attrs], dtype='uint32')
+    coordm = np.array([value[0] for value in attrs.values()], dtype='float32')
+    bounds = np.array([value[1] for value in attrs.values()], dtype='float32')
+
+    dataset = xr.Dataset(
+        {
+            'coordm': (('label',), coordm),
+            'bounds': (('label', 'coord'), bounds)
+        },
+        coords={
+            'axis': axis,
+            'label': labels,
+            'coord': ['minx', 'miny', 'maxx', 'maxy']
+        })
+
+    output = config.filename(params.output_swaths_defs, axis=axis)
+
+    dataset.to_netcdf(
+        output, 'w',
+        encoding={
+            'coordm': dict(zlib=True, complevel=9, least_significant_digit=0),
+            'bounds': dict(zlib=True, complevel=9, least_significant_digit=2),
+            'label': dict(zlib=True, complevel=9)
+        })
+
+    return dataset
+
+def ReadSpatialUnitDefs(axis, params):
+
+    filename = config.filename(params.output_swaths_defs, axis=axis)
+    dataset = xr.open_dataset(filename)
+    dataset.load()
+
+    dataset = dataset.sortby('coordm')
+
+    return {
+        dataset['label'].values[k]: (
+            dataset['coordm'].values[k],
+            tuple(dataset['bounds'].values[k, :]))
+        for k in range(dataset['label'].shape[0])
+    }
+
+def VectorizeContinuousUnit(axis, gid, coordm, bounds, params, **kwargs):
+    """
+    DOCME
+    """
+
+    tileset = config.tileset()
+
+    swath_raster = tileset.filename(params.output_swaths_raster, axis=axis)
+    # mask_raster = tileset.filename(params.ax_mask, axis=axis)
+    # distance_raster = tileset.filename(params.output_distance, axis=axis)
+    distance_raster = tileset.filename('ax_talweg_distance', axis=axis)
+
+    with rio.open(swath_raster) as ds:
+
+        window = as_window(bounds, ds.transform)
+        swath = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
+
+    with rio.open(distance_raster) as ds:
+
+        window = as_window(bounds, ds.transform)
+        distance = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
+
+        state = np.full_like(swath, 255, dtype='uint8')
+        state[swath == gid] = 0
+        state[(swath == gid) & (distance == 0)] = 1
+
+        height, width = state.shape
+
+        if height == 0 or width == 0:
+            click.secho('Invalid swath %d with height = %d and width = %d' % (gid, height, width), fg='red')
+            return gid, coordm, list()
+
+        # out = np.full_like(state, 255, dtype='uint32')
+        distance = np.zeros_like(state, dtype='float32')
+
+        speedup.continuity_mask(
+            state,
+            # out,
+            distance,
+            jitter=0.4)
+
+        # vectorize state => 0: outer space, 2: inner unit
+
+        transform = ds.transform * ds.transform.translation(
+            window.col_off,
+            window.row_off)
+
+        polygons = features.shapes(
+            state,
+            state != 255,
+            connectivity=8,
+            transform=transform)
+
+        return gid, coordm, list(polygons)
+
+def VectorizeContinuousAll(axis, processes=1, **kwargs):
+    """
+    Vectorize spatial units' polygons
+    """
+
+    parameters = ValleyBottomParameters()
+    parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
+    kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
+    params = SpatialReferenceParams(**parameters)
+
+    defs = ReadSpatialUnitDefs(axis, params)
+
+    def arguments():
+
+        for gid, (coordm, bounds) in defs.items():
+            yield (
+                VectorizeContinuousUnit,
+                axis,
+                gid,
+                coordm,
+                bounds,
+                params,
+                kwargs
+            )
+
+    output = config.filename(params.output_swaths_shapefile, axis=axis)
 
     schema = {
         'geometry': 'Polygon',
         'properties': [
             ('GID', 'int'),
             ('AXIS', 'int:4'),
-            ('ROW', 'int:3'),
-            ('COL', 'int:3'),
+            ('VALUE', 'int:4'),
+            # ('ROW', 'int:3'),
+            # ('COL', 'int:3'),
             ('M', 'float:10.2')
         ]
     }
     crs = fiona.crs.from_epsg(2154)
     options = dict(driver='ESRI Shapefile', crs=crs, schema=schema)
 
-    tilefile = config.tileset().filename(ax_tiles, axis=axis)
+    with fiona.open(output, 'w', **options) as dst:
 
-    with open(tilefile) as fp:
-        tiles = [tuple(int(x) for x in line.split(',')) for line in fp]
+        with Pool(processes=processes) as pool:
+
+            pooled = pool.imap_unordered(starcall, arguments())
+
+            with click.progressbar(pooled, length=len(defs)) as iterator:
+                for gid, coordm, polygons in iterator:
+                    for (polygon, value) in polygons:
+
+                        geom = asShape(polygon).buffer(0.0)
+
+                        feature = {
+                            'geometry': geom.__geo_interface__,
+                            'properties': {
+                                'GID': int(gid),
+                                'AXIS': axis,
+                                'VALUE': int(value),
+                                # 'ROW': row,
+                                # 'COL': col,
+                                'M': float(coordm)
+                            }
+                        }
+
+                        dst.write(feature)
+
+def VectorizeSpatialUnit(axis, gid, coordm, bounds, params):
+
+    tileset = config.tileset()
+
+    units_raster = tileset.filename(params.output_swaths_raster, axis=axis)
+
+    with rio.open(units_raster) as ds:
+
+        window = as_window(bounds, ds.transform)
+        swath = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
+
+        polygons = features.shapes(
+            swath,
+            swath > 0,
+            connectivity=8,
+            transform=ds.transform)
+
+        return gid, coordm, [polygon for polygon, gid in polygons]
+
+def Vectorize(axis, params, attrs, processes=1, **kwargs):
+    """
+    Vectorize spatial units' polygons
+    """
+
+    def arguments():
+
+        for gid, (coordm, bounds) in attrs.items():
+            yield (
+                VectorizeSpatialUnit,
+                axis,
+                gid,
+                coordm,
+                bounds,
+                kwargs
+            )
+
+    output = config.filename(params.output_swaths_shapefile, axis=axis)
+
+    schema = {
+        'geometry': 'Polygon',
+        'properties': [
+            ('GID', 'int'),
+            ('AXIS', 'int:4'),
+            # ('ROW', 'int:3'),
+            # ('COL', 'int:3'),
+            ('M', 'float:10.2')
+        ]
+    }
+    crs = fiona.crs.from_epsg(2154)
+    options = dict(driver='ESRI Shapefile', crs=crs, schema=schema)
 
     with fiona.open(output, 'w', **options) as dst:
-        with click.progressbar(tiles) as iterator:
 
-            for row, col in iterator:
+        with Pool(processes=processes) as pool:
 
-                shapefile = config.tileset().tilename(
-                    params.output_units_shapefile,
-                    axis=axis,
-                    row=row,
-                    col=col)
+            pooled = pool.imap_unordered(starcall, arguments())
 
-                if os.path.exists(shapefile):
+            with click.progressbar(pooled, length=len(attrs)) as iterator:
+                for gid, coordm, polygons in iterator:
+                    for polygon in polygons:
 
-                    with fiona.open(shapefile) as fs:
+                        geom = asShape(polygon).buffer(0.0)
 
-                        for feature in fs:
-                            feature['properties'].update(AXIS=axis)
-                            dst.write(feature)
+                        feature = {
+                            'geometry': geom.__geo_interface__,
+                            'properties': {
+                                'GID': int(gid),
+                                'AXIS': axis,
+                                # 'ROW': row,
+                                # 'COL': col,
+                                'M': coordm
+                            }
+                        }
+
+                        dst.write(feature)
 
 def MapReferencePoints(axis, row, col, points, referenceset='streams-tiled'):
     """
@@ -543,3 +789,125 @@ def MapReferencePoints(axis, row, col, points, referenceset='streams-tiled'):
                     }
                 }
                 fst.write(feature)
+
+# TODO Clean up dead code after this line
+
+def VectorizeSpatialUnitsByTile(axis, row, col, params, **kwargs):
+    """
+    DOCME
+    """
+
+    # click.echo('Vectorize DGOs')
+
+    tileset = config.tileset()
+
+    def _tilename(dataset):
+        return tileset.tilename(
+            dataset,
+            axis=axis,
+            row=row,
+            col=col)
+
+    output_swaths_raster = _tilename(params.output_swaths_raster)
+    output_swaths_shapefile = _tilename(params.output_swaths_shapefile)
+
+    with rio.open(output_swaths_raster) as ds:
+
+        dgo = ds.read(1)
+
+        polygons = features.shapes(
+            dgo,
+            dgo > 0,
+            connectivity=8,
+            transform=ds.transform)
+
+        schema = {
+            'geometry': 'Polygon',
+            'properties': [
+                ('GID', 'int'),
+                ('AXIS', 'int:4'),
+                ('ROW', 'int:3'),
+                ('COL', 'int:3'),
+                ('M', 'float:10.2')
+            ]
+        }
+        crs = fiona.crs.from_epsg(2154)
+        options = dict(driver='ESRI Shapefile', crs=crs, schema=schema)
+        count = 0
+        dgos = list()
+
+        with fiona.open(output_swaths_shapefile, 'w', **options) as fst:
+            for polygon, gid in polygons:
+                
+                geom = asShape(polygon).buffer(0.0)
+                measure = float(measures[int(gid)])
+                feature = {
+                    'geometry': geom.__geo_interface__,
+                    'properties': {
+                        'GID': int(gid),
+                        'AXIS': axis,
+                        'ROW': row,
+                        'COL': col,
+                        'M': measure
+                    }
+                }
+                
+                fst.write(feature)
+                count += 1
+
+                dgos.append((measure, int(gid), axis, row, col))
+
+        # click.echo('Created %d DGOs' % count)
+        # click.echo('DGO Range = %d - %d' % (1, len(breaks)))
+        # click.echo('Measure Range =  %.0f - %.0f' % (np.min(breaks), np.max(breaks)))
+
+        return dgos
+
+def AggregateSpatialUnits(axis, ax_tiles='ax_tiles', **kwargs):
+    """
+    Aggregate units tiles together
+    """
+
+    parameters = DefaultParameters()
+    parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
+    kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
+    params = SpatialReferenceParams(**parameters)
+
+    output = config.filename(params.output_swaths_shapefile, axis=axis)
+
+    schema = {
+        'geometry': 'Polygon',
+        'properties': [
+            ('GID', 'int'),
+            ('AXIS', 'int:4'),
+            ('ROW', 'int:3'),
+            ('COL', 'int:3'),
+            ('M', 'float:10.2')
+        ]
+    }
+    crs = fiona.crs.from_epsg(2154)
+    options = dict(driver='ESRI Shapefile', crs=crs, schema=schema)
+
+    tilefile = config.tileset().filename(ax_tiles, axis=axis)
+
+    with open(tilefile) as fp:
+        tiles = [tuple(int(x) for x in line.split(',')) for line in fp]
+
+    with fiona.open(output, 'w', **options) as dst:
+        with click.progressbar(tiles) as iterator:
+
+            for row, col in iterator:
+
+                shapefile = config.tileset().tilename(
+                    params.output_swaths_shapefile,
+                    axis=axis,
+                    row=row,
+                    col=col)
+
+                if os.path.exists(shapefile):
+
+                    with fiona.open(shapefile) as fs:
+
+                        for feature in fs:
+                            feature['properties'].update(AXIS=axis)
+                            dst.write(feature)

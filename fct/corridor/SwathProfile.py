@@ -17,6 +17,7 @@ import os
 from multiprocessing import Pool
 
 import numpy as np
+import xarray as xr
 import click
 
 import rasterio as rio
@@ -31,13 +32,17 @@ from ..tileio import as_window
 from .ransac import LinearModel, ransac
 from ..cli import starcall
 
-def TileCropInvalidRegions(axis, row, col):
+def TileCropInvalidRegions(axis, tile):
     """
     DOCME
     """
 
-    invalid_shapefile = config.filename('ax_dgo_invalid', axis=axis)
-    regions_raster = config.tileset().tilename('ax_swaths', axis=axis, row=row, col=col)
+    invalid_shapefile = config.filename('ax_valley_swaths_polygons', axis=axis)
+    regions_raster = config.tileset().tilename(
+        'ax_valley_swaths',
+        axis=axis,
+        row=tile.row,
+        col=tile.col)
 
     if not os.path.exists(regions_raster):
         return
@@ -53,48 +58,65 @@ def TileCropInvalidRegions(axis, row, col):
 
         def accept(feature):
             return all([
-                feature['properties']['AXIS'] == axis
+                feature['properties']['AXIS'] == axis,
+                feature['properties']['VALUE'] == 0
             ])
 
-        mask = features.rasterize(
-            [f['geometry'] for f in fs if accept(f)],
-            out_shape=data.shape,
-            transform=transform,
-            fill=0,
-            default_value=1,
-            dtype='uint8')
+        geometries = [
+            f['geometry'] for f in fs.filter(bbox=tile.bounds)
+            if accept(f)
+        ]
 
-    data[mask == 1] = nodata
+        if geometries:
 
-    with rio.open(regions_raster, 'w', **profile) as dst:
-        dst.write(data, 1)
+            mask = features.rasterize(
+                geometries,
+                out_shape=data.shape,
+                transform=transform,
+                fill=0,
+                default_value=1,
+                dtype='uint8')
+
+            data[mask == 1] = nodata
+
+            with rio.open(regions_raster, 'w', **profile) as dst:
+                dst.write(data, 1)
 
 def CropInvalidRegions(axis, processes=1, **kwargs):
 
-    tileindex = config.tileset().tileindex
+    # tileindex = config.tileset().tileindex
 
-    arguments = [
-        [TileCropInvalidRegions, axis, row, col, kwargs]
-        for row, col in tileindex
-    ]
+    tileset = config.tileset()
+
+    def arguments():
+
+        for tile in tileset.tiles():
+            yield (
+                TileCropInvalidRegions,
+                axis,
+                tile,
+                kwargs
+            )
 
     with Pool(processes=processes) as pool:
 
-        pooled = pool.imap_unordered(starcall, arguments)
-        with click.progressbar(pooled, length=len(arguments)) as iterator:
+        pooled = pool.imap_unordered(starcall, arguments())
+        with click.progressbar(pooled, length=len(tileset)) as iterator:
             for _ in iterator:
                 pass
 
-def UnitSwathProfile(axis, gid, bounds):
+def _UnitSwathProfile(axis, gid, bounds):
     """
     Calculate Elevation Swath Profile for Valley Unit (axis, gid)
     """
 
-    dgo_raster = config.filename('ax_swaths', axis=axis)
-    measure_raster = config.filename('ax_axis_measure', axis=axis)
-    distance_raster = config.filename('ax_axis_distance', axis=axis)
-    elevation_raster = config.filename('tiled')
-    relz_raster = config.filename('ax_relative_elevation', axis=axis)
+    tileset = config.tileset()
+    swath_raster = tileset.filename('ax_valley_swaths', axis=axis)
+    measure_raster = tileset.filename('ax_axis_measure', axis=axis)
+    distance_raster = tileset.filename('ax_axis_distance', axis=axis)
+    talweg_distance_raster = tileset.filename('ax_talweg_distance', axis=axis)
+    elevation_raster = tileset.filename('dem')
+    relz_raster = tileset.filename('ax_nearest_height', axis=axis)
 
     with rio.open(distance_raster) as ds:
 
@@ -102,80 +124,50 @@ def UnitSwathProfile(axis, gid, bounds):
         distance = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
 
         with rio.open(elevation_raster) as ds1:
-            window1 = as_window(bounds, ds1.transform)
-            elevations = ds1.read(1, window=window1, boundless=True, fill_value=ds1.nodata)
+            window = as_window(bounds, ds1.transform)
+            elevations = ds1.read(1, window=window, boundless=True, fill_value=ds1.nodata)
 
         with rio.open(measure_raster) as ds2:
+            window = as_window(bounds, ds2.transform)
             measure = ds2.read(1, window=window, boundless=True, fill_value=ds2.nodata)
 
         with rio.open(relz_raster) as ds3:
+            window = as_window(bounds, ds3.transform)
             relz = ds3.read(1, window=window, boundless=True, fill_value=ds3.nodata)
 
-        with rio.open(dgo_raster) as ds4:
+        with rio.open(swath_raster) as ds4:
+            window = as_window(bounds, ds4.transform)
             mask = (ds4.read(1, window=window, boundless=True, fill_value=ds4.nodata) == gid)
-            mask = mask & (elevations != ds1.nodata)
+
+        with rio.open(talweg_distance_raster) as ds5:
+            window = as_window(bounds, ds5.transform)
+            talweg_distance = ds5.read(1, window=window, boundless=True, fill_value=ds5.nodata)
+            mask1k = (talweg_distance >= -1000) & (talweg_distance <= 1000)
+            del talweg_distance
+
+        mask = mask & (elevations != ds1.nodata)
 
         assert(all([
-            distance.shape == elevations.shape,
-            measure.shape == elevations.shape,
-            relz.shape == elevations.shape,
-            mask.shape == elevations.shape
+            # distance.shape == elevations.shape,
+            measure.shape == distance.shape,
+            relz.shape == distance.shape,
+            mask.shape == distance.shape
         ]))
 
-        # Valley Bottom pixel area (to calculate areal width)
+        # Fit valley floor
 
-        heights = np.arange(5.0, 15.5, 0.5)
-        valley_area = np.zeros(len(heights), dtype='uint32')
-        
-        for k, h in enumerate(heights):
-            valley_area[k] = np.sum((mask == 1) & (relz <= h))
-
-        # Profile density
-
-        xbins = np.arange(np.min(distance[mask]), np.max(distance[mask]), 10.0)
-        binned = np.digitize(distance, xbins)
-        x = 0.5*(xbins[1:] + xbins[:-1])
-
-        density = np.zeros_like(x, dtype='int32')
-
-        for i in range(1, len(xbins)):
-            
-            density[i-1] = np.sum(mask & (binned == i))
-
-        # Absolute elevation swath profile
-
-        swath_absolute = np.full((len(xbins)-1, 5), np.nan, dtype='float32')
-
-        for i in range(1, len(xbins)):
-            
-            swath_elevations = elevations[mask & (binned == i)]
-            if swath_elevations.size:
-                swath_absolute[i-1, :] = np.percentile(swath_elevations, [5, 25, 50, 75, 95])
-
-        # Relative-to-stream elevation swath profile
-
-        swath_rel_stream = np.full((len(xbins)-1, 5), np.nan, dtype='float32')
-
-        for i in range(1, len(xbins)):
-
-            swath_elevations = relz[mask & (relz != ds3.nodata) & (binned == i)]
-            if swath_elevations.size:
-                swath_rel_stream[i-1, :] = np.percentile(swath_elevations, [5, 25, 50, 75, 95])
-
-        # Relative-to-valley-floor elevation swath profile
-
-        swath_rel_valley = np.full((len(xbins)-1, 5), np.nan, dtype='float32')
         slope = np.nan
         z0 = np.nan
+        with_valley_floor_estimates = False
 
         def fit_valley_floor(fit_mask=None, error_threshold=1.0, iterations=100):
 
             nonlocal slope, z0
 
             if fit_mask is None:
-                mask0 = mask
+                mask0 = mask & mask1k
             else:
-                mask0 = mask & fit_mask
+                mask0 = mask & mask1k & fit_mask
 
             size = elevations.shape[0]*elevations.shape[1]
             matrix = np.stack([
@@ -191,25 +183,85 @@ def UnitSwathProfile(axis, gid, bounds):
 
             relative = elevations - (z0 + slope*measure)
 
-            for i in range(1, len(xbins)):
-
-                swath_elevations = relative[mask & (binned == i)]
-                if swath_elevations.size:
-                    swath_rel_valley[i-1, :] = np.percentile(swath_elevations, [5, 25, 50, 75, 95])
+            return relative
 
         try:
 
-            fit_valley_floor()            
+            relative = fit_valley_floor()
+            with_valley_floor_estimates = True            
 
         except RuntimeError:
 
             try:
 
-                fit_valley_floor(fit_mask=(relz <= 10.0))
+                relative = fit_valley_floor(fit_mask=(relz <= 10.0))
+                with_valley_floor_estimates = True
 
             except RuntimeError:
 
-                swath_rel_valley = np.array([])
+                with_valley_floor_estimates = False
+
+        # Valley Bottom pixel area (to calculate areal width)
+
+        heights = np.arange(5.0, 15.5, 0.5)
+        valley_area = np.zeros(len(heights), dtype='uint32')
+
+        for k, h in enumerate(heights):
+            valley_area[k] = np.sum((mask == 1) & (relz <= h))
+
+        # Swath bins
+        xmin = np.min(distance[mask])
+        xmax = np.max(distance[mask])
+
+        if (xmax - xmin) < 2000.0:
+            xbins = np.arange(xmin, xmax + 10.0, 10.0)
+        else:
+            xbins = np.linspace(xmin, xmax, 200)
+
+        binned = np.digitize(distance, xbins)
+        x = 0.5*(xbins[1:] + xbins[:-1])
+
+        # Profile density
+        density = np.zeros_like(x, dtype='int32')
+
+        # Absolute elevation swath profile
+        swath_absolute = np.full((len(xbins)-1, 5), np.nan, dtype='float32')
+
+        # Relative-to-stream elevation swath profile
+        swath_rel_stream = np.full((len(xbins)-1, 5), np.nan, dtype='float32')
+
+        # Relative-to-valley-floor elevation swath profile
+        swath_rel_valley = np.full((len(xbins)-1, 5), np.nan, dtype='float32')
+
+        maskrelz = (relz != ds3.nodata)
+
+        for i in range(1, len(xbins)):
+            
+            maski = mask & (binned == i)
+            density[i-1] = np.sum(maski)
+
+        # for i in range(1, len(xbins)):
+            
+            swath_elevations = elevations[maski]
+            if swath_elevations.size:
+                swath_absolute[i-1, :] = np.percentile(swath_elevations, [5, 25, 50, 75, 95])
+
+        # for i in range(1, len(xbins)):
+
+            swath_elevations = relz[maski & maskrelz]
+            if swath_elevations.size:
+                swath_rel_stream[i-1, :] = np.percentile(swath_elevations, [5, 25, 50, 75, 95])
+
+        # for i in range(1, len(xbins)):
+
+            if with_valley_floor_estimates:
+
+                swath_elevations = relative[maski]
+                if swath_elevations.size:
+                    swath_rel_valley[i-1, :] = np.percentile(swath_elevations, [5, 25, 50, 75, 95])
+
+        if not with_valley_floor_estimates:
+            swath_rel_valley = np.array([])
 
         values = dict(
             x=x,
@@ -224,12 +276,22 @@ def UnitSwathProfile(axis, gid, bounds):
 
         return axis, gid, values
 
+def UnitSwathProfile(axis, gid, bounds):
+
+    try:
+
+        return _UnitSwathProfile(axis, gid, bounds)
+
+    except ValueError:
+
+        return axis, gid, None
+
 def UnitSwathAxis(axis, gid, m0, bounds):
     """
     DOCME
     """
 
-    dgo_raster = config.filename('ax_swaths', axis=axis)
+    dgo_raster = config.filename('ax_valley_swaths', axis=axis)
     measure_raster = config.filename('ax_axis_measure', axis=axis)
     distance_raster = config.filename('ax_axis_distance', axis=axis)
     measure_weight = 0.8
@@ -275,12 +337,14 @@ def UnitSwathAxis(axis, gid, m0, bounds):
 
 def SwathProfiles(axis, processes=1):
 
-    dgo_shapefile = config.filename('ax_swath_features', axis=axis)
+    swath_shapefile = config.filename('ax_valley_swaths_polygons', axis=axis)
+    swath_defs = config.filename('ax_valley_swaths_defs', axis=axis)
     relative_errors = 0
+    invalid_swaths = 0
 
     if processes == 1:
 
-        with fiona.open(dgo_shapefile) as fs:
+        with fiona.open(swath_shapefile) as fs:
             with click.progressbar(fs) as iterator:
                 for feature in iterator:
 
@@ -302,28 +366,61 @@ def SwathProfiles(axis, processes=1):
     else:
 
         kwargs = dict()
-        profiles = dict()
-        arguments = list()
+        # profiles = dict()
+        # arguments = list()
 
-        with fiona.open(dgo_shapefile) as fs:
-            for feature in fs:
+        # with fiona.open(swath_shapefile) as fs:
+        #     for feature in fs:
 
-                gid = feature['properties']['GID']
-                measure = feature['properties']['M']
-                geometry = asShape(feature['geometry'])
+        #         if feature['properties']['VALUE'] == 2:
 
-                profiles[axis, gid] = [axis, gid, measure]
-                arguments.append([UnitSwathProfile, axis, gid, geometry.bounds, kwargs])
+        #             gid = feature['properties']['GID']
+        #             measure = feature['properties']['M']
+        #             geometry = asShape(feature['geometry'])
+
+        #             profiles[axis, gid] = [axis, gid, measure]
+        #             arguments.append([UnitSwathProfile, axis, gid, geometry.bounds, kwargs])
+
+
+        defs = xr.open_dataset(swath_defs)
+        defs.load()
+        defs = defs.sortby('coordm')
+
+        length = defs['label'].shape[0] - 314
+
+        def arguments():
+
+            for k in range(length):
+
+                gid = defs['label'].values[k]
+                bounds = tuple(defs['bounds'].values[k, :])
+
+                if gid < 314:
+                    continue
+
+                yield (
+                    UnitSwathProfile,
+                    axis,
+                    gid,
+                    bounds,
+                    kwargs
+                )
 
         with Pool(processes=processes) as pool:
 
-            pooled = pool.imap_unordered(starcall, arguments)
+            pooled = pool.imap_unordered(starcall, arguments())
 
-            with click.progressbar(pooled, length=len(arguments)) as iterator:
+            with click.progressbar(pooled, length=length) as iterator:
 
                 for _, gid, values in iterator:
 
-                    profile = profiles[axis, gid]
+                    # profile = profiles[axis, gid]
+                    measure = defs['coordm'].sel(label=gid).values
+                    profile = [axis, gid, measure]
+
+                    if values is None:
+                        invalid_swaths += 1
+                        continue
 
                     if values['havf'].size == 0:
                         relative_errors += 1
@@ -335,8 +432,11 @@ def SwathProfiles(axis, processes=1):
                         profile=profile,
                         **values)
 
+    if invalid_swaths:
+        click.secho('%d invalid swath units' % invalid_swaths, fg='yellow')
+
     if relative_errors:
-        click.secho('%d DGO without relative-to-valley-bottom profile' % relative_errors, fg='yellow')
+        click.secho('%d swath units without relative-to-valley-bottom profile' % relative_errors, fg='yellow')
 
 def SwathAxes(axis, processes=1):
 

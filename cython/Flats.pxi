@@ -121,10 +121,12 @@ def flat_labels(
 def flat_boxes(Label[:, :] labels):
     """
     DOCME
+    TODO rename flat_boxes => Raster/region_boxes
     """
 
     cdef:
 
+        # TODO long => Py_ssize_t
         long height = labels.shape[0], width = labels.shape[1]
         long i, j
         Label label

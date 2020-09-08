@@ -102,6 +102,32 @@ ax_continuity_variant:
     template: LANDCOVER_CONTINUITY_%(variant)s_%(row)02d_%(col)02d
     extension: .tif
 
+ax_valley_mask:
+  description: |
+    Valley mask from nearest height raster
+  type: raster
+  group: corridor
+  status: temporary
+  subdir: AXES/AX%(axis)04d/TEMP
+  filename: VALLEY_MASK.vrt
+  tiles:
+    tileset: landcover
+    template: VALLEY_MASK_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_corridor_mask:
+  description: |
+    Corridor mask from landcover continuity
+  type: raster
+  group: corridor
+  status: final
+  subdir: AXES/AX%(axis)04d
+  filename: CORRIDOR_MASK.vrt
+  tiles:
+    tileset: landcover
+    template: CORRIDOR_MASK_%(row)02d_%(col)02d
+    extension: .tif
+
 ax_natural_corridor:
   description: |
     Natural corridor in continuity with river channel

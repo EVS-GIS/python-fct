@@ -185,6 +185,65 @@ def disaggregate():
     Disaggregate spatial object into longitudinal units
     """
 
+@disaggregate.command('valleybottom')
+@click.argument('axis', type=int)
+@click.option('--length', default=200.0, help='unit length / disaggregation step')
+@click.option('--buf', default=40.0, help='buffer width in pixels')
+@parallel_opt
+def disaggregate_valley_bottom(axis, length, buf, processes):
+    """
+    Disaggregate valley bottom (from nearest height raster)
+    into longitudinal units
+    """
+
+    # pylint: disable=import-outside-toplevel
+
+    from .RasterBuffer import HANDBuffer
+
+    from ..metrics.SpatialReferencing import (
+        SpatialReference,
+        ValleyBottomParameters,
+        ExportSpatialUnitDefs,
+        VectorizeContinuousAll
+    )
+
+    config.default()
+
+    parameters = ValleyBottomParameters()
+    parameters.update(mdelta=length, ax_tiles='ax_shortest_tiles')
+
+    start_time = PrintCommandInfo('valley bottom disaggregation', axis, processes, parameters)
+
+    click.secho('Create valley bottom mask with buffer', fg='cyan')
+    HANDBuffer(axis, buf, ax_tiles=parameters['ax_tiles'], processes=processes)
+
+    elapsed = time.time() - start_time
+    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
+    click.secho('Disaggregate valley bottom', fg='cyan')
+    swaths = SpatialReference(
+        axis=axis,
+        processes=processes,
+        **parameters)
+
+    ExportSpatialUnitDefs(axis, swaths, **parameters)
+
+    elapsed = time.time() - start_time
+    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
+    buildvrt('default', 'ax_valley_swaths', axis=axis)
+    buildvrt('default', 'ax_axis_measure', axis=axis)
+    buildvrt('default', 'ax_axis_distance', axis=axis)
+
+    click.secho('Polygonize spatial units', fg='cyan')
+    VectorizeContinuousAll(
+        axis=axis,
+        processes=processes,
+        **parameters)
+
+    elapsed = time.time() - start_time
+    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
 @disaggregate.command('natural')
 @click.argument('axis', type=int)
 @click.option('--length', default=200.0, help='unit length / disaggregation step')

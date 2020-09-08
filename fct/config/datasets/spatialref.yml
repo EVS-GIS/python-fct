@@ -98,7 +98,81 @@ ax_talweg_measure:
     template: TALWEG_MEASURE_%(row)02d_%(col)02d
     extension: .tif
 
-ax_natural_corridor_units_raster:
+ax_valley_swaths:
+  description: |
+    Valley bottom longitudinal units
+    (raster intermediate result)
+  type: raster
+  group: spatial reference
+  status: temporary
+  subdir: AXES/AX%(axis)04d/TEMP
+  filename: VALLEY_SWATHS.vrt
+  tiles:
+    tileset: landcover
+    template: VALLEY_SWATHS_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_valley_swaths_polygons:
+  description: |
+    Valleu bottom longitudinal units
+  type: polygon
+  group: spatial reference
+  status: final
+  subdir: AXES/AX%(axis)04d/REF
+  filename: VALLEY_SWATHS.shp
+  tiles:
+    tileset: landcover
+    template: VALLEY_SWATHS_%(row)02d_%(col)02d
+    extension: .shp
+
+ax_valley_swaths_defs:
+  description: |
+    coordinate and bounds of valley bottom
+    spatial units (after disaggregation)
+  type: netcdf
+  group: spatial reference
+  status: temporary
+  subdir: AXES/AX%(axis)04d/TEMP
+  filename: VALLEY_SWATHS.nc
+
+ax_corridor_swaths:
+  description: |
+    Natural corridor longitudinal units
+    (raster intermediate result)
+  type: raster
+  group: spatial reference
+  status: temporary
+  subdir: AXES/AX%(axis)04d/TEMP
+  filename: CORRIDOR_SWATHS.vrt
+  tiles:
+    tileset: landcover
+    template: CORRIDOR_SWATHS_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_corridor_swaths_polygons:
+  description: |
+    Natural corridor longitudinal units
+  type: polygon
+  group: spatial reference
+  status: final
+  subdir: AXES/AX%(axis)04d/REF
+  filename: CORRIDOR_SWATHS.shp
+  tiles:
+    tileset: landcover
+    template: CORRIDOR_SWATHS_%(row)02d_%(col)02d
+    extension: .shp
+
+ax_corridor_swaths_defs:
+  description: |
+    coordinate and bounds of fluvial corridor
+    spatial units (after disaggregation)
+  type: netcdf
+  group: spatial reference
+  status: temporary
+  subdir: AXES/AX%(axis)04d/TEMP
+  filename: CORRIDOR_SWATHS.nc
+
+ax_natural_corridor_swaths:
   description: |
     Natural corridor longitudinal units
     (raster intermediate result)
@@ -113,7 +187,7 @@ ax_natural_corridor_units_raster:
     template: NATURAL_CORRIDOR_UNITS_%(row)02d_%(col)02d
     extension: .tif
 
-ax_natural_corridor_units:
+ax_natural_corridor_swaths_polygons:
   description: |
     Natural corridor longitudinal units
   type: polygon
