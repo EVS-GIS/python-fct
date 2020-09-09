@@ -79,6 +79,7 @@ setup(
             fct-drainage=fct.drainage.Command:cli
             fct-corridor=fct.corridor.Command:cli
             fct-metrics=fct.metrics.Command:cli
+            fct-plot=fct.plotting.Command:cli
     ''',
     classifiers=[
         'Development Status :: 4 - Beta',

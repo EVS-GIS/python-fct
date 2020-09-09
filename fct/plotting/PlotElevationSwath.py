@@ -85,7 +85,7 @@ def plot_swath(x, swath, ylabel=None, title=None, filename=None):
         plt.savefig(filename, format='png', dpi=300)
         plt.clf()
 
-def PlotSwath(axis, gid, kind='absolute', output=None):
+def PlotSwath(axis, gid, kind='absolute', clip=None, output=None):
 
     # filename = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'SWATH', 'ELEVATION', 'SWATH_%04d.npz' % gid)
 
@@ -122,6 +122,10 @@ def PlotSwath(axis, gid, kind='absolute', output=None):
                 click.secho('Using relative-to-nearest-drainage profile', fg='yellow')
                 swath = data['hand']
 
+        if clip and clip > 0:
+            hand = data['hand']
+            swath[hand > clip] = np.nan
+
         if swath.shape[0] == x.shape[0]:
             title = 'Swath Profile #%d, PK %.1f km' % (gid, measure / 1000.0)
             if output is True:
@@ -132,9 +136,8 @@ def PlotSwath(axis, gid, kind='absolute', output=None):
                     gid=gid,
                     kind=kind.upper())
 
-            print(x.shape)
-            print(swath.shape)
-
             plot_swath(-x, swath, ylabel, title, output)
+        
         else:
+        
             click.secho('Invalid swath data')
