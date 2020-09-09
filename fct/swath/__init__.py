@@ -1,7 +1,7 @@
 # coding: utf-8
 
 """
-Plotting & Data Vizualization
+Swath Profiles
 
 ***************************************************************************
 *                                                                         *
