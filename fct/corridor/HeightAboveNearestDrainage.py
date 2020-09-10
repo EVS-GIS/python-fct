@@ -31,7 +31,7 @@ from .. import terrain_analysis as ta
 from .. import speedup
 from ..config import config
 from ..rasterize import rasterize_linestringz
-from ..metrics import nearest_value_and_distance
+from ..swath import nearest_value_and_distance
 from ..cli import starcall
 
 HandParams = namedtuple('HandParams', [
@@ -103,7 +103,8 @@ def HeightAboveNearestDrainageTile(
         def accept_pixel(i, j):
             return all([i >= -height, i < 2*height, j >= -width, j < 2*width])
 
-        coord = itemgetter(0, 1, 2)
+        # coord = itemgetter(0, 1, 2)
+        coord = itemgetter(0, 1)
         unique = set()
 
         with rio.open(elevation_raster) as ds2:
@@ -116,7 +117,7 @@ def HeightAboveNearestDrainageTile(
                     if accept(feature):
 
                         coordinates = np.array([
-                            coord(p) for p in feature['geometry']['coordinates']
+                            coord(p) + (0.0, ) for p in feature['geometry']['coordinates']
                         ], dtype='float32')
 
                         # override z from elevation raster

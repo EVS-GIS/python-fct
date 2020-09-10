@@ -115,6 +115,19 @@ ax_valley_mask:
     template: VALLEY_MASK_%(row)02d_%(col)02d
     extension: .tif
 
+ax_valley_mask_refined:
+  description: |
+    Valley mask from nearest height raster
+  type: raster
+  group: corridor
+  status: final
+  subdir: AXES/AX%(axis)04d
+  filename: VALLEY_MASK2.vrt
+  tiles:
+    tileset: landcover
+    template: VALLEY_MASK2_%(row)02d_%(col)02d
+    extension: .tif
+
 ax_corridor_mask:
   description: |
     Corridor mask from landcover continuity

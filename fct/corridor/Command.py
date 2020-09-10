@@ -200,7 +200,7 @@ def disaggregate_valley_bottom(axis, length, buf, processes):
 
     from .RasterBuffer import HANDBuffer
 
-    from ..metrics.SpatialReferencing import (
+    from ..swath.SpatialReferencing import (
         SpatialReference,
         ValleyBottomParameters,
         ExportSpatialUnitDefs,
@@ -254,7 +254,7 @@ def disaggregate_natural(axis, length, processes):
     """
 
     # pylint: disable=import-outside-toplevel
-    from ..metrics.SpatialReferencing import (
+    from ..swath.SpatialReferencing import (
         SpatialReference,
         AggregateSpatialUnits,
         NaturalCorridorParameters

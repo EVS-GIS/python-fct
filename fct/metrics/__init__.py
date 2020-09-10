@@ -12,5 +12,3 @@ Metrics Extraction Procedures
 *                                                                         *
 ***************************************************************************
 """
-
-from .SpatialReferencing import nearest_value_and_distance

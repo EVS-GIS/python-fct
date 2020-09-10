@@ -386,7 +386,7 @@ def SwathProfiles(axis, processes=1):
         defs.load()
         defs = defs.sortby('coordm')
 
-        length = defs['label'].shape[0] - 314
+        length = defs['label'].shape[0]
 
         def arguments():
 
@@ -395,8 +395,8 @@ def SwathProfiles(axis, processes=1):
                 gid = defs['label'].values[k]
                 bounds = tuple(defs['bounds'].values[k, :])
 
-                if gid < 314:
-                    continue
+                # if gid < 314:
+                #     continue
 
                 yield (
                     UnitSwathProfile,

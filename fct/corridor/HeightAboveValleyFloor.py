@@ -24,10 +24,9 @@ import rasterio as rio
 import fiona
 import fiona.crs
 
-
 from .. import transform as fct
 from ..config import config
-from ..metrics import nearest_value_and_distance
+from ..swath import nearest_value_and_distance
 from ..cli import starcall
 
 DatasetParameter = namedtuple('DatasetParameter', [
@@ -111,11 +110,11 @@ def HeightAboveValleyFloorTile(
 def HeightAboveValleyFloor(
         axis,
         processes=1,
-        ax_tiles='ax_tiles',
+        ax_tiles='ax_shortest_tiles',
         tileset='default',
         elevation='dem',
         valley_floor='ax_refaxis_valley_profile',
-        mask='ax_valley_bottom',
+        mask='ax_valley_mask',
         height='ax_valley_height',
         **kwargs):
     """
@@ -188,13 +187,13 @@ def HeightAboveValleyFloor(
         height=height
     )
 
-    tilefile = config.filename(ax_tiles, axis=axis, **kwargs)
+    tilefile = config.tileset().filename(ax_tiles, axis=axis, **kwargs)
 
     def arguments():
 
         with open(tilefile) as fp:
             for line in fp:
-                _, row, col = tuple(int(x) for x in line.split(','))
+                row, col = tuple(int(x) for x in line.split(','))
                 yield (
                     HeightAboveValleyFloorTile,
                     axis,

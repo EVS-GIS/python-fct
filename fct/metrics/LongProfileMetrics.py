@@ -216,7 +216,7 @@ def MetricSlopes(axis, **kwargs):
     swath_raster = config.filename('ax_swaths', axis=axis, **kwargs)
     swath_features = config.filename('ax_swath_features', axis=axis, **kwargs)
 
-    all_coordinates = np.zeros((0,2), dtype='float32')
+    all_coordinates = np.zeros((0, 2), dtype='float32')
     z = np.array([])
     m = np.array([])
     swathid = np.array([])

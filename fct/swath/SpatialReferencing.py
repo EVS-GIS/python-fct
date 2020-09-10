@@ -868,7 +868,7 @@ def AggregateSpatialUnits(axis, ax_tiles='ax_tiles', **kwargs):
     Aggregate units tiles together
     """
 
-    parameters = DefaultParameters()
+    parameters = ValleyBottomParameters()
     parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
     kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
     params = SpatialReferenceParams(**parameters)
