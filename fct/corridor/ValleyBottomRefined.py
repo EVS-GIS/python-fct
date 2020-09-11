@@ -237,6 +237,7 @@ def ValleyMaskTile(axis, row, col):
 
     with rio.open(swath_raster) as ds:
         swaths = ds.read(1)
+        swath_nodata = ds.nodata
 
     with rio.open(hand_raster) as ds:
 
@@ -247,7 +248,7 @@ def ValleyMaskTile(axis, row, col):
 
         for swid in np.unique(swaths):
 
-            if swid in (0, nodata):
+            if swid == swath_nodata:
                 continue
 
             try:

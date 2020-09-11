@@ -29,7 +29,7 @@ from shapely.geometry import asShape
 from .. import transform as fct
 from ..config import config
 from ..tileio import as_window
-from .ransac import LinearModel, ransac
+from ..ransac import LinearModel, ransac
 from ..cli import starcall
 
 def TileCropInvalidRegions(axis, tile):

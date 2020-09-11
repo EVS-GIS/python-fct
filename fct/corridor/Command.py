@@ -16,6 +16,7 @@ from ..cli import parallel_opt
 from ..cli.Decorators import pretty_time_delta
 from ..tileio import buildvrt
 
+# pylint: disable=import-outside-toplevel
 
 def PrintCommandInfo(command, axis, processes, parameters):
     """
@@ -33,13 +34,16 @@ def PrintCommandInfo(command, axis, processes, parameters):
     click.secho('# of tiles     : %d' % len(tileset))
 
     click.secho('--%16s:' % 'Parameters', fg='cyan')
-    click.secho('  %16s: %d' % ('axis', axis))
+
+    if axis:
+        click.secho('  %16s: %d' % ('axis', axis))
 
     for parameter, value in parameters.items():
         click.echo('  %16s: %s' % (parameter, value))
 
-    click.secho('-- Start time     : %s' % datetime.fromtimestamp(start_time))
-    click.secho('Running %d processes' % processes, fg='yellow')
+    if processes > 0:
+        click.secho('-- Start time     : %s' % datetime.fromtimestamp(start_time))
+        click.secho('Running %d processes' % processes, fg='yellow')
 
     return start_time
 
@@ -48,6 +52,19 @@ def cli():
     """
     Fluvial corridor delineation module
     """
+
+@cli.command('setup')
+def setup_axes():
+    """
+    Create axes subdirectory
+    and copy input data for each axis.
+    """
+
+    from .SetupAxes import SetupAxes
+
+    config.default()
+    PrintCommandInfo('setup axes data', None, 0, dict())
+    SetupAxes()
 
 @cli.command()
 @click.argument('axis', type=int)
@@ -89,7 +106,6 @@ def hand(axis, vrt, processes):
     (height above nearest drainage)
     """
 
-    # pylint: disable=import-outside-toplevel
     from .HeightAboveNearestDrainage import (
         HeightAboveNearestDrainage,
         HeightAboveTalwegDefaultParameters
@@ -109,6 +125,24 @@ def hand(axis, vrt, processes):
         click.secho('Building output VRTs', fg='cyan')
         buildvrt('default', parameters['height'], axis=axis)
         buildvrt('default', parameters['distance'], axis=axis)
+
+@cli.command('cliphand')
+@click.argument('axis', type=int)
+@parallel_opt
+def clip_hand(axis, processes):
+    """
+    Clip height above threshold in HAND raster
+    """
+
+    from .HeightAboveNearestDrainage import ClipHeight
+
+    config.default()
+    start_time = PrintCommandInfo('height above nearest drainage', axis, processes, {})
+
+    ClipHeight(axis, processes=processes)
+
+    elapsed = time.time() - start_time
+    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
 
 @cli.command()
 @click.argument('axis', type=int)

@@ -18,7 +18,7 @@ import click
 from ..config import config
 from .LandCover import MkLandCoverTiles
 from .Population import DisaggregatePopulation
-from .SubGrid import (
+from ..subgrid.SubGrid import (
     DefineSubGridMask,
     AggregatePopulation,
     AggregateLandCover,
