@@ -69,7 +69,8 @@ setup(
         'fiona>=1.8.6',
         'shapely>=1.7',
         'pyyaml>=5.3',
-        'Click>=7.0'
+        'Click>=7.0',
+        'dotenv'
     ],
     entry_points='''
         [console_scripts]

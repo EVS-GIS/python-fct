@@ -281,6 +281,7 @@ def test(axis=2):
     # pylint: disable=import-outside-toplevel
     import matplotlib.pyplot as plt
     import seaborn as sbn
+    from ..plotting.Command import SetupMeasureAxis, SetupPlot, FinalizePlot
 
     config.default()
     medialaxis = ValleyMedialAxis(axis, processes=6)
@@ -290,5 +291,11 @@ def test(axis=2):
     transformed = unproject(axis, np.column_stack([smoothed.measure, smoothed.dist]))
     ExportValleyMedialAxisToShapefile(axis, transformed[~np.isnan(transformed[:, 1])])
 
-    plt.plot(smoothed.measure, smoothed.dist)
-    plt.show()
+    # plt.plot(smoothed.measure, smoothed.dist)
+    # plt.show()
+
+    fig, ax = SetupPlot()
+    ax.plot(smoothed.measure, smoothed.dist)
+    ax.set_ylabel('Distance to reference axis (m)')
+    SetupMeasureAxis(ax, smoothed.measure)
+    FinalizePlot(fig, ax, title='Valley medial axis offset')

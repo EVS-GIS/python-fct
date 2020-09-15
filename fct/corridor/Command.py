@@ -6,9 +6,11 @@ Command Line Interface for Corridor Module
 
 import os
 import glob
+import multiprocessing as mp
 import time
 from datetime import datetime
 import click
+from dotenv import load_dotenv, find_dotenv
 
 from .. import __version__ as version
 from ..config import config
@@ -47,11 +49,80 @@ def PrintCommandInfo(command, axis, processes, parameters):
 
     return start_time
 
+def setup_config_from_env(ctx, param, value):
+
+    if value is None or ctx.resilient_parsing:
+        return False
+
+    if value is True:
+
+        loaded = load_dotenv(find_dotenv())
+
+        if not loaded:
+            click.echo('No .env file')
+
+    return value
+
+def setup_config(ctx, param, value):
+
+    if ctx.resilient_parsing:
+        return
+
+    if value is None:
+
+        if ctx.params['env'] is True:
+
+            click.echo('Setup configuration from .env')
+            return value
+
+        click.echo('Using default configuration')
+        return value
+
+    click.echo('Read configuration from %s' % value)
+    return value
+
 @click.group()
-def cli():
+@click.option(
+    '--env',
+    is_flag=True,
+    default=False,
+    expose_value=True,
+    callback=setup_config_from_env,
+    help='Setup configuration from .env')
+@click.option(
+    '--config', '-c',
+    type=click.Path(file_okay=True, dir_okay=False, exists=True),
+    expose_value=False,
+    callback=setup_config,
+    help='Read configuration from provided file')
+def cli(env):
     """
     Fluvial corridor delineation module
     """
+
+def set_processes_auto(ctx, param, value):
+    """
+    Callback for --processes option.
+    Set default to mp.cpu_count()
+    """
+
+    if value is None or ctx.resilient_parsing:
+        return
+
+    if value == 0:
+        return mp.cpu_count()
+
+    return value
+
+@cli.command()
+@click.option(
+    '--processes', '-j',
+    default=0,
+    callback=set_processes_auto,
+    help="Execute j parallel processes")
+def test(processes):
+
+    click.echo('Processes = %d' % processes)
 
 @cli.command('setup')
 def setup_axes():

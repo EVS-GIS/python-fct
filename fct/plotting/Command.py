@@ -112,6 +112,8 @@ def plot_valley_elevation_profile(axis, filename):
     Idealized valley elevation profile
     """
 
+    # from ..corridor.ValleyElevationProfile import ValleySwathElevation
+
     config.default()
 
     if filename is None:
@@ -127,6 +129,10 @@ def plot_valley_elevation_profile(axis, filename):
     y = data['z']
 
     fig, ax = SetupPlot()
+
+    # _, values = ValleySwathElevation(axis)
+    # ax.plot(values[:, 0], values[:, 1], 'darkgray', linewidth=0.8)
+    
     ax.plot(x, y)
     ax.set_ylabel('Elevation (m NGF)')
     SetupMeasureAxis(ax, x)
