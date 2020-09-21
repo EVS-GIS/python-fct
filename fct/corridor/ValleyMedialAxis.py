@@ -141,7 +141,7 @@ def SwathMedialAxis(axis, swid, coordm, bounds, long_length, resolution):
 
         xk = coordm
         yk = np.median(yclamp)
-        points.append((xk, yk)) # TODO get world x, y from xk, yk
+        points.append((xk, yk))
 
     return points
 
@@ -279,8 +279,6 @@ def ExportValleyMedialAxisToShapefile(axis, transformed):
 def test(axis=2):
 
     # pylint: disable=import-outside-toplevel
-    import matplotlib.pyplot as plt
-    import seaborn as sbn
     from ..plotting.Command import SetupMeasureAxis, SetupPlot, FinalizePlot
 
     config.default()

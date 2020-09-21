@@ -1,7 +1,7 @@
 # coding: utf-8
 
 """
-Elevation & Land Cover Swath Profiles
+Land Cover / Lateral Continuity Analysis
 
 ***************************************************************************
 *                                                                         *

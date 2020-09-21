@@ -98,76 +98,76 @@ def RasterBuffer(axis, buffer_width, ax_tiles='ax_tiles', processes=1, **kwargs)
             for _ in iterator:
                 pass
 
-def HANDBufferTile(axis, row, col, buffer_width, **kwargs):
+# def HANDBufferTile(axis, row, col, buffer_width, **kwargs):
 
-    tileset = config.tileset()
+#     tileset = config.tileset()
 
-    def _tilename(dataset):
-        return tileset.tilename(
-            dataset,
-            axis=axis,
-            row=row,
-            col=col)
+#     def _tilename(dataset):
+#         return tileset.tilename(
+#             dataset,
+#             axis=axis,
+#             row=row,
+#             col=col)
 
-    data_raster = _tilename('ax_nearest_height')
-    output = _tilename('ax_valley_mask')
+#     data_raster = _tilename('ax_nearest_height')
+#     output = _tilename('ax_valley_mask')
 
-    def create_mask(data):
+#     def create_mask(data):
 
-        mask = np.float32(data <= 12.0)
-        mask[data == ds.nodata] = 0
+#         mask = np.float32(data <= 12.0)
+#         mask[data == ds.nodata] = 0
 
-        return mask
+#         return mask
 
-    with rio.open(data_raster) as ds:
+#     with rio.open(data_raster) as ds:
 
-        # click.echo('Read Valley Bottom')
+#         # click.echo('Read Valley Bottom')
 
-        # valley_bottom = speedup.raster_buffer(ds.read(1), ds.nodata, 6.0)
-        data = ds.read(1)
-        mask = create_mask(data)
-        speedup.raster_buffer(mask, 0, buffer_width, 1)
+#         # valley_bottom = speedup.raster_buffer(ds.read(1), ds.nodata, 6.0)
+#         data = ds.read(1)
+#         mask = create_mask(data)
+#         speedup.raster_buffer(mask, 0, buffer_width, 1)
 
-        data[mask == 0] = ds.nodata
+#         data[mask == 0] = ds.nodata
 
-        profile = ds.profile.copy()
-        profile.update(compress='deflate')
+#         profile = ds.profile.copy()
+#         profile.update(compress='deflate')
 
-        with rio.open(output, 'w', **profile) as dst:
-            dst.write(data, 1)
+#         with rio.open(output, 'w', **profile) as dst:
+#             dst.write(data, 1)
 
-def HANDBuffer(axis, buffer_width, ax_tiles='ax_shortest_tiles', processes=1, **kwargs):
-    """
-    Creates a raster buffer with distance buffer_width pixels
-    around data pixels and crop out data outside of the resulting buffer
-    """
+# def HANDBuffer(axis, buffer_width, ax_tiles='ax_shortest_tiles', processes=1, **kwargs):
+#     """
+#     Creates a raster buffer with distance buffer_width pixels
+#     around data pixels and crop out data outside of the resulting buffer
+#     """
 
-    tilefile = config.tileset().filename(ax_tiles, axis=axis)
+#     tilefile = config.tileset().filename(ax_tiles, axis=axis)
 
-    def length():
+#     def length():
 
-        with open(tilefile) as fp:
-            return sum(1 for line in fp)
+#         with open(tilefile) as fp:
+#             return sum(1 for line in fp)
 
-    def arguments():
+#     def arguments():
 
-        with open(tilefile) as fp:
-            tiles = [tuple(int(x) for x in line.split(',')) for line in fp]
+#         with open(tilefile) as fp:
+#             tiles = [tuple(int(x) for x in line.split(',')) for line in fp]
 
-        for row, col in tiles:
-            yield (
-                HANDBufferTile,
-                axis,
-                row,
-                col,
-                buffer_width,
-                kwargs
-            )
+#         for row, col in tiles:
+#             yield (
+#                 HANDBufferTile,
+#                 axis,
+#                 row,
+#                 col,
+#                 buffer_width,
+#                 kwargs
+#             )
 
-    with Pool(processes=processes) as pool:
+#     with Pool(processes=processes) as pool:
 
-        pooled = pool.imap_unordered(starcall, arguments())
+#         pooled = pool.imap_unordered(starcall, arguments())
 
-        with click.progressbar(pooled, length=length()) as iterator:
-            for _ in iterator:
-                pass
+#         with click.progressbar(pooled, length=length()) as iterator:
+#             for _ in iterator:
+#                 pass

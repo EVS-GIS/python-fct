@@ -46,7 +46,7 @@ ShortestParams = namedtuple(
     )
 )
 
-def ValleyBottomTile(axis, row, col, seeds, params):
+def ShortestHeightTile(axis, row, col, seeds, params):
     """
     Valley bottom shortest path exploration
     """
@@ -186,7 +186,7 @@ def ValleyBottomTile(axis, row, col, seeds, params):
 
     return spillovers, (output_height, output_distance, output_state)
 
-def ValleyBottomIteration(axis, params, spillovers, ntiles, processes=1, **kwargs):
+def ShortestHeightIteration(axis, params, spillovers, ntiles, processes=1, **kwargs):
     """
     Multiprocessing wrapper for ValleyBottomTile
     """
@@ -205,7 +205,7 @@ def ValleyBottomIteration(axis, params, spillovers, ntiles, processes=1, **kwarg
 
         for (row, col), seeds in tiles:
             seeds = [coordxy(seed) + values(seed) for seed in seeds]
-            t_spillover, tmps = ValleyBottomTile(axis, row, col, seeds, params)
+            t_spillover, tmps = ShortestHeightTile(axis, row, col, seeds, params)
             g_spillover.extend(t_spillover)
             tmpfiles.extend(tmps)
 
@@ -219,7 +219,7 @@ def ValleyBottomIteration(axis, params, spillovers, ntiles, processes=1, **kwarg
             for (row, col), seeds in tiles:
 
                 seeds = [coordxy(seed) + values(seed) for seed in seeds]
-                yield (ValleyBottomTile, axis, row, col, seeds, params, kwargs)
+                yield (ShortestHeightTile, axis, row, col, seeds, params, kwargs)
 
         with Pool(processes=processes) as pool:
 
@@ -238,7 +238,7 @@ def ValleyBottomIteration(axis, params, spillovers, ntiles, processes=1, **kwarg
 
     return g_spillover
 
-def ValleyBottomDefaultParameters():
+def ShortestHeightDefaultParameters():
     """
     Default parameters
     """
@@ -253,12 +253,12 @@ def ValleyBottomDefaultParameters():
         tmp='.tmp'
     )
 
-def ValleyBottom(axis, processes=1, **kwargs):
+def ShortestHeight(axis, processes=1, **kwargs):
     """
     Valley bottom extraction procedure - shortest path exploration
     """
 
-    parameters = ValleyBottomDefaultParameters()
+    parameters = ShortestHeightDefaultParameters()
 
     parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
     kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
@@ -292,7 +292,7 @@ def ValleyBottom(axis, processes=1, **kwargs):
         g_tiles.update(tiles)
         click.echo('Iteration %02d -- %d spillovers, %d tiles' % (count, len(seeds), len(tiles)))
 
-        seeds = ValleyBottomIteration(axis, params, seeds, len(tiles), processes)
+        seeds = ShortestHeightIteration(axis, params, seeds, len(tiles), processes)
 
     tiles = {tile(s) for s in seeds}
     g_tiles.update(tiles)

@@ -11,6 +11,7 @@ import click
 from ..config import config
 
 from ..cli import (
+    fct_entry_point,
     aggregate,
     parallel,
     overwritable,
@@ -71,10 +72,6 @@ from .JoinNetworkAttributes import (
     UpdateLengthOrder
 )
 
-# TODO use environment variable FCT_CONFIG
-config.default()
-# config.from_file('/media/crousson/Backup/PRODUCTION/SECTEUR/LezAigues/config.ini')
-
 def workdir():
     """
     Return default working directory
@@ -87,12 +84,11 @@ def tileindex():
     """
     return config.tileset().tileindex
 
-@click.group()
-def cli():
+@fct_entry_point
+def cli(env):
     """
     Tiled Processing of Large DEM
     """
-    pass
 
 @cli.group()
 def prepare():
@@ -349,8 +345,8 @@ def join(sourcefile, networkfile, destination):
     click.echo('UpdateLengthOrder')
     UpdateLengthOrder(temp.name, destination)
 
-@aggregate(streams, 'sources')
-def sources():
+@aggregate(streams)
+def from_sources():
     """
     Map Sources accross Tiles
     """
