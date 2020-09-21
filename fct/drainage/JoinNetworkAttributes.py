@@ -7,7 +7,7 @@ DOCME
 *                                                                         *
 *   This program is free software; you can redistribute it and/or modify  *
 *   it under the terms of the GNU General Public License as published by  *
-*   the Free Software Foundation; either version 2 of the License, or     *
+*   the Free Software Foundation; either version 3 of the License, or     *
 *   (at your option) any later version.                                   *
 *                                                                         *
 ***************************************************************************
@@ -57,9 +57,14 @@ def JoinNetworkAttributes(
     """
 
 
-    sources_shapefile = config.tileset().filename(sourcefile)
-    network_shapefile = config.tileset().filename(networkfile)
-    output = config.tileset().filename(destination)
+    # sources_shapefile = config.tileset().filename(sourcefile)
+    # network_shapefile = config.tileset().filename(networkfile)
+    # output = config.tileset().filename(destination)
+
+    sources_shapefile = config.filename(sourcefile)
+    network_shapefile = config.filename(networkfile)
+    output = config.filename(destination)
+
     graph = dict()
     rgraph = defaultdict(list)
     indegree = Counter()
@@ -89,7 +94,7 @@ def JoinNetworkAttributes(
             for feature in iterator:
 
                 properties = feature['properties']
-                node = properties['NODE']
+                node = properties['GID']
                 axis = properties['AXIS']
                 axis_increment = max(axis, axis_increment)
                 sources[node] = properties
@@ -102,8 +107,14 @@ def JoinNetworkAttributes(
         if c1 is None or h1 is None:
             return False
 
+        # if c1 == 'Y2--0200':
+        #     return True
+
+        # if c2 == '----0142':
+        #     return True
+
         if c1 == c2:
-            return h1 < h2
+            return h1 <= h2
 
         if c1.count('-') > c2.count('-'):
             return True
@@ -122,11 +133,24 @@ def JoinNetworkAttributes(
 
     def resolve_properties(node):
 
-        if node in sources:
+        if node in sources and node not in rgraph:
             return sources[node]
 
         if len(rgraph[node]) == 1:
-            return rgraph[node][0][1]
+            
+            _properties = rgraph[node][0][1]
+
+            if node in sources:
+
+                _properties = _properties.copy()
+
+                properties = sources[node]
+                _properties.update({
+                    key: properties[key]
+                    for key in ('CDENTITEHY', 'TOPONYME')
+                })
+
+            return _properties
 
         _cdentite = None
         _hack = None
@@ -153,6 +177,16 @@ def JoinNetworkAttributes(
                 'HACK': None
             }
 
+        if node in sources:
+
+            _properties = _properties.copy()
+
+            properties = sources[node]
+            _properties.update({
+                key: properties[key]
+                for key in ('CDENTITEHY', 'TOPONYME')
+            })
+
         return _properties
 
     axis_increment = itertools.count(axis_increment+1)
@@ -167,6 +201,7 @@ def JoinNetworkAttributes(
         if node in graph:
 
             next_node, fid = graph[node]
+
             features[fid] = properties
             rgraph[next_node].append((node, properties))
 
@@ -177,7 +212,8 @@ def JoinNetworkAttributes(
 
     with fiona.open(network_shapefile) as fs:
 
-        driver = fs.driver
+        # driver = fs.driver
+        driver = 'ESRI Shapefile'
         schema = fs.schema
         crs = fs.crs
 
@@ -233,12 +269,17 @@ def UpdateLengthOrder(
         Output dataset
     """
 
-    network_shapefile = config.tileset().filename(joined)
-    output = config.tileset().filename(destination)
+    # network_shapefile = config.tileset().filename(joined)
+    # output = config.tileset().filename(destination)
+
+    network_shapefile = config.filename(joined)
+    output = config.filename(destination)
 
     graph = dict()
     indegree = Counter()
     lengths = defaultdict(lambda: 0.0)
+    newids = dict()
+    gid = itertools.count(1)
 
     with fiona.open(network_shapefile) as fs:
         with click.progressbar(fs) as iterator:
@@ -280,6 +321,9 @@ def UpdateLengthOrder(
 
             next_node, axis = graph[node]
 
+            if axis not in newids:
+                newids[axis] = next(gid)
+
             if next_node in orders:
                 set_order(track, orders[next_node] + 1)
                 break
@@ -293,7 +337,8 @@ def UpdateLengthOrder(
 
     with fiona.open(network_shapefile) as fs:
 
-        driver = fs.driver
+        # driver = fs.driver
+        driver = 'ESRI Shapefile'
         schema = fs.schema
         crs = fs.crs
 
@@ -313,6 +358,7 @@ def UpdateLengthOrder(
                     axis = properties['AXIS']
 
                     properties.update({
+                        'AXIS': newids[axis],
                         'HACK': orders[a] if a in orders else None,
                         'LENAXIS': lengths[axis]
                     })

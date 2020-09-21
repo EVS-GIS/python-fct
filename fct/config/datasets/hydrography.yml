@@ -13,7 +13,7 @@ stream-network-cartography-in:
 stream-network-cartography:
   description: |
     Stream network derived from cartography
-    with sources attributes and updates HACK and LENAXIS fields
+    with sources attributes and updated HACK and LENAXIS fields
   type: linestring
   group: hydrography
   status: input
@@ -23,7 +23,7 @@ stream-network-cartography:
 stream-network-cartography-backup:
   description: |
     Stream network derived from cartography
-    with sources attributes and updates HACK and LENAXIS fields
+    with sources attributes and updated HACK and LENAXIS fields
   type: linestring
   group: hydrography
   status: backup
@@ -39,6 +39,37 @@ sources-cartography-in:
   status: input
   subdir: GLOBAL/INPUT
   filename: SOURCES.shp
+
+network-cartography-gpkg:
+  description: |
+    Stream network derived from cartography
+  type: linestring
+  group: hydrography
+  status: input
+  subdir: GLOBAL/REFHYDRO
+  filename: REFERENTIEL_HYDRO.gpkg
+
+network-cartography-ordered:
+  description: |
+    Stream network derived from cartography,
+    with updated AXIS, HACK and LENAXIS fields
+  type: linestring
+  group: hydrography
+  status: input
+  subdir: GLOBAL/REFHYDRO
+  filename: REFERENTIEL_HYDRO_ORDERED.shp
+
+network-cartography-ready:
+  description: |
+    Stream network derived from cartography,
+    working selection, aggregated by axis, draped on DEM,
+    measured from outlet,
+    ready for processing with FCT
+  type: linestring
+  group: hydrography
+  status: input
+  subdir: GLOBAL/REFHYDRO
+  filename: REFERENTIEL_HYDRO.shp
 
 sources-cartography:
   description: |
@@ -58,4 +89,4 @@ outlets-cartography:
   group: hydrography
   status: final
   subdir: GLOBAL/REFHYDRO
-  filename: Outlets.shp
+  filename: OUTLETS.shp

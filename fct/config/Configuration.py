@@ -65,15 +65,7 @@ class Configuration():
         Populate configuration from default `config.ini`
         """
 
-        if 'FCT_CONFIG' in os.environ:
-            filename = os.environ['FCT_CONFIG']
-            click.secho('Configuration from environment', fg='yellow')
-            click.secho('FCT_CONFIG=%s' % filename, fg='yellow')
-            if not os.path.exists(filename):
-                raise ValueError('%s does not exist (from environment FCT_CONFIG)' % filename)
-        else:
-            filename = os.path.join(os.path.dirname(__file__), 'config.ini')
-       
+        filename = os.path.join(os.path.dirname(__file__), 'config.ini')
         self.configure(*FileParser.parse(filename))
 
     def from_file(self, filename):
@@ -620,7 +612,7 @@ class FileParser():
     @staticmethod
     def load_dataset_yaml_file(filename):
 
-        click.echo('Loading dataset definitions from %s' % filename)
+        # click.echo('Loading dataset definitions from %s' % filename)
 
         with open(filename) as fp:
             return yaml.safe_load(fp)
@@ -628,7 +620,7 @@ class FileParser():
     @staticmethod
     def load_dataset_yaml_dir(dirname):
 
-        click.echo('Loading dataset definitions from %s' % dirname)
+        # click.echo('Loading dataset definitions from %s' % dirname)
 
         data = dict()
 

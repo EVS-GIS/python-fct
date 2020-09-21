@@ -13,11 +13,13 @@ DOCME
 ***************************************************************************
 """
 
+import os
 import time
 from datetime import datetime
 from functools import wraps
 from multiprocessing import Pool
 import click
+from dotenv import load_dotenv, find_dotenv
 
 from ..config import config
 from .. import __version__ as version
@@ -33,12 +35,14 @@ def pretty_time_delta(delta):
 
     if days > 0:
         return '%d d %d h %d min %.0f s' % (days, hours, minutes, seconds)
-    elif hours > 0:
+
+    if hours > 0:
         return '%d h %d min %.0f s' % (hours, minutes, seconds)
-    elif minutes > 0:
+
+    if minutes > 0:
         return '%d min %d s' % (minutes, seconds)
-    else:
-        return '%.1f s' % (delta,)
+
+    return '%.1f s' % (delta,)
 
 def command_info(command, ntiles, kwargs):
 
@@ -55,7 +59,7 @@ def command_info(command, ntiles, kwargs):
     click.secho('Tileset        : %s' % tileset.name)
     click.secho('# of tiles     : %d' % ntiles)
     click.secho('Tile Directory : %s' % workdir)
-    
+
     parameters = {
         k: v for k, v in kwargs.items()
         if k not in ['progress', 'overwrite', 'processes', 'verbose', 'tile']
@@ -78,6 +82,87 @@ def command_info(command, ntiles, kwargs):
 
     return start_time
 
+def setup_env(ctx, param, value):
+    """
+    Set environment parameters from .env if present
+    """
+
+    if value is None or ctx.resilient_parsing:
+        return False
+
+    if value is True:
+
+        dotfile = find_dotenv(usecwd=True)
+
+        if os.path.exists(dotfile):
+
+            click.echo('Environment from %s' % dotfile)
+            load_dotenv(dotfile)
+
+    return value
+
+def setup_config(ctx, param, value):
+    """
+    Read configuration file if provided,
+    or load default configuration.
+    """
+
+    if ctx.resilient_parsing:
+        return value
+
+    if value is None:
+
+        if ctx.params['env'] is True:
+
+            if 'FCT_CONFIG' in os.environ:
+
+                filename = os.environ['FCT_CONFIG']
+                click.secho('FCT_CONFIG=%s' % filename, fg='yellow')
+
+                if not os.path.exists(filename):
+                    raise ValueError('%s does not exist (from environment FCT_CONFIG)' % filename)
+
+                config.from_file(filename)
+                return value
+
+        click.echo('Using default configuration')
+        config.default()
+        return value
+
+    if os.path.exists(value):
+
+        click.echo('Read configuration from %s' % value)
+        config.from_file(value)
+        return value
+
+    raise ValueError('%s does not exist (from cli option)' % value)
+
+def fct_entry_point(fun):
+    """
+    Defines a command line entry point,
+    as a new click command group.
+    """
+
+    @click.group()
+    @click.option(
+        '--env/--no-env',
+        is_flag=True,
+        default=True,
+        expose_value=True,
+        callback=setup_env,
+        help='Read environment parameters from .env')
+    @click.option(
+        '--config', '-c',
+        type=click.Path(file_okay=True, dir_okay=False, exists=True),
+        expose_value=False,
+        callback=setup_config,
+        help='Read configuration from provided file')
+    @wraps(fun)
+    def decorated(*args, **kwargs):
+        fun(*args, **kwargs)
+
+    return decorated
+
 def aggregate(group, name=None):
     """
     Define a new aggregate command within `group`.
@@ -89,7 +174,7 @@ def aggregate(group, name=None):
         @wraps(fun)
         def decorated(*args, **kwargs):
 
-            tile_index = config.tileset('default').tileindex
+            tile_index = config.tileset().tileindex
             start_time = command_info(name or fun.__name__, len(tile_index), kwargs)
 
             fun(*args, **kwargs)

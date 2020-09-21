@@ -13,7 +13,22 @@ Common Click Options
 ***************************************************************************
 """
 
+import multiprocessing as mp
 import click
+
+def set_processes(ctx, param, value):
+    """
+    Callback for --processes option.
+    Set default to mp.cpu_count()
+    """
+
+    if value is None or ctx.resilient_parsing:
+        return
+
+    if value == 0:
+        return mp.cpu_count()
+
+    return value
 
 overwritable = click.option(
     '--overwrite', '-w',
@@ -35,4 +50,5 @@ quiet_opt = click.option(
 parallel_opt = click.option(
     '--processes', '-j',
     default=1,
+    callback=set_processes,
     help="Execute j parallel processes")

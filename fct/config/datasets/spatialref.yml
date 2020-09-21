@@ -13,11 +13,21 @@ refaxis:
 ax_tiles:
   description: |
     List of tiles intersecting given axis
+    (TODO remove entry)
   type: text
   group: drainage
   status: temporary
   subdir: AXES/AX%(axis)04d
   filename: TILES.csv
+
+ax_flow_tiles:
+  description: |
+    List of tiles intersecting flow height raster
+  type: text
+  group: drainage
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: FLOW_TILES.csv
 
 ax_talweg:
   description: |

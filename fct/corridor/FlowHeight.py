@@ -1,13 +1,15 @@
 # coding: utf-8
 
 """
-Valley Bottom
+Flow Height,
+ie. height relative to nearest connected stream cells
+following flow direction (derived from DEM).
 
 ***************************************************************************
 *                                                                         *
 *   This program is free software; you can redistribute it and/or modify  *
 *   it under the terms of the GNU General Public License as published by  *
-*   the Free Software Foundation; either version 2 of the License, or     *
+*   the Free Software Foundation; either version 3 of the License, or     *
 *   (at your option) any later version.                                   *
 *                                                                         *
 ***************************************************************************
@@ -57,7 +59,8 @@ def ReadSeeds(axis):
 
     def accept(feature):
         properties = feature['properties']
-        return properties['AXIS'] == axis
+        return properties['AXIS'] == axis and not (
+            properties['ROW'] is None or properties['COL'] is None)
 
     with fiona.open(shapefile) as fs:
         for feature in fs:
@@ -69,11 +72,10 @@ def ReadSeeds(axis):
                 for x, y, z in feature['geometry']['coordinates']:
                     yield x, y, None, 0.0, row, col
 
+def FlowHeightTile(axis, row, col, seeds):
 
-def TileValleyBottom(axis, row, col, seeds):
-
-    output_flow_height = config.tileset('landcover').tilename('ax_flow_height', axis=axis, row=row, col=col)
-    output_flow_distance = config.tileset('landcover').tilename('ax_flow_distance', axis=axis, row=row, col=col)
+    output_flow_height = config.tileset().tilename('ax_flow_height', axis=axis, row=row, col=col)
+    output_flow_distance = config.tileset().tilename('ax_flow_distance', axis=axis, row=row, col=col)
 
     elevations, profile = PadRaster(row, col, 'dem', padding=1)
     transform = profile['transform']
@@ -110,7 +112,7 @@ def TileValleyBottom(axis, row, col, seeds):
     for x, y, z, dist in seeds:
 
         i, j = fct.index(x, y, transform)
-        
+
         if intile(i, j):
 
             if z is None:
@@ -121,8 +123,8 @@ def TileValleyBottom(axis, row, col, seeds):
                 distance[i, j] = dist
 
     result = np.copy(reference)
-    speedup.valley_bottom_flow(flow, result, elevations, nodata, distance, 15.0, 1000.0)
-    
+    speedup.valley_bottom_flow(flow, result, elevations, nodata, distance, 15.0, 2000.0)
+
     relative = elevations - result
     relative[result == nodata] = nodata
     distance[result == nodata] = nodata
@@ -155,7 +157,7 @@ def TileValleyBottom(axis, row, col, seeds):
 
     for pixel in border(height, width):
         if reference[pixel] == nodata and result[pixel] != nodata:
-            
+
             spillovers.append(attribute(pixel))
 
     output_flow_height += '.tmp'
@@ -169,7 +171,7 @@ def TileValleyBottom(axis, row, col, seeds):
 
     return spillovers, (output_flow_height, output_flow_distance)
 
-def ValleyBottomIteration(spillovers, axis, processes=1):
+def FlowHeightIteration(spillovers, axis, processes=1):
 
     attributes = itemgetter(0, 1, 2, 3)
     tile = itemgetter(4, 5)
@@ -184,7 +186,7 @@ def ValleyBottomIteration(spillovers, axis, processes=1):
         for (row, col), seeds in tiles:
 
             seeds = [attributes(seed) for seed in seeds]
-            t_spillover, outputs = TileValleyBottom(axis, row, col, seeds)
+            t_spillover, outputs = FlowHeightTile(axis, row, col, seeds)
             g_spillover.extend(t_spillover)
 
             for tmpfile in outputs:
@@ -193,16 +195,26 @@ def ValleyBottomIteration(spillovers, axis, processes=1):
     else:
 
         kwargs = dict()
-        arguments = list()
         tmpfiles = list()
 
-        for (row, col), seeds in tiles:
-            seeds = [attributes(seed) for seed in seeds]
-            arguments.append((TileValleyBottom, axis, row, col, seeds, kwargs))
+        def arguments():
+
+            for (row, col), seeds in tiles:
+
+                seeds = [attributes(seed) for seed in seeds]
+                yield (
+                    FlowHeightTile,
+                    axis,
+                    row,
+                    col,
+                    seeds,
+                    kwargs
+                )
 
         with Pool(processes=processes) as pool:
 
-            pooled = pool.imap_unordered(starcall, arguments)
+            pooled = pool.imap_unordered(starcall, arguments())
+
             for t_spillover, outputs in pooled:
                 g_spillover.extend(t_spillover)
                 tmpfiles.extend(outputs)
@@ -242,8 +254,8 @@ def CropAndScale(axis, tiles, processes=1):
 
     def rasters(row, col):
 
-        yield config.tileset('landcover').tilename('ax_flow_height', axis=axis, row=row, col=col), 1.0
-        yield config.tileset('landcover').tilename('ax_flow_distance', axis=axis, row=row, col=col), 5.0
+        yield config.tileset().tilename('ax_flow_height', axis=axis, row=row, col=col), 1.0
+        yield config.tileset().tilename('ax_flow_distance', axis=axis, row=row, col=col), 5.0
 
     if processes == 1:
 
@@ -268,12 +280,12 @@ def CropAndScale(axis, tiles, processes=1):
                 for _ in processing:
                     pass
 
-def ValleyBottom(axis, processes=1):
+def FlowHeight(axis, processes=1):
     """
     DOCME
     """
 
-    output = config.tileset().filename('ax_tiles', axis=axis)
+    output = config.tileset().filename('ax_flow_tiles', axis=axis)
 
     g_tiles = set()
     tile = itemgetter(4, 5)
@@ -283,12 +295,12 @@ def ValleyBottom(axis, processes=1):
 
     while seeds:
 
-        tiles = set([tile(s) for s in seeds])
+        tiles = {tile(s) for s in seeds}
         g_tiles.update(tiles)
         count += 1
         click.echo('Step %02d -- %d tiles, %d spillovers' % (count, len(tiles), len(seeds)))
 
-        seeds = ValleyBottomIteration(seeds, axis, processes)
+        seeds = FlowHeightIteration(seeds, axis, processes)
 
     click.echo('Done after %d iterations' % count)
 
