@@ -70,7 +70,7 @@ setup(
         'shapely>=1.7',
         'pyyaml>=5.3',
         'Click>=7.0',
-        'dotenv'
+        'pydotenv'
     ],
     entry_points='''
         [console_scripts]
