@@ -32,6 +32,79 @@ from ..tileio import as_window
 from ..ransac import LinearModel, ransac
 from ..cli import starcall
 
+def UpdateValleySwathTile(axis, tile):
+
+    tileset = config.tileset()
+
+    def _tilename(name):
+        return tileset.tilename(name, axis=axis, row=tile.row, col=tile.col)
+
+    swath_shapefile = config.filename('ax_valley_swaths_polygons', axis=axis)
+    swath_raster = _tilename('ax_valley_swaths')
+
+    if not os.path.exists(swath_raster):
+        return
+
+    with rio.open(swath_raster) as ds:
+
+        shape = ds.shape
+        nodata = ds.nodata
+        transform = ds.transform
+        profile = ds.profile.copy()
+        profile.update(compress='deflate', dtype='uint32')
+
+    with fiona.open(swath_shapefile) as fs:
+
+        def accept(feature):
+            return all([
+                feature['properties']['AXIS'] == axis,
+                feature['properties']['VALUE'] == 2
+            ])
+
+        geometries = [
+            (f['geometry'], f['properties']['GID']) for f in fs.filter(bbox=tile.bounds)
+            if accept(f)
+        ]
+
+        if geometries:
+
+            swaths = features.rasterize(
+                geometries,
+                out_shape=shape,
+                transform=transform,
+                fill=nodata,
+                dtype='uint32')
+
+        else:
+
+            swaths = np.full(shape, nodata, dtype='uint32')
+
+    with rio.open(swath_raster, 'w', **profile) as dst:
+        dst.write(swaths, 1)
+
+def UpdateValleySwathRaster(axis, processes=1, **kwargs):
+
+    # tileindex = config.tileset().tileindex
+
+    tileset = config.tileset()
+
+    def arguments():
+
+        for tile in tileset.tiles():
+            yield (
+                UpdateValleySwathTile,
+                axis,
+                tile,
+                kwargs
+            )
+
+    with Pool(processes=processes) as pool:
+
+        pooled = pool.imap_unordered(starcall, arguments())
+        with click.progressbar(pooled, length=len(tileset)) as iterator:
+            for _ in iterator:
+                pass
+
 def TileCropInvalidRegions(axis, tile):
     """
     DOCME
@@ -117,6 +190,7 @@ def _UnitSwathProfile(axis, gid, bounds):
     talweg_distance_raster = tileset.filename('ax_talweg_distance', axis=axis)
     elevation_raster = tileset.filename('dem')
     relz_raster = tileset.filename('ax_nearest_height', axis=axis)
+    # relz_raster = tileset.filename('ax_valley_mask', axis=axis)
 
     with rio.open(distance_raster) as ds:
 

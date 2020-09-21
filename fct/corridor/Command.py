@@ -8,7 +8,9 @@ import os
 import glob
 import time
 from datetime import datetime
+import numpy as np
 import click
+import xarray as xr
 
 from .. import __version__ as version
 from ..config import config
@@ -272,3 +274,96 @@ def disaggregate_natural(axis, length, processes):
 
     elapsed = time.time() - start_time
     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
+@cli.command()
+@click.argument('axis', type=int)
+@parallel_opt
+def elevation_swath_profiles(axis, processes):
+    """
+    Calculate elevation swath profiles
+    """
+
+    from ..swath.ElevationSwathProfile import (
+        UpdateValleySwathRaster,
+        SwathProfiles
+    )
+
+    start_time = PrintCommandInfo('elevation swath profiles', axis, processes, {})
+
+    click.secho('Update swath units', fg='cyan')
+    UpdateValleySwathRaster(axis=axis, processes=processes)
+
+    click.secho('Calculate swath profiles', fg='cyan')
+    SwathProfiles(axis=axis, processes=processes)
+
+    elapsed = time.time() - start_time
+    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
+@cli.command()
+@click.argument('axis', type=int)
+def talweg_height(axis):
+    """
+    Calculate talweg height relative to valley floor
+    """
+
+    from fct.corridor.ValleyBottomRefined import (
+        TalwegHeightBySwathUnit,
+        WriteTalwegHeights
+    )
+
+    swaths, values = TalwegHeightBySwathUnit(axis)
+    WriteTalwegHeights(axis, swaths, values)
+
+@cli.command('medialaxis')
+@click.argument('axis', type=int)
+def valley_medial_axis(axis):
+    """
+    Calculate valley medial axis
+    """
+
+    from .ValleyMedialAxis import (
+        ValleyMedialAxis,
+        ExportValleyMedialAxisToShapefile,
+        unproject
+    )
+
+    medialaxis = ValleyMedialAxis(axis, processes=6)
+    data = xr.Dataset({'dist': ('measure', medialaxis[:, 1])}, coords={'measure': medialaxis[:, 0]})
+    smoothed = data.rolling(measure=5, center=True, min_periods=1).mean()
+    transformed = unproject(axis, np.column_stack([smoothed.measure, smoothed.dist]))
+    ExportValleyMedialAxisToShapefile(axis, transformed[~np.isnan(transformed[:, 1])])
+
+@cli.command()
+@click.argument('axis', type=int)
+def valley_profile(axis):
+    """
+    Calculate idealized/smoothed valley elevation profile
+    """
+
+    from .ValleyElevationProfile import ValleyElevationProfile
+
+    start_time = PrintCommandInfo('smoothed valley elevation profile', axis, 1, {})
+
+    ValleyElevationProfile(axis)
+
+    elapsed = time.time() - start_time
+    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
+@cli.command()
+@click.argument('axis', type=int)
+@parallel_opt
+def height_above_valley_floor(axis, processes):
+    """
+    Calculate height raster relative to valley floor
+    """
+
+    from .HeightAboveValleyFloor import HeightAboveValleyFloor
+
+    start_time = PrintCommandInfo('height above valley floor', axis, processes, {})
+
+    HeightAboveValleyFloor(axis=axis, processes=processes)
+
+    elapsed = time.time() - start_time
+    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
+    buildvrt('default', 'ax_valley_height', axis=axis)

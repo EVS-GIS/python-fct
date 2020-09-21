@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 import click
 import xarray as xr
 
+from ..cli import fct_entry_point
 from ..config import config
 from .MapFigureSizer import MapFigureSizer
 from .PlotCorridor import (
@@ -54,8 +55,8 @@ def FinalizePlot(fig, ax, title='', filename=None):
         plt.savefig(filename, dpi=300)
         plt.clf()
 
-@click.group()
-def cli():
+@fct_entry_point
+def cli(env):
     """
     Preconfigured plots for visualizing FCT data
     """
@@ -88,8 +89,6 @@ def plot_elevation_swath(axis, swath, kind, clip, filename):
 
     from .PlotElevationSwath import PlotSwath
 
-    config.default()
-
     if filename is None:
         plt.ion()
     elif filename.endswith('.pdf'):
@@ -113,8 +112,6 @@ def plot_valley_elevation_profile(axis, filename):
     """
 
     # from ..corridor.ValleyElevationProfile import ValleySwathElevation
-
-    config.default()
 
     if filename is None:
         plt.ion()
@@ -149,8 +146,6 @@ def plot_talweg_height(axis, filename):
     """
     Talweg height relative to valley floor
     """
-
-    config.default()
 
     if filename is None:
         plt.ion()
