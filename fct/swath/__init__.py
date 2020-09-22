@@ -13,4 +13,4 @@ Swath Profiles
 ***************************************************************************
 """
 
-from .SpatialReferencing import nearest_value_and_distance
+from .SwathMeasurement import nearest_value_and_distance

@@ -1,8 +1,8 @@
 # coding: utf-8
 
 """
-Spatial Referencing :
-Measure along Reference Axis, Space Discretization
+Longitudinal swath generation :
+discretize space along reference axis
 
 ***************************************************************************
 *                                                                         *
@@ -107,14 +107,15 @@ def nearest_value_and_distance(refpixels, domain, nodata):
 
     return values, distance
 
-SpatialReferenceParams = namedtuple('SpatialReferenceParams', [
+SwathMeasurementParams = namedtuple('SwathMeasurementParams', [
     'ax_mask',
     'ax_reference',
+    'ax_talweg_distance',
     'output_distance',
     'output_measure',
     'output_swaths_raster',
     'output_swaths_shapefile',
-    'output_swaths_defs',
+    'output_swaths_bounds',
     'mdelta'
 ])
 
@@ -130,7 +131,7 @@ SpatialReferenceParams = namedtuple('SpatialReferenceParams', [
 #         output_measure='ax_axis_measure',
 #         output_swaths_raster='ax_dgo',
 #         output_swaths_shapefile='ax_dgo_parts',
-#         output_swaths_defs='ax_dgo_defs',
+#         output_swaths_bounds='ax_dgo_defs',
 #         mdelta=200.0
 #     )
 
@@ -142,11 +143,29 @@ def ValleyBottomParameters():
     return dict(
         ax_mask='ax_valley_mask',
         ax_reference='ax_refaxis',
+        ax_talweg_distance='ax_nearest_distance',
         output_distance='ax_axis_distance',
         output_measure='ax_axis_measure',
         output_swaths_raster='ax_valley_swaths',
         output_swaths_shapefile='ax_valley_swaths_polygons',
-        output_swaths_defs='ax_valley_swaths_defs',
+        output_swaths_bounds='ax_valley_swaths_bounds',
+        mdelta=200.0
+    )
+
+def ValleyMedialAxisParameters():
+    """
+    Default parameters (valley swath units)
+    """
+
+    return dict(
+        ax_mask='ax_valley_mask',
+        ax_reference='ax_valley_medialaxis',
+        ax_talweg_distance='ax_nearest_distance',
+        output_distance='ax_axis_distance',
+        output_measure='ax_axis_measure',
+        output_swaths_raster='ax_valley_swaths',
+        output_swaths_shapefile='ax_valley_swaths_polygons',
+        output_swaths_bounds='ax_valley_swaths_bounds',
         mdelta=200.0
     )
 
@@ -158,11 +177,12 @@ def ExtendedCorridorParameters():
     return dict(
         ax_mask='ax_corridor_mask',
         ax_reference='ax_talweg',
+        ax_talweg_distance='ax_nearest_distance',
         output_distance='ax_talweg_distance',
         output_measure='ax_talweg_measure',
         output_swaths_raster='ax_corridor_swaths',
         output_swaths_shapefile='ax_corridor_swaths_polygons',
-        output_swaths_defs='ax_corridor_swaths_defs',
+        output_swaths_bounds='ax_corridor_swaths_bounds',
         mdelta=200.0
     )
 
@@ -174,17 +194,18 @@ def NaturalCorridorParameters():
     return dict(
         ax_mask='ax_natural_corridor',
         ax_reference='ax_talweg',
+        ax_talweg_distance='ax_nearest_distance',
         output_distance='ax_talweg_distance',
         output_measure='ax_talweg_measure',
         output_swaths_raster='ax_natural_corridor_swaths',
         output_swaths_shapefile='ax_natural_corridor_swaths_polygons',
-        output_swaths_defs='ax_natural_corridor_units_defs',
+        output_swaths_bounds='ax_natural_corridor_units_bounds',
         mdelta=200.0
     )
 
-def SpatialReferenceTile(axis, row, col, params, **kwargs):
+def DisaggregateTileIntoSwaths(axis, row, col, params, **kwargs):
     """
-    see SpatialReference
+    see CarveLongitudinalSwaths
     """
 
     tileset = config.tileset()
@@ -340,16 +361,16 @@ def SpatialReferenceTile(axis, row, col, params, **kwargs):
 
         return calculate_attrs()
 
-def SpatialReference(axis, ax_tiles='ax_tiles', processes=1, **kwargs):
+def DisaggregateIntoSwaths(axis, ax_tiles='ax_tiles', processes=1, **kwargs):
     """
     Calculate measurement support rasters and
-    create discrete longitudinal units along the reference axis
+    create discrete longitudinal swath units along the reference axis
     """
 
     parameters = ValleyBottomParameters()
     parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
     kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
-    params = SpatialReferenceParams(**parameters)
+    params = SwathMeasurementParams(**parameters)
 
     tilefile = config.tileset().filename(ax_tiles, axis=axis)
 
@@ -365,7 +386,7 @@ def SpatialReference(axis, ax_tiles='ax_tiles', processes=1, **kwargs):
 
         for row, col in tiles:
             yield (
-                SpatialReferenceTile,
+                DisaggregateTileIntoSwaths,
                 axis,
                 row,
                 col,
@@ -413,12 +434,17 @@ def SpatialReference(axis, ax_tiles='ax_tiles', processes=1, **kwargs):
 
     return g_attrs
 
-def ExportSpatialUnitDefs(axis, attrs, **kwargs):
+def WriteSwathsBounds(axis, attrs, **kwargs):
+    """
+    Write swath coordinates (id, location on ref axis)
+    and bounds (minx, miny, maxx, maxy)
+    to netcdf file
+    """
 
     parameters = ValleyBottomParameters()
     parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
     kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
-    params = SpatialReferenceParams(**parameters)
+    params = SwathMeasurementParams(**parameters)
 
     labels = np.array([label for label in attrs], dtype='uint32')
     coordm = np.array([value[0] for value in attrs.values()], dtype='float32')
@@ -435,7 +461,7 @@ def ExportSpatialUnitDefs(axis, attrs, **kwargs):
             'coord': ['minx', 'miny', 'maxx', 'maxy']
         })
 
-    output = config.filename(params.output_swaths_defs, axis=axis)
+    output = config.filename(params.output_swaths_bounds, axis=axis)
 
     dataset.to_netcdf(
         output, 'w',
@@ -447,9 +473,9 @@ def ExportSpatialUnitDefs(axis, attrs, **kwargs):
 
     return dataset
 
-def ReadSpatialUnitDefs(axis, params):
+def ReadSwathsBounds(axis, params):
 
-    filename = config.filename(params.output_swaths_defs, axis=axis)
+    filename = config.filename(params.output_swaths_bounds, axis=axis)
     dataset = xr.open_dataset(filename)
     dataset.load()
 
@@ -462,9 +488,9 @@ def ReadSpatialUnitDefs(axis, params):
         for k in range(dataset['label'].shape[0])
     }
 
-def VectorizeContinuousUnit(axis, gid, coordm, bounds, params, **kwargs):
+def VectorizeOneSwathPolygon(axis, gid, coordm, bounds, params, **kwargs):
     """
-    DOCME
+    Vectorize swath polygon connected to talweg
     """
 
     tileset = config.tileset()
@@ -472,7 +498,7 @@ def VectorizeContinuousUnit(axis, gid, coordm, bounds, params, **kwargs):
     swath_raster = tileset.filename(params.output_swaths_raster, axis=axis)
     # mask_raster = tileset.filename(params.ax_mask, axis=axis)
     # distance_raster = tileset.filename(params.output_distance, axis=axis)
-    distance_raster = tileset.filename('ax_talweg_distance', axis=axis)
+    distance_raster = tileset.filename(params.ax_talweg_distance, axis=axis)
 
     with rio.open(swath_raster) as ds:
 
@@ -517,7 +543,7 @@ def VectorizeContinuousUnit(axis, gid, coordm, bounds, params, **kwargs):
 
         return gid, coordm, list(polygons)
 
-def VectorizeContinuousAll(axis, processes=1, **kwargs):
+def VectorizeSwathPolygons(axis, processes=1, **kwargs):
     """
     Vectorize spatial units' polygons
     """
@@ -525,15 +551,15 @@ def VectorizeContinuousAll(axis, processes=1, **kwargs):
     parameters = ValleyBottomParameters()
     parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
     kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
-    params = SpatialReferenceParams(**parameters)
+    params = SwathMeasurementParams(**parameters)
 
-    defs = ReadSpatialUnitDefs(axis, params)
+    defs = ReadSwathsBounds(axis, params)
 
     def arguments():
 
         for gid, (coordm, bounds) in defs.items():
             yield (
-                VectorizeContinuousUnit,
+                VectorizeOneSwathPolygon,
                 axis,
                 gid,
                 coordm,
@@ -583,6 +609,83 @@ def VectorizeContinuousAll(axis, processes=1, **kwargs):
                         }
 
                         dst.write(feature)
+
+def UpdateSwathTile(axis, tile, params):
+
+    tileset = config.tileset()
+
+    def _tilename(name):
+        return tileset.tilename(name, axis=axis, row=tile.row, col=tile.col)
+
+    swath_shapefile = config.filename(params.output_swaths_shapefile, axis=axis)
+    swath_raster = _tilename(params.output_swaths_raster)
+
+    if not os.path.exists(swath_raster):
+        return
+
+    with rio.open(swath_raster) as ds:
+
+        shape = ds.shape
+        nodata = ds.nodata
+        transform = ds.transform
+        profile = ds.profile.copy()
+        profile.update(compress='deflate', dtype='uint32')
+
+    with fiona.open(swath_shapefile) as fs:
+
+        def accept(feature):
+            return all([
+                feature['properties']['AXIS'] == axis,
+                feature['properties']['VALUE'] == 2
+            ])
+
+        geometries = [
+            (f['geometry'], f['properties']['GID']) for f in fs.filter(bbox=tile.bounds)
+            if accept(f)
+        ]
+
+        if geometries:
+
+            swaths = features.rasterize(
+                geometries,
+                out_shape=shape,
+                transform=transform,
+                fill=nodata,
+                dtype='uint32')
+
+        else:
+
+            swaths = np.full(shape, nodata, dtype='uint32')
+
+    with rio.open(swath_raster, 'w', **profile) as dst:
+        dst.write(swaths, 1)
+
+def UpdateSwathRaster(axis, ax_tiles='ax_tiles', processes=1, **kwargs):
+
+    parameters = ValleyBottomParameters()
+    parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
+    kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
+    params = SwathMeasurementParams(**parameters)
+
+    tileset = config.tileset()
+
+    def arguments():
+
+        for tile in tileset.tiles():
+            yield (
+                UpdateSwathTile,
+                axis,
+                tile,
+                params,
+                kwargs
+            )
+
+    with Pool(processes=processes) as pool:
+
+        pooled = pool.imap_unordered(starcall, arguments())
+        with click.progressbar(pooled, length=len(tileset)) as iterator:
+            for _ in iterator:
+                pass
 
 def VectorizeSpatialUnit(axis, gid, coordm, bounds, params):
 
@@ -659,6 +762,10 @@ def Vectorize(axis, params, attrs, processes=1, **kwargs):
                         }
 
                         dst.write(feature)
+
+# ==========================================================================
+# Code beneath only for diagnostic purpose.
+# ==========================================================================
 
 def MapReferencePoints(axis, row, col, points, referenceset='streams-tiled'):
     """
@@ -790,124 +897,126 @@ def MapReferencePoints(axis, row, col, points, referenceset='streams-tiled'):
                 }
                 fst.write(feature)
 
+# ==========================================================================
 # TODO Clean up dead code after this line
+# ==========================================================================
 
-def VectorizeSpatialUnitsByTile(axis, row, col, params, **kwargs):
-    """
-    DOCME
-    """
+# def VectorizeSpatialUnitsByTile(axis, row, col, params, **kwargs):
+#     """
+#     DOCME
+#     """
 
-    # click.echo('Vectorize DGOs')
+#     # click.echo('Vectorize DGOs')
 
-    tileset = config.tileset()
+#     tileset = config.tileset()
 
-    def _tilename(dataset):
-        return tileset.tilename(
-            dataset,
-            axis=axis,
-            row=row,
-            col=col)
+#     def _tilename(dataset):
+#         return tileset.tilename(
+#             dataset,
+#             axis=axis,
+#             row=row,
+#             col=col)
 
-    output_swaths_raster = _tilename(params.output_swaths_raster)
-    output_swaths_shapefile = _tilename(params.output_swaths_shapefile)
+#     output_swaths_raster = _tilename(params.output_swaths_raster)
+#     output_swaths_shapefile = _tilename(params.output_swaths_shapefile)
 
-    with rio.open(output_swaths_raster) as ds:
+#     with rio.open(output_swaths_raster) as ds:
 
-        dgo = ds.read(1)
+#         dgo = ds.read(1)
 
-        polygons = features.shapes(
-            dgo,
-            dgo > 0,
-            connectivity=8,
-            transform=ds.transform)
+#         polygons = features.shapes(
+#             dgo,
+#             dgo > 0,
+#             connectivity=8,
+#             transform=ds.transform)
 
-        schema = {
-            'geometry': 'Polygon',
-            'properties': [
-                ('GID', 'int'),
-                ('AXIS', 'int:4'),
-                ('ROW', 'int:3'),
-                ('COL', 'int:3'),
-                ('M', 'float:10.2')
-            ]
-        }
-        crs = fiona.crs.from_epsg(2154)
-        options = dict(driver='ESRI Shapefile', crs=crs, schema=schema)
-        count = 0
-        dgos = list()
+#         schema = {
+#             'geometry': 'Polygon',
+#             'properties': [
+#                 ('GID', 'int'),
+#                 ('AXIS', 'int:4'),
+#                 ('ROW', 'int:3'),
+#                 ('COL', 'int:3'),
+#                 ('M', 'float:10.2')
+#             ]
+#         }
+#         crs = fiona.crs.from_epsg(2154)
+#         options = dict(driver='ESRI Shapefile', crs=crs, schema=schema)
+#         count = 0
+#         dgos = list()
 
-        with fiona.open(output_swaths_shapefile, 'w', **options) as fst:
-            for polygon, gid in polygons:
+#         with fiona.open(output_swaths_shapefile, 'w', **options) as fst:
+#             for polygon, gid in polygons:
                 
-                geom = asShape(polygon).buffer(0.0)
-                measure = float(measures[int(gid)])
-                feature = {
-                    'geometry': geom.__geo_interface__,
-                    'properties': {
-                        'GID': int(gid),
-                        'AXIS': axis,
-                        'ROW': row,
-                        'COL': col,
-                        'M': measure
-                    }
-                }
+#                 geom = asShape(polygon).buffer(0.0)
+#                 measure = float(measures[int(gid)])
+#                 feature = {
+#                     'geometry': geom.__geo_interface__,
+#                     'properties': {
+#                         'GID': int(gid),
+#                         'AXIS': axis,
+#                         'ROW': row,
+#                         'COL': col,
+#                         'M': measure
+#                     }
+#                 }
                 
-                fst.write(feature)
-                count += 1
+#                 fst.write(feature)
+#                 count += 1
 
-                dgos.append((measure, int(gid), axis, row, col))
+#                 dgos.append((measure, int(gid), axis, row, col))
 
-        # click.echo('Created %d DGOs' % count)
-        # click.echo('DGO Range = %d - %d' % (1, len(breaks)))
-        # click.echo('Measure Range =  %.0f - %.0f' % (np.min(breaks), np.max(breaks)))
+#         # click.echo('Created %d DGOs' % count)
+#         # click.echo('DGO Range = %d - %d' % (1, len(breaks)))
+#         # click.echo('Measure Range =  %.0f - %.0f' % (np.min(breaks), np.max(breaks)))
 
-        return dgos
+#         return dgos
 
-def AggregateSpatialUnits(axis, ax_tiles='ax_tiles', **kwargs):
-    """
-    Aggregate units tiles together
-    """
+# def AggregateSpatialUnits(axis, ax_tiles='ax_tiles', **kwargs):
+#     """
+#     Aggregate units tiles together
+#     """
 
-    parameters = ValleyBottomParameters()
-    parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
-    kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
-    params = SpatialReferenceParams(**parameters)
+#     parameters = ValleyBottomParameters()
+#     parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
+#     kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
+#     params = SwathMeasurementParams(**parameters)
 
-    output = config.filename(params.output_swaths_shapefile, axis=axis)
+#     output = config.filename(params.output_swaths_shapefile, axis=axis)
 
-    schema = {
-        'geometry': 'Polygon',
-        'properties': [
-            ('GID', 'int'),
-            ('AXIS', 'int:4'),
-            ('ROW', 'int:3'),
-            ('COL', 'int:3'),
-            ('M', 'float:10.2')
-        ]
-    }
-    crs = fiona.crs.from_epsg(2154)
-    options = dict(driver='ESRI Shapefile', crs=crs, schema=schema)
+#     schema = {
+#         'geometry': 'Polygon',
+#         'properties': [
+#             ('GID', 'int'),
+#             ('AXIS', 'int:4'),
+#             ('ROW', 'int:3'),
+#             ('COL', 'int:3'),
+#             ('M', 'float:10.2')
+#         ]
+#     }
+#     crs = fiona.crs.from_epsg(2154)
+#     options = dict(driver='ESRI Shapefile', crs=crs, schema=schema)
 
-    tilefile = config.tileset().filename(ax_tiles, axis=axis)
+#     tilefile = config.tileset().filename(ax_tiles, axis=axis)
 
-    with open(tilefile) as fp:
-        tiles = [tuple(int(x) for x in line.split(',')) for line in fp]
+#     with open(tilefile) as fp:
+#         tiles = [tuple(int(x) for x in line.split(',')) for line in fp]
 
-    with fiona.open(output, 'w', **options) as dst:
-        with click.progressbar(tiles) as iterator:
+#     with fiona.open(output, 'w', **options) as dst:
+#         with click.progressbar(tiles) as iterator:
 
-            for row, col in iterator:
+#             for row, col in iterator:
 
-                shapefile = config.tileset().tilename(
-                    params.output_swaths_shapefile,
-                    axis=axis,
-                    row=row,
-                    col=col)
+#                 shapefile = config.tileset().tilename(
+#                     params.output_swaths_shapefile,
+#                     axis=axis,
+#                     row=row,
+#                     col=col)
 
-                if os.path.exists(shapefile):
+#                 if os.path.exists(shapefile):
 
-                    with fiona.open(shapefile) as fs:
+#                     with fiona.open(shapefile) as fs:
 
-                        for feature in fs:
-                            feature['properties'].update(AXIS=axis)
-                            dst.write(feature)
+#                         for feature in fs:
+#                             feature['properties'].update(AXIS=axis)
+#                             dst.write(feature)

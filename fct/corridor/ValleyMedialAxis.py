@@ -147,7 +147,7 @@ def SwathMedialAxis(axis, swid, coordm, bounds, long_length, resolution):
 
 def ValleyMedialAxis(axis, processes=1, **kwargs):
 
-    swath_defs = config.filename('ax_valley_swaths_defs', axis=axis)
+    swath_defs = config.filename('ax_valley_swaths_bounds', axis=axis)
     
     long_length = 200.0
     resolution = 5.0

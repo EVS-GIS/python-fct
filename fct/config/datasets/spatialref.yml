@@ -144,7 +144,7 @@ ax_valley_swaths_polygons:
     template: VALLEY_SWATHS_%(row)02d_%(col)02d
     extension: .shp
 
-ax_valley_swaths_defs:
+ax_valley_swaths_bounds:
   description: |
     coordinate and bounds of valley bottom
     spatial units (after disaggregation)
@@ -152,7 +152,7 @@ ax_valley_swaths_defs:
   group: spatial reference
   status: temporary
   subdir: AXES/AX%(axis)04d/TEMP
-  filename: VALLEY_SWATHS.nc
+  filename: VALLEY_SWATH_BOUNDS.nc
 
 ax_corridor_swaths:
   description: |
@@ -181,7 +181,7 @@ ax_corridor_swaths_polygons:
     template: CORRIDOR_SWATHS_%(row)02d_%(col)02d
     extension: .shp
 
-ax_corridor_swaths_defs:
+ax_corridor_swaths_bounds:
   description: |
     coordinate and bounds of fluvial corridor
     spatial units (after disaggregation)
@@ -189,7 +189,7 @@ ax_corridor_swaths_defs:
   group: spatial reference
   status: temporary
   subdir: AXES/AX%(axis)04d/TEMP
-  filename: CORRIDOR_SWATHS.nc
+  filename: CORRIDOR_SWATH_BOUNDS.nc
 
 ax_natural_corridor_swaths:
   description: |

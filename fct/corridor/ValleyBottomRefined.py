@@ -38,13 +38,13 @@ def TalwegHeightBySwathUnit(axis):
 
     elevation_raster = config.tileset().filename('dem')
     talweg_shapefile = config.filename('ax_talweg', axis=axis)
-    swath_defs = config.filename('ax_valley_swaths_defs', axis=axis)
+    swath_bounds = config.filename('ax_valley_swaths_bounds', axis=axis)
     swath_raster = config.tileset().filename('ax_valley_swaths', axis=axis)
     measure_raster = config.tileset().filename('ax_axis_measure', axis=axis)
 
     # swath => z0, slope
 
-    defs = xr.open_dataset(swath_defs)
+    defs = xr.open_dataset(swath_bounds)
     defs.load()
     defs = defs.sortby('coordm')
 

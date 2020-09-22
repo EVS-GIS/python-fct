@@ -32,79 +32,6 @@ from ..tileio import as_window
 from ..ransac import LinearModel, ransac
 from ..cli import starcall
 
-def UpdateValleySwathTile(axis, tile):
-
-    tileset = config.tileset()
-
-    def _tilename(name):
-        return tileset.tilename(name, axis=axis, row=tile.row, col=tile.col)
-
-    swath_shapefile = config.filename('ax_valley_swaths_polygons', axis=axis)
-    swath_raster = _tilename('ax_valley_swaths')
-
-    if not os.path.exists(swath_raster):
-        return
-
-    with rio.open(swath_raster) as ds:
-
-        shape = ds.shape
-        nodata = ds.nodata
-        transform = ds.transform
-        profile = ds.profile.copy()
-        profile.update(compress='deflate', dtype='uint32')
-
-    with fiona.open(swath_shapefile) as fs:
-
-        def accept(feature):
-            return all([
-                feature['properties']['AXIS'] == axis,
-                feature['properties']['VALUE'] == 2
-            ])
-
-        geometries = [
-            (f['geometry'], f['properties']['GID']) for f in fs.filter(bbox=tile.bounds)
-            if accept(f)
-        ]
-
-        if geometries:
-
-            swaths = features.rasterize(
-                geometries,
-                out_shape=shape,
-                transform=transform,
-                fill=nodata,
-                dtype='uint32')
-
-        else:
-
-            swaths = np.full(shape, nodata, dtype='uint32')
-
-    with rio.open(swath_raster, 'w', **profile) as dst:
-        dst.write(swaths, 1)
-
-def UpdateValleySwathRaster(axis, processes=1, **kwargs):
-
-    # tileindex = config.tileset().tileindex
-
-    tileset = config.tileset()
-
-    def arguments():
-
-        for tile in tileset.tiles():
-            yield (
-                UpdateValleySwathTile,
-                axis,
-                tile,
-                kwargs
-            )
-
-    with Pool(processes=processes) as pool:
-
-        pooled = pool.imap_unordered(starcall, arguments())
-        with click.progressbar(pooled, length=len(tileset)) as iterator:
-            for _ in iterator:
-                pass
-
 def TileCropInvalidRegions(axis, tile):
     """
     DOCME
@@ -412,7 +339,7 @@ def UnitSwathAxis(axis, gid, m0, bounds):
 def SwathProfiles(axis, processes=1):
 
     swath_shapefile = config.filename('ax_valley_swaths_polygons', axis=axis)
-    swath_defs = config.filename('ax_valley_swaths_defs', axis=axis)
+    swath_bounds = config.filename('ax_valley_swaths_bounds', axis=axis)
     relative_errors = 0
     invalid_swaths = 0
 
@@ -456,7 +383,7 @@ def SwathProfiles(axis, processes=1):
         #             arguments.append([UnitSwathProfile, axis, gid, geometry.bounds, kwargs])
 
 
-        defs = xr.open_dataset(swath_defs)
+        defs = xr.open_dataset(swath_bounds)
         defs.load()
         defs = defs.sortby('coordm')
 

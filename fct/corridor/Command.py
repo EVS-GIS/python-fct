@@ -206,28 +206,29 @@ def disaggregate_valley_bottom(axis, length, processes):
     into longitudinal units
     """
 
-    from ..swath.SpatialReferencing import (
-        SpatialReference,
+    from ..swath.SwathMeasurement import (
+        DisaggregateIntoSwaths,
         ValleyBottomParameters,
-        ExportSpatialUnitDefs,
-        VectorizeContinuousAll
+        WriteSwathsBounds,
+        VectorizeSwathPolygons,
+        UpdateSwathRaster
     )
 
     parameters = ValleyBottomParameters()
     parameters.update(mdelta=length, ax_tiles='ax_shortest_tiles')
 
-    start_time = PrintCommandInfo('valley bottom disaggregation', axis, processes, parameters)
+    start_time = PrintCommandInfo('valley bottom swaths', axis, processes, parameters)
 
     elapsed = time.time() - start_time
     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
 
     click.secho('Disaggregate valley bottom', fg='cyan')
-    swaths = SpatialReference(
+    swaths = DisaggregateIntoSwaths(
         axis=axis,
         processes=processes,
         **parameters)
 
-    ExportSpatialUnitDefs(axis, swaths, **parameters)
+    WriteSwathsBounds(axis, swaths, **parameters)
 
     elapsed = time.time() - start_time
     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
@@ -236,8 +237,76 @@ def disaggregate_valley_bottom(axis, length, processes):
     buildvrt('default', 'ax_axis_measure', axis=axis)
     buildvrt('default', 'ax_axis_distance', axis=axis)
 
-    click.secho('Polygonize spatial units', fg='cyan')
-    VectorizeContinuousAll(
+    click.secho('Vectorize swath polygons', fg='cyan')
+    VectorizeSwathPolygons(
+        axis=axis,
+        processes=processes,
+        **parameters)
+
+    elapsed = time.time() - start_time
+    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
+    click.secho('Update swath raster', fg='cyan')
+    UpdateSwathRaster(
+        axis=axis,
+        processes=processes,
+        **parameters)
+
+    elapsed = time.time() - start_time
+    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
+@disaggregate.command('medialaxis')
+@click.argument('axis', type=int)
+@click.option('--length', default=200.0, help='unit length / disaggregation step')
+@parallel_opt
+def disaggregate_medial_axis(axis, length, processes):
+    """
+    Disaggregate valley bottom (from nearest height raster)
+    into longitudinal units
+    """
+
+    from ..swath.SwathMeasurement import (
+        DisaggregateIntoSwaths,
+        ValleyMedialAxisParameters,
+        WriteSwathsBounds,
+        VectorizeSwathPolygons,
+        UpdateSwathRaster
+    )
+
+    parameters = ValleyMedialAxisParameters()
+    parameters.update(mdelta=length, ax_tiles='ax_shortest_tiles')
+
+    start_time = PrintCommandInfo('valley bottom swaths, using medial axis', axis, processes, parameters)
+
+    elapsed = time.time() - start_time
+    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
+    click.secho('Disaggregate valley bottom', fg='cyan')
+    swaths = DisaggregateIntoSwaths(
+        axis=axis,
+        processes=processes,
+        **parameters)
+
+    WriteSwathsBounds(axis, swaths, **parameters)
+
+    elapsed = time.time() - start_time
+    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
+    buildvrt('default', 'ax_valley_swaths', axis=axis)
+    buildvrt('default', 'ax_axis_measure', axis=axis)
+    buildvrt('default', 'ax_axis_distance', axis=axis)
+
+    click.secho('Vectorize swath polygons', fg='cyan')
+    VectorizeSwathPolygons(
+        axis=axis,
+        processes=processes,
+        **parameters)
+
+    elapsed = time.time() - start_time
+    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
+    click.secho('Update swath raster', fg='cyan')
+    UpdateSwathRaster(
         axis=axis,
         processes=processes,
         **parameters)
@@ -254,8 +323,8 @@ def disaggregate_natural(axis, length, processes):
     Disaggregate natural corridor into longitudinal units
     """
 
-    from ..swath.SpatialReferencing import (
-        SpatialReference,
+    from ..swath.SwathMeasurement import (
+        DisaggregateIntoSwaths,
         AggregateSpatialUnits,
         NaturalCorridorParameters
     )
@@ -265,7 +334,7 @@ def disaggregate_natural(axis, length, processes):
 
     start_time = PrintCommandInfo('natural corridor disaggregation', axis, processes, parameters)
 
-    SpatialReference(
+    DisaggregateIntoSwaths(
         axis=axis,
         processes=processes,
         **parameters)
@@ -283,15 +352,9 @@ def elevation_swath_profiles(axis, processes):
     Calculate elevation swath profiles
     """
 
-    from ..swath.ElevationSwathProfile import (
-        UpdateValleySwathRaster,
-        SwathProfiles
-    )
+    from ..swath.ElevationSwathProfile import SwathProfiles
 
     start_time = PrintCommandInfo('elevation swath profiles', axis, processes, {})
-
-    click.secho('Update swath units', fg='cyan')
-    UpdateValleySwathRaster(axis=axis, processes=processes)
 
     click.secho('Calculate swath profiles', fg='cyan')
     SwathProfiles(axis=axis, processes=processes)
