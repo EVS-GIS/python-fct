@@ -49,11 +49,14 @@ def UnitLandCoverSwath(
     Calculate land cover swath profile for longitudinal unit (axis, gid)
     """
 
-    landcover_raster = config.filename(datasets.landcover, axis=axis, **kwargs)
-    swath_raster = config.filename(datasets.swaths, axis=axis, **kwargs)
-    axis_distance_raster = config.filename(datasets.axis_distance, axis=axis, **kwargs)
-    nearest_distance_raster = config.filename(datasets.drainage_distance, axis=axis, **kwargs)
-    hand_raster = config.filename(datasets.height, axis=axis, **kwargs)
+    def _rasterfile(name):
+        return config.tileset().filename(name, axis=axis, **kwargs)
+
+    landcover_raster = _rasterfile(datasets.landcover)
+    swath_raster = _rasterfile(datasets.swaths)
+    axis_distance_raster = _rasterfile(datasets.axis_distance)
+    nearest_distance_raster = _rasterfile(datasets.drainage_distance)
+    hand_raster = _rasterfile(datasets.height)
 
     with rio.open(landcover_raster) as ds:
 
@@ -94,7 +97,7 @@ def UnitLandCoverSwath(
                 classes=np.zeros(0, dtype='uint32'),
                 swath=np.zeros((0, 0), dtype='float32')
             )
-            return axis, gid, values
+            return gid, values
 
         min_distance = min(np.min(axis_distance[mask]), np.min(nearest_distance[mask]))
         max_distance = max(np.max(axis_distance[mask]), np.max(nearest_distance[mask]))
@@ -214,10 +217,10 @@ def LandCoverSwath(axis, processes=1, **kwargs):
 
     defaults = dict(
         landcover='ax_continuity',
-        swaths='ax_swaths',
-        swath_features='ax_swath_features',
+        swaths='ax_valley_swaths',
+        swath_features='ax_valley_swaths_polygons',
         axis_distance='ax_axis_distance',
-        drainage_distance='ax_talweg_distance',
+        drainage_distance='ax_nearest_distance',
         height='ax_nearest_height',
         output='ax_swath_landcover'
     )
@@ -236,6 +239,9 @@ def LandCoverSwath(axis, processes=1, **kwargs):
 
         with fiona.open(swath_shapefile) as fs:
             for feature in fs:
+
+                if feature['properties']['VALUE'] == 0:
+                    continue
 
                 gid = feature['properties']['GID']
                 measure = feature['properties']['M']

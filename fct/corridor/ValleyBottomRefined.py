@@ -24,6 +24,7 @@ from scipy.interpolate import interp1d
 import click
 import xarray as xr
 import rasterio as rio
+from rasterio import features
 import fiona
 
 from .. import transform as fct
@@ -218,7 +219,7 @@ def WriteTalwegHeights(axis, swaths, values):
 
     return dataset
 
-def ValleyMaskTile(axis, row, col):
+def ValleyMaskTile(axis, row, col, threshold):
 
     tileset = config.tileset()
 
@@ -228,7 +229,8 @@ def ValleyMaskTile(axis, row, col):
     datafile = config.filename('metrics_talweg_height', axis=axis)
     hand_raster = _tilename('ax_nearest_height')
     swath_raster = _tilename('ax_valley_swaths')
-    output = _tilename('ax_valley_mask_refined')
+    output_mask = _tilename('ax_valley_mask_refined')
+    # output_height = _tilename('ax_nearest_height_refined')
 
     if not (os.path.exists(hand_raster) and os.path.exists(swath_raster)):
         return
@@ -263,15 +265,10 @@ def ValleyMaskTile(axis, row, col):
 
             else:
 
-                # if talheight < 0:
-                #     minh = min(talheight - 1.0, -5.0)
-                #     maxh = -talheight + 4.0
-                # else:
-                #     minh = min(-talheight - 1.0, -5.0)
-                #     maxh = talheight + 2.0
+                # TODO threshold = f(swid, bottom width, drainage area)
 
-                minh = min(talheight - 1.0, -5.0)
-                maxh = abs(talheight) + 4.0
+                minh = min(-talheight - threshold, -threshold)
+                maxh = max(-talheight + threshold, threshold)
 
                 swath_mask = (swaths == swid)
                 bottom_mask = (hand >= minh) & (hand < maxh)
@@ -279,13 +276,15 @@ def ValleyMaskTile(axis, row, col):
                 out[swath_mask] = 1
                 out[swath_mask & bottom_mask] = 0
 
+        out = features.sieve(out, 100) # TODO externalize parameter
+
         profile = ds.profile.copy()
         profile.update(dtype='uint8', nodata=nodata, compress='deflate')
 
-        with rio.open(output, 'w', **profile) as dst:
+        with rio.open(output_mask, 'w', **profile) as dst:
             dst.write(out, 1)
 
-def ValleyMask(axis, ax_tiles='ax_shortest_tiles', processes=1, **kwargs):
+def ValleyMask(axis, threshold, ax_tiles='ax_shortest_tiles', processes=1, **kwargs):
     """
     Refine valley bottom mask
     0: bottom
@@ -309,6 +308,7 @@ def ValleyMask(axis, ax_tiles='ax_shortest_tiles', processes=1, **kwargs):
                     axis,
                     row,
                     col,
+                    threshold,
                     kwargs
                 )
 

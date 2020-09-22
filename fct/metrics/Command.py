@@ -24,21 +24,26 @@ from ..subgrid.SubGrid import (
     AggregateLandCover,
     DominantLandCover
 )
+from ..cli import (
+    fct_entry_point,
+    parallel_opt
+)
 
-@click.group()
-def cli():
+# pylint: disable=import-outside-toplevel
+
+@fct_entry_point
+def cli(env):
     """
     Metrics extraction module
     """
 
 @cli.command()
 @click.option('--processes', '-j', default=1, help="Execute j parallel processes")
-def landcover(processes=1):
+def data_landcover(processes=1):
     """
     Reclass landcover data and create landcover tiles
     """
 
-    config.default()
     MkLandCoverTiles(processes)
 
 @cli.command()
@@ -46,12 +51,11 @@ def landcover(processes=1):
 @click.argument('destination')
 @click.option('--landcoverset', '-lc', default='landcover-bdt')
 @click.option('--processes', '-j', default=1, help="Execute j parallel processes")
-def population(variable, destination, landcoverset, processes=1):
+def data_population(variable, destination, landcoverset, processes=1):
     """
     Disaggregate population data to match the resolution of landcover data
     """
 
-    config.default()
     DisaggregatePopulation(
         processes=processes,
         variable=variable,
@@ -71,7 +75,6 @@ def subgrid_mask():
     Define SubGrid Mask
     """
 
-    config.default()
     DefineSubGridMask()
 
 @subgrid.command('population')
@@ -81,7 +84,6 @@ def subgrid_population(processes=1):
     Aggregate population data
     """
 
-    config.default()
     AggregatePopulation(processes)
 
 @subgrid.command('landcover')
@@ -95,7 +97,6 @@ def subgrid_landcover(dataset, processes=1):
     Aggregate landcover data
     """
 
-    config.default()
     click.secho('Using %s lancover dataset' % dataset, fg='cyan')
     AggregateLandCover(processes, dataset=dataset)
 
@@ -105,5 +106,65 @@ def subgrid_dominant_landcover():
     Calculate dominant landcover at subgrid's resolution
     """
 
-    config.default()
     DominantLandCover()
+
+@cli.command()
+@click.argument('axis', type=int)
+@parallel_opt
+def landcover_swath(axis, processes):
+    """
+    Calculate landcover swaths
+    """
+
+    from fct.swath.LandCoverSwathProfile import LandCoverSwath
+
+    LandCoverSwath(axis, processes=processes, landcover='landcover-bdt', subset='TOTAL_BDT')
+    LandCoverSwath(axis, processes=processes, landcover='ax_corridor_mask', subset='CONT_BDT')
+
+@cli.command()
+@click.argument('axis', type=int)
+def corridor_width(axis):
+    """
+    Calculate corridor width metrics
+    """
+
+    from .CorridorWidth import (
+        CorridorWidth,
+        WriteCorridorWidth
+    )
+
+    width = CorridorWidth(axis)
+    WriteCorridorWidth(axis, width)
+
+@cli.command()
+@click.argument('axis', type=int)
+def landcover_width(axis):
+    """
+    Calculate landcover width metrics
+    """
+
+    from fct.metrics.LandCoverWidth import (
+        DatasetParameter,
+        LandCoverWidth,
+        WriteLandCoverWidth
+    )
+
+    datasets = DatasetParameter(
+        landcover='landcover-bdt',
+        swath_features='ax_valley_swaths_polygons',
+        swath_data='ax_swath_landcover'
+    )
+    method = 'total landcover width'
+    subset = 'TOTAL_BDT'
+    data = LandCoverWidth(axis, method, datasets, subset=subset)
+    WriteLandCoverWidth(axis, data, output='metrics_lcw_variant', variant=subset)
+
+    datasets = DatasetParameter(
+        landcover='ax_corridor_mask',
+        swath_features='ax_valley_swaths_polygons',
+        swath_data='ax_swath_landcover'
+    )
+    method = 'continuous buffer width from river channel'
+    subset = 'CONT_BDT'
+    data = LandCoverWidth(axis, method, datasets, subset=subset)
+    WriteLandCoverWidth(axis, data, output='metrics_lcw_variant', variant=subset)

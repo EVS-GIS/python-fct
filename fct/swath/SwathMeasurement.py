@@ -651,7 +651,9 @@ def UpdateSwathTile(axis, tile, params):
                 out_shape=shape,
                 transform=transform,
                 fill=nodata,
-                dtype='uint32')
+                dtype='int32')
+
+            swaths = np.uint32(features.sieve(swaths, 40)) # TODO externalize parameter
 
         else:
 

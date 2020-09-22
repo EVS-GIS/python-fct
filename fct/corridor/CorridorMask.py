@@ -14,6 +14,7 @@ Measure along Reference Axis, Space Discretization
 ***************************************************************************
 """
 
+import os
 from multiprocessing import Pool
 
 import numpy as np
@@ -24,7 +25,7 @@ from ..config import config
 from .. import speedup
 from ..cli import starcall
 
-def RasterBufferTile(axis, row, col, buffer_width, **kwargs):
+def CorridorMaskTile(axis, row, col, buffer_width, **kwargs):
 
     tileset = config.tileset()
 
@@ -35,6 +36,7 @@ def RasterBufferTile(axis, row, col, buffer_width, **kwargs):
             row=row,
             col=col)
 
+    swaths_raster = _tilename('ax_valley_swaths')
     data_raster = _tilename('ax_continuity')
     output = _tilename('ax_corridor_mask')
 
@@ -45,6 +47,14 @@ def RasterBufferTile(axis, row, col, buffer_width, **kwargs):
 
         return mask
 
+    if not os.path.exists(swaths_raster):
+        return
+
+    with rio.open(swaths_raster) as ds:
+
+        swaths = ds.read(1)
+        swath_nodata = ds.nodata
+
     with rio.open(data_raster) as ds:
 
         # click.echo('Read Valley Bottom')
@@ -54,7 +64,7 @@ def RasterBufferTile(axis, row, col, buffer_width, **kwargs):
         mask = create_mask(data)
         speedup.raster_buffer(mask, 0, buffer_width, 1)
 
-        data[mask == 0] = ds.nodata
+        data[(mask == 0) | (swaths == swath_nodata)] = ds.nodata
 
         profile = ds.profile.copy()
         profile.update(compress='deflate')
@@ -62,7 +72,7 @@ def RasterBufferTile(axis, row, col, buffer_width, **kwargs):
         with rio.open(output, 'w', **profile) as dst:
             dst.write(data, 1)
 
-def RasterBuffer(axis, buffer_width, ax_tiles='ax_tiles', processes=1, **kwargs):
+def CorridorMask(axis, buffer_width, ax_tiles='ax_shortest_tiles', processes=1, **kwargs):
     """
     Creates a raster buffer with distance buffer_width pixels
     around data pixels and crop out data outside of the resulting buffer
@@ -82,7 +92,7 @@ def RasterBuffer(axis, buffer_width, ax_tiles='ax_tiles', processes=1, **kwargs)
 
         for row, col in tiles:
             yield (
-                RasterBufferTile,
+                CorridorMaskTile,
                 axis,
                 row,
                 col,

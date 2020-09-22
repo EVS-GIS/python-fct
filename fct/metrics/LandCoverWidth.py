@@ -44,6 +44,9 @@ def LandCoverWidth(axis, method, datasets, swath_length=200.0, resolution=5.0, *
         with click.progressbar(fs) as iterator:
             for feature in iterator:
 
+                if feature['properties']['VALUE'] == 0:
+                    continue
+
                 gid = feature['properties']['GID']
                 measure = feature['properties']['M']
 
@@ -197,7 +200,7 @@ def LandCoverTotalWidth(axis, subset='landcover', swath_length=200.0, resolution
 
     datasets = DatasetParameter(
         landcover='',
-        swath_features='ax_swath_features',
+        swath_features='ax_valley_swaths_polygons',
         swath_data='ax_swath_landcover'
     )
 
@@ -219,7 +222,7 @@ def ContinuousBufferWidth(axis, subset='continuity', swath_length=200.0, resolut
 
     datasets = DatasetParameter(
         landcover='',
-        swath_features='ax_swath_features',
+        swath_features='ax_valley_swaths_polygons',
         swath_data='ax_swath_landcover'
     )
 

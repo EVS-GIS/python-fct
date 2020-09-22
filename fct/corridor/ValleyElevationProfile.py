@@ -85,7 +85,7 @@ def ValleySwathElevation(axis):
     for each valley swath defined in ax_valley_swaths
     """
 
-    swath_defs = config.filename('ax_valley_swaths_defs', axis=axis)
+    swath_defs = config.filename('ax_valley_swaths_bounds', axis=axis)
 
     # swath => z0, slope
 

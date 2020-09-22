@@ -23,7 +23,7 @@ from ..tileio import buildvrt
 
 # pylint: disable=import-outside-toplevel
 
-def PrintCommandInfo(command, axis, processes, parameters):
+def PrintCommandInfo(command, axis, processes, parameters=None):
     """
     Print command info
     """
@@ -43,8 +43,9 @@ def PrintCommandInfo(command, axis, processes, parameters):
     if axis:
         click.secho('  %16s: %d' % ('axis', axis))
 
-    for parameter, value in parameters.items():
-        click.echo('  %16s: %s' % (parameter, value))
+    if parameters:
+        for parameter, value in parameters.items():
+            click.echo('  %16s: %s' % (parameter, value))
 
     if processes > 0:
         click.secho('-- Start time     : %s' % datetime.fromtimestamp(start_time))
@@ -57,6 +58,16 @@ def cli(env):
     """
     Fluvial corridor delineation module
     """
+
+@cli.command()
+@click.argument('axis', type=int)
+@click.argument('name')
+def vrt(axis, name):
+    """
+    Build Virtual Raster (VRT) for axis tileset
+    """
+
+    buildvrt('default', name, axis=axis)
 
 @cli.command('setup')
 def setup_axes():
@@ -314,6 +325,47 @@ def disaggregate_medial_axis(axis, length, processes):
     elapsed = time.time() - start_time
     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
 
+@cli.command()
+@click.argument('axis', type=int)
+@parallel_opt
+def swath_axes(axis, processes):
+    """
+    Generate cross-profile swath axes
+    """
+
+    from ..swath.SwathAxes import SwathAxes
+
+    start_time = PrintCommandInfo('generate swath axes', axis, processes)
+
+    SwathAxes(axis=axis, processes=processes)
+
+    elapsed = time.time() - start_time
+    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
+@cli.command()
+@click.argument('axis', type=int)
+@click.option('--threshold', '-t', default=5.0, help='height threshold in meters')
+@parallel_opt
+def refine_valley_mask(axis, threshold, processes):
+    """
+    Refine valley mask, using talweg depth relative to valley floor
+    """
+
+    from .ValleyBottomRefined import ValleyMask
+
+    start_time = PrintCommandInfo(
+        'valley bottom swaths, using medial axis',
+        axis,
+        processes,
+        dict(threshold=threshold))
+
+    ValleyMask(axis=axis, threshold=threshold, processes=processes)
+
+    elapsed = time.time() - start_time
+    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
+    buildvrt('default', 'ax_valley_mask_refined', axis=axis)
+
 @disaggregate.command('natural')
 @click.argument('axis', type=int)
 @click.option('--length', default=200.0, help='unit length / disaggregation step')
@@ -430,3 +482,92 @@ def height_above_valley_floor(axis, processes):
     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
 
     buildvrt('default', 'ax_valley_height', axis=axis)
+
+# @cli.command()
+# @click.argument('axis', type=int)
+# @parallel_opt
+# @click.option('--maxiter', '-it', default=10, help='Stop after max iterations')
+# @click.option('--infra/--no-infra', default=True, help='Account for infrastructures in space fragmentation')
+# def natural(axis, processes, maxiter, infra):
+#     """
+#     Extract natural corridor from landcover
+#     within valley bottom
+#     """
+
+#     from ..continuity.LayeredContinuityAnalysis import (
+#         LandcoverContinuityAnalysis,
+#         NaturalCorridorDefaultParameters
+#     )
+
+#     parameters = NaturalCorridorDefaultParameters()
+#     parameters.update(with_infra=infra)
+
+#     start_time = PrintCommandInfo('natural corridor', axis, processes, parameters)
+
+#     LandcoverContinuityAnalysis(
+#         axis=axis,
+#         processes=processes,
+#         maxiter=maxiter,
+#         **parameters)
+
+#     elapsed = time.time() - start_time
+#     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
+@cli.command()
+@click.argument('axis', type=int)
+@parallel_opt
+@click.option('--maxiter', '-it', default=10, help='Stop after max iterations')
+@click.option('--infra/--no-infra', default=True, help='Account for infrastructures in space fragmentation')
+def continuity(axis, processes, maxiter, infra):
+    """
+    Extract natural corridor from landcover
+    within valley bottom
+    """
+
+    from ..continuity.LayeredContinuityAnalysis import (
+        LandcoverContinuityAnalysis,
+        ContinuityDefaultParameters,
+        NoInfrastructureParameters
+    )
+
+    if infra:
+        parameters = ContinuityDefaultParameters()
+    else:
+        parameters = NoInfrastructureParameters()
+
+    start_time = PrintCommandInfo('landcover continuity analysis', axis, processes, parameters)
+
+    LandcoverContinuityAnalysis(
+        axis=axis,
+        processes=processes,
+        maxiter=maxiter,
+        **parameters)
+
+    elapsed = time.time() - start_time
+    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
+@cli.command()
+@click.argument('axis', type=int)
+@click.option('--width', '-b', default=40.0, help='buffer width in pixels')
+@parallel_opt
+def corridor_mask(axis, width, processes):
+    """
+    Calculate natural/reversible corridor
+    """
+
+    from .CorridorMask import CorridorMask
+
+    start_time = PrintCommandInfo(
+        'natural corridor mask',
+        axis,
+        processes,
+        dict(buffer_width=width))
+
+    CorridorMask(
+        axis=axis,
+        buffer_width=width,
+        ax_tiles='ax_shortest_tiles',
+        processes=processes)
+
+    elapsed = time.time() - start_time
+    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))

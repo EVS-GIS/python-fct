@@ -61,7 +61,7 @@ def CorridorWidth(axis, long_length=200.0, resolution=5.0):
                 or bankh1 if no such pixels
     """
 
-    dgo_shapefile = config.filename('ax_swath_polygons', axis=axis)
+    dgo_shapefile = config.filename('ax_valley_swaths_polygons', axis=axis)
 
     gids = list()
     measures = list()
@@ -73,6 +73,9 @@ def CorridorWidth(axis, long_length=200.0, resolution=5.0):
     with fiona.open(dgo_shapefile) as fs:
         with click.progressbar(fs) as iterator:
             for feature in iterator:
+
+                if feature['properties']['VALUE'] == 0:
+                    continue
 
                 gid = feature['properties']['GID']
                 measure = feature['properties']['M']

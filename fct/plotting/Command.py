@@ -129,7 +129,7 @@ def plot_valley_elevation_profile(axis, filename):
 
     # _, values = ValleySwathElevation(axis)
     # ax.plot(values[:, 0], values[:, 1], 'darkgray', linewidth=0.8)
-    
+
     ax.plot(x, y)
     ax.set_ylabel('Elevation (m NGF)')
     SetupMeasureAxis(ax, x)
@@ -169,3 +169,80 @@ def plot_talweg_height(axis, filename):
     ax.legend()
     SetupMeasureAxis(ax, x)
     FinalizePlot(fig, ax, title='Talweg Relative Height', filename=filename)
+
+@cli.command('landcover-profile')
+@click.argument('axis', type=int)
+@click.option(
+    '--filename', '-f',
+    default=None,
+    type=click.Path(file_okay=True, dir_okay=False, writable=True, exists=False),
+    help='save output to file')
+def plot_landcover_profile(axis, filename):
+    """
+    Landcover class width long profile
+    """
+
+    from .PlotCorridor import PlotLandCoverProfile
+
+    width_file = config.filename('metrics_fcw', axis=axis)
+    data_file = config.filename('metrics_lcw_variant', variant='TOTAL_BDT', axis=axis)
+
+    width = xr.open_dataset(width_file)
+    data = xr.open_dataset(data_file)
+
+    merged = data.merge(width).sortby('measure')
+
+    fig, ax = SetupPlot()
+    PlotLandCoverProfile(
+        ax,
+        merged,
+        merged['measure'],
+        merged['lcw'].sel(type='total'),
+        basis=2,
+        window=5)
+    SetupMeasureAxis(ax, merged['measure'])
+    ax.set_ylabel('Width (m)')
+    FinalizePlot(
+        fig,
+        ax,
+        title='Total Landcover Width',
+        filename=filename)
+
+@cli.command('continuity-profile-lr')
+@click.argument('axis', type=int)
+@click.option(
+    '--filename', '-f',
+    default=None,
+    type=click.Path(file_okay=True, dir_okay=False, writable=True, exists=False),
+    help='save output to file')
+def plot_left_right_continuity_profile(axis, filename):
+    """
+    Left/rigth continuous landcover buffer width long profile
+    """
+
+    from .PlotCorridor import PlotLeftRightContinuityProfile
+    
+    data_file = config.filename('metrics_lcw_variant', variant='CONT_BDT', axis=axis)
+    width_file = config.filename('metrics_fcw', axis=axis)
+
+    width = xr.open_dataset(width_file)
+    data = xr.open_dataset(data_file)
+
+    merged = data.merge(width).sortby('measure')
+
+    fig, ax = SetupPlot()
+    PlotLeftRightContinuityProfile(
+        ax,
+        merged,
+        merged['measure'],
+        merged['lcw'].sel(type='left'),
+        merged['lcw'].sel(type='right'),
+        window=5)
+    SetupMeasureAxis(ax, merged['measure'])
+    ax.set_ylabel('Width (m)')
+    ax.legend(ncol=2)
+    FinalizePlot(
+        fig,
+        ax,
+        title='Left and Right Banks Landcover Width',
+        filename=filename)
