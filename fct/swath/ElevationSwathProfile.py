@@ -119,41 +119,41 @@ def _UnitSwathProfile(axis, gid, bounds):
     relz_raster = tileset.filename('ax_nearest_height', axis=axis)
     # relz_raster = tileset.filename('ax_valley_mask', axis=axis)
 
+    with rio.open(elevation_raster) as ds:
+        window = as_window(bounds, ds.transform)
+        elevations = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
+        elevation_nodata = ds.nodata
+
+    with rio.open(measure_raster) as ds:
+        window = as_window(bounds, ds.transform)
+        measure = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
+
+    with rio.open(relz_raster) as ds:
+        window = as_window(bounds, ds.transform)
+        relz = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
+
+    with rio.open(swath_raster) as ds:
+        window = as_window(bounds, ds.transform)
+        mask = (ds.read(1, window=window, boundless=True, fill_value=ds.nodata) == gid)
+
+    with rio.open(talweg_distance_raster) as ds:
+        window = as_window(bounds, ds.transform)
+        talweg_distance = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
+        mask1k = (talweg_distance >= -1000) & (talweg_distance <= 1000)
+        del talweg_distance
+
     with rio.open(distance_raster) as ds:
 
         window = as_window(bounds, ds.transform)
         distance = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
 
-        with rio.open(elevation_raster) as ds1:
-            window = as_window(bounds, ds1.transform)
-            elevations = ds1.read(1, window=window, boundless=True, fill_value=ds1.nodata)
+        assert elevations.shape == distance.shape
+        assert measure.shape == distance.shape
+        assert relz.shape == distance.shape
+        assert mask.shape == distance.shape
+        assert mask1k.shape == distance.shape
 
-        with rio.open(measure_raster) as ds2:
-            window = as_window(bounds, ds2.transform)
-            measure = ds2.read(1, window=window, boundless=True, fill_value=ds2.nodata)
-
-        with rio.open(relz_raster) as ds3:
-            window = as_window(bounds, ds3.transform)
-            relz = ds3.read(1, window=window, boundless=True, fill_value=ds3.nodata)
-
-        with rio.open(swath_raster) as ds4:
-            window = as_window(bounds, ds4.transform)
-            mask = (ds4.read(1, window=window, boundless=True, fill_value=ds4.nodata) == gid)
-
-        with rio.open(talweg_distance_raster) as ds5:
-            window = as_window(bounds, ds5.transform)
-            talweg_distance = ds5.read(1, window=window, boundless=True, fill_value=ds5.nodata)
-            mask1k = (talweg_distance >= -1000) & (talweg_distance <= 1000)
-            del talweg_distance
-
-        mask = mask & (elevations != ds1.nodata)
-
-        assert(all([
-            # distance.shape == elevations.shape,
-            measure.shape == distance.shape,
-            relz.shape == distance.shape,
-            mask.shape == distance.shape
-        ]))
+        mask = mask & (elevations != elevation_nodata)
 
         # Fit valley floor
 

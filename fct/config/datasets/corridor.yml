@@ -206,19 +206,15 @@ ax_natural_corridor_distance:
     template: NATURAL_CORRIDOR_DISTANCE_%(row)02d_%(col)02d
     extension: .tif
 
-ax_swath_elevation:
-  description: |
-    Elevation swath
-  type: npz
-  subdir: AXES/AX%(axis)04d/SWATH/ELEVATION
-  filename: SWATH_ELEVATION_%(gid)04d.npz
-
-ax_swath_landcover:
-  description: |
-    Landcover swath
-  type: npz
-  subdir: AXES/AX%(axis)04d/SWATH/LANDCOVER
-  filename: SWATH_ELEVATION_%(gid)04d_%(subset)s.npz
+ax_valley_bottom_boundary:
+    description: |
+      Pseudo valley bottom boundary,
+      calculated from medial axis and measured valley bottom width
+    type: linestring
+    group: corridor
+    status: final
+    subdir: AXES/AX%(axis)04d
+    filename: VALLEY_BOTTOM_BOUNDARY.shp
 
 ax_swath_axes:
   description: |

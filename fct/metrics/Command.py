@@ -111,15 +111,56 @@ def subgrid_dominant_landcover():
 @cli.command()
 @click.argument('axis', type=int)
 @parallel_opt
+def valleybottom_swath(axis, processes):
+    """
+    Calculate landcover swaths
+    """
+
+    from fct.swath.ValleyBottomSwathProfile import ValleyBottomSwathProfile
+
+    ValleyBottomSwathProfile(
+        axis,
+        processes=processes,
+        valley_bottom_mask='ax_valley_mask_refined'
+    )
+
+@cli.command()
+@click.argument('axis', type=int)
+@parallel_opt
 def landcover_swath(axis, processes):
     """
     Calculate landcover swaths
     """
 
-    from fct.swath.LandCoverSwathProfile import LandCoverSwath
+    from fct.swath.LandCoverSwathProfile import LandCoverSwathProfile
 
-    LandCoverSwath(axis, processes=processes, landcover='landcover-bdt', subset='TOTAL_BDT')
-    LandCoverSwath(axis, processes=processes, landcover='ax_corridor_mask', subset='CONT_BDT')
+    LandCoverSwathProfile(
+        axis,
+        processes=processes,
+        landcover='landcover-bdt',
+        valley_bottom_mask='ax_valley_mask_refined',
+        subset='TOTAL_BDT')
+
+    LandCoverSwathProfile(
+        axis,
+        processes=processes,
+        landcover='ax_corridor_mask',
+        subset='CONT_BDT')
+
+@cli.command()
+@click.argument('axis', type=int)
+def valleybottom_width(axis):
+    """
+    Calculate valley bottom width metrics
+    """
+
+    from .ValleyBottomWidth import (
+        ValleyBottomWidth,
+        WriteValleyBottomWidth
+    )
+
+    width = ValleyBottomWidth(axis)
+    WriteValleyBottomWidth(axis, width)
 
 @cli.command()
 @click.argument('axis', type=int)

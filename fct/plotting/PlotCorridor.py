@@ -48,7 +48,7 @@ def SetupMeasureAxis(
         title='Location along reference axis (from network outlet)',
         direction=-1,
         fontsize=None):
-    
+
     formatter = EngFormatter(unit='m')
     ax.xaxis.set_major_formatter(formatter)
 
@@ -114,7 +114,7 @@ def PlotMetric(ax, data, fieldx, *args, window=1):
     if len(args) > 1:
         ax.legend()
 
-def PlotLandCoverProfile(ax, data, x, y, basis=0, window=1, proportion=False, direction='upright'):
+def PlotLandCoverProfile(ax, x, y, basis=0, window=1, direction='upright'):
 
     colors = [
         '#a5bfdd', # Water
@@ -127,18 +127,10 @@ def PlotLandCoverProfile(ax, data, x, y, basis=0, window=1, proportion=False, di
         '#fa1524', # Urban
         '#fa1665'  # Disconnected
     ]
-    
-    fcw0 = data.sel(height=15.0)['fcw0']
-    fcw1 = data.sel(height=15.0)['fcw1']
-    
-    fcw = data['fcw2']
-    fcw[fcw0 < 200.0] = fcw0[fcw0 < 200.0]
-    fcw[np.isnan(fcw)] = fcw1[np.isnan(fcw)]
-    
+
     lcc = y
 
     if window > 1:
-        fcw = fcw.rolling(measure=window, min_periods=1, center=True).mean()
         lcc = lcc.rolling(measure=window, min_periods=1, center=True).mean()
 
     # Do not plot zeros
@@ -146,37 +138,23 @@ def PlotLandCoverProfile(ax, data, x, y, basis=0, window=1, proportion=False, di
     parts = np.split(
         np.column_stack([
             x,
-            fcw,
             lcc]),
-        np.where(np.isnan(fcw))[0])
+        np.where(np.isnan(lcc))[0])
 
     for k, part in enumerate(parts):
 
         if k == 0:
 
             xk = part[:, 0]
-            fcwk = part[:, 1]
-            lcck = part[:, 2:]
+            lcck = part[:, 1:]
 
         else:
 
             xk = part[1:, 0]
-            fcwk = part[1:, 1]
-            lcck = part[1:, 2:]
+            lcck = part[1:, 1:]
 
-        if proportion:
-
-            baseline = np.sum(lcck[:, :basis], axis=1)
-            # baseline[baseline > fcwk] = fcwk[baseline > fcwk]
-            fcwk = fcwk - baseline
-            lcck = lcck / fcwk[:, np.newaxis]
-            baseline = np.zeros_like(fcwk)
-            fcwk = np.ones_like(fcwk)
-
-        else:
-
-            baseline = np.sum(lcck[:, :basis], axis=1)
-            # baseline[baseline > fcwk] = fcwk[baseline > fcwk]
+        baseline = np.sum(lcck[:, :basis], axis=1)
+        # baseline[baseline > fcwk] = fcwk[baseline > fcwk]
 
         cumulative = np.copy(baseline)
         lagged = np.copy(cumulative)
@@ -218,7 +196,7 @@ def PlotContinuityProfile(ax, data, window=1, proportion=False, direction='uprig
 
     fcw0 = data.sel(height=15.0)['fcw0']
     fcw1 = data.sel(height=15.0)['fcw1']
-    
+
     fcw = data['fcw2']
     fcw[fcw0 < 200.0] = fcw0[fcw0 < 200.0]
     fcw[np.isnan(fcw)] = fcw1[np.isnan(fcw)]
@@ -343,10 +321,10 @@ def PlotChannelWidth(ax, data, window=1):
 def PlotCorridorLimit(ax, data, window=1, basis=2):
 
     x = data['measure']
-    
+
     fcw = data['fcw2']
     fcw[np.isnan(fcw)] = data['fcw0'][np.isnan(fcw)]
-    
+
     lcc = data['lcc'][:, :, 0] + data['lcc'][:, :, 1]
 
     if window > 1:
@@ -380,14 +358,109 @@ def PlotCorridorLimit(ax, data, window=1, basis=2):
 
         ax.plot(x, fcwk - baseline, 'darkgray', linewidth = 1.0)
 
+def PlotLeftRightCorridorLimit(ax, data, x, left, right, window=1):
 
-def PlotLeftRightContinuityProfile(ax, data, x, left, right, window=1, proportion=False, direction='upright'):
+    lcw = data['lcw']
+
+    if window > 1:
+
+        lcw = lcw.rolling(measure=window, min_periods=1, center=True).mean()
+        left = left.rolling(measure=window, min_periods=1, center=True).mean()
+        right = right.rolling(measure=window, min_periods=1, center=True).mean()
+
+    lcw_left = lcw.sel(type='left')
+    lcw_right = lcw.sel(type='right')
+
+    lcw = np.zeros(lcw_left.shape + (2,))
+    lcw[:, :, 0] = lcw_left
+    lcw[:, :, 1] = lcw_right
+    baseline = np.sum(lcw[:, :2, :], axis=1)
+
+    # Do not plot zeros
+
+    parts = np.split(
+        np.column_stack([
+            x,
+            left,
+            right,
+            baseline]),
+        np.where(np.isnan(baseline))[0])
+
+    for k, part in enumerate(parts):
+
+        if k == 0:
+
+            xk = part[:, 0]
+            leftk = part[:, 1]
+            rightk = part[:, 2]
+            baseline_leftk = part[:, 3]
+            baseline_rightk = part[:, 4]
+
+        else:
+
+            xk = part[1:, 0]
+            leftk = part[1:, 1]
+            rightk = part[1:, 2]
+            baseline_leftk = part[1:, 3]
+            baseline_rightk = part[1:, 4]
+
+        vbwk = np.zeros(leftk.shape + (2,))
+        vbwk[:, 0] = leftk
+        vbwk[:, 1] = rightk
+
+        baselinek = np.zeros(baseline_leftk.shape + (2,))
+        baselinek[:, 0] = baseline_leftk
+        baselinek[:, 1] = baseline_rightk
+
+        # baseline = np.sum(lcck[:, :2, :], axis=1)
+        # print(lcck.shape, baseline.shape)
+        # baseline[baseline[:, 0] > fcwk, 0] = fcwk[baseline[:, 0] > fcwk]
+        # baseline[baseline[:, 1] > fcwk, 1] = fcwk[baseline[:, 1] > fcwk]
+
+        # if proportion:
+
+        #     fcwk = fcwk - np.sum(baseline, axis=1)
+        #     lcck = lcck / fcwk[:, np.newaxis, np.newaxis]
+        #     baseline = np.zeros(fcwk.shape + (2,))
+        #     fcwk = np.ones_like(fcwk)
+
+        if xk.size > 0:
+
+            for side in (0, 1):
+
+                sign = 1 if side == 0 else -1
+
+                ax.fill_between(
+                    xk,
+                    0,
+                    sign*(vbwk[:, side] - baselinek[:, side]),
+                    color='lightgray',
+                    alpha=0.3)
+
+                ax.plot(
+                    xk,
+                    sign*(vbwk[:, side] - baselinek[:, side]),
+                    'darkgray',
+                    linewidth=0.6,
+                    # linestyle='dotted',
+                    label='corridor limit' if side == 0 else None)
+
+def PlotLeftRightLandcoverProfile(
+        ax,
+        data,
+        x,
+        left,
+        right,
+        window=1,
+        max_class=-1,
+        clip=True,
+        proportion=False,
+        direction='upright'):
 
     if proportion:
         ax.set_ylabel("Cover Class Proportion")
     else:
         ax.set_ylabel("Cover Class Width (m)")
-
 
     colors = [
         '#a5bfdd', # Water
@@ -414,7 +487,7 @@ def PlotLeftRightContinuityProfile(ax, data, x, left, right, window=1, proportio
     ]
 
     # x = data['measure']
-    fcw = data.sel(height=15.0)['fcw0']
+    # vbw = data['vbw']
     # lcc = data['lcc']
     # left = data[variable][:, :, 1]
     # right = data[variable][:, :, 2]
@@ -422,61 +495,63 @@ def PlotLeftRightContinuityProfile(ax, data, x, left, right, window=1, proportio
     # print(fcw.shape, left.shape, right.shape)
 
     if window > 1:
-        fcw = fcw.rolling(measure=window, min_periods=1, center=True).mean()
+        data = data.rolling(measure=window, min_periods=1, center=True).mean()
         # lcc = lcc.rolling(swath=window, min_periods=1, center=True).mean()
         left = left.rolling(measure=window, min_periods=1, center=True).mean()
         right = right.rolling(measure=window, min_periods=1, center=True).mean()
 
+    vbw_left = data['vbw'] * data['vbalr'].sel(side='left') / np.sum(data['vbalr'], axis=1)
+    vbw_right = data['vbw'] * data['vbalr'].sel(side='right') / np.sum(data['vbalr'], axis=1)
+
     # reverse measure direction
-    ax.set_xlim([np.max(x), np.min(x)])
-    formatter = EngFormatter(unit='m')
-    ax.xaxis.set_major_formatter(formatter)
+    # ax.set_xlim([np.max(x), np.min(x)])
+    # formatter = EngFormatter(unit='m')
+    # ax.xaxis.set_major_formatter(formatter)
 
     # Do not plot zeros
 
     parts = np.split(
         np.column_stack([
             x,
-            fcw,
+            vbw_left,
+            vbw_right,
             left,
             right]),
-        np.where(np.isnan(fcw))[0])
+        np.where(np.isnan(vbw_left))[0])
 
     for k, part in enumerate(parts):
-
-        print(part.shape)
 
         if k == 0:
 
             xk = part[:, 0]
-            fcwk = part[:, 1]
-            leftk = part[:, 2:11]
-            rightk = part[:, 11:]
+            vbwk = part[:, 1:3]
+            leftk = part[:, 3:12]
+            rightk = part[:, 12:]
 
         else:
 
             xk = part[1:, 0]
-            fcwk = part[1:, 1]
-            leftk = part[1:, 2:11]
-            rightk = part[1:, 11:]
-
-        print(leftk.shape, rightk.shape)
+            vbwk = part[1:, 1:3]
+            leftk = part[1:, 3:12]
+            rightk = part[1:, 12:]
 
         lcck = np.zeros(leftk.shape + (2,))
         lcck[:, :, 0] = leftk
         lcck[:, :, 1] = rightk
 
         baseline = np.sum(lcck[:, :2, :], axis=1)
-        print(lcck.shape, baseline.shape)
-        baseline[baseline[:, 0] > fcwk, 0] = fcwk[baseline[:, 0] > fcwk]
-        baseline[baseline[:, 1] > fcwk, 1] = fcwk[baseline[:, 1] > fcwk]
 
-        if proportion:
+        if clip:
 
-            fcwk = fcwk - np.sum(baseline, axis=1)
-            lcck = lcck / fcwk[:, np.newaxis, np.newaxis]
-            baseline = np.zeros(fcwk.shape + (2,))
-            fcwk = np.ones_like(fcwk)
+            baseline[baseline[:, 0] > vbwk[:, 0], 0] = vbwk[baseline[:, 0] > vbwk[:, 0], 0]
+            baseline[baseline[:, 1] > vbwk[:, 1], 1] = vbwk[baseline[:, 1] > vbwk[:, 1], 1]
+
+        # if proportion:
+
+        #     fcwk = fcwk - np.sum(baseline, axis=1)
+        #     lcck = lcck / fcwk[:, np.newaxis, np.newaxis]
+        #     baseline = np.zeros(fcwk.shape + (2,))
+        #     fcwk = np.ones_like(fcwk)
 
         cumulative = np.copy(baseline)
         lagged = np.copy(cumulative)
@@ -490,9 +565,14 @@ def PlotLeftRightContinuityProfile(ax, data, x, left, right, window=1, proportio
 
                 cumulative += lcck[:, variable, :]
 
+                if variable >= max_class > 0:
+                    continue
+
                 for side in (0, 1):
 
-                    cumulative[cumulative[:, side] > fcwk, side] = fcwk[cumulative[:, side] > fcwk]
+                    if clip:
+                        cumulative[cumulative[:, side] > vbwk[:, side], side] = \
+                            vbwk[cumulative[:, side] > vbwk[:, side], side]
 
                     sign = 1 if side == 0 else -1
                     ax.fill_between(
@@ -503,12 +583,16 @@ def PlotLeftRightContinuityProfile(ax, data, x, left, right, window=1, proportio
                         alpha=0.7,
                         interpolate=True,
                         label=labels[variable] if side == 0 else None)
-                    if variable < lcck.shape[1]-2:
-                        ax.plot(
-                            xk,
-                            sign*(cumulative[:, side] - baseline[:, side]),
-                            colors[variable],
-                            linewidth=0.8)
+
+                    # if variable < lcck.shape[1]-2:
+                    # ax.plot(
+                    #     xk,
+                    #     sign*(cumulative[:, side] - baseline[:, side]),
+                    #     colors[variable],
+                    #     linewidth=0.8)
 
                     lagged[:, side] += lcck[:, variable, side]
-                    lagged[lagged[:, side] > fcwk, side] = fcwk[lagged[:, side] > fcwk]
+
+                    if clip:
+                        lagged[lagged[:, side] > vbwk[:, side], side] = \
+                            vbwk[lagged[:, side] > vbwk[:, side], side]

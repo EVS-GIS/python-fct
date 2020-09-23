@@ -1,0 +1,27 @@
+global:
+  description: |
+    Valley bottom width and swath areas
+  FCT: Fluvial Corridor Toolbox Corridor Profile
+  crs: EPSG:2154
+  Conventions: CF-1.8
+variables:
+  axis:
+    long_name: stream identifier
+  measure:
+    long_name: position along reference axis
+    standard_name: linref_m_coordinate
+    units: m
+  height:
+    long_name: height above nearest drainage
+    units: m
+  swath:
+    long_name: swath identifier
+  vba:
+    long_name: valley bottom area at height h
+    units: pixels
+  vbalr:
+    long_name: valley bottom area on each side of talweg
+    units: pixels
+  vbw:
+    long_name: valley bottom width
+    units: m

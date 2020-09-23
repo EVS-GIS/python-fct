@@ -60,6 +60,20 @@ class Configuration():
         self._datasources = dict()
         self._workspace = None
 
+    def auto(self):
+
+        # pylint: disable=import-outside-toplevel
+
+        from dotenv import find_dotenv, load_dotenv
+
+        load_dotenv(find_dotenv(usecwd=True))
+
+        if 'FCT_CONFIG' in os.environ:
+
+            filename = os.environ['FCT_CONFIG']
+            click.secho('FCT_CONFIG=%s' % filename, fg='yellow')
+            self.from_file(filename)
+
     def default(self):
         """
         Populate configuration from default `config.ini`
@@ -210,7 +224,7 @@ class Dataset():
             self._tilename = name.upper() + '_%(row)02d_%(col)02d'
 
     def mktemp(self):
-        
+
         suffix = urlsafe_b64encode(os.urandom(6)).decode('ascii')
         temp_name = '_'.join([self._name, suffix])
         basename, extension = os.path.splitext(self._filename)
@@ -235,7 +249,6 @@ class Dataset():
     @property
     def properties(self):
         return self._properties
-    
 
     def subdir(self, **kwargs):
         """
@@ -291,7 +304,6 @@ class Dataset():
             return (self._tilename + self.ext) % kwargs
 
         return self._tilename
-
 
 class Workspace():
     """
@@ -349,7 +361,7 @@ class Tileset():
     """
 
     def __init__(self, name, index, height, width, tiledir, resolution):
-        
+
         self._name = name
         self._index = index
         self._height = height
@@ -397,7 +409,6 @@ class Tileset():
     @property
     def resolution(self):
         return self._resolution
-    
 
     @property
     def bounds(self):
@@ -413,7 +424,7 @@ class Tileset():
         Tile storage relative to dataset path
         """
         return self._tiledir
-    
+
     @property
     def tileindex(self):
         """
@@ -453,13 +464,12 @@ class Tileset():
 
         with fiona.open(self._index) as fs:
             for feature in fs:
-                
+
                 props = feature['properties']
                 values = [props[k] for k in ('GID', 'ROW', 'COL', 'X0', 'Y0')]
                 values.append(asShape(feature['geometry']).bounds)
                 values.append(self.name)
                 yield Tile(*values)
-
 
     def index(self, x, y):
         """
@@ -644,7 +654,6 @@ class FileParser():
         if os.path.isdir(dstdir):
 
             return FileParser.load_dataset_yaml_dir(dstdir)
-
 
         dstfile = os.path.join(
             os.path.dirname(configfile),

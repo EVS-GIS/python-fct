@@ -571,3 +571,22 @@ def corridor_mask(axis, width, processes):
 
     elapsed = time.time() - start_time
     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
+@cli.command()
+@click.argument('axis', type=int)
+def valley_bottom_boundary(axis):
+    """
+    Pseudo valley bottom boundary
+    """
+
+    from .ValleyBottomBoundary import ValleyBottomBoundary
+
+    start_time = PrintCommandInfo(
+        'valley bottom boundary',
+        axis,
+        1)
+
+    ValleyBottomBoundary(axis)
+
+    elapsed = time.time() - start_time
+    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))

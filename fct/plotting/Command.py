@@ -28,14 +28,21 @@ from .PlotCorridor import (
     SetupMeasureAxis
 )
 
-# pylint: disable=import-outside-toplevel
+# pylint: disable=import-outside-toplevel,invalid-name
+
+filename_opt = click.option(
+    '--filename', '-f',
+    default=None,
+    type=click.Path(file_okay=True, dir_okay=False, writable=True, exists=False),
+    help='save output to file'
+)
 
 def FinalizePlot(fig, ax, title='', filename=None):
 
     fig_size_inches = 12.5
     aspect_ratio = 4
     cbar_L = "None"
-    fig_size_inches, map_axes, cbar_axes = MapFigureSizer(
+    fig_size_inches, map_axes, _ = MapFigureSizer(
         fig_size_inches,
         aspect_ratio,
         cbar_loc=cbar_L,
@@ -77,11 +84,7 @@ def cli(env):
     default=None,
     type=float,
     help='clip data at given height above nearest drainage')
-@click.option(
-    '--filename', '-f',
-    default=None,
-    type=click.Path(file_okay=True, dir_okay=False, writable=True, exists=False),
-    help='save output to file')
+@filename_opt
 def plot_elevation_swath(axis, swath, kind, clip, filename):
     """
     Elevation swath profile
@@ -101,11 +104,7 @@ def plot_elevation_swath(axis, swath, kind, clip, filename):
 
 @cli.command('valleyprofile')
 @click.argument('axis', type=int)
-@click.option(
-    '--filename', '-f',
-    default=None,
-    type=click.Path(file_okay=True, dir_okay=False, writable=True, exists=False),
-    help='save output to file')
+@filename_opt
 def plot_valley_elevation_profile(axis, filename):
     """
     Idealized valley elevation profile
@@ -137,11 +136,7 @@ def plot_valley_elevation_profile(axis, filename):
 
 @cli.command('talwegheight')
 @click.argument('axis', type=int)
-@click.option(
-    '--filename', '-f',
-    default=None,
-    type=click.Path(file_okay=True, dir_okay=False, writable=True, exists=False),
-    help='save output to file')
+@filename_opt
 def plot_talweg_height(axis, filename):
     """
     Talweg height relative to valley floor
@@ -172,11 +167,7 @@ def plot_talweg_height(axis, filename):
 
 @cli.command('landcover-profile')
 @click.argument('axis', type=int)
-@click.option(
-    '--filename', '-f',
-    default=None,
-    type=click.Path(file_okay=True, dir_okay=False, writable=True, exists=False),
-    help='save output to file')
+@filename_opt
 def plot_landcover_profile(axis, filename):
     """
     Landcover class width long profile
@@ -184,23 +175,19 @@ def plot_landcover_profile(axis, filename):
 
     from .PlotCorridor import PlotLandCoverProfile
 
-    width_file = config.filename('metrics_fcw', axis=axis)
     data_file = config.filename('metrics_lcw_variant', variant='TOTAL_BDT', axis=axis)
-
-    width = xr.open_dataset(width_file)
-    data = xr.open_dataset(data_file)
-
-    merged = data.merge(width).sortby('measure')
+    data = xr.open_dataset(data_file).sortby('measure')
 
     fig, ax = SetupPlot()
     PlotLandCoverProfile(
         ax,
-        merged,
-        merged['measure'],
-        merged['lcw'].sel(type='total'),
+        data['measure'],
+        data['lcw'].sel(type='total'),
         basis=2,
-        window=5)
-    SetupMeasureAxis(ax, merged['measure'])
+        window=5
+    )
+
+    SetupMeasureAxis(ax, data['measure'])
     ax.set_ylabel('Width (m)')
     FinalizePlot(
         fig,
@@ -208,41 +195,108 @@ def plot_landcover_profile(axis, filename):
         title='Total Landcover Width',
         filename=filename)
 
-@cli.command('continuity-profile-lr')
+@cli.command('landcover-profile-lr')
 @click.argument('axis', type=int)
-@click.option(
-    '--filename', '-f',
-    default=None,
-    type=click.Path(file_okay=True, dir_okay=False, writable=True, exists=False),
-    help='save output to file')
-def plot_left_right_continuity_profile(axis, filename):
+@click.option('--max-class', default=8, help='Plot until max_class continuity class')
+@filename_opt
+def plot_left_right_landcover_profile(axis, max_class, filename):
     """
     Left/rigth continuous landcover buffer width long profile
     """
 
-    from .PlotCorridor import PlotLeftRightContinuityProfile
-    
-    data_file = config.filename('metrics_lcw_variant', variant='CONT_BDT', axis=axis)
-    width_file = config.filename('metrics_fcw', axis=axis)
+    from .PlotCorridor import (
+        PlotLeftRightLandcoverProfile,
+        PlotLeftRightCorridorLimit
+    )
+
+    data_file = config.filename('metrics_lcw_variant', variant='TOTAL_BDT', axis=axis)
+    width_file = config.filename('metrics_valleybottom_width', axis=axis)
 
     width = xr.open_dataset(width_file)
     data = xr.open_dataset(data_file)
 
     merged = data.merge(width).sortby('measure')
+    vbw_left = merged['vbw'] * merged['vbalr'].sel(side='left') / np.sum(merged['vbalr'], axis=1)
+    vbw_right = merged['vbw'] * merged['vbalr'].sel(side='right') / np.sum(merged['vbalr'], axis=1)
 
     fig, ax = SetupPlot()
-    PlotLeftRightContinuityProfile(
+
+    PlotLeftRightCorridorLimit(
+        ax,
+        merged,
+        merged['measure'],
+        vbw_left,
+        vbw_right,
+        window=5)
+
+    PlotLeftRightLandcoverProfile(
         ax,
         merged,
         merged['measure'],
         merged['lcw'].sel(type='left'),
         merged['lcw'].sel(type='right'),
+        max_class=max_class,
+        clip=False,
         window=5)
+
     SetupMeasureAxis(ax, merged['measure'])
     ax.set_ylabel('Width (m)')
     ax.legend(ncol=2)
     FinalizePlot(
         fig,
         ax,
-        title='Left and Right Banks Landcover Width',
+        title='Left and Right Bank Landcover Width',
+        filename=filename)
+
+@cli.command('continuity-profile-lr')
+@click.argument('axis', type=int)
+@click.option('--max-class', default=6, help='Plot until max_class continuity class')
+@filename_opt
+def plot_left_right_continuity_profile(axis, max_class, filename):
+    """
+    Left/rigth continuous landcover buffer width long profile
+    """
+
+    from .PlotCorridor import (
+        PlotLeftRightLandcoverProfile,
+        PlotLeftRightCorridorLimit
+    )
+
+    data_file = config.filename('metrics_lcw_variant', variant='CONT_BDT', axis=axis)
+    width_file = config.filename('metrics_valleybottom_width', axis=axis)
+
+    width = xr.open_dataset(width_file)
+    data = xr.open_dataset(data_file)
+
+    merged = data.merge(width).sortby('measure')
+    vbw_left = merged['vbw'] * merged['vbalr'].sel(side='left') / np.sum(merged['vbalr'], axis=1)
+    vbw_right = merged['vbw'] * merged['vbalr'].sel(side='right') / np.sum(merged['vbalr'], axis=1)
+
+    fig, ax = SetupPlot()
+
+    PlotLeftRightCorridorLimit(
+        ax,
+        merged,
+        merged['measure'],
+        vbw_left,
+        vbw_right,
+        window=5)
+
+    PlotLeftRightLandcoverProfile(
+        ax,
+        merged,
+        merged['measure'],
+        merged['lcw'].sel(type='left'),
+        merged['lcw'].sel(type='right'),
+        max_class=max_class,
+        clip=True,
+        window=5)
+
+    SetupMeasureAxis(ax, merged['measure'])
+    ax.set_ylabel('Width (m)')
+    ax.legend(ncol=2)
+    FinalizePlot(
+        fig,
+        ax,
+        title='Left and Right Bank Continuity Buffer Width',
         filename=filename)

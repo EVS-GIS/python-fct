@@ -28,7 +28,6 @@ DatasetParameter = namedtuple('DatasetParameter', [
     'swath_data', # ax_swath_landcover
 ])
 
-
 def LandCoverWidth(axis, method, datasets, swath_length=200.0, resolution=5.0, **kwargs):
     """
     Aggregate landCover swath data
@@ -38,7 +37,7 @@ def LandCoverWidth(axis, method, datasets, swath_length=200.0, resolution=5.0, *
 
     gids = list()
     measures = list()
-    values = list()
+    landcover_width_values = list()
 
     with fiona.open(swath_shapefile) as fs:
         with click.progressbar(fs) as iterator:
@@ -59,8 +58,8 @@ def LandCoverWidth(axis, method, datasets, swath_length=200.0, resolution=5.0, *
                 data = np.load(swathfile, allow_pickle=True)
 
                 x = data['x']
-                classes = data['classes']
-                swath = data['swath']
+                classes = data['landcover_classes']
+                landcover_swath = data['landcover_swath']
 
                 density = data['density']
 
@@ -68,8 +67,8 @@ def LandCoverWidth(axis, method, datasets, swath_length=200.0, resolution=5.0, *
 
                     gids.append(gid)
                     measures.append(measure)
-                    width = np.zeros((9, 2), dtype='float32')
-                    values.append(width)
+                    landcover_width = np.zeros((9, 2), dtype='float32')
+                    landcover_width_values.append(landcover_width)
                     continue
 
                 # unit width of observations
@@ -79,18 +78,19 @@ def LandCoverWidth(axis, method, datasets, swath_length=200.0, resolution=5.0, *
 
                 axis_dominant = np.ma.argmax(
                     np.ma.masked_array(
-                        swath[:, :, 0],
-                        np.isnan(swath[:, :, 0])
+                        landcover_swath[:, :, 0],
+                        np.isnan(landcover_swath[:, :, 0])
                     ), axis=1)
 
                 nearest_dominant = np.ma.argmax(
                     np.ma.masked_array(
-                        swath[:, :, 1],
-                        np.isnan(swath[:, :, 1])
+                        landcover_swath[:, :, 1],
+                        np.isnan(landcover_swath[:, :, 1])
                     ), axis=1)
 
-                # width = np.zeros(9, dtype='float32')
-                width = np.zeros((9, 3), dtype='float32')
+                # per landcover class corridor widths
+
+                landcover_width = np.zeros((9, 3), dtype='float32')
 
                 for k, klass in enumerate(classes):
 
@@ -99,7 +99,7 @@ def LandCoverWidth(axis, method, datasets, swath_length=200.0, resolution=5.0, *
 
                     # Total width
                     selection = (axis_dominant == k)
-                    width[klass, 0] = swath_width(
+                    landcover_width[klass, 0] = swath_width(
                         selection,
                         unit_width,
                         density[:, 0],
@@ -107,8 +107,9 @@ def LandCoverWidth(axis, method, datasets, swath_length=200.0, resolution=5.0, *
                         resolution)
 
                     # Left bank width
-                    selection = (nearest_dominant == k) & (x >= 0)
-                    width[klass, 1] = swath_width(
+                    selection_lr_k = (nearest_dominant == k)
+                    selection = selection_lr_k & (x >= 0)
+                    landcover_width[klass, 1] = swath_width(
                         selection,
                         unit_width,
                         density[:, 1],
@@ -116,8 +117,8 @@ def LandCoverWidth(axis, method, datasets, swath_length=200.0, resolution=5.0, *
                         resolution)
 
                     # Right bank width
-                    selection = (nearest_dominant == k) & (x < 0)
-                    width[klass, 2] = swath_width(
+                    selection = selection_lr_k & (x < 0)
+                    landcover_width[klass, 2] = swath_width(
                         selection,
                         unit_width,
                         density[:, 1],
@@ -128,7 +129,7 @@ def LandCoverWidth(axis, method, datasets, swath_length=200.0, resolution=5.0, *
 
                 gids.append(gid)
                 measures.append(measure)
-                values.append(width)
+                landcover_width_values.append(landcover_width)
 
     # dtype = [
     #     ('gid', 'int'),
@@ -138,12 +139,12 @@ def LandCoverWidth(axis, method, datasets, swath_length=200.0, resolution=5.0, *
     # return np.sort(np.array(values, dtype=np.dtype(dtype)), order='measure')
     gids = np.array(gids, dtype='uint32')
     measures = np.array(measures, dtype='float32')
-    data = np.array(values, dtype='float32')
+    landcover_width = np.array(landcover_width_values, dtype='float32')
 
     dataset = xr.Dataset(
         {
             'swath': ('measure', gids),
-            'lcw': (('measure', 'landcover', 'type'), data)
+            'lcw': (('measure', 'landcover', 'type'), landcover_width)
         },
         coords={
             'axis': axis,
