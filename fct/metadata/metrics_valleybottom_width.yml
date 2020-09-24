@@ -16,12 +16,12 @@ variables:
     units: m
   swath:
     long_name: swath identifier
-  vba:
+  valley_bottom_area_h:
     long_name: valley bottom area at height h
     units: pixels
-  vbalr:
+  valley_bottom_area_lr:
     long_name: valley bottom area on each side of talweg
     units: pixels
-  vbw:
+  valley_bottom_width:
     long_name: valley bottom width
     units: m

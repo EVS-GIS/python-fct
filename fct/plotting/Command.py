@@ -216,8 +216,11 @@ def plot_left_right_landcover_profile(axis, max_class, filename):
     data = xr.open_dataset(data_file)
 
     merged = data.merge(width).sortby('measure')
-    vbw_left = merged['vbw'] * merged['vbalr'].sel(side='left') / np.sum(merged['vbalr'], axis=1)
-    vbw_right = merged['vbw'] * merged['vbalr'].sel(side='right') / np.sum(merged['vbalr'], axis=1)
+    
+    data_vb_width = merged['valley_bottom_width']
+    data_vb_area_lr = merged['valley_bottom_area_lr']
+    vbw_left = data_vb_width * data_vb_area_lr.sel(side='left') / np.sum(data_vb_area_lr, axis=1)
+    vbw_right = data_vb_width * data_vb_area_lr.sel(side='right') / np.sum(data_vb_area_lr, axis=1)
 
     fig, ax = SetupPlot()
 
@@ -269,8 +272,11 @@ def plot_left_right_continuity_profile(axis, max_class, filename):
     data = xr.open_dataset(data_file)
 
     merged = data.merge(width).sortby('measure')
-    vbw_left = merged['vbw'] * merged['vbalr'].sel(side='left') / np.sum(merged['vbalr'], axis=1)
-    vbw_right = merged['vbw'] * merged['vbalr'].sel(side='right') / np.sum(merged['vbalr'], axis=1)
+
+    data_vb_width = merged['valley_bottom_width']
+    data_vb_area_lr = merged['valley_bottom_area_lr']
+    vbw_left = data_vb_width * data_vb_area_lr.sel(side='left') / np.sum(data_vb_area_lr, axis=1)
+    vbw_right = data_vb_width * data_vb_area_lr.sel(side='right') / np.sum(data_vb_area_lr, axis=1)
 
     fig, ax = SetupPlot()
 

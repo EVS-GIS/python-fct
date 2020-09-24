@@ -26,7 +26,6 @@ import fiona
 import fiona.crs
 from shapely.geometry import asShape
 
-from .. import transform as fct
 from ..config import config
 from ..tileio import as_window
 from ..ransac import LinearModel, ransac
@@ -110,14 +109,16 @@ def _UnitSwathProfile(axis, gid, bounds):
     Calculate Elevation Swath Profile for Valley Unit (axis, gid)
     """
 
+    # TODO split valley floor fit code into separate module
+
     tileset = config.tileset()
     swath_raster = tileset.filename('ax_valley_swaths', axis=axis)
     measure_raster = tileset.filename('ax_axis_measure', axis=axis)
     distance_raster = tileset.filename('ax_axis_distance', axis=axis)
     talweg_distance_raster = tileset.filename('ax_talweg_distance', axis=axis)
     elevation_raster = tileset.filename('dem')
-    relz_raster = tileset.filename('ax_nearest_height', axis=axis)
-    # relz_raster = tileset.filename('ax_valley_mask', axis=axis)
+    hand_raster = tileset.filename('ax_nearest_height', axis=axis)
+    # hand_raster = tileset.filename('ax_valley_mask', axis=axis)
 
     with rio.open(elevation_raster) as ds:
         window = as_window(bounds, ds.transform)
@@ -128,9 +129,10 @@ def _UnitSwathProfile(axis, gid, bounds):
         window = as_window(bounds, ds.transform)
         measure = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
 
-    with rio.open(relz_raster) as ds:
+    with rio.open(hand_raster) as ds:
         window = as_window(bounds, ds.transform)
-        relz = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
+        hand = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
+        hand_nodata = ds.nodata
 
     with rio.open(swath_raster) as ds:
         window = as_window(bounds, ds.transform)
@@ -149,7 +151,7 @@ def _UnitSwathProfile(axis, gid, bounds):
 
         assert elevations.shape == distance.shape
         assert measure.shape == distance.shape
-        assert relz.shape == distance.shape
+        assert hand.shape == distance.shape
         assert mask.shape == distance.shape
         assert mask1k.shape == distance.shape
 
@@ -189,13 +191,13 @@ def _UnitSwathProfile(axis, gid, bounds):
         try:
 
             relative = fit_valley_floor()
-            with_valley_floor_estimates = True            
+            with_valley_floor_estimates = True
 
         except RuntimeError:
 
             try:
 
-                relative = fit_valley_floor(fit_mask=(relz <= 10.0))
+                relative = fit_valley_floor(fit_mask=(hand <= 10.0))
                 with_valley_floor_estimates = True
 
             except RuntimeError:
@@ -204,11 +206,11 @@ def _UnitSwathProfile(axis, gid, bounds):
 
         # Valley Bottom pixel area (to calculate areal width)
 
-        heights = np.arange(5.0, 15.5, 0.5)
-        valley_area = np.zeros(len(heights), dtype='uint32')
+        # heights = np.arange(5.0, 15.5, 0.5)
+        # valley_area = np.zeros(len(heights), dtype='uint32')
 
-        for k, h in enumerate(heights):
-            valley_area[k] = np.sum((mask == 1) & (relz <= h))
+        # for k, h in enumerate(heights):
+        #     valley_area[k] = np.sum((mask == 1) & (hand <= h))
 
         # Swath bins
         xmin = np.min(distance[mask])
@@ -234,22 +236,22 @@ def _UnitSwathProfile(axis, gid, bounds):
         # Relative-to-valley-floor elevation swath profile
         swath_rel_valley = np.full((len(xbins)-1, 5), np.nan, dtype='float32')
 
-        maskrelz = (relz != ds3.nodata)
+        mask_hand = (hand != hand_nodata)
 
         for i in range(1, len(xbins)):
-            
+
             maski = mask & (binned == i)
             density[i-1] = np.sum(maski)
 
         # for i in range(1, len(xbins)):
-            
+
             swath_elevations = elevations[maski]
             if swath_elevations.size:
                 swath_absolute[i-1, :] = np.percentile(swath_elevations, [5, 25, 50, 75, 95])
 
         # for i in range(1, len(xbins)):
 
-            swath_elevations = relz[maski & maskrelz]
+            swath_elevations = hand[maski & mask_hand]
             if swath_elevations.size:
                 swath_rel_stream[i-1, :] = np.percentile(swath_elevations, [5, 25, 50, 75, 95])
 
@@ -266,7 +268,7 @@ def _UnitSwathProfile(axis, gid, bounds):
 
         values = dict(
             x=x,
-            area_valley_bottom=valley_area,
+            # area_valley_bottom=valley_area,
             slope_valley_floor=slope,
             z0_valley_floor=z0,
             density=density,
@@ -333,7 +335,6 @@ def SwathProfiles(axis, processes=1):
         #             profiles[axis, gid] = [axis, gid, measure]
         #             arguments.append([UnitSwathProfile, axis, gid, geometry.bounds, kwargs])
 
-
         defs = xr.open_dataset(swath_bounds)
         defs.load()
         defs = defs.sortby('coordm')
@@ -389,4 +390,3 @@ def SwathProfiles(axis, processes=1):
 
     if relative_errors:
         click.secho('%d swath units without relative-to-valley-bottom profile' % relative_errors, fg='yellow')
-

@@ -500,8 +500,10 @@ def PlotLeftRightLandcoverProfile(
         left = left.rolling(measure=window, min_periods=1, center=True).mean()
         right = right.rolling(measure=window, min_periods=1, center=True).mean()
 
-    vbw_left = data['vbw'] * data['vbalr'].sel(side='left') / np.sum(data['vbalr'], axis=1)
-    vbw_right = data['vbw'] * data['vbalr'].sel(side='right') / np.sum(data['vbalr'], axis=1)
+    data_vb_width = data['valley_bottom_width']
+    data_vb_area_lr = data['valley_bottom_area_lr']
+    vbw_left = data_vb_width * data_vb_area_lr.sel(side='left') / np.sum(data_vb_area_lr, axis=1)
+    vbw_right = data_vb_width * data_vb_area_lr.sel(side='right') / np.sum(data_vb_area_lr, axis=1)
 
     # reverse measure direction
     # ax.set_xlim([np.max(x), np.min(x)])

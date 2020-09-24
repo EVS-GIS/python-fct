@@ -1,7 +1,7 @@
 # coding: utf-8
 
 """
-Fluvial Corridor Width Metrics
+Valley Bottom Width Metrics
 
 ***************************************************************************
 *                                                                         *
@@ -13,45 +13,16 @@ Fluvial Corridor Width Metrics
 ***************************************************************************
 """
 
-import os
 import numpy as np
 
 import click
-import yaml
 import xarray as xr
 import fiona
 
 from ..config import config
+from ..metadata import set_metadata
 
-def SetMetadata(dataset, metafile):
-    """
-    Set metadata on xarray/netcdf dataset
-    from YAML descriptor
-    """
-
-    filename = os.path.join(
-        os.path.dirname(__file__),
-        '..',
-        'metadata',
-        metafile + '.yml'
-    )
-
-    print(filename, os.path.exists(filename))
-
-    if os.path.exists(filename):
-
-        with open(filename) as fp:
-            metadata = yaml.safe_load(fp)
-
-        for attr, value in metadata['global'].items():
-            dataset.attrs[attr] = value
-
-        for variable in metadata['variables']:
-            meta = metadata['variables'][variable]
-            for attr, value in meta.items():
-                dataset[variable].attrs[attr] = value
-
-def swath_width(selection, unit_width, density, long_length, resolution):
+def swath_width(selection, unit_width, density, swath_length, resolution):
     """
     Measure width across swath profile at selected positions
     """
@@ -59,9 +30,13 @@ def swath_width(selection, unit_width, density, long_length, resolution):
     if selection.size == 0:
         return np.nan
 
-    max_density = long_length / resolution**2
-    clamp = np.minimum(max_density*unit_width[selection], density[selection])
-    width = np.sum(clamp) / max_density
+    max_density_per_unit_width = swath_length / resolution**2
+    
+    clamp = np.minimum(
+        max_density_per_unit_width*unit_width[selection],
+        density[selection])
+    
+    width = np.sum(clamp) / max_density_per_unit_width
 
     return width
 
@@ -70,42 +45,25 @@ def ValleyBottomWidth(axis, swath_length=200.0, resolution=5.0):
     Defines
     -------
 
-    fcw0(h): fluvial corridor width (meter),
-        measured at height h (m) above nearest drainage
-        as the ratio between discrete unit's
-        area and longitudinal length
+    valley_bottom_area_h
+    valley_bottom_area_lr
+    valley_bottom_width
 
-    fcw1(h): fluvial corridor width (meter),
-        measured on swath profile
-        at height h (m) above nearest drainage
-
-    fcw2: fluvial corridor width (meter),
-        measured on swath profile
-        at height +2.0 m above valley floor
-
-    bankh: estimated bank height (meter) above water channel
-
-        bankh1: absolute value of minimum of swath elevation above valley floor
-        bankh2: absolute value of median of swath elevation above valley floor
-                for swath pixels below -bankh1 + 1.0 m,
-                or bankh1 if no such pixels
     """
 
     swath_shapefile = config.filename('ax_valley_swaths_polygons', axis=axis)
 
-    # gids = list()
-    # measures = list()
-    # valley_bottom_width_values = list()
     heights = np.arange(5.0, 15.5, 0.5)
 
     with fiona.open(swath_shapefile) as fs:
 
-        gids = np.zeros(len(fs), dtype='uint32')
-        measures = np.zeros(len(fs), dtype='float32')
-        valley_bottom_area_h = np.zeros((len(fs), len(heights)), dtype='float32')
-        valley_bottom_area_lr = np.zeros((len(fs), 2), dtype='float32')
-        valley_bottom_width = np.zeros(len(fs), dtype='float32')
-        valid = np.full(len(fs), True)
+        size = len(fs)
+        gids = np.zeros(size, dtype='uint32')
+        measures = np.zeros(size, dtype='float32')
+        valley_bottom_area_h = np.zeros((size, len(heights)), dtype='float32')
+        valley_bottom_area_lr = np.zeros((size, 2), dtype='float32')
+        valley_bottom_width = np.zeros(size, dtype='float32')
+        valid = np.full(size, True)
 
         with click.progressbar(fs) as iterator:
             for k, feature in enumerate(iterator):
@@ -146,9 +104,9 @@ def ValleyBottomWidth(axis, swath_length=200.0, resolution=5.0):
     dataset = xr.Dataset(
         {
             'swath': ('measure', gids[valid]),
-            'vba': (('measure', 'height'), valley_bottom_area_h[valid]),
-            'vbalr': (('measure', 'side'), valley_bottom_area_lr[valid]),
-            'vbw': ('measure', valley_bottom_width[valid])
+            'valley_bottom_area_h': (('measure', 'height'), valley_bottom_area_h[valid]),
+            'valley_bottom_area_lr': (('measure', 'side'), valley_bottom_area_lr[valid]),
+            'valley_bottom_width': ('measure', valley_bottom_width[valid])
         },
         coords={
             'axis': axis,
@@ -157,7 +115,7 @@ def ValleyBottomWidth(axis, swath_length=200.0, resolution=5.0):
             'side': ['left', 'right']
         })
 
-    SetMetadata(dataset, 'metrics_valleybottom_width')
+    set_metadata(dataset, 'metrics_valleybottom_width')
 
     return dataset
 
@@ -170,7 +128,7 @@ def WriteValleyBottomWidth(axis, data):
         encoding={
             'swath': dict(zlib=True, complevel=9),
             'measure': dict(zlib=True, complevel=9, least_significant_digit=0),
-            'vba': dict(zlib=True, complevel=9, least_significant_digit=1),
-            'vbalr': dict(zlib=True, complevel=9, least_significant_digit=1),
-            'vbw': dict(zlib=True, complevel=9, least_significant_digit=1)
+            'valley_bottom_area_h': dict(zlib=True, complevel=9, least_significant_digit=1),
+            'valley_bottom_area_lr': dict(zlib=True, complevel=9, least_significant_digit=1),
+            'valley_bottom_width': dict(zlib=True, complevel=9, least_significant_digit=1)
         })

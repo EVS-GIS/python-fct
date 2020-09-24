@@ -31,10 +31,11 @@ from ..cli import starcall
 def unproject(axis, points):
 
     # medialaxis_shapefile = config.filename('ax_valley_medialaxis', axis=axis)
-    medialaxis_shapefile = config.filename('ax_talweg', axis=axis)
+    # axis_shapefile = config.filename('ax_refaxis', axis=axis)
+    axis_shapefile = config.filename('ax_talweg', axis=axis)
     measure_raster = config.tileset().filename('ax_axis_measure', axis=axis)
 
-    with fiona.open(medialaxis_shapefile) as fs:
+    with fiona.open(axis_shapefile) as fs:
 
         assert len(fs) == 1
 
@@ -102,7 +103,7 @@ def ValleyBottomBoundary(axis):
     output_shapefile = config.filename('ax_valley_bottom_boundary', axis=axis)
 
     data = xr.open_dataset(data_file).sortby('measure')
-    data = data.rolling(measure=5, min_periods=1, center=True).mean()
+    # data = data.rolling(measure=5, min_periods=1, center=True).mean()
 
     left_points = np.column_stack([
         data['measure'].values,
