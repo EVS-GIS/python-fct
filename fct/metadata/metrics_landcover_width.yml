@@ -14,8 +14,13 @@ variables:
     units: m
   landcover:
     long_name: landcover class label
-  type:
-    long_name: type of width measurement (total, left side, right side)
+  side:
+    long_name: side of measurement, left or right
+  swath:
+    long_name: swath identifier
+  buffer_area:
+    long_name: area of landcover class k
+    units: m^2
   buffer_width:
-    long_name: width of landcover class k
+    long_name: cross-corridor width of landcover class k
     units: m

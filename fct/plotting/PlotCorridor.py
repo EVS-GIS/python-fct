@@ -368,8 +368,8 @@ def PlotLeftRightCorridorLimit(ax, data, x, left, right, window=1):
         left = left.rolling(measure=window, min_periods=1, center=True).mean()
         right = right.rolling(measure=window, min_periods=1, center=True).mean()
 
-    lcw_left = lcw.sel(type='left')
-    lcw_right = lcw.sel(type='right')
+    lcw_left = lcw.sel(side='left')
+    lcw_right = lcw.sel(side='right')
 
     lcw = np.zeros(lcw_left.shape + (2,))
     lcw[:, :, 0] = lcw_left

@@ -50,12 +50,15 @@ def LandCoverWidth(axis, method, datasets, swath_length=200.0, resolution=5.0, *
 
     swath_shapefile = config.filename(datasets.swath_features, axis=axis, **kwargs)
 
+    pixel_area = resolution**2
+
     with fiona.open(swath_shapefile) as fs:
 
         size = len(fs)
         swathids = np.zeros(size, dtype='uint32')
         measures = np.zeros(size, dtype='float32')
-        buffer_width = np.zeros((size, 9, 3), dtype='float32')
+        buffer_area = np.zeros((size, 9, 2), dtype='float32')
+        buffer_width = np.zeros((size, 9, 2), dtype='float32')
         valid = np.full(size, True)
 
         with click.progressbar(fs) as iterator:
@@ -123,15 +126,19 @@ def LandCoverWidth(axis, method, datasets, swath_length=200.0, resolution=5.0, *
                         swath_length,
                         resolution)
 
-                    buffer_width[i, klass, 0] = width_total
+                    # buffer_width[i, klass, 0] = width_total
 
-                    # 2. Left & right bank width
+                    # 2. Left & right bank real world area
 
                     # aggregate pixel area by slice (class k, side)
                     area_pixels_k_lr = np.sum(landcover_swath[:, k, :], axis=0)
+                    buffer_area[i, klass, :] = area_pixels_k_lr * pixel_area
+
+                    # 3. Left & right bank width
+
                     area_pixels_k_total = np.sum(area_pixels_k_lr, axis=0)
 
-                    buffer_width[i, klass, 1:] = (
+                    buffer_width[i, klass, :] = (
                         area_pixels_k_lr * width_total
                         / area_pixels_k_total
                     )
@@ -149,7 +156,8 @@ def LandCoverWidth(axis, method, datasets, swath_length=200.0, resolution=5.0, *
     dataset = xr.Dataset(
         {
             'swath': ('measure', swathids[valid]),
-            'buffer_width': (('measure', 'landcover', 'type'), buffer_width[valid])
+            'buffer_area': (('measure', 'landcover', 'side'), buffer_area[valid]),
+            'buffer_width': (('measure', 'landcover', 'side'), buffer_width[valid])
         },
         coords={
             'axis': axis,
@@ -165,8 +173,7 @@ def LandCoverWidth(axis, method, datasets, swath_length=200.0, resolution=5.0, *
                 'Dense Urban',
                 'Infrastructures'
             ],
-            'type': [
-                'total',
+            'side': [
                 'left',
                 'right'
             ]
@@ -178,8 +185,8 @@ def LandCoverWidth(axis, method, datasets, swath_length=200.0, resolution=5.0, *
 
     # Extra metadata
 
-    dataset['buffer_width'].attrs['method'] = method
-    dataset['buffer_width'].attrs['source'] = config.basename(
+    dataset.attrs['method'] = method
+    dataset.attrs['source'] = config.basename(
         datasets.landcover,
         axis=axis,
         **kwargs)
@@ -240,5 +247,6 @@ def WriteLandCoverWidth(axis, data, output='metrics_landcover_width', **kwargs):
         output, 'w',
         encoding={
             'measure': dict(zlib=True, complevel=9, least_significant_digit=0),
+            'buffer_area': dict(zlib=True, complevel=9, least_significant_digit=0),
             'buffer_width': dict(zlib=True, complevel=9, least_significant_digit=2)
         })

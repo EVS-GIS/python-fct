@@ -182,7 +182,37 @@ def plot_landcover_profile(axis, filename):
     PlotLandCoverProfile(
         ax,
         data['measure'],
-        data['buffer_width'].sel(type='total'),
+        np.sum(data['buffer_width'], axis=2),
+        basis=2,
+        window=5
+    )
+
+    SetupMeasureAxis(ax, data['measure'])
+    ax.set_ylabel('Width (m)')
+    FinalizePlot(
+        fig,
+        ax,
+        title='Total Landcover Width',
+        filename=filename)
+
+@cli.command('continuity-profile')
+@click.argument('axis', type=int)
+@filename_opt
+def plot_continuity_profile(axis, filename):
+    """
+    Landcover class width long profile
+    """
+
+    from .PlotCorridor import PlotLandCoverProfile
+
+    data_file = config.filename('metrics_lcw_variant', variant='CONT_BDT', axis=axis)
+    data = xr.open_dataset(data_file).sortby('measure')
+
+    fig, ax = SetupPlot()
+    PlotLandCoverProfile(
+        ax,
+        data['measure'],
+        np.sum(data['buffer_width'], axis=2),
         basis=2,
         window=5
     )
@@ -236,8 +266,8 @@ def plot_left_right_landcover_profile(axis, max_class, filename):
         ax,
         merged,
         merged['measure'],
-        merged['buffer_width'].sel(type='left'),
-        merged['buffer_width'].sel(type='right'),
+        merged['buffer_width'].sel(side='left'),
+        merged['buffer_width'].sel(side='right'),
         max_class=max_class,
         clip=False,
         window=5)
@@ -292,8 +322,8 @@ def plot_left_right_continuity_profile(axis, max_class, filename):
         ax,
         merged,
         merged['measure'],
-        merged['buffer_width'].sel(type='left'),
-        merged['buffer_width'].sel(type='right'),
+        merged['buffer_width'].sel(side='left'),
+        merged['buffer_width'].sel(side='right'),
         max_class=max_class,
         clip=True,
         window=5)
