@@ -15,6 +15,7 @@ Command Line Interface
 
 from .Decorators import (
     fct_entry_point,
+    fct_command,
     parallel,
     aggregate,
     starcall,

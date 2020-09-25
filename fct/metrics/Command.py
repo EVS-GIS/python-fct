@@ -1,7 +1,7 @@
 # coding: utf-8
 
 """
-Configuration Classes
+Metrics Calculation Commands
 
 ***************************************************************************
 *                                                                         *
@@ -15,7 +15,6 @@ Configuration Classes
 
 import click
 
-from ..config import config
 from .LandCover import MkLandCoverTiles
 from .Population import DisaggregatePopulation
 from ..subgrid.SubGrid import (
@@ -24,12 +23,14 @@ from ..subgrid.SubGrid import (
     AggregateLandCover,
     DominantLandCover
 )
+
 from ..cli import (
     fct_entry_point,
+    fct_command,
     parallel_opt
 )
 
-# pylint: disable=import-outside-toplevel
+# pylint: disable=import-outside-toplevel,unused-argument
 
 @fct_entry_point
 def cli(env):
@@ -37,7 +38,7 @@ def cli(env):
     Metrics extraction module
     """
 
-@cli.command()
+@fct_command(cli)
 @click.option('--processes', '-j', default=1, help="Execute j parallel processes")
 def data_landcover(processes=1):
     """
@@ -46,7 +47,7 @@ def data_landcover(processes=1):
 
     MkLandCoverTiles(processes)
 
-@cli.command()
+@fct_command(cli)
 @click.argument('variable')
 @click.argument('destination')
 @click.option('--landcoverset', '-lc', default='landcover-bdt')
@@ -67,7 +68,6 @@ def subgrid():
     """
     SubGrid Aggregates
     """
-    pass
 
 @subgrid.command('mask')
 def subgrid_mask():
@@ -108,7 +108,7 @@ def subgrid_dominant_landcover():
 
     DominantLandCover()
 
-@cli.command()
+@fct_command(cli)
 @click.argument('axis', type=int)
 @parallel_opt
 def valleybottom_swath(axis, processes):
@@ -124,7 +124,7 @@ def valleybottom_swath(axis, processes):
         valley_bottom_mask='ax_valley_mask_refined'
     )
 
-@cli.command()
+@fct_command(cli)
 @click.argument('axis', type=int)
 @parallel_opt
 def landcover_swath(axis, processes):
@@ -144,10 +144,11 @@ def landcover_swath(axis, processes):
     LandCoverSwathProfile(
         axis,
         processes=processes,
-        landcover='ax_corridor_mask',
+        # landcover='ax_corridor_mask',
+        landcover='ax_continuity',
         subset='CONT_BDT')
 
-@cli.command()
+@fct_command(cli)
 @click.argument('axis', type=int)
 def valleybottom_width(axis):
     """
@@ -162,7 +163,7 @@ def valleybottom_width(axis):
     width = ValleyBottomWidth(axis)
     WriteValleyBottomWidth(axis, width)
 
-@cli.command()
+@fct_command(cli)
 @click.argument('axis', type=int)
 def corridor_width(axis):
     """
@@ -177,7 +178,7 @@ def corridor_width(axis):
     width = CorridorWidth(axis)
     WriteCorridorWidth(axis, width)
 
-@cli.command()
+@fct_command(cli)
 @click.argument('axis', type=int)
 def landcover_width(axis):
     """
@@ -201,7 +202,8 @@ def landcover_width(axis):
     WriteLandCoverWidth(axis, data, output='metrics_lcw_variant', variant=subset)
 
     datasets = DatasetParameter(
-        landcover='ax_corridor_mask',
+        # landcover='ax_corridor_mask',
+        landcover='ax_continuity',
         swath_features='ax_valley_swaths_polygons',
         swath_data='ax_swath_landcover'
     )

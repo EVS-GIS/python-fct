@@ -260,3 +260,67 @@ def parallel(group, tilefun, name=None):
         return decorated
 
     return decorate
+
+def PrintCommandInfo(command, parameters=None):
+    """
+    Print command info
+    """
+
+    start_time = time.time()
+
+    tileset = config.tileset()
+
+    click.secho('Command        : %s' % command, fg='green')
+    click.secho('FCT version    : %s' % version)
+
+    click.secho('Tileset        : %s' % tileset.name)
+    click.secho('# of tiles     : %d' % len(tileset))
+
+    click.secho('--%16s:' % 'Parameters', fg='cyan')
+
+    if parameters:
+        for parameter, value in parameters.items():
+            click.echo('  %16s: %s' % (parameter, value))
+
+    processes = parameters.get('processes', 0)
+
+    if processes > 0:
+        click.secho('-- Start time     : %s' % datetime.fromtimestamp(start_time))
+        click.secho('Running %d processes' % processes, fg='yellow')
+
+    return start_time
+
+def fct_command(group, cmd_description=None):
+    """
+    Command wrapper that prints
+    command description and execution times
+    """
+
+    def decorate(fun):
+
+        @group.command()
+        @click.option(
+            '--quiet',
+            '-q',
+            default=False,
+            is_flag=True,
+            help='print command info and times')
+        @wraps(fun)
+        def decorated(quiet, **kwargs):
+
+            if quiet:
+
+                fun(**kwargs)
+
+            else:
+
+                start_time = PrintCommandInfo(cmd_description or fun.__name__, kwargs)
+
+                fun(**kwargs)
+
+                elapsed = time.time() - start_time
+                click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
+        return decorated
+
+    return decorate

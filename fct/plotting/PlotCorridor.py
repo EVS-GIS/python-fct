@@ -360,7 +360,7 @@ def PlotCorridorLimit(ax, data, window=1, basis=2):
 
 def PlotLeftRightCorridorLimit(ax, data, x, left, right, window=1):
 
-    lcw = data['lcw']
+    lcw = data['buffer_width']
 
     if window > 1:
 

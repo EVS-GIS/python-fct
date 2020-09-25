@@ -1,0 +1,21 @@
+global:
+  description: |-
+    Corridor buffer width by lancover class
+  FCT: Fluvial Corridor Toolbox
+  crs: EPSG:2154
+  Conventions: CF-1.8
+variables:
+  axis:
+    long_name: stream identifier
+  measure:
+    long_name: position along reference axis
+    standard_name: linref_m_coordinate
+    origin: downstream or network outlet
+    units: m
+  landcover:
+    long_name: landcover class label
+  type:
+    long_name: type of width measurement (total, left side, right side)
+  buffer_width:
+    long_name: width of landcover class k
+    units: m

@@ -182,7 +182,7 @@ def plot_landcover_profile(axis, filename):
     PlotLandCoverProfile(
         ax,
         data['measure'],
-        data['lcw'].sel(type='total'),
+        data['buffer_width'].sel(type='total'),
         basis=2,
         window=5
     )
@@ -236,8 +236,8 @@ def plot_left_right_landcover_profile(axis, max_class, filename):
         ax,
         merged,
         merged['measure'],
-        merged['lcw'].sel(type='left'),
-        merged['lcw'].sel(type='right'),
+        merged['buffer_width'].sel(type='left'),
+        merged['buffer_width'].sel(type='right'),
         max_class=max_class,
         clip=False,
         window=5)
@@ -292,8 +292,8 @@ def plot_left_right_continuity_profile(axis, max_class, filename):
         ax,
         merged,
         merged['measure'],
-        merged['lcw'].sel(type='left'),
-        merged['lcw'].sel(type='right'),
+        merged['buffer_width'].sel(type='left'),
+        merged['buffer_width'].sel(type='right'),
         max_class=max_class,
         clip=True,
         window=5)

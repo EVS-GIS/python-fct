@@ -112,8 +112,8 @@ def LandCoverSwath(
             )
             return gid, values
 
-        xmin = min(np.min(axis_distance[mask]), np.min(nearest_distance[mask]))
-        xmax = max(np.max(axis_distance[mask]), np.max(nearest_distance[mask]))
+        xmin = np.min(axis_distance[mask])
+        xmax = np.max(axis_distance[mask])
 
         if (xmax - xmin) < 2000.0:
             xbins = np.arange(xmin, xmax + step, step)
@@ -122,11 +122,11 @@ def LandCoverSwath(
 
         x = 0.5*(xbins[1:] + xbins[:-1])
         axis_distance_binned = np.digitize(axis_distance, xbins)
-        nearest_distance_binned = np.digitize(nearest_distance, xbins)
+        # nearest_distance_binned = np.digitize(nearest_distance, xbins)
 
         # Profile density
 
-        density = np.zeros((x.shape[0], 2), dtype='uint32')
+        density = np.zeros(x.shape[0], dtype='uint32')
 
         # Land cover classes count
 
@@ -135,21 +135,25 @@ def LandCoverSwath(
 
         for i in range(1, len(xbins)):
 
-            mask0 = mask & (axis_distance_binned == i)
-            mask1 = mask & (nearest_distance_binned == i)
+            mask_i = mask & (axis_distance_binned == i)
+            # mask1 = mask & (nearest_distance_binned == i)
 
-            density[i-1, 0] = np.sum(mask0)
-            density[i-1, 1] = np.sum(mask1)
+            density[i-1] = np.sum(mask_i)
+            # density[i-1, 1] = np.sum(mask1)
 
             for k, value in enumerate(classes):
 
-                data = (landcover == value)
+                class_k = mask_i & (landcover == value)
 
-                if density[i-1, 0] > 0:
-                    landcover_swath[i-1, k, 0] = np.sum(data[mask0])
+                if np.sum(class_k) > 0:
 
-                if density[i-1, 1] > 0:
-                    landcover_swath[i-1, k, 1] = np.sum(data[mask1])
+                    # left
+                    landcover_swath[i-1, k, 0] = np.sum(nearest_distance[class_k] >= 0)
+                    # right
+                    landcover_swath[i-1, k, 1] = np.sum(nearest_distance[class_k] < 0)
+
+                # if density[i-1, 1] > 0:
+                #     landcover_swath[i-1, k, 1] = np.sum(data[mask1])
 
         values = dict(
             x=x,
