@@ -1,9 +1,6 @@
 global:
   description: |
     Valley bottom width and swath areas
-  FCT: Fluvial Corridor Toolbox Corridor Profile
-  crs: EPSG:2154
-  Conventions: CF-1.8
 variables:
   axis:
     long_name: stream identifier

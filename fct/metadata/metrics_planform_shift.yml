@@ -1,9 +1,6 @@
 global:
   description: |-
     Planform shift from reference axis
-  FCT: Fluvial Corridor Toolbox
-  crs: EPSG:2154
-  Conventions: CF-1.8
 variables:
   axis:
     long_name: stream identifier

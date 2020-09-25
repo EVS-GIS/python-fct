@@ -1,9 +1,6 @@
 global:
   description: |-
-    Corridor buffer width by lancover class
-  FCT: Fluvial Corridor Toolbox
-  crs: EPSG:2154
-  Conventions: CF-1.8
+    corridor buffer metrics by lancover class
 variables:
   axis:
     long_name: stream identifier
@@ -19,7 +16,7 @@ variables:
   swath:
     long_name: swath identifier
   buffer_area:
-    long_name: area of landcover class k
+    long_name: swath area of landcover class k
     units: m^2
   buffer_width:
     long_name: cross-corridor width of landcover class k

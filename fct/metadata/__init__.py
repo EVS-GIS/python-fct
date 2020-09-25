@@ -14,13 +14,30 @@ NetCDF Metadata Helper
 """
 
 import os
+import time
+from datetime import datetime
 import yaml
+
+from .. import __version__
 
 def set_metadata(dataset, metafile):
     """
     Set metadata on xarray/netcdf dataset
     from YAML descriptor
     """
+
+    filename = os.path.join(
+        os.path.dirname(__file__),
+        'global.yml'
+    )
+
+    if os.path.exists(filename):
+
+        with open(filename) as fp:
+            metadata = yaml.safe_load(fp)
+
+        for attr, value in metadata.items():
+            dataset.attrs[attr] = value
 
     filename = os.path.join(
         os.path.dirname(__file__),
@@ -45,3 +62,7 @@ def set_metadata(dataset, metafile):
     else:
 
         raise ValueError('File does not exist: %s' % (metafile + '.yml'))
+
+    generated_time = time.time()
+    dataset.attrs['version'] = __version__
+    dataset.attrs['generated'] = str(datetime.fromtimestamp(generated_time))
