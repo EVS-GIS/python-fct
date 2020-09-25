@@ -20,6 +20,7 @@ import os
 import numpy as np
 # from scipy.interpolate import interp1d
 from scipy.interpolate import UnivariateSpline
+from scipy.misc import derivative
 
 import click
 import xarray as xr
@@ -29,45 +30,33 @@ import fiona
 from .. import transform as fct
 from ..rasterize import rasterize_linestringz
 from ..config import config
+from ..metadata import set_metadata
 
 def ExportValleyProfile(axis, valley_profile, destination):
     """
     Write valley profile data to NetCDF file
     """
 
+    # mz = valley_profile[:, [3, 1]]
+
+    # diff1 = np.concatenate([[(0, 0)], mz[1:] - mz[:-1]])
+    # diff2 = np.concatenate([mz[1:] - mz[:-1], [(0, 0)]])
+    # diff = 0.5 * (diff1 + diff2)
+    # slope = diff[:, 1] / diff[:, 0]
+
     dataset = xr.Dataset(
         {
-            'x': ('measure', valley_profile[:, 0]),
-            'y': ('measure', valley_profile[:, 1]),
-            'z': ('measure', valley_profile[:, 2])
+            'x': ('measure', valley_profile[:, 1]),
+            'y': ('measure', valley_profile[:, 2]),
+            'z': ('measure', valley_profile[:, 3]),
+            'valley_slope': ('measure', valley_profile[:, 4])
         },
         coords={
             'axis': axis,
-            'measure': valley_profile[:, 3]
+            'measure': valley_profile[:, 0]
         })
 
-    dataset['x'].attrs['long_name'] = 'x coordinate'
-    dataset['x'].attrs['standard_name'] = 'projection_x_coordinate'
-    dataset['x'].attrs['units'] = 'm'
-
-    dataset['y'].attrs['long_name'] = 'y coordinate'
-    dataset['y'].attrs['standard_name'] = 'projection_y_coordinate'
-    dataset['y'].attrs['units'] = 'm'
-
-    dataset['z'].attrs['long_name'] = 'height above valley floor'
-    dataset['z'].attrs['standard_name'] = 'surface_height'
-    dataset['z'].attrs['units'] = 'm'
-    dataset['z'].attrs['grid_mapping'] = 'crs: x y'
-    dataset['z'].attrs['coordinates'] = 'x y'
-
-    dataset['axis'].attrs['long_name'] = 'stream identifier'
-    dataset['measure'].attrs['long_name'] = 'position along reference axis'
-    dataset['measure'].attrs['long_name'] = 'linear_measure_coordinate'
-    dataset['measure'].attrs['units'] = 'm'
-
-    dataset.attrs['crs'] = 'EPSG:2154'
-    dataset.attrs['FCT'] = 'Fluvial Corridor Toolbox Valley Profile 1.0.5'
-    dataset.attrs['Conventions'] = 'CF-1.8'
+    set_metadata(dataset, 'ax_refaxis_valley_profile')
 
     dataset.to_netcdf(
         destination,
@@ -76,6 +65,7 @@ def ExportValleyProfile(axis, valley_profile, destination):
             'x': dict(zlib=True, complevel=9, least_significant_digit=2),
             'y': dict(zlib=True, complevel=9, least_significant_digit=2),
             'z': dict(zlib=True, complevel=9, least_significant_digit=1),
+            'valley_slope': dict(zlib=True, complevel=9, least_significant_digit=6),
             'measure': dict(zlib=True, complevel=9, least_significant_digit=0)
         })
 
@@ -140,6 +130,7 @@ def ValleyElevationProfile(axis):
     coordxy = np.zeros((0, 2), dtype='float32')
     coordz = np.array([], dtype='float32')
     coordm = np.array([], dtype='float32')
+    slope = np.array([], dtype='float32')
 
     xmin = xmax = 0.0
 
@@ -221,13 +212,17 @@ def ValleyElevationProfile(axis):
                 segment_z = spl(segment_m)
                 coordz = np.concatenate([coordz, segment_z], axis=0)
 
+                segment_slope = 100 * derivative(spl, segment_m, dx=50.0, n=1)
+                slope = np.concatenate([slope, segment_slope], axis=0)
+
     valid = (coordm >= xmin) & (coordm <= xmax)
     coordz[~valid] = np.nan
 
     valley_profile = np.float32(np.column_stack([
+        coordm,
         coordxy,
         coordz,
-        coordm
+        slope
     ]))
 
     output = config.filename('ax_refaxis_valley_profile', axis=axis)

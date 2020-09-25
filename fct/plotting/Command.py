@@ -134,6 +134,39 @@ def plot_valley_elevation_profile(axis, filename):
     SetupMeasureAxis(ax, x)
     FinalizePlot(fig, ax, title='Valley Elevation Profile', filename=filename)
 
+@cli.command('valleyslope')
+@click.argument('axis', type=int)
+@filename_opt
+def plot_valley_slope_profile(axis, filename):
+    """
+    Idealized valley elevation profile
+    """
+
+    # from ..corridor.ValleyElevationProfile import ValleySwathElevation
+
+    if filename is None:
+        plt.ion()
+    elif filename.endswith('.pdf'):
+        mpl.use('cairo')
+
+    datafile = config.filename('ax_refaxis_valley_profile', axis=axis)
+    data = xr.open_dataset(datafile)
+
+    data = data.sortby('measure', ascending=False)
+    x = data['measure']
+    y = data['valley_slope']
+
+    fig, ax = SetupPlot()
+
+    # _, values = ValleySwathElevation(axis)
+    # ax.plot(values[:, 0], values[:, 1], 'darkgray', linewidth=0.8)
+
+    ax.plot(x, y)
+    ax.set_ylabel('Slope (%)')
+    ax.set_ylim([-1, 1])
+    SetupMeasureAxis(ax, x)
+    FinalizePlot(fig, ax, title='Valley Slope Profile', filename=filename)
+
 @cli.command('talwegheight')
 @click.argument('axis', type=int)
 @filename_opt
@@ -152,8 +185,8 @@ def plot_talweg_height(axis, filename):
     data = data.sortby('measure', ascending=False)
 
     x = data['measure']
-    y = data['hmed']
-    interpolated = data['interp']
+    y = data['talweg_height_median']
+    interpolated = data['flag_twh_interpolated']
     print(interpolated.dtype)
 
     fig, ax = SetupPlot()
@@ -164,6 +197,48 @@ def plot_talweg_height(axis, filename):
     ax.legend()
     SetupMeasureAxis(ax, x)
     FinalizePlot(fig, ax, title='Talweg Relative Height', filename=filename)
+
+@cli.command('talwegslope')
+@click.argument('axis', type=int)
+@filename_opt
+def plot_talweg_slope(axis, filename):
+    """
+    Idealized valley elevation profile
+    """
+
+    # from ..corridor.ValleyElevationProfile import ValleySwathElevation
+
+    if filename is None:
+        plt.ion()
+    elif filename.endswith('.pdf'):
+        mpl.use('cairo')
+
+    datafile = config.filename('metrics_talweg_height', axis=axis)
+    data = xr.open_dataset(datafile)
+
+    data = data.sortby('measure', ascending=False)
+    x = data['measure']
+    y = data['talweg_slope']
+
+    fig, ax = SetupPlot()
+
+    # _, values = ValleySwathElevation(axis)
+    # ax.plot(values[:, 0], values[:, 1], 'darkgray', linewidth=0.8)
+
+    ax.plot(x, y)
+    ax.set_ylabel('Slope (%)')
+    # ax.set_ylim([-1, 1])
+    SetupMeasureAxis(ax, x)
+
+    datafile_valley = config.filename('ax_refaxis_valley_profile', axis=axis)
+    data_valley = xr.open_dataset(datafile_valley)
+
+    x = data_valley['measure']
+    y = data_valley['valley_slope']
+    ax.plot(x, y)
+    ax.set_ylim([-2, 2])
+
+    FinalizePlot(fig, ax, title='Talweg Slope Profile', filename=filename)
 
 @cli.command('landcover-profile')
 @click.argument('axis', type=int)

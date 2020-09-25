@@ -1,0 +1,27 @@
+global:
+  description: |
+    smoothed valley elevation profile
+variables:
+  axis:
+    long_name: stream identifier
+  measure:
+    long_name: position along reference axis
+    standard_name: linref_m_coordinate
+    units: m
+  x:
+    long_name: x coordinate
+    standard_name: projection_x_coordinate
+    units: m
+  y:
+    long_name: y coordinate
+    standard_name: projection_y_coordinate
+    units: m
+  z:
+    long_name: elevation
+    standard_name: surface_elevation
+    vertical_ref: IGN 
+    units: m
+    grid_mapping: 'crs: x y'
+  valley_slope:
+    long_name: valley slope
+    units: percent

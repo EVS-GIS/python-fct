@@ -414,21 +414,6 @@ def elevation_swath_profiles(axis, processes):
     elapsed = time.time() - start_time
     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
 
-@cli.command()
-@click.argument('axis', type=int)
-def talweg_height(axis):
-    """
-    Calculate talweg height relative to valley floor
-    """
-
-    from fct.corridor.ValleyBottomRefined import (
-        TalwegHeightBySwathUnit,
-        WriteTalwegHeights
-    )
-
-    swaths, values = TalwegHeightBySwathUnit(axis)
-    WriteTalwegHeights(axis, swaths, values)
-
 @cli.command('medialaxis')
 @click.argument('axis', type=int)
 def valley_medial_axis(axis):
