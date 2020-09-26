@@ -105,8 +105,9 @@ def plot_elevation_swath(axis, swath, kind, clip, filename):
 
 @cli.command('valleyprofile')
 @click.argument('axis', type=int)
+@click.option('--talweg/--no-talweg', default=False, help='Plot also talweg profile')
 @filename_opt
-def plot_valley_elevation_profile(axis, filename):
+def plot_valley_elevation_profile(axis, talweg, filename):
     """
     Idealized valley elevation profile
     """
@@ -118,6 +119,8 @@ def plot_valley_elevation_profile(axis, filename):
     elif filename.endswith('.pdf'):
         mpl.use('cairo')
 
+    fig, ax = SetupPlot()
+
     datafile = config.filename('ax_refaxis_valley_profile', axis=axis)
     data = xr.open_dataset(datafile)
 
@@ -125,14 +128,22 @@ def plot_valley_elevation_profile(axis, filename):
     x = data['measure']
     y = data['z']
 
-    fig, ax = SetupPlot()
-
-    # _, values = ValleySwathElevation(axis)
-    # ax.plot(values[:, 0], values[:, 1], 'darkgray', linewidth=0.8)
-
-    ax.plot(x, y)
+    ax.plot(x, y, label='floodplain')
     ax.set_ylabel('Elevation (m NGF)')
     SetupMeasureAxis(ax, x)
+
+    if talweg:
+
+        talweg_datafile = config.filename('ax_talweg_profile', axis=axis)
+        talweg_data = xr.open_dataset(talweg_datafile)
+
+        talweg_data = talweg_data.sortby('measure', ascending=False)
+        x = talweg_data['measure']
+        y = talweg_data['z']
+        ax.plot(x, y, label='talweg')
+
+        ax.legend()
+
     FinalizePlot(fig, ax, title='Valley Elevation Profile', filename=filename)
 
 @cli.command('valleyslope')
@@ -201,8 +212,10 @@ def plot_talweg_height(axis, filename):
 
 @cli.command('talwegslope')
 @click.argument('axis', type=int)
+@click.option('--valley/--no-valley', default=False, help='Plot also valley profile')
+@click.option('--ylim', type=(float, float), default=(None, None), help='Set y axis limits')
 @filename_opt
-def plot_talweg_slope(axis, filename):
+def plot_talweg_slope(axis, valley, ylim, filename):
     """
     Idealized valley elevation profile
     """
@@ -226,18 +239,23 @@ def plot_talweg_slope(axis, filename):
     # _, values = ValleySwathElevation(axis)
     # ax.plot(values[:, 0], values[:, 1], 'darkgray', linewidth=0.8)
 
-    ax.plot(x, y)
+    ax.plot(x, y, label='talweg')
     ax.set_ylabel('Slope (%)')
     # ax.set_ylim([-1, 1])
     SetupMeasureAxis(ax, x)
 
-    datafile_valley = config.filename('ax_refaxis_valley_profile', axis=axis)
-    data_valley = xr.open_dataset(datafile_valley)
+    if valley:
 
-    x = data_valley['measure']
-    y = data_valley['valley_slope']
-    ax.plot(x, y)
-    ax.set_ylim([-2, 2])
+        datafile_valley = config.filename('ax_refaxis_valley_profile', axis=axis)
+        data_valley = xr.open_dataset(datafile_valley)
+
+        x = data_valley['measure']
+        y = data_valley['valley_slope']
+        ax.plot(x, y, label='floodplain')
+        ax.legend()
+
+    if ylim:
+        ax.set_ylim(ylim)
 
     FinalizePlot(fig, ax, title='Talweg Slope Profile', filename=filename)
 

@@ -451,6 +451,22 @@ def valley_profile(axis):
 
 @cli.command()
 @click.argument('axis', type=int)
+def talweg_profile(axis):
+    """
+    Calculate idealized/smoothed valley elevation profile
+    """
+
+    from .TalwegElevationProfile import TalwegElevationProfile
+
+    start_time = PrintCommandInfo('smoothed talweg elevation profile', axis, 1, {})
+
+    TalwegElevationProfile(axis)
+
+    elapsed = time.time() - start_time
+    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
+@cli.command()
+@click.argument('axis', type=int)
 @parallel_opt
 def height_above_valley_floor(axis, processes):
     """

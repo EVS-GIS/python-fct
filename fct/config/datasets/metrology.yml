@@ -123,6 +123,15 @@ ax_refaxis_valley_profile:
   subdir: AXES/AX%(axis)04d/METRICS
   filename: REFAXIS_VALLEY_PROFILE.nc
 
+ax_talweg_profile:
+  description: |
+    Smoothed talweg elevation profile (based on swath profiles)
+  type: netcdf
+  group: metrology
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: TALWEG_ELEVATION_PROFILE.nc
+
 ax_valley_height:
   description: |
     Height above valley floor
