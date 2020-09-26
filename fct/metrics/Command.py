@@ -108,7 +108,7 @@ def subgrid_dominant_landcover():
 
     DominantLandCover()
 
-@cli.command()
+@fct_command(cli)
 @click.argument('axis', type=int)
 def talweg(axis):
     """
@@ -124,6 +124,23 @@ def talweg(axis):
 
     dataset = TalwegMetrics(axis)
     WriteTalwegMetrics(axis, dataset)
+
+@fct_command(cli)
+@click.argument('axis', type=int)
+def planform(axis):
+    """
+    Calculate talweg-related metrics :
+    depth relative to floodplain, intercepted length,
+    mean slope, representative elevation
+    """
+
+    from .PlanformShift import (
+        PlanformShift,
+        WritePlanforMetrics
+    )
+
+    dataset = PlanformShift(axis)
+    WritePlanforMetrics(axis, dataset)
 
 @fct_command(cli)
 @click.argument('axis', type=int)

@@ -9,6 +9,10 @@ variables:
     standard_name: linref_m_coordinate
     origin: downstream or network outlet
     units: m
+  talweg_measure:
+    long_name: distance along talweg linestring, measured from upstream
+    standard_name: linestring_m_coordinate
+    units: m
   talweg_shift:
     long_name: signed distance to reference axis
     units: m

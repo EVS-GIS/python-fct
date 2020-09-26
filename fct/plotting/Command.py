@@ -16,6 +16,7 @@ Plot Commands
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from matplotlib.ticker import EngFormatter
 
 import click
 import xarray as xr
@@ -239,6 +240,61 @@ def plot_talweg_slope(axis, filename):
     ax.set_ylim([-2, 2])
 
     FinalizePlot(fig, ax, title='Talweg Slope Profile', filename=filename)
+
+@cli.command('planform')
+@click.argument('axis', type=int)
+@click.option(
+    '--measure', '-m',
+    type=click.Choice(['refaxis', 'talweg'], case_sensitive=True),
+    default='refaxis')
+@filename_opt
+def plot_planform_shift(axis, measure, filename):
+    """
+    Planform shift
+    """
+
+    data_file = config.filename('metrics_planform', axis=axis)
+    fig, ax = SetupPlot()
+
+    if measure == 'refaxis':
+
+        data = xr.open_dataset(data_file).sortby('measure')
+
+        # print(
+        #     np.min(data['measure']).values,
+        #     np.max(data['measure']).values
+        # )
+
+        ax.plot(data['measure'], data['talweg_shift'])
+        ax.set_ylabel('Distance to reference axis (m)')
+        SetupMeasureAxis(ax, data['measure'])
+
+    else:
+
+        data = xr.open_dataset(data_file).sortby('talweg_measure')
+
+        # print(
+        #     np.min(data['talweg_measure']).values,
+        #     np.max(data['talweg_measure']).values
+        # )
+
+        ax.plot(data['talweg_measure'], data['talweg_shift'])
+        ax.set_xlim([
+            np.min(data['talweg_measure']),
+            np.max(data['talweg_measure'])
+        ])
+        ax.set_xlabel('Stream distance from source')
+        ax.set_ylabel('Distance to reference axis')
+
+        formatter = EngFormatter(unit='m')
+        ax.yaxis.set_major_formatter(formatter)
+        ax.xaxis.set_major_formatter(formatter)
+
+    FinalizePlot(
+        fig,
+        ax,
+        title='Talweg shift relative to reference axis',
+        filename=filename)
 
 @cli.command('landcover-profile')
 @click.argument('axis', type=int)

@@ -44,25 +44,30 @@ def PlanformShift(axis, refaxis_name='ax_refaxis'):
     with fiona.open(talweg_shapefile) as fs:
         talweg = np.concatenate([f['geometry']['coordinates'] for f in fs])
 
-    midpoints = 0.5 * (refaxis[1:,:] + refaxis[:-1,:])
+    midpoints = 0.5 * (refaxis[1:, :] + refaxis[:-1, :])
     index = cKDTree(midpoints[:, :2], balanced_tree=True)
     _, nearest = index.query(talweg[:, :2], k=1)
 
-    talweg = np.float32(talweg)
-    refaxis = np.float32(refaxis)
+    talweg = np.float32(talweg[:, :2])
+    refaxis = np.float32(refaxis[:, :2])
 
-    x = np.cumsum(np.linalg.norm(refaxis[1:,:] - refaxis[:-1,:], axis=1))
+    talweg_measure = np.cumsum(np.linalg.norm(talweg[1:] - talweg[:-1], axis=1))
+    talweg_measure = np.concatenate([np.zeros(1), talweg_measure])
+
+    # x = refaxis measure
+    x = np.cumsum(np.linalg.norm(refaxis[1:] - refaxis[:-1], axis=1))
     x = np.concatenate([np.zeros(1), x])
 
     _, signed_distance, location = ta.signed_distance(
-        refaxis[nearest, :],
-        refaxis[nearest+1, :],
-        talweg[:, :2])
+        refaxis[nearest],
+        refaxis[nearest+1],
+        talweg)
 
     xt = x[nearest] + location * (x[nearest+1] - x[nearest])
 
     dataset = xr.Dataset(
         {
+            'talweg_measure': ('measure', talweg_measure),
             'talweg_shift': ('measure', signed_distance)
         },
         coords={
@@ -71,7 +76,7 @@ def PlanformShift(axis, refaxis_name='ax_refaxis'):
         }
     )
 
-    set_metadata(dataset, 'metrics_planform_shift')
+    set_metadata(dataset, 'metrics_planform')
     dataset['talweg_shift'].attrs['reference'] = refaxis_name
 
     return dataset
@@ -92,6 +97,19 @@ def PlanformAmplitude(planform_shift, window=20):
         np.square(planform_shift)
             .rolling(measure=window, min_periods=1, center=True)
             .mean()
+    )
+
+def WritePlanforMetrics(axis, dataset):
+
+    output = config.filename('metrics_planform', axis=axis)
+
+    dataset.to_netcdf(
+        output, 'w',
+        encoding={
+            'measure': dict(zlib=True, complevel=9, least_significant_digit=0),
+            'talweg_measure': dict(zlib=True, complevel=9, least_significant_digit=0),
+            'talweg_shift': dict(zlib=True, complevel=9, least_significant_digit=2),
+        }
     )
 
 def PlotPlanformShift(axis, data, filename=None):
