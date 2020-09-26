@@ -13,6 +13,7 @@ Valley Bottom Medial Axis
 ***************************************************************************
 """
 
+import os
 from operator import itemgetter
 from multiprocessing import Pool
 
@@ -36,6 +37,7 @@ def SwathMedialAxis(axis, swid, coordm, bounds, long_length, resolution):
     # measure_raster = tileset.filename('ax_axis_measure', axis=axis)
     distance_raster = tileset.filename('ax_axis_distance', axis=axis)
     hand_raster = tileset.filename('ax_nearest_height', axis=axis)
+    valleybottom_raster = config.tileset().filename('ax_valley_mask_refined', axis=axis)
 
     points = list()
 
@@ -49,16 +51,6 @@ def SwathMedialAxis(axis, swid, coordm, bounds, long_length, resolution):
         window = as_window(bounds, ds.transform)
         distance = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
         transform = ds.transform * ds.transform.translation(window.col_off, window.row_off)
-
-    # with rio.open(measure_raster) as ds:
-
-    #     window = as_window(bounds, ds.transform)
-    #     measure = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
-
-    with rio.open(hand_raster) as ds:
-
-        window = as_window(bounds, ds.transform)
-        hand = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
 
     with fiona.open(swath_shapefile) as fs:
 
@@ -86,11 +78,30 @@ def SwathMedialAxis(axis, swid, coordm, bounds, long_length, resolution):
 
             return points
 
+    # with rio.open(measure_raster) as ds:
+
+    #     window = as_window(bounds, ds.transform)
+    #     measure = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
+
+    if os.path.exists(valleybottom_raster):
+
+        with rio.open(valleybottom_raster) as ds:
+
+            window = as_window(bounds, ds.transform)
+            valleybottom = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
+            mask = (swaths == swid) & (valleybottom < 2)
+
+    else:
+
+        with rio.open(hand_raster) as ds:
+
+            window = as_window(bounds, ds.transform)
+            hand = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
+            mask = (swaths == swid) & (hand < 10.0)
+
     # xmin = coordm - 0.5 * long_length
     # xmax = coordm + 0.5 * long_length
     # xbins = np.linspace(xmin, xmax, 5)
-
-    mask = (swaths == swid) & (hand < 10.0)
 
     if np.sum(mask) == 0:
         return points
@@ -105,6 +116,11 @@ def SwathMedialAxis(axis, swid, coordm, bounds, long_length, resolution):
 
     ybinned = np.digitize(distance, ybins)
     y = 0.5*(ybins[1:] + ybins[:-1])
+
+    # unit width of observations
+    unit_width = 0.5 * (np.roll(y, -1) - np.roll(y, 1))
+    unit_width[0] = y[1] - y[0]
+    unit_width[-1] = y[-1] - y[-2]
 
     # for x0, x1 in zip(xbins[:-1], xbins[1:]):
 
@@ -134,8 +150,8 @@ def SwathMedialAxis(axis, swid, coordm, bounds, long_length, resolution):
         density[i-1] = np.sum(maski)
 
     max_density = long_length / resolution**2
-    clamp = np.minimum(max_density, density) / max_density
-    yclamp = y[clamp > 0.8]
+    clamp = np.minimum(max_density*unit_width, density) / max_density
+    yclamp = y[clamp > 0.6 * unit_width]
 
     if yclamp.size > 0:
 
@@ -233,7 +249,7 @@ def unproject(axis, points):
                 break
 
         else:
-            
+
             transformed[i] = np.nan
             continue
 
