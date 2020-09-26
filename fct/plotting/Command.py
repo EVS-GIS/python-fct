@@ -180,13 +180,13 @@ def plot_talweg_height(axis, filename):
     elif filename.endswith('.pdf'):
         mpl.use('cairo')
 
-    datafile = config.filename('metrics_talweg_height', axis=axis)
+    datafile = config.filename('metrics_talweg', axis=axis)
     data = xr.open_dataset(datafile)
     data = data.sortby('measure', ascending=False)
 
     x = data['measure']
     y = data['talweg_height_median']
-    interpolated = data['flag_twh_interpolated']
+    interpolated = data['talweg_height_is_interpolated']
     print(interpolated.dtype)
 
     fig, ax = SetupPlot()
@@ -213,7 +213,7 @@ def plot_talweg_slope(axis, filename):
     elif filename.endswith('.pdf'):
         mpl.use('cairo')
 
-    datafile = config.filename('metrics_talweg_height', axis=axis)
+    datafile = config.filename('metrics_talweg', axis=axis)
     data = xr.open_dataset(datafile)
 
     data = data.sortby('measure', ascending=False)

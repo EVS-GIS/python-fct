@@ -110,18 +110,20 @@ def subgrid_dominant_landcover():
 
 @cli.command()
 @click.argument('axis', type=int)
-def talweg_height(axis):
+def talweg(axis):
     """
-    Calculate talweg height relative to valley floor
+    Calculate talweg-related metrics :
+    depth relative to floodplain, intercepted length,
+    mean slope, representative elevation
     """
 
-    from .TalwegHeight import (
-        TalwegHeightBySwathUnit,
-        WriteTalwegHeights
+    from .TalwegMetrics import (
+        TalwegMetrics,
+        WriteTalwegMetrics
     )
 
-    dataset = TalwegHeightBySwathUnit(axis)
-    WriteTalwegHeights(axis, dataset)
+    dataset = TalwegMetrics(axis)
+    WriteTalwegMetrics(axis, dataset)
 
 @fct_command(cli)
 @click.argument('axis', type=int)

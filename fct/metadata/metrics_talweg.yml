@@ -10,17 +10,27 @@ variables:
     units: m
   swath:
     long_name: swath identifier
-  talweg_height_median:
-    long_name: median height relative to floodplain / valley floor
-    units: m
   talweg_height_min:
     long_name: minimum height relative floodplain / valley floor
     units: m
-  flag_twh_interpolated:
+  talweg_height_median:
+    long_name: median height relative to floodplain / valley floor
+    units: m
+  talweg_height_is_interpolated:
     long_name: interpolated data point
     description: |-
       true if data point could not be measured
       and has been interpolated between neighbor points
+  talweg_length:
+    long_name: swath-intercepted talweg length
+    standard_name: projection_linestring_length
+    units: m
+  talweg_elevation_min:
+    long_name: swath-minimum absolute elevation from DEM
+    units: m
+  talweg_elevation_median:
+    long_name: swath-median absolute elevation from DEM
+    units: m
   talweg_slope:
     long_name: talweg slope
     units: percent

@@ -24,9 +24,9 @@ import click
 import xarray as xr
 import rasterio as rio
 import fiona
+from shapely.geometry import asShape
 
 from .. import transform as fct
-from .. import speedup
 from ..rasterize import rasterize_linestring
 from ..config import config
 from ..metadata import set_metadata
@@ -49,7 +49,7 @@ def InterpolateMissingValues(measures, values, kind='slinear'):
 
     return missing
 
-def TalwegHeightBySwathUnit(axis):
+def TalwegMetrics(axis):
     """
     Calculate median talweg height relative to valley floor
     """
@@ -89,24 +89,29 @@ def TalwegHeightBySwathUnit(axis):
     coordm = np.array([])
     coords = np.array([])
     # coordxy = np.zeros((0, 2), dtype='float32')
+    s0 = 0.0
 
     with fiona.open(talweg_shapefile) as fs:
         with click.progressbar(fs, length=len(fs)) as iterator:
             for feature in iterator:
 
                 coordinates = np.array(feature['geometry']['coordinates'], dtype='float32')
+                length = asShape(feature['geometry']).length
 
                 with rio.open(swath_raster) as ds:
 
                     coordij = fct.worldtopixel(coordinates[:, :2], ds.transform)
                     pixels = list()
+                    # segment_s = list()
 
                     # we must interpolate segments between vertices
                     # otherwise we may miss out swaths that fit between 2 vertices
 
                     for a, b in zip(coordij[:-1], coordij[1:]):
                         for i, j in rasterize_linestring(a, b):
+
                             pixels.append((i, j))
+                            # segment_s.append(s0 + s*length)
 
                     segment_xy = fct.pixeltoworld(
                         np.array(pixels, dtype='int32'),
@@ -118,16 +123,18 @@ def TalwegHeightBySwathUnit(axis):
                     # ], axis=0)
 
                     # calculate s coordinate
-                    segment_s = np.cumsum(np.linalg.norm(
+                    segment_s = s0 + np.cumsum(np.linalg.norm(
                         # segment_xy[:0:-1] - segment_xy[-2::-1],
                         segment_xy[1:] - segment_xy[:-1],
                         axis=1))
 
                     coords = np.concatenate([
                         coords,
-                        [0],
+                        [s0],
                         segment_s
                     ])
+
+                    s0 = segment_s[-1]
 
                     segment_swathid = np.array(list(ds.sample(segment_xy, 1)))
                     swathid = np.concatenate([swathid, segment_swathid[:, 0]], axis=0)
@@ -149,6 +156,8 @@ def TalwegHeightBySwathUnit(axis):
     measures = list()
     heights = list()
     talweg_slopes = list()
+    talweg_lengths = list()
+    talweg_elevations = list()
     # floodplain_slopes = list()
 
     for swid, group in groups:
@@ -157,6 +166,8 @@ def TalwegHeightBySwathUnit(axis):
             continue
 
         elements = np.array([k for k, _ in group])
+
+        talweg_length = np.max(coords[elements]) - np.min(coords[elements])
 
         Y = ztalweg = coordz[elements]
         X = np.column_stack([
@@ -171,22 +182,24 @@ def TalwegHeightBySwathUnit(axis):
             floodplain_slope, floodplain_z0 = estimates[swid]
             zvalley = floodplain_slope * coordm[elements] + floodplain_z0
 
-            hmedian = np.median(ztalweg - zvalley)
-            hmin = np.min(ztalweg - zvalley)
+            height_median = np.median(ztalweg - zvalley)
+            height_min = np.min(ztalweg - zvalley)
 
         else:
 
             # htalweg = -10.0
-            hmedian = hmin = np.nan
+            height_median = height_min = np.nan
             floodplain_slope = np.nan
 
         swathm = defs['coordm'].sel(label=swid).values
 
         measures.append(swathm)
         swids.append(swid)
-        heights.append((hmedian, hmin))
+        heights.append((height_min, height_median))
         # floodplain_slopes.append(floodplain_slope)
         talweg_slopes.append(talweg_slope)
+        talweg_lengths.append(talweg_length)
+        talweg_elevations.append((np.min(ztalweg), np.median(ztalweg)))
 
     swids = np.array(swids, dtype='uint32')
     measures = np.array(measures, dtype='float32')
@@ -195,14 +208,19 @@ def TalwegHeightBySwathUnit(axis):
     interpolated = np.isnan(heights[:, 0])
     heights = InterpolateMissingValues(measures, heights)
 
+    talweg_lengths = np.array(talweg_lengths, dtype='float32')
+    talweg_elevations = np.array(talweg_elevations, dtype='float32')
     talweg_slopes = -100 * np.array(talweg_slopes, dtype='float32')
     # floodplain_slopes = np.array(floodplain_slopes, dtype='float32')
 
     dataset = xr.Dataset(
         {
-            'talweg_height_median': ('measure', heights[:, 0]),
-            'talweg_height_min': ('measure', heights[:, 1]),
-            'flag_twh_interpolated': ('measure', interpolated),
+            'talweg_height_min': ('measure', heights[:, 0]),
+            'talweg_height_median': ('measure', heights[:, 1]),
+            'talweg_height_is_interpolated': ('measure', interpolated),
+            'talweg_length': ('measure', talweg_lengths),
+            'talweg_elevation_min': ('measure', talweg_elevations[:, 0]),
+            'talweg_elevation_median': ('measure', talweg_elevations[:, 1]),
             'talweg_slope': ('measure', talweg_slopes)
             # 'floodplain_slope': ('measure', floodplain_slopes)
         },
@@ -215,18 +233,18 @@ def TalwegHeightBySwathUnit(axis):
 
     # Metadata
 
-    set_metadata(dataset, 'metrics_talweg_height')
+    set_metadata(dataset, 'metrics_talweg')
 
     return dataset
 
-def WriteTalwegHeights(axis, dataset):
+def WriteTalwegMetrics(axis, dataset):
     """
     Save talweg height data to NetCDF file
     """
 
     # write to netCDF
 
-    output = config.filename('metrics_talweg_height', axis=axis)
+    output = config.filename('metrics_talweg', axis=axis)
 
     dataset.to_netcdf(
         output,
@@ -234,9 +252,12 @@ def WriteTalwegHeights(axis, dataset):
         encoding={
             'swath': dict(zlib=True, complevel=9),
             'measure': dict(zlib=True, complevel=9, least_significant_digit=0),
-            'talweg_height_median': dict(zlib=True, complevel=9, least_significant_digit=1),
             'talweg_height_min': dict(zlib=True, complevel=9, least_significant_digit=1),
+            'talweg_height_median': dict(zlib=True, complevel=9, least_significant_digit=1),
+            'talweg_length': dict(zlib=True, complevel=9, least_significant_digit=6),
+            'talweg_elevation_min': dict(zlib=True, complevel=9, least_significant_digit=6),
+            'talweg_elevation_median': dict(zlib=True, complevel=9, least_significant_digit=6),
             'talweg_slope': dict(zlib=True, complevel=9, least_significant_digit=6),
             # 'floodplain_slope': dict(zlib=True, complevel=9, least_significant_digit=6),
-            'flag_twh_interpolated': dict(zlib=True, complevel=9)
+            'talweg_height_is_interpolated': dict(zlib=True, complevel=9)
         })

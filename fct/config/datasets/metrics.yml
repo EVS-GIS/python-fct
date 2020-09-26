@@ -42,15 +42,14 @@ ax_swath_landcover_pack:
   subdir: AXES/AX%(axis)04d/METRICS
   filename: LANDCOVER_SWATH_PROFILES_%(subset)s.nc
 
-metrics_talweg_height:
+metrics_talweg:
   description: |
-    Talweg height relative to valley floor
-    by valley swath unit
+    Talweg related metrics by valley swath unit
   type: netcdf
   group: metrics
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
-  filename: TALWEG_HEIGHT.nc
+  filename: TALWEG_RELATED.nc
 
 metrics_long_profile:
   description: |
