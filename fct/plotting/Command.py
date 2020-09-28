@@ -13,6 +13,7 @@ Plot Commands
 ***************************************************************************
 """
 
+from functools import wraps
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -35,7 +36,7 @@ filename_opt = click.option(
     '--filename', '-f',
     default=None,
     type=click.Path(file_okay=True, dir_okay=False, writable=True, exists=False),
-    help='save output to file'
+    help='Save output to file'
 )
 
 def FinalizePlot(fig, ax, title='', filename=None):
@@ -68,6 +69,49 @@ def cli(env):
     """
     Preconfigured plots for visualizing FCT data
     """
+
+def fct_plot(group, name=None, title=None):
+    """
+    FCT plot command wrapper, with standard options:
+
+    - title
+    - xlim
+    - ylim
+    - filename:
+        exports to PNG or PDF file,
+        and sets matplotlib to use cairo if needed
+    """
+
+    def decorate(fun):
+
+        @group.command(name)
+        @click.option('--title', type=str, default=title, help='Set figure title')
+        @click.option('--xlim', type=(float, float), default=(None, None), help='Set x axis limits')
+        @click.option('--ylim', type=(float, float), default=(None, None), help='Set y axis limits')
+        @filename_opt
+        @wraps(fun)
+        def decorated(title, xlim, ylim, filename, **kwargs):
+
+            if filename is None:
+                plt.ion()
+            elif filename.endswith('.pdf'):
+                mpl.use('cairo')
+
+            fig, ax = SetupPlot()
+
+            fun(ax, **kwargs)
+
+            if xlim != (None, None):
+                ax.set_xlim(xlim)
+
+            if ylim != (None, None):
+                ax.set_ylim(ylim)
+
+            FinalizePlot(fig, ax, title=title, filename=filename)
+
+        return decorated
+
+    return decorate
 
 @cli.command('swath')
 @click.argument('axis', type=int)
@@ -103,23 +147,13 @@ def plot_elevation_swath(axis, swath, kind, clip, filename):
     if filename is None:
         plt.show(block=True)
 
-@cli.command('valleyprofile')
+@fct_plot(cli, 'valleyprofile', title='Valley elevation profile')
 @click.argument('axis', type=int)
 @click.option('--talweg/--no-talweg', default=False, help='Plot also talweg profile')
-@filename_opt
-def plot_valley_elevation_profile(axis, talweg, filename):
+def plot_valley_elevation_profile(ax, axis, talweg):
     """
     Idealized valley elevation profile
     """
-
-    # from ..corridor.ValleyElevationProfile import ValleySwathElevation
-
-    if filename is None:
-        plt.ion()
-    elif filename.endswith('.pdf'):
-        mpl.use('cairo')
-
-    fig, ax = SetupPlot()
 
     datafile = config.filename('ax_floodplain_elevation_profile', axis=axis)
     data = xr.open_dataset(datafile)
@@ -144,22 +178,12 @@ def plot_valley_elevation_profile(axis, talweg, filename):
 
         ax.legend()
 
-    FinalizePlot(fig, ax, title='Valley Elevation Profile', filename=filename)
-
-@cli.command('valleyslope')
+@fct_plot(cli, 'valleyslope', title='Valley Slope Profile')
 @click.argument('axis', type=int)
-@filename_opt
-def plot_valley_slope_profile(axis, filename):
+def plot_valley_slope_profile(ax, axis):
     """
     Idealized valley elevation profile
     """
-
-    # from ..corridor.ValleyElevationProfile import ValleySwathElevation
-
-    if filename is None:
-        plt.ion()
-    elif filename.endswith('.pdf'):
-        mpl.use('cairo')
 
     datafile = config.filename('ax_floodplain_elevation_profile', axis=axis)
     data = xr.open_dataset(datafile)
@@ -168,29 +192,19 @@ def plot_valley_slope_profile(axis, filename):
     x = data['measure']
     y = data['valley_slope']
 
-    fig, ax = SetupPlot()
-
     # _, values = ValleySwathElevation(axis)
     # ax.plot(values[:, 0], values[:, 1], 'darkgray', linewidth=0.8)
 
     ax.plot(x, y)
     ax.set_ylabel('Slope (%)')
-    ax.set_ylim([-1, 1])
     SetupMeasureAxis(ax, x)
-    FinalizePlot(fig, ax, title='Valley Slope Profile', filename=filename)
 
-@cli.command('talwegheight')
+@fct_plot(cli, 'talwegheight', title='Talweg relative height')
 @click.argument('axis', type=int)
-@filename_opt
-def plot_talweg_height(axis, filename):
+def plot_talweg_height(ax, axis):
     """
     Talweg height relative to valley floor
     """
-
-    if filename is None:
-        plt.ion()
-    elif filename.endswith('.pdf'):
-        mpl.use('cairo')
 
     datafile = config.filename('metrics_talweg', axis=axis)
     data = xr.open_dataset(datafile)
@@ -199,33 +213,23 @@ def plot_talweg_height(axis, filename):
     x = data['measure']
     y = data['talweg_height_median']
     interpolated = data['talweg_height_is_interpolated']
-    print(interpolated.dtype)
 
-    fig, ax = SetupPlot()
     ax.plot(x, y, 'darkorange', label='interpolated')
     y[interpolated] = np.nan
     ax.plot(x, y, label='measured')
     ax.set_ylabel('Height relative to valley floor (m)')
     ax.legend()
-    SetupMeasureAxis(ax, x)
-    FinalizePlot(fig, ax, title='Talweg Relative Height', filename=filename)
 
-@cli.command('talwegslope')
+    SetupMeasureAxis(ax, x)
+
+@fct_plot(cli, 'talwegslope', title='Talweg slope profile')
 @click.argument('axis', type=int)
 @click.option('--valley/--no-valley', default=False, help='Plot also valley profile')
-@click.option('--ylim', type=(float, float), default=(None, None), help='Set y axis limits')
 @filename_opt
-def plot_talweg_slope(axis, valley, ylim, filename):
+def plot_talweg_slope(ax, axis, valley):
     """
     Idealized valley elevation profile
     """
-
-    # from ..corridor.ValleyElevationProfile import ValleySwathElevation
-
-    if filename is None:
-        plt.ion()
-    elif filename.endswith('.pdf'):
-        mpl.use('cairo')
 
     datafile = config.filename('metrics_talweg', axis=axis)
     data = xr.open_dataset(datafile)
@@ -233,8 +237,6 @@ def plot_talweg_slope(axis, valley, ylim, filename):
     data = data.sortby('measure', ascending=False)
     x = data['measure']
     y = data['talweg_slope']
-
-    fig, ax = SetupPlot()
 
     # _, values = ValleySwathElevation(axis)
     # ax.plot(values[:, 0], values[:, 1], 'darkgray', linewidth=0.8)
@@ -254,25 +256,18 @@ def plot_talweg_slope(axis, valley, ylim, filename):
         ax.plot(x, y, label='floodplain')
         ax.legend()
 
-    if ylim:
-        ax.set_ylim(ylim)
-
-    FinalizePlot(fig, ax, title='Talweg Slope Profile', filename=filename)
-
-@cli.command('planform')
+@fct_plot(cli, 'planform', title='Talweg shift relative to reference axis')
 @click.argument('axis', type=int)
 @click.option(
     '--measure', '-m',
     type=click.Choice(['refaxis', 'talweg'], case_sensitive=True),
     default='refaxis')
-@filename_opt
-def plot_planform_shift(axis, measure, filename):
+def plot_planform_shift(ax, axis, measure):
     """
     Planform shift
     """
 
     data_file = config.filename('metrics_planform', axis=axis)
-    fig, ax = SetupPlot()
 
     if measure == 'refaxis':
 
@@ -308,16 +303,9 @@ def plot_planform_shift(axis, measure, filename):
         ax.yaxis.set_major_formatter(formatter)
         ax.xaxis.set_major_formatter(formatter)
 
-    FinalizePlot(
-        fig,
-        ax,
-        title='Talweg shift relative to reference axis',
-        filename=filename)
-
-@cli.command('landcover-profile')
+@fct_plot(cli, 'landcover-profile', title='Total landcover width')
 @click.argument('axis', type=int)
-@filename_opt
-def plot_landcover_profile(axis, filename):
+def plot_landcover_profile(ax, axis):
     """
     Landcover class width long profile
     """
@@ -327,7 +315,6 @@ def plot_landcover_profile(axis, filename):
     data_file = config.filename('metrics_lcw_variant', variant='TOTAL_BDT', axis=axis)
     data = xr.open_dataset(data_file).sortby('measure')
 
-    fig, ax = SetupPlot()
     PlotLandCoverProfile(
         ax,
         data['measure'],
@@ -338,18 +325,12 @@ def plot_landcover_profile(axis, filename):
 
     SetupMeasureAxis(ax, data['measure'])
     ax.set_ylabel('Width (m)')
-    FinalizePlot(
-        fig,
-        ax,
-        title='Total Landcover Width',
-        filename=filename)
 
-@cli.command('continuity-profile')
+@fct_plot(cli, 'continuity-profile', title='Continuity buffer width')
 @click.argument('axis', type=int)
-@filename_opt
-def plot_continuity_profile(axis, filename):
+def plot_continuity_profile(ax, axis):
     """
-    Landcover class width long profile
+    Continuity buffer width long profile
     """
 
     from .PlotCorridor import PlotLandCoverProfile
@@ -357,7 +338,6 @@ def plot_continuity_profile(axis, filename):
     data_file = config.filename('metrics_lcw_variant', variant='CONT_BDT', axis=axis)
     data = xr.open_dataset(data_file).sortby('measure')
 
-    fig, ax = SetupPlot()
     PlotLandCoverProfile(
         ax,
         data['measure'],
@@ -368,19 +348,13 @@ def plot_continuity_profile(axis, filename):
 
     SetupMeasureAxis(ax, data['measure'])
     ax.set_ylabel('Width (m)')
-    FinalizePlot(
-        fig,
-        ax,
-        title='Total Landcover Width',
-        filename=filename)
 
-@cli.command('landcover-profile-lr')
+@fct_plot(cli, 'landcover-profile-lr', title='Left and right bank landcover width')
 @click.argument('axis', type=int)
 @click.option('--max-class', default=8, help='Plot until max_class continuity class')
-@filename_opt
-def plot_left_right_landcover_profile(axis, max_class, filename):
+def plot_left_right_landcover_profile(ax, axis, max_class):
     """
-    Left/rigth continuous landcover buffer width long profile
+    Left/rigth total landcover width long profile
     """
 
     from .PlotCorridor import (
@@ -400,8 +374,6 @@ def plot_left_right_landcover_profile(axis, max_class, filename):
     data_vb_area_lr = merged['valley_bottom_area_lr']
     vbw_left = data_vb_width * data_vb_area_lr.sel(side='left') / np.sum(data_vb_area_lr, axis=1)
     vbw_right = data_vb_width * data_vb_area_lr.sel(side='right') / np.sum(data_vb_area_lr, axis=1)
-
-    fig, ax = SetupPlot()
 
     PlotLeftRightCorridorLimit(
         ax,
@@ -424,19 +396,13 @@ def plot_left_right_landcover_profile(axis, max_class, filename):
     SetupMeasureAxis(ax, merged['measure'])
     ax.set_ylabel('Width (m)')
     ax.legend(ncol=2)
-    FinalizePlot(
-        fig,
-        ax,
-        title='Left and Right Bank Landcover Width',
-        filename=filename)
 
-@cli.command('continuity-profile-lr')
+@fct_plot(cli, 'continuity-profile-lr', title='Left and right bank continuity buffer width')
 @click.argument('axis', type=int)
 @click.option('--max-class', default=6, help='Plot until max_class continuity class')
-@filename_opt
-def plot_left_right_continuity_profile(axis, max_class, filename):
+def plot_left_right_continuity_profile(ax, axis, max_class):
     """
-    Left/rigth continuous landcover buffer width long profile
+    Left/rigth continuity buffer width long profile
     """
 
     from .PlotCorridor import (
@@ -457,8 +423,6 @@ def plot_left_right_continuity_profile(axis, max_class, filename):
     vbw_left = data_vb_width * data_vb_area_lr.sel(side='left') / np.sum(data_vb_area_lr, axis=1)
     vbw_right = data_vb_width * data_vb_area_lr.sel(side='right') / np.sum(data_vb_area_lr, axis=1)
 
-    fig, ax = SetupPlot()
-
     PlotLeftRightCorridorLimit(
         ax,
         merged,
@@ -478,10 +442,3 @@ def plot_left_right_continuity_profile(axis, max_class, filename):
         window=5)
 
     SetupMeasureAxis(ax, merged['measure'])
-    ax.set_ylabel('Width (m)')
-    ax.legend(ncol=2)
-    FinalizePlot(
-        fig,
-        ax,
-        title='Left and Right Bank Continuity Buffer Width',
-        filename=filename)
