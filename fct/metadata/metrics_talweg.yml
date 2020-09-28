@@ -11,7 +11,7 @@ variables:
   swath:
     long_name: swath identifier
   talweg_height_min:
-    long_name: minimum height relative floodplain / valley floor
+    long_name: minimum height relative to floodplain / valley floor
     units: m
   talweg_height_median:
     long_name: median height relative to floodplain / valley floor

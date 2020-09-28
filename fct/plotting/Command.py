@@ -113,6 +113,35 @@ def fct_plot(group, name=None, title=None):
 
     return decorate
 
+@cli.command('hypsometry')
+@filename_opt
+def plot_hypsometry(filename):
+    """
+    Plot elevation distributions (hypsometer)
+    """
+
+    from .PlotHypsometry import PlotHypsometry
+
+    datafile = config.filename('metrics_hypsometer')
+    hypsometer = xr.open_dataset(datafile)
+
+    if filename is None:
+        plt.ion()
+    elif filename.endswith('.pdf'):
+        mpl.use('cairo')
+
+    fig = PlotHypsometry(hypsometer)
+
+    if filename is None:
+        fig.show()
+        plt.show(block=True)
+    elif filename.endswith('.pdf'):
+        plt.savefig(filename, format='pdf', dpi=600)
+        plt.clf()
+    else:
+        plt.savefig(filename, dpi=300)
+        plt.clf()
+
 @cli.command('swath')
 @click.argument('axis', type=int)
 @click.argument('swath', type=int)
@@ -145,7 +174,14 @@ def plot_elevation_swath(axis, swath, kind, clip, filename):
     PlotSwath(axis, swath, kind=kind, clip=clip, output=filename)
 
     if filename is None:
+        fig.show()
         plt.show(block=True)
+    elif filename.endswith('.pdf'):
+        plt.savefig(filename, format='pdf', dpi=600)
+        plt.clf()
+    else:
+        plt.savefig(filename, dpi=300)
+        plt.clf()
 
 @fct_plot(cli, 'valleyprofile', title='Valley elevation profile')
 @click.argument('axis', type=int)

@@ -109,6 +109,29 @@ def subgrid_dominant_landcover():
     DominantLandCover()
 
 @fct_command(cli)
+@parallel_opt
+def hypsometry(processes):
+    """
+    Calculate elevation distributions (hypsometer)
+    """
+
+    from .Hypsometry import Hypsometry
+
+    Hypsometry(processes=processes)
+
+@fct_command(cli)
+@click.argument('axis', type=int)
+@parallel_opt
+def drainage_area(axis, processes):
+    """
+    Calculate drainage area
+    """
+
+    from .DrainageArea import MetricDrainageArea
+
+    MetricDrainageArea(axis, processes)
+
+@fct_command(cli)
 @click.argument('axis', type=int)
 def talweg(axis):
     """

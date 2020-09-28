@@ -1,33 +1,53 @@
 # coding: utf-8
 
-import numpy as np
+"""
+Hypsometry (elevations distribution)
+
+***************************************************************************
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 3 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+***************************************************************************
+"""
+
+
 from collections import defaultdict
 from multiprocessing import Pool
-import click
+import numpy as np
 
+import click
+import rasterio as rio
 from rasterio import features
 import fiona
 import fiona.crs
 from shapely.geometry import asShape
+import xarray as xr
 
-from config import tileindex, filename
-from tileio import ReadRasterTile, DownsampleRasterTile
-from Command import starcall
-import speedup
+from .. import speedup
+from ..config import config
+from ..tileio import DownsampleRasterTile
+from ..cli import starcall
+from ..metadata import set_metadata
 
 def TileMinMax(row, col):
     """
     Returns (minz, maxz) for tile (row, col)
     """
 
-    elevations, profile = ReadRasterTile(row, col, 'dem')
-    nodata = profile['nodata']
-    elevations = elevations[elevations != nodata]
-    
-    if elevations.size == 0:
-        return row, col, nodata, nodata
+    elevation_raster = config.tileset().tilename('dem', row=row, col=col)
 
-    return row, col, np.min(elevations), np.max(elevations)
+    with rio.open(elevation_raster) as ds:
+
+        elevations = ds.read(1)
+        elevations = elevations[elevations != ds.nodata]
+
+        if elevations.size == 0:
+            return row, col, ds.nodata, ds.nodata
+
+        return row, col, np.min(elevations), np.max(elevations)
 
 def MinMax(processes=1, **kwargs):
     """
@@ -37,17 +57,26 @@ def MinMax(processes=1, **kwargs):
     >>>    print(row, col, zmin, zmax)
     """
 
-    tile_index = tileindex()
+    tileset = config.tileset()
     minmax = dict()
 
-    arguments = ([TileMinMax, row, col, kwargs] for row, col in tile_index)
+    def arguments():
+
+        for tile in tileset.tiles():
+
+            yield (
+                TileMinMax,
+                tile.row,
+                tile.col,
+                kwargs
+            )
 
     with Pool(processes=processes) as pool:
 
-        pooled = pool.imap_unordered(starcall, arguments)
+        pooled = pool.imap_unordered(starcall, arguments())
 
-        with click.progressbar(pooled, length=len(tile_index)) as bar:
-            for row, col, zmin, zmax in bar:
+        with click.progressbar(pooled, length=len(tileset)) as iterator:
+            for row, col, zmin, zmax in iterator:
                 minmax[row, col] = (zmin, zmax)
 
     return minmax
@@ -60,31 +89,34 @@ def TileHypsometry(row, col, zbins):
     # TODO
     # use optional mask
 
-    elevations, profile = ReadRasterTile(row, col, 'dem')
-    nodata = profile['nodata']
+    elevation_raster = config.tileset().tilename('dem', row=row, col=col)
 
-    binned = np.digitize(elevations, zbins)
-    binned[elevations == nodata] = 0
-    # represented = set(np.unique(binned))
+    with rio.open(elevation_raster) as ds:
 
-    # def area(k):
+        elevations = ds.read(1)
+        # elevations = elevations[elevations != ds.nodata]
 
-    #     if k in represented:
-    #         return np.count_nonzero(binned == k)
-        
-    #     return 0
+        binned = np.digitize(elevations, zbins)
+        binned[elevations == ds.nodata] = 0
+        # represented = set(np.unique(binned))
 
-    # areas = {k: area(k) for k in range(1, zbins.size)}
-    # areas[0] = 25.0*np.count_nonzero(elevations == nodata)
+        # def area(k):
 
-    return speedup.count_by_value(binned)
+        #     if k in represented:
+        #         return np.count_nonzero(binned == k)
+        #     return 0
+
+        # areas = {k: area(k) for k in range(1, zbins.size)}
+        # areas[0] = 25.0*np.count_nonzero(elevations == nodata)
+
+        return speedup.count_by_value(binned)
 
 def Hypsometry(processes=1, **kwargs):
     """
     DOCME
     """
 
-    tile_index = tileindex()
+    tileset = config.tileset()
     areas = defaultdict(lambda: 0)
 
     minz = 0.0
@@ -92,17 +124,39 @@ def Hypsometry(processes=1, **kwargs):
     dz = 10.0
     zbins = np.arange(minz, maxz + dz, dz)
 
-    arguments = ([TileHypsometry, row, col, zbins, kwargs] for row, col in tile_index)
+    def arguments():
+
+        for tile in tileset.tiles():
+
+            yield (
+                TileHypsometry,
+                tile.row,
+                tile.col,
+                zbins,
+                kwargs
+            )
 
     with Pool(processes=processes) as pool:
 
-        pooled = pool.imap_unordered(starcall, arguments)
+        pooled = pool.imap_unordered(starcall, arguments())
 
-        with click.progressbar(pooled, length=len(tile_index)) as bar:
-            for t_areas in bar:
+        with click.progressbar(pooled, length=len(tileset)) as iterator:
+            for t_areas in iterator:
                 areas.update({k: areas[k] + 25.0e-6*t_areas[k] for k in t_areas})
 
-    return zbins, np.array([areas[k] for k in range(0, zbins.size)])
+    dataset = xr.Dataset({
+        'area':  ('z', np.array([areas[k] for k in range(zbins.size)], dtype='float32')),
+        'dz': dz
+    }, coords={
+        'z': np.float32(zbins)
+    })
+
+    set_metadata(dataset, 'metrics_hypsometer')
+
+    output = config.filename('metrics_hypsometer')
+    dataset.to_netcdf(output, 'w')
+
+    return dataset
 
 def TileElevationContour(row, col, breaks, resample_factor=1):
     """
@@ -128,8 +182,20 @@ def ElevationContour(breaks, processes=1, **kwargs):
     DOCME
     """
 
-    tile_index = tileindex()
-    arguments = ([TileElevationContour, row, col, breaks, kwargs] for row, col in tile_index)
+    tileset = config.tileset()
+
+    def arguments():
+
+        for tile in tileset.tiles():
+
+            yield (
+                TileElevationContour,
+                tile.row,
+                tile.col,
+                breaks,
+                kwargs
+            )
+
     output = '/media/crousson/Backup/PRODUCTION/HYPSOMETRY/RMC_CONTOURS.shp'
 
     driver = 'ESRI Shapefile'
@@ -148,10 +214,10 @@ def ElevationContour(breaks, processes=1, **kwargs):
     with fiona.open(output, 'w', **options) as dst:
         with Pool(processes=processes) as pool:
 
-            pooled = pool.imap_unordered(starcall, arguments)
+            pooled = pool.imap_unordered(starcall, arguments())
 
-            with click.progressbar(pooled, length=len(tile_index)) as processing:
-                for result in processing:
+            with click.progressbar(pooled, length=len(tileset)) as iterator:
+                for result in iterator:
 
                     for polygon, value, row, col in result:
                         z = breaks[int(value)-1]
@@ -161,94 +227,3 @@ def ElevationContour(breaks, processes=1, **kwargs):
                             'geometry': geom.__geo_interface__,
                             'properties': properties
                         })
-
-def plot_hypsometry(zbins, areas):
-
-    import matplotlib.pyplot as plt
-    import matplotlib as mpl
-    from Plotting import MapFigureSizer
-
-    fig = plt.figure(1, facecolor='white',figsize=(6.25,3.5))
-    gs = plt.GridSpec(100,150,bottom=0.15,left=0.1,right=1.0,top=1.0)
-
-    nodata_area = areas[0]
-    areas = areas[1:]
-
-    z = zbins[1:]
-    ax = fig.add_subplot(gs[10:95, 40:140])
-    cum_areas = np.flip(np.cumsum(np.flip(areas, axis=0)), axis=0)
-    total_area = np.sum(areas)
-
-    # if hypsometry:
-    #     ax.fill_between(100 *cum_areas / total_area, 0, z, color='#f2f2f2')
-    #     ax.plot(100 * cum_areas / total_area, z, color='k', linestyle='--', linewidth=0.6)
-
-    ax.fill_between(100 * cum_areas / total_area, 0, z, color='lightgray')
-    ax.plot(100 * cum_areas / total_area, z, color='k', linewidth=1.0)
-
-    minz = 0.0
-    maxz = 4810.0
-    dz = 100.0
-
-    ax.spines['top'].set_linewidth(1)
-    ax.spines['left'].set_linewidth(1)
-    ax.spines['right'].set_linewidth(1)
-    ax.spines['bottom'].set_linewidth(1)
-    ax.set_xlabel("Cumulative surface (%)")
-    ax.set_ylim(minz, maxz)
-    ax.tick_params(axis='both', width=1, pad = 2)
-
-    for tick in ax.xaxis.get_major_ticks():
-        tick.set_pad(2)
-
-    z = np.arange(minz, maxz + dz, dz)
-    groups = np.digitize(zbins[:-1], z)
-    
-    ax = fig.add_subplot(gs[10:95, 10:30])
-
-    # if hypsometry:
-    #     grouped_hyp = np.array([np.sum(areas[groups == k]) for k in range(1, z.size)])
-    #     ax.barh(z[:-1], 100.0 * grouped_hyp / total_area, dz, align='edge', color='#f2f2f2', edgecolor='k')
-
-    grouped = np.array([np.sum(areas[groups == k]) for k in range(1, z.size)])
-    ax.barh(z[:-1], 100.0 * grouped / total_area, dz, align='edge', color='lightgray', edgecolor='k')
-
-    ax.spines['top'].set_linewidth(1)
-    ax.spines['left'].set_linewidth(1)
-    ax.spines['right'].set_linewidth(1)
-    ax.spines['bottom'].set_linewidth(1)
-    ax.set_xlabel("Surface (%)")
-    ax.set_ylim(minz, maxz)
-    ax.set_ylabel("Altitude (m)")
-    ax.tick_params(axis='both', width=1, pad = 2)
-
-    for tick in ax.xaxis.get_major_ticks():
-        tick.set_pad(2)
-
-    fig_size_inches = 12.50
-    aspect_ratio = 2.0
-    cbar_L = "None"
-    [fig_size_inches,map_axes,cbar_axes] = MapFigureSizer(fig_size_inches, aspect_ratio, cbar_loc = cbar_L, title = "None")
-
-    fig.set_size_inches(fig_size_inches[0], fig_size_inches[1])
-
-    return fig
-
-def replot(filename):
-
-    data = np.load(filename, allow_pickle=True)
-    zbins = data['zbins']
-    areas = data['areas']
-    fig = plot_hypsometry(zbins, areas)
-    fig.show()
-    return fig
-
-def test():
-
-    zbins, areas = Hypsometry(6)
-    fig = plot_hypsometry(zbins, areas)
-    fig.show()
-    click.pause()
-
-if __name__ == '__main__':
-    test()

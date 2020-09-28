@@ -1,0 +1,15 @@
+global:
+  description: |-
+    talweg-related metrics
+variables:
+  axis:
+    long_name: stream identifier
+  measure:
+    long_name: position along reference axis
+    standard_name: linref_m_coordinate
+    units: m
+  swath:
+    long_name: swath identifier
+  drainage_area:
+    long_name: upstream drainage/watershed area
+    units: km^2

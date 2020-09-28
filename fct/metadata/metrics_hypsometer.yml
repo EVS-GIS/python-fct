@@ -1,0 +1,15 @@
+global:
+  description: |-
+    Hypsometry (distribution of elevations)
+variables:
+  z:
+    long_name: minimum elevation of hypsometer slice
+    standard_name: surface_altitude
+    units: m
+  dz:
+    long_name: elevation interval
+    units: m
+  area:
+    long_name: land area between elevation z and z+dz
+    standard_name: projection_area
+    units: km^2

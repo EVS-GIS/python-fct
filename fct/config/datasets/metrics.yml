@@ -5,6 +5,7 @@ ax_swath_elevation:
     Elevation swath
   type: npz
   group: metrics
+  status: temporary
   subdir: AXES/AX%(axis)04d/SWATH/ELEVATION
   filename: SWATH_ELEVATION_%(gid)04d.npz
 
@@ -13,6 +14,7 @@ ax_swath_landcover:
     Landcover swath
   type: npz
   group: metrics
+  status: temporary
   subdir: AXES/AX%(axis)04d/SWATH/LANDCOVER
   filename: SWATH_LANDCOVER_%(gid)04d_%(subset)s.npz
 
@@ -21,8 +23,27 @@ ax_swath_valleybottom:
     Landcover swath
   type: npz
   group: metrics
+  status: temporary
   subdir: AXES/AX%(axis)04d/SWATH/VALLEYBOTTOM
   filename: SWATH_VALLEYBOTTOM_%(gid)04d.npz
+
+metrics_hypsometer:
+  description:
+    Hypsometer (distribution of elevations)
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: GLOBAL/METRICS
+  filename: HYPSOMETER.nc
+
+metrics_drainage_area:
+  description: |
+    Upstream drainage area calculated from DEM
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: DRAINAGE_AREA.nc
 
 metrics_swath_elevation:
   description: |
@@ -41,6 +62,15 @@ metrics_swath_landcover:
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
   filename: LANDCOVER_SWATH_PROFILES_%(subset)s.nc
+
+metrics_swath_valleybottom:
+  description: |
+    Valleybottom Swath Profiles NetCDF Archive
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: VALLEYBOTTOM_SWATH_PROFILES.nc
 
 metrics_talweg:
   description: |
