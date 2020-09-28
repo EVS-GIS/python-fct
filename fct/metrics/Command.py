@@ -160,30 +160,6 @@ def valleybottom_swath(axis, processes):
 
 @fct_command(cli)
 @click.argument('axis', type=int)
-@parallel_opt
-def landcover_swath(axis, processes):
-    """
-    Calculate landcover swaths
-    """
-
-    from fct.swath.LandCoverSwathProfile import LandCoverSwathProfile
-
-    LandCoverSwathProfile(
-        axis,
-        processes=processes,
-        landcover='landcover-bdt',
-        valley_bottom_mask='ax_valley_mask_refined',
-        subset='TOTAL_BDT')
-
-    LandCoverSwathProfile(
-        axis,
-        processes=processes,
-        # landcover='ax_corridor_mask',
-        landcover='ax_continuity',
-        subset='CONT_BDT')
-
-@fct_command(cli)
-@click.argument('axis', type=int)
 def valleybottom_width(axis):
     """
     Calculate valley bottom width metrics

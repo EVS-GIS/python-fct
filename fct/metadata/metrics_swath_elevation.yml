@@ -35,6 +35,9 @@ variables:
   sw_axis_distance:
     long_name: sample distance to reference axis
     units: m
+  sw_density:
+    long_name: pixel count in sample (mi, di)
+    units: pixels
   sw_elevation_abs:
     long_name: sample absolute elevation from DEM
     standard_name: surface_altitude

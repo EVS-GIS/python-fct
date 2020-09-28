@@ -325,22 +325,7 @@ def disaggregate_medial_axis(axis, length, processes):
     elapsed = time.time() - start_time
     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
 
-@cli.command()
-@click.argument('axis', type=int)
-@parallel_opt
-def swath_axes(axis, processes):
-    """
-    Generate cross-profile swath axes
-    """
 
-    from ..swath.SwathAxes import SwathAxes
-
-    start_time = PrintCommandInfo('generate swath axes', axis, processes)
-
-    SwathAxes(axis=axis, processes=processes)
-
-    elapsed = time.time() - start_time
-    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
 
 @cli.command()
 @click.argument('axis', type=int)
@@ -396,23 +381,6 @@ def disaggregate_natural(axis, length, processes):
     elapsed = time.time() - start_time
     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
 
-@cli.command()
-@click.argument('axis', type=int)
-@parallel_opt
-def elevation_swath_profiles(axis, processes):
-    """
-    Calculate elevation swath profiles
-    """
-
-    from ..swath.ElevationSwathProfile import SwathProfiles
-
-    start_time = PrintCommandInfo('elevation swath profiles', axis, processes, {})
-
-    click.secho('Calculate swath profiles', fg='cyan')
-    SwathProfiles(axis=axis, processes=processes)
-
-    elapsed = time.time() - start_time
-    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
 
 @cli.command('medialaxis')
 @click.argument('axis', type=int)

@@ -290,7 +290,7 @@ def PrintCommandInfo(command, parameters=None):
 
     return start_time
 
-def fct_command(group, cmd_description=None):
+def fct_command(group, cmd_description=None, name=None):
     """
     Command wrapper that prints
     command description and execution times
@@ -298,7 +298,7 @@ def fct_command(group, cmd_description=None):
 
     def decorate(fun):
 
-        @group.command()
+        @group.command(name)
         @click.option(
             '--quiet',
             '-q',

@@ -14,7 +14,7 @@ ax_swath_landcover:
   type: npz
   group: metrics
   subdir: AXES/AX%(axis)04d/SWATH/LANDCOVER
-  filename: SWATH_ELEVATION_%(gid)04d_%(subset)s.npz
+  filename: SWATH_LANDCOVER_%(gid)04d_%(subset)s.npz
 
 ax_swath_valleybottom:
   description: |

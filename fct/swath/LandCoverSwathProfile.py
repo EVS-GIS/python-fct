@@ -13,19 +13,22 @@ LandCover Swath Profile
 ***************************************************************************
 """
 
+import os
 from collections import namedtuple
 from multiprocessing import Pool
 import numpy as np
 
+import click
 import rasterio as rio
 import fiona
 import fiona.crs
 from shapely.geometry import asShape
-import click
+import xarray as xr
 
 from ..tileio import as_window
 from ..cli import starcall
 from ..config import config
+from ..metadata import set_metadata
 
 DatasetParameter = namedtuple('DatasetParameter', [
     'landcover', # landcover, ax_continuity
@@ -296,3 +299,126 @@ def LandCoverSwathProfile(axis, processes=1, **kwargs):
                     output,
                     profile=profile,
                     **values)
+
+def ExportLandcoverSwathsToNetCDF(axis, **kwargs):
+    """
+    Reads back landcover swath profile from disk,
+    and bundles everyting into one netcdf file.
+    """
+
+    defaults = dict(
+        landcover='ax_continuity',
+        swath_raster='ax_valley_swaths',
+        swath_polygons='ax_valley_swaths_polygons',
+        axis_distance='ax_axis_distance',
+        drainage_distance='ax_nearest_distance',
+        output='ax_swath_landcover'
+    )
+
+    defaults.update({k: kwargs[k] for k in kwargs.keys() & defaults.keys()})
+    datasets = DatasetParameter(**defaults)
+    kwargs = {k: kwargs[k] for k in kwargs.keys() - defaults.keys()}
+
+    swath_bounds = config.filename('ax_valley_swaths_bounds', axis=axis)
+
+    defs = xr.open_dataset(swath_bounds)
+    defs = defs.load().sortby('coordm')
+    length = defs['label'].shape[0]
+    nclasses = 9
+
+    # x=x,
+    # density=density,
+    # landcover_classes=classes,
+    # landcover_swath=landcover_swath
+
+    swids = np.zeros(length, dtype='uint32')
+    measures = np.zeros(length, dtype='float32')
+
+    sw_measure = np.zeros(0, dtype='float32')
+    sw_distance = np.zeros(0, dtype='float32')
+    sw_density = np.zeros(0, dtype='uint32')
+    sw_landcover = np.zeros((0, nclasses, 2), dtype='uint32')
+
+    with click.progressbar(defs['label'].values) as iterator:
+        for k, swid in enumerate(iterator):
+
+            coordm = defs['coordm'].sel(label=swid).values
+            swathfile = config.filename(datasets.output, axis=axis, gid=swid, **kwargs)
+
+            swids[k] = swid
+            measures[k] = coordm
+
+            if not os.path.exists(swathfile):
+                continue
+
+            data = np.load(swathfile, allow_pickle=True)
+
+            classes = data['landcover_classes']
+
+            sw_measure = np.concatenate([
+                sw_measure,
+                np.full_like(data['density'], coordm, dtype='float32')
+            ])
+            sw_distance = np.concatenate([
+                sw_distance,
+                np.float32(data['x'])
+            ])
+            sw_density = np.concatenate([
+                sw_density,
+                data['density']
+            ])
+
+            landcover_swath = data['landcover_swath']
+            expanded_landcover_swath = np.zeros((landcover_swath.shape[0], nclasses, 2), dtype='uint32')
+
+            for k, klass in enumerate(classes):
+
+                if klass == 255:
+                    continue
+
+                expanded_landcover_swath[:, klass, :] = landcover_swath[:, k, :]
+
+            sw_landcover = np.concatenate([
+                sw_landcover,
+                expanded_landcover_swath
+            ])
+
+    dataset = xr.Dataset({
+        'sw_measure': ('profile', sw_measure),
+        'sw_axis_distance': ('profile', sw_distance),
+        'sw_density': ('profile', sw_density),
+        'sw_landcover': (('profile', 'landcover', 'side'), sw_landcover)
+    }, coords={
+        'axis': axis,
+        'measure': measures,
+        'swath': ('measure', swids),
+        'landcover': [
+            'Water Channel',
+            'Gravel Bars',
+            'Natural Open',
+            'Forest',
+            'Grassland',
+            'Crops',
+            'Diffuse Urban',
+            'Dense Urban',
+            'Infrastructures'
+        ],
+        'side': [
+            'left',
+            'right'
+        ]
+    })
+
+    # dataset.set_index(profile=['sw_measure', 'sw_axis_distance'])
+
+    set_metadata(dataset, 'metrics_swath_landcover')
+
+    dataset.attrs['source'] = config.basename(
+        datasets.landcover,
+        axis=axis,
+        **kwargs)
+
+    output = config.filename('metrics_swath_landcover', axis=axis, **kwargs)
+    dataset.to_netcdf(output, 'w')
+
+    return dataset

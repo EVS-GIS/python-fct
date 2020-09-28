@@ -390,9 +390,15 @@ def SwathProfiles(axis, processes=1):
         click.secho('%d invalid swath units' % invalid_swaths, fg='yellow')
 
     if relative_errors:
-        click.secho('%d swath units without relative-to-valley-bottom profile' % relative_errors, fg='yellow')
+        click.secho(
+            '%d swath units without relative-to-valley-bottom profile' % relative_errors,
+            fg='yellow')
 
 def ExportElevationSwathsToNetCDF(axis):
+    """
+    Reads back elevation swath profile from disk,
+    and bundles everyting into one netcdf file.
+    """
 
     swath_bounds = config.filename('ax_valley_swaths_bounds', axis=axis)
 
