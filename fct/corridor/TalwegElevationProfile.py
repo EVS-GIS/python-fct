@@ -50,7 +50,7 @@ def ExportTalwegElevationProfile(axis, profile, destination):
             'measure': profile[:, 0]
         })
 
-    set_metadata(dataset, 'ax_talweg_profile')
+    set_metadata(dataset, 'ax_talweg_elevation_profile')
 
     dataset.to_netcdf(
         destination,
@@ -177,5 +177,5 @@ def TalwegElevationProfile(axis):
         slope
     ]))
 
-    output = config.filename('ax_talweg_profile', axis=axis)
+    output = config.filename('ax_talweg_elevation_profile', axis=axis)
     ExportTalwegElevationProfile(axis, valley_profile, output)

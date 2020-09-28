@@ -24,7 +24,7 @@ ax_swath_valleybottom:
   subdir: AXES/AX%(axis)04d/SWATH/VALLEYBOTTOM
   filename: SWATH_VALLEYBOTTOM_%(gid)04d.npz
 
-ax_swath_elevation_pack:
+metrics_swath_elevation:
   description: |
     Elevation Swath Profiles NetCDF Archive
   type: netcdf
@@ -33,7 +33,7 @@ ax_swath_elevation_pack:
   subdir: AXES/AX%(axis)04d/METRICS
   filename: ELEVATION_SWATH_PROFILES.nc
 
-ax_swath_landcover_pack:
+metrics_swath_landcover:
   description: |
     LandCover Swath Profiles NetCDF Archive
   type: netcdf
@@ -114,48 +114,3 @@ metrics_watershed:
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
   filename: WATERSHED_%(subset)s.nc
-
-pdf_ax_swath_elevation:
-  description: |
-    Elevation swath output, per spatial unit
-  type: pdf
-  group: metrics
-  status: final
-  subdir: AXES/AX%(axis)04d/PDF/SWATH
-  filename: SWATH_ELEVATION_%(gid)04d_%(kind)s.pdf
-
-pdf_ax_swath_landcover:
-  description: |
-    Landcover swath output, per spatial unit
-  type: pdf
-  group: metrics
-  status: final
-  subdir: AXES/AX%(axis)04d/PDF/LANDCOVER/SWATH
-  filename: SWATH_ELEVATION_%(gid)04d_%(kind)s.pdf
-
-pdf_ax_landcover_profile:
-  description: |
-    Landcover longitudinal profile
-  type: pdf
-  group: metrics
-  status: final
-  subdir: AXES/AX%(axis)04d/PDF/LANDCOVER
-  filename: LANDCOVER_PROFILE_%(variant)s.pdf
-
-pdf_ax_leftright_profile:
-  description: |
-    Left bank/right bank landcover longitudinal profile
-  type: pdf
-  group: metrics
-  status: final
-  subdir: AXES/AX%(axis)04d/PDF/LANDCOVER
-  filename: LEFTRIGHT_PROFILE_%(variant)s.pdf
-
-pdf_ax_watershed_profile:
-  description: |
-    Watershed Profile
-  type: pdf
-  group: metrics
-  status: final
-  subdir: AXES/AX%(axis)04d/PDF/WATERSHED
-  filename: WATERSHED_PROFILE_%(variable)s_W%(width).0f.pdf

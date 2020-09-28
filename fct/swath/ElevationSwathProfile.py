@@ -30,6 +30,7 @@ from ..config import config
 from ..tileio import as_window
 from ..ransac import LinearModel, ransac
 from ..cli import starcall
+from ..metadata import set_metadata
 
 def TileCropInvalidRegions(axis, tile):
     """
@@ -390,3 +391,71 @@ def SwathProfiles(axis, processes=1):
 
     if relative_errors:
         click.secho('%d swath units without relative-to-valley-bottom profile' % relative_errors, fg='yellow')
+
+def ExportElevationSwathsToNetCDF(axis):
+
+    swath_bounds = config.filename('ax_valley_swaths_bounds', axis=axis)
+
+    defs = xr.open_dataset(swath_bounds)
+    defs = defs.load().sortby('coordm')
+    length = defs['label'].shape[0]
+
+    swids = np.zeros(length, dtype='uint32')
+    measures = np.zeros(length, dtype='float32')
+    slope_fp = np.zeros(length, dtype='float32')
+    z0_fp = np.zeros(length, dtype='float32')
+
+    density = np.zeros(0, dtype='uint32')
+    sw_measure = np.zeros(0, dtype='float32')
+    distance = np.zeros(0, dtype='float32')
+    absz = np.zeros((0, 5), dtype='float32')
+    hand = np.zeros((0, 5), dtype='float32')
+    havf = np.zeros((0, 5), dtype='float32')
+
+    with click.progressbar(defs['label'].values) as iterator:
+        for k, swid in enumerate(iterator):
+
+            coordm = defs['coordm'].sel(label=swid).values
+            swathfile = config.filename('ax_swath_elevation', axis=axis, gid=swid)
+            data = np.load(swathfile, allow_pickle=True)
+
+            swids[k] = swid
+            measures[k] = coordm
+            slope_fp[k] = data['slope_valley_floor']
+            z0_fp[k] = data['z0_valley_floor']
+
+            density = np.concatenate([density, data['density']])
+            sw_measure = np.concatenate([sw_measure, np.full_like(data['density'], coordm, dtype='float32')])
+            distance = np.concatenate([distance, np.float32(data['x'])])
+            absz = np.concatenate([absz, data['absz']])
+            hand = np.concatenate([hand, data['hand']])
+
+            if data['havf'].size == 0:
+                havf = np.concatenate([havf, np.full_like(data['absz'], np.nan)])
+            else:
+                havf = np.concatenate([havf, data['havf']])
+
+    dataset = xr.Dataset({
+        'slope_floodplain': ('measure', slope_fp),
+        'z0_floodplain': ('measure', z0_fp),
+        'sw_density': ('profile', density),
+        'sw_measure': ('profile', sw_measure),
+        'sw_axis_distance': ('profile', distance),
+        'sw_elevation_abs': (('profile', 'quantile'), absz),
+        'sw_height_drainage': (('profile', 'quantile'), hand),
+        'sw_height_floodplain': (('profile', 'quantile'), havf)
+    }, coords={
+        'axis': axis,
+        'measure': measures,
+        'swath': ('measure', swids),
+        'quantile': [.05, .25, .5, .75, .95]
+    })
+
+    # dataset.set_index(profile=['sw_measure', 'sw_axis_distance'])
+
+    set_metadata(dataset, 'metrics_swath_elevation')
+    output = config.filename('metrics_swath_elevation', axis=axis)
+
+    dataset.to_netcdf(output, 'w')
+
+    return dataset

@@ -105,23 +105,23 @@ ax_valley_distance:
     template: VALLEY_DISTANCE_%(row)02d_%(col)02d
     extension: .tif
 
-ax_refaxis_talweg_profile:
+ax_talweg_elevation_profile:
   description: |
     Valley floor elevation profile (based on talweg points only)
   type: netcdf
   group: metrology
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
-  filename: REFAXIS_TALWEG_PROFILE.nc
+  filename: TALWEG_ELEVATION_PROFILE.nc
 
-ax_refaxis_valley_profile:
+ax_floodplain_elevation_profile:
   description: |
     Valley floor elevation profile (based on swath profiles)
   type: netcdf
   group: metrology
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
-  filename: REFAXIS_VALLEY_PROFILE.nc
+  filename: FLOODPLAIN_ELEVATION_PROFILE.nc
 
 ax_talweg_profile:
   description: |

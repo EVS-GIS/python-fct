@@ -1,0 +1,44 @@
+pdf_ax_swath_elevation:
+  description: |
+    Elevation swath output, per spatial unit
+  type: pdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/PDF/SWATH
+  filename: SWATH_ELEVATION_%(gid)04d_%(kind)s.pdf
+
+pdf_ax_swath_landcover:
+  description: |
+    Landcover swath output, per spatial unit
+  type: pdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/PDF/LANDCOVER/SWATH
+  filename: SWATH_ELEVATION_%(gid)04d_%(kind)s.pdf
+
+pdf_ax_landcover_profile:
+  description: |
+    Landcover longitudinal profile
+  type: pdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/PDF/LANDCOVER
+  filename: LANDCOVER_PROFILE_%(variant)s.pdf
+
+pdf_ax_leftright_profile:
+  description: |
+    Left bank/right bank landcover longitudinal profile
+  type: pdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/PDF/LANDCOVER
+  filename: LEFTRIGHT_PROFILE_%(variant)s.pdf
+
+pdf_ax_watershed_profile:
+  description: |
+    Watershed Profile
+  type: pdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/PDF/WATERSHED
+  filename: WATERSHED_PROFILE_%(variable)s_W%(width).0f.pdf

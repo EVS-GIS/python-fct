@@ -56,7 +56,7 @@ def ExportValleyProfile(axis, valley_profile, destination):
             'measure': valley_profile[:, 0]
         })
 
-    set_metadata(dataset, 'ax_refaxis_valley_profile')
+    set_metadata(dataset, 'ax_floodplain_elevation_profile')
 
     dataset.to_netcdf(
         destination,
@@ -225,7 +225,7 @@ def ValleyElevationProfile(axis):
         slope
     ]))
 
-    output = config.filename('ax_refaxis_valley_profile', axis=axis)
+    output = config.filename('ax_floodplain_elevation_profile', axis=axis)
     ExportValleyProfile(axis, valley_profile, output)
 
 # def interpolate():

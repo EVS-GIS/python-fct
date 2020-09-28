@@ -121,7 +121,7 @@ def plot_valley_elevation_profile(axis, talweg, filename):
 
     fig, ax = SetupPlot()
 
-    datafile = config.filename('ax_refaxis_valley_profile', axis=axis)
+    datafile = config.filename('ax_floodplain_elevation_profile', axis=axis)
     data = xr.open_dataset(datafile)
 
     data = data.sortby('measure', ascending=False)
@@ -134,7 +134,7 @@ def plot_valley_elevation_profile(axis, talweg, filename):
 
     if talweg:
 
-        talweg_datafile = config.filename('ax_talweg_profile', axis=axis)
+        talweg_datafile = config.filename('ax_talweg_elevation_profile', axis=axis)
         talweg_data = xr.open_dataset(talweg_datafile)
 
         talweg_data = talweg_data.sortby('measure', ascending=False)
@@ -161,7 +161,7 @@ def plot_valley_slope_profile(axis, filename):
     elif filename.endswith('.pdf'):
         mpl.use('cairo')
 
-    datafile = config.filename('ax_refaxis_valley_profile', axis=axis)
+    datafile = config.filename('ax_floodplain_elevation_profile', axis=axis)
     data = xr.open_dataset(datafile)
 
     data = data.sortby('measure', ascending=False)
@@ -246,7 +246,7 @@ def plot_talweg_slope(axis, valley, ylim, filename):
 
     if valley:
 
-        datafile_valley = config.filename('ax_refaxis_valley_profile', axis=axis)
+        datafile_valley = config.filename('ax_floodplain_elevation_profile', axis=axis)
         data_valley = xr.open_dataset(datafile_valley)
 
         x = data_valley['measure']
@@ -395,7 +395,7 @@ def plot_left_right_landcover_profile(axis, max_class, filename):
     data = xr.open_dataset(data_file)
 
     merged = data.merge(width).sortby('measure')
-    
+
     data_vb_width = merged['valley_bottom_width']
     data_vb_area_lr = merged['valley_bottom_area_lr']
     vbw_left = data_vb_width * data_vb_area_lr.sel(side='left') / np.sum(data_vb_area_lr, axis=1)
