@@ -56,7 +56,7 @@ def ExportValleyProfile(axis, valley_profile, destination):
             'measure': valley_profile[:, 0]
         })
 
-    set_metadata(dataset, 'ax_floodplain_elevation_profile')
+    set_metadata(dataset, 'elevation_profile_floodplain')
 
     dataset.to_netcdf(
         destination,

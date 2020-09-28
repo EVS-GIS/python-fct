@@ -1,0 +1,38 @@
+global:
+  description: |-
+    valley bottom swath profile data
+variables:
+  axis:
+    long_name: stream identifier
+  measure:
+    long_name: position along reference axis
+    standard_name: linref_m_coordinate
+    units: m
+  height:
+    long_name: height above nearest drainage
+    standard_name: height_above_nearest_drainage
+    units: m
+  side:
+    long_name: side of talweg, left or right
+  swath:
+    long_name: swath identifier
+    coordinates: axis measure
+  valley_bottom_area_h:
+    long_name: valley bottom area measured at height h above nearest drainage
+    units: pixels
+  valley_bottom_area_lr:
+    long_name: valley bottom area on each side of talweg
+    units: pixels
+  profile:
+    long_name: sample index (shadow dimension)
+    multi_index: sw_measure, sw_axis_distance
+  sw_measure:
+    long_name: position along reference axis
+    standard_name: linref_m_coordinate
+    units: m
+  sw_axis_distance:
+    long_name: sample distance to reference axis
+    units: m
+  sw_valley_bottom:
+    long_name: area (pixel count) of valley bottom in sample (mi, di)
+    units: pixels

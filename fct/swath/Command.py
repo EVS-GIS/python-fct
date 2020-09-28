@@ -45,6 +45,33 @@ def export_elevation_to_netcdf(axis):
 
     ExportElevationSwathsToNetCDF(axis)
 
+@fct_command(cli, 'valleybottom swath profiles', name='valleybottom')
+@click.argument('axis', type=int)
+@parallel_opt
+def valleybottom_swath(axis, processes):
+    """
+    Calculate valleybottom swaths
+    """
+
+    from .ValleyBottomSwathProfile import ValleyBottomSwathProfile
+
+    ValleyBottomSwathProfile(
+        axis,
+        processes=processes,
+        valley_bottom_mask='ax_valley_mask_refined'
+    )
+
+@fct_command(cli, 'export valleybottom swath profiles to netcdf', name='export-valleybottom')
+@click.argument('axis', type=int)
+def export_valleybottom_to_netcdf(axis):
+    """
+    Export valleybottom swath profiles to netCDF format
+    """
+
+    from .ValleyBottomSwathProfile import ExportValleyBottomSwathsToNetCDF
+
+    ExportValleyBottomSwathsToNetCDF(axis)
+
 @fct_command(cli, 'landcover swath profiles', name='landcover')
 @click.argument('axis', type=int)
 @parallel_opt

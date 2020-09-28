@@ -174,7 +174,7 @@ def plot_elevation_swath(axis, swath, kind, clip, filename):
     PlotSwath(axis, swath, kind=kind, clip=clip, output=filename)
 
     if filename is None:
-        fig.show()
+        # fig.show()
         plt.show(block=True)
     elif filename.endswith('.pdf'):
         plt.savefig(filename, format='pdf', dpi=600)

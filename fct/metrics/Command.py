@@ -167,22 +167,6 @@ def planform(axis):
 
 @fct_command(cli)
 @click.argument('axis', type=int)
-@parallel_opt
-def valleybottom_swath(axis, processes):
-    """
-    Calculate landcover swaths
-    """
-
-    from fct.swath.ValleyBottomSwathProfile import ValleyBottomSwathProfile
-
-    ValleyBottomSwathProfile(
-        axis,
-        processes=processes,
-        valley_bottom_mask='ax_valley_mask_refined'
-    )
-
-@fct_command(cli)
-@click.argument('axis', type=int)
 def valleybottom_width(axis):
     """
     Calculate valley bottom width metrics

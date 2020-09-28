@@ -50,7 +50,7 @@ def ExportTalwegElevationProfile(axis, profile, destination):
             'measure': profile[:, 0]
         })
 
-    set_metadata(dataset, 'ax_talweg_elevation_profile')
+    set_metadata(dataset, 'elevation_profile_talweg')
 
     dataset.to_netcdf(
         destination,
