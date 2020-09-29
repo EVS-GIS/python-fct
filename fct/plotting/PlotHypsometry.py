@@ -15,7 +15,6 @@ Plot Hypsometry
 
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib as mpl
 from .MapFigureSizer import MapFigureSizer
 
 def PlotHypsometry(hypsometer):
@@ -27,9 +26,9 @@ def PlotHypsometry(hypsometer):
     gs = plt.GridSpec(100,150,bottom=0.15,left=0.1,right=1.0,top=1.0)
 
     nodata_area = areas[0]
+    z = zbins[1:]
     areas = areas[1:]
 
-    z = zbins[1:]
     ax = fig.add_subplot(gs[10:95, 40:140])
     cum_areas = np.flip(np.cumsum(np.flip(areas, axis=0)), axis=0)
     total_area = np.sum(areas)
@@ -41,8 +40,8 @@ def PlotHypsometry(hypsometer):
     ax.fill_between(100 * cum_areas / total_area, 0, z, color='lightgray')
     ax.plot(100 * cum_areas / total_area, z, color='k', linewidth=1.0)
 
-    minz = 0.0
-    maxz = 4810.0
+    minz = np.min(z[areas > 0])
+    maxz = np.max(z[areas > 0])
     dz = 100.0
 
     ax.spines['top'].set_linewidth(1)
@@ -50,6 +49,7 @@ def PlotHypsometry(hypsometer):
     ax.spines['right'].set_linewidth(1)
     ax.spines['bottom'].set_linewidth(1)
     ax.set_xlabel("Cumulative surface (%)")
+    ax.set_xlim([0, 100])
     ax.set_ylim(minz, maxz)
     ax.tick_params(axis='both', width=1, pad = 2)
 

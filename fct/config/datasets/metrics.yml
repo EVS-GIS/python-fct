@@ -36,6 +36,15 @@ metrics_hypsometer:
   subdir: GLOBAL/METRICS
   filename: HYPSOMETER.nc
 
+metrics_hypsometer_ax:
+  description:
+    Hypsometer (distribution of elevations)
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: HYPSOMETER.nc
+
 metrics_drainage_area:
   description: |
     Upstream drainage area calculated from DEM

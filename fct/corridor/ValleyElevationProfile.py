@@ -65,7 +65,7 @@ def ExportValleyProfile(axis, valley_profile, destination):
             'x': dict(zlib=True, complevel=9, least_significant_digit=2),
             'y': dict(zlib=True, complevel=9, least_significant_digit=2),
             'z': dict(zlib=True, complevel=9, least_significant_digit=1),
-            'valley_slope': dict(zlib=True, complevel=9, least_significant_digit=6),
+            'slope': dict(zlib=True, complevel=9, least_significant_digit=6),
             'measure': dict(zlib=True, complevel=9, least_significant_digit=0)
         })
 
@@ -225,7 +225,7 @@ def ValleyElevationProfile(axis):
         slope
     ]))
 
-    output = config.filename('ax_floodplain_elevation_profile', axis=axis)
+    output = config.filename('ax_elevation_profile_floodplain', axis=axis)
     ExportValleyProfile(axis, valley_profile, output)
 
 # def interpolate():

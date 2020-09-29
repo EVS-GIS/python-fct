@@ -105,23 +105,23 @@ ax_valley_distance:
     template: VALLEY_DISTANCE_%(row)02d_%(col)02d
     extension: .tif
 
-ax_talweg_elevation_profile:
+ax_elevation_profile_talweg:
   description: |
     Valley floor elevation profile (based on talweg points only)
   type: netcdf
   group: metrology
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
-  filename: TALWEG_ELEVATION_PROFILE.nc
+  filename: ELEVATION_PROFILE_TALWEG.nc
 
-ax_floodplain_elevation_profile:
+ax_elevation_profile_floodplain:
   description: |
     Valley floor elevation profile (based on swath profiles)
   type: netcdf
   group: metrology
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
-  filename: FLOODPLAIN_ELEVATION_PROFILE.nc
+  filename: ELEVATION_PROFILE_FLOODPLAIN.nc
 
 ax_talweg_profile:
   description: |
@@ -130,7 +130,7 @@ ax_talweg_profile:
   group: metrology
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
-  filename: TALWEG_ELEVATION_PROFILE.nc
+  filename: ELEVATION_PROFILE_TALWEG.nc
 
 ax_valley_height:
   description: |

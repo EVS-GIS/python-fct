@@ -110,14 +110,26 @@ def subgrid_dominant_landcover():
 
 @fct_command(cli)
 @parallel_opt
-def hypsometry(processes):
+def hypsometry_global(processes):
     """
     Calculate elevation distributions (hypsometer)
     """
 
     from .Hypsometry import Hypsometry
 
-    Hypsometry(processes=processes)
+    Hypsometry(axis=None, processes=processes)
+
+@fct_command(cli)
+@click.argument('axis', type=int)
+@parallel_opt
+def hypsometry(axis, processes):
+    """
+    Calculate elevation distributions (hypsometer)
+    """
+
+    from .Hypsometry import Hypsometry
+
+    Hypsometry(axis=axis, processes=processes)
 
 @fct_command(cli)
 @click.argument('axis', type=int)

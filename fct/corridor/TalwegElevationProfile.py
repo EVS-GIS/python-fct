@@ -177,5 +177,5 @@ def TalwegElevationProfile(axis):
         slope
     ]))
 
-    output = config.filename('ax_talweg_elevation_profile', axis=axis)
+    output = config.filename('ax_elevation_profile_talweg', axis=axis)
     ExportTalwegElevationProfile(axis, valley_profile, output)

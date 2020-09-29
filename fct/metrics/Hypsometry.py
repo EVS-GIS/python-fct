@@ -13,7 +13,7 @@ Hypsometry (elevations distribution)
 ***************************************************************************
 """
 
-
+import os
 from collections import defaultdict
 from multiprocessing import Pool
 import numpy as np
@@ -81,37 +81,46 @@ def MinMax(processes=1, **kwargs):
 
     return minmax
 
-def TileHypsometry(row, col, zbins):
+def TileHypsometry(axis, row, col, zbins):
     """
     DOCME
     """
-
-    # TODO
-    # use optional mask
 
     elevation_raster = config.tileset().tilename('dem', row=row, col=col)
 
     with rio.open(elevation_raster) as ds:
 
         elevations = ds.read(1)
+        elevation_nodata = ds.nodata
         # elevations = elevations[elevations != ds.nodata]
 
-        binned = np.digitize(elevations, zbins)
-        binned[elevations == ds.nodata] = 0
-        # represented = set(np.unique(binned))
+    if axis is not None:
 
-        # def area(k):
+        watershed_raster = config.tileset().tilename('ax_watershed', axis=axis, row=row, col=col)
 
-        #     if k in represented:
-        #         return np.count_nonzero(binned == k)
-        #     return 0
+        if os.path.exists(watershed_raster):
 
-        # areas = {k: area(k) for k in range(1, zbins.size)}
-        # areas[0] = 25.0*np.count_nonzero(elevations == nodata)
+            with rio.open(watershed_raster) as ds:
 
-        return speedup.count_by_value(binned)
+                watershed = ds.read(1)
+                elevations[watershed != axis] = elevation_nodata
 
-def Hypsometry(processes=1, **kwargs):
+    binned = np.digitize(elevations, zbins)
+    binned[elevations == elevation_nodata] = 0
+    # represented = set(np.unique(binned))
+
+    # def area(k):
+
+    #     if k in represented:
+    #         return np.count_nonzero(binned == k)
+    #     return 0
+
+    # areas = {k: area(k) for k in range(1, zbins.size)}
+    # areas[0] = 25.0*np.count_nonzero(elevations == nodata)
+
+    return speedup.count_by_value(binned)
+
+def Hypsometry(axis, processes=1, **kwargs):
     """
     DOCME
     """
@@ -130,6 +139,7 @@ def Hypsometry(processes=1, **kwargs):
 
             yield (
                 TileHypsometry,
+                axis,
                 tile.row,
                 tile.col,
                 zbins,
@@ -144,17 +154,35 @@ def Hypsometry(processes=1, **kwargs):
             for t_areas in iterator:
                 areas.update({k: areas[k] + 25.0e-6*t_areas[k] for k in t_areas})
 
-    dataset = xr.Dataset({
-        'area':  ('z', np.array([areas[k] for k in range(zbins.size)], dtype='float32')),
-        'dz': dz
-    }, coords={
-        'z': np.float32(zbins)
-    })
+    if axis is None:
 
-    set_metadata(dataset, 'metrics_hypsometer')
+        dataset = xr.Dataset({
+            'area':  ('z', np.array([areas[k] for k in range(zbins.size)], dtype='float32')),
+            'dz': dz
+        }, coords={
+            'z': np.float32(zbins)
+        })
 
-    output = config.filename('metrics_hypsometer')
-    dataset.to_netcdf(output, 'w')
+        set_metadata(dataset, 'metrics_hypsometer')
+
+        output = config.filename('metrics_hypsometer')
+        dataset.to_netcdf(output, 'w')
+
+    else:
+
+        dataset = xr.Dataset({
+            'area':  ('z', np.array([areas[k] for k in range(zbins.size)], dtype='float32')),
+            'dz': dz
+        }, coords={
+            'axis': axis,
+            'z': np.float32(zbins)
+        })
+
+        set_metadata(dataset, 'metrics_hypsometer')
+
+        output = config.filename('metrics_hypsometer_ax', axis=axis)
+        dataset.to_netcdf(output, 'w')
+
 
     return dataset
 

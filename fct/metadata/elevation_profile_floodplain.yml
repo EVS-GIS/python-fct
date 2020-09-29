@@ -22,6 +22,6 @@ variables:
     vertical_ref: IGN 
     units: m
     grid_mapping: 'crs: x y'
-  valley_slope:
+  slope:
     long_name: valley slope
     units: percent

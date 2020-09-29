@@ -22,9 +22,10 @@ from multiprocessing import Pool
 
 import numpy as np
 from scipy.spatial import cKDTree
-import xarray as xr
 
 import click
+import xarray as xr
+
 import rasterio as rio
 from rasterio import features
 import fiona
@@ -39,6 +40,7 @@ from .. import transform as fct
 from .. import speedup
 from .. import terrain_analysis as ta
 from ..cli import starcall
+from ..metadata import set_metadata
 
 def nearest_value_and_distance(refpixels, domain, nodata):
     """
@@ -450,6 +452,8 @@ def WriteSwathsBounds(axis, attrs, **kwargs):
     coordm = np.array([value[0] for value in attrs.values()], dtype='float32')
     bounds = np.array([value[1] for value in attrs.values()], dtype='float32')
 
+    # TODO rename coordm => measure, label => swath
+
     dataset = xr.Dataset(
         {
             'coordm': (('label',), coordm),
@@ -460,6 +464,11 @@ def WriteSwathsBounds(axis, attrs, **kwargs):
             'label': labels,
             'coord': ['minx', 'miny', 'maxx', 'maxy']
         })
+
+    set_metadata(dataset, 'swath_bounds')
+
+    dataset.attrs['geographic_object'] = params.ax_mask
+    dataset.attrs['reference_axis'] = params.ax_reference
 
     output = config.filename(params.output_swaths_bounds, axis=axis)
 

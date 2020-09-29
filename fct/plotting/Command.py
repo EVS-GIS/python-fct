@@ -90,7 +90,7 @@ def fct_plot(group, name=None, title=None):
         @click.option('--ylim', type=(float, float), default=(None, None), help='Set y axis limits')
         @filename_opt
         @wraps(fun)
-        def decorated(title, xlim, ylim, filename, **kwargs):
+        def decorated(title, xlim, ylim, filename, *args, **kwargs):
 
             if filename is None:
                 plt.ion()
@@ -99,7 +99,7 @@ def fct_plot(group, name=None, title=None):
 
             fig, ax = SetupPlot()
 
-            fun(ax, **kwargs)
+            fun(*args, ax=ax, **kwargs)
 
             if xlim != (None, None):
                 ax.set_xlim(xlim)
@@ -114,16 +114,24 @@ def fct_plot(group, name=None, title=None):
     return decorate
 
 @cli.command('hypsometry')
+@click.option('--axis', type=int)
 @filename_opt
-def plot_hypsometry(filename):
+def plot_hypsometry(axis, filename):
     """
     Plot elevation distributions (hypsometer)
     """
 
     from .PlotHypsometry import PlotHypsometry
 
-    datafile = config.filename('metrics_hypsometer')
-    hypsometer = xr.open_dataset(datafile)
+    if axis is None:
+
+        datafile = config.filename('metrics_hypsometer')
+        hypsometer = xr.open_dataset(datafile)
+
+    else:
+
+        datafile = config.filename('metrics_hypsometer_ax', axis=axis)
+        hypsometer = xr.open_dataset(datafile)
 
     if filename is None:
         plt.ion()
@@ -183,57 +191,105 @@ def plot_elevation_swath(axis, swath, kind, clip, filename):
         plt.savefig(filename, dpi=300)
         plt.clf()
 
-@fct_plot(cli, 'valleyprofile', title='Valley elevation profile')
+@fct_plot(cli, 'elevation-profile', title='Elevation profile')
 @click.argument('axis', type=int)
-@click.option('--talweg/--no-talweg', default=False, help='Plot also talweg profile')
-def plot_valley_elevation_profile(ax, axis, talweg):
+@click.option('--floodplain/--no-floodplain', default=False, help='Plot flooplain profile')
+@click.option('--talweg/--no-talweg', default=False, help='Plot talweg profile')
+@click.pass_context
+def plot_elevation_profile(ctx, ax, axis, floodplain, talweg):
     """
-    Idealized valley elevation profile
+    Idealized elevation profile
     """
 
-    datafile = config.filename('ax_floodplain_elevation_profile', axis=axis)
-    data = xr.open_dataset(datafile)
+    if not (floodplain or talweg):
+        click.echo('use at least one of --floodplain or --talweg options')
+        ctx.exit(1)
 
-    data = data.sortby('measure', ascending=False)
-    x = data['measure']
-    y = data['z']
+    if floodplain:
 
-    ax.plot(x, y, label='floodplain')
-    ax.set_ylabel('Elevation (m NGF)')
-    SetupMeasureAxis(ax, x)
+        datafile = config.filename('ax_elevation_profile_floodplain', axis=axis)
+        data = xr.open_dataset(datafile)
+
+        data = data.sortby('measure', ascending=False)
+        x = data['measure']
+        y = data['z']
+
+        ax.plot(x, y, label='floodplain')
+        ax.set_ylabel('Elevation (m NGF)')
+        SetupMeasureAxis(ax, x)
 
     if talweg:
 
-        talweg_datafile = config.filename('ax_talweg_elevation_profile', axis=axis)
+        talweg_datafile = config.filename('ax_elevation_profile_talweg', axis=axis)
         talweg_data = xr.open_dataset(talweg_datafile)
 
         talweg_data = talweg_data.sortby('measure', ascending=False)
         x = talweg_data['measure']
         y = talweg_data['z']
         ax.plot(x, y, label='talweg')
+        SetupMeasureAxis(ax, x)
 
         ax.legend()
 
-@fct_plot(cli, 'valleyslope', title='Valley Slope Profile')
+@fct_plot(cli, 'slope-profile', title='Slope profile')
 @click.argument('axis', type=int)
-def plot_valley_slope_profile(ax, axis):
+@click.option('--floodplain/--no-floodplain', default=False, help='Plot flooplain profile')
+@click.option('--talweg/--no-talweg', default=False, help='Plot talweg profile')
+@click.option('--smooth/--no-smooth', default=False, help='Plot smoothed profile')
+@click.pass_context
+def plot_slope_profile(ctx, ax, axis, floodplain, talweg, smooth):
     """
-    Idealized valley elevation profile
+    Idealized slope profile
     """
 
-    datafile = config.filename('ax_floodplain_elevation_profile', axis=axis)
-    data = xr.open_dataset(datafile)
+    if not (floodplain or talweg):
+        click.echo('use at least one of --floodplain or --talweg options')
+        ctx.exit(1)
 
-    data = data.sortby('measure', ascending=False)
-    x = data['measure']
-    y = data['valley_slope']
+    if talweg:
 
-    # _, values = ValleySwathElevation(axis)
-    # ax.plot(values[:, 0], values[:, 1], 'darkgray', linewidth=0.8)
+        if smooth:
 
-    ax.plot(x, y)
+            datafile = config.filename('ax_elevation_profile_talweg', axis=axis)
+            data = xr.open_dataset(datafile)
+
+            data = data.sortby('measure', ascending=False)
+            x = data['measure']
+            y = data['slope']
+            ax.plot(x, y, label='talweg')
+            SetupMeasureAxis(ax, x)
+
+        else:
+
+            datafile = config.filename('metrics_talweg', axis=axis)
+            data = xr.open_dataset(datafile)
+
+            data = data.sortby('measure', ascending=False)
+            x = data['measure']
+            y = data['talweg_slope']
+
+            # _, values = ValleySwathElevation(axis)
+            # ax.plot(values[:, 0], values[:, 1], 'darkgray', linewidth=0.8)
+
+            ax.plot(x, y, label='talweg')
+            SetupMeasureAxis(ax, x)
+
+    if floodplain:
+
+        datafile = config.filename('ax_elevation_profile_floodplain', axis=axis)
+        data = xr.open_dataset(datafile)
+
+        data = data.sortby('measure', ascending=False)
+        x = data['measure']
+        y = data['valley_slope']
+        ax.plot(x, y, label='floodplain')
+        SetupMeasureAxis(ax, x)
+
+    if floodplain and talweg:
+        ax.legend()
+
     ax.set_ylabel('Slope (%)')
-    SetupMeasureAxis(ax, x)
+    
 
 @fct_plot(cli, 'talwegheight', title='Talweg relative height')
 @click.argument('axis', type=int)
@@ -257,40 +313,6 @@ def plot_talweg_height(ax, axis):
     ax.legend()
 
     SetupMeasureAxis(ax, x)
-
-@fct_plot(cli, 'talwegslope', title='Talweg slope profile')
-@click.argument('axis', type=int)
-@click.option('--valley/--no-valley', default=False, help='Plot also valley profile')
-@filename_opt
-def plot_talweg_slope(ax, axis, valley):
-    """
-    Idealized valley elevation profile
-    """
-
-    datafile = config.filename('metrics_talweg', axis=axis)
-    data = xr.open_dataset(datafile)
-
-    data = data.sortby('measure', ascending=False)
-    x = data['measure']
-    y = data['talweg_slope']
-
-    # _, values = ValleySwathElevation(axis)
-    # ax.plot(values[:, 0], values[:, 1], 'darkgray', linewidth=0.8)
-
-    ax.plot(x, y, label='talweg')
-    ax.set_ylabel('Slope (%)')
-    # ax.set_ylim([-1, 1])
-    SetupMeasureAxis(ax, x)
-
-    if valley:
-
-        datafile_valley = config.filename('ax_floodplain_elevation_profile', axis=axis)
-        data_valley = xr.open_dataset(datafile_valley)
-
-        x = data_valley['measure']
-        y = data_valley['valley_slope']
-        ax.plot(x, y, label='floodplain')
-        ax.legend()
 
 @fct_plot(cli, 'planform', title='Talweg shift relative to reference axis')
 @click.argument('axis', type=int)
