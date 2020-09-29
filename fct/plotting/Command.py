@@ -150,6 +150,43 @@ def plot_hypsometry(axis, filename):
         plt.savefig(filename, dpi=300)
         plt.clf()
 
+@fct_plot(cli, 'swath-area-height', title='Area-height swath profile')
+@click.argument('axis', type=int)
+@click.argument('swath', type=int)
+def plot_swath_area_height(ax, axis, swath):
+    """
+    Plot cumulative area-height curve for one swath
+    """
+
+    bounds = xr.open_dataset(config.filename('ax_valley_swaths_bounds', axis=axis))
+    data = xr.open_dataset(config.filename('metrics_valleybottom_width', axis=axis))
+
+    coordm = bounds['coordm'].sel(label=swath).values
+    swath = data.sel(measure=coordm)
+
+    heights = swath['height'].values
+    areas = swath['valley_bottom_area_h'].values
+
+    diff_area = np.concatenate([
+        [areas[0]],
+        areas[1:] - areas[:-1]
+    ])
+
+    maxh = np.max(heights[diff_area > 0])
+
+    # convert m^2 -> hectares with pixel area = 25 m^2
+    ax.plot(areas * 25e-4, heights)
+    ax.set_ylim([None, maxh])
+
+    formatter = EngFormatter(unit='ha')
+    ax.xaxis.set_major_formatter(formatter)
+    ax.set_xlabel('Cumulative area')
+
+    formatter = EngFormatter(unit='m')
+    ax.yaxis.set_major_formatter(formatter)
+    ax.set_ylabel('Height above nearest drainage')
+
+
 @cli.command('swath')
 @click.argument('axis', type=int)
 @click.argument('swath', type=int)
