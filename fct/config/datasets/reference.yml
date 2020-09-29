@@ -1,0 +1,47 @@
+# reference objects
+
+refaxis:
+  description: |
+    Reference axis (global dataset)
+  type: linestring
+  group: reference
+  status: final
+  subdir: GLOBAL/REFHYDRO
+  filename: REFAXIS.shp
+
+ax_refaxis:
+  description: |
+    Reference axis
+  type: linestring
+  group: reference
+  status: final
+  subdir: AXES/AX%(axis)04d/REF
+  filename: REFAXIS.shp
+
+ax_talweg:
+  description: |
+    Mapped river network talweg (axis subset)
+  type: linestring
+  group: reference
+  status: temporary
+  subdir: AXES/AX%(axis)04d/REF
+  filename: TALWEG.shp
+
+ax_drainage_network:
+  description: |
+    Theoretical stream network (axis subset)
+  type: linestring
+  group: reference
+  group: drainage
+  status: temporary
+  subdir: AXES/AX%(axis)04d/REF
+  filename: DRAINAGE.shp
+
+ax_valley_medialaxis:
+  description: |
+    Valley medial axis
+  type: linestring
+  group: reference
+  status: final
+  subdir: AXES/AX%(axis)04d/REF
+  filename: VALLEY_MEDIAL_AXIS.shp

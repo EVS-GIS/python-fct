@@ -30,6 +30,11 @@ def set_processes(ctx, param, value):
 
     return value
 
+arg_axis = click.argument(
+    'axis',
+    type=int,
+    envvar='FCT_AXIS')
+
 overwritable = click.option(
     '--overwrite', '-w',
     default=False,

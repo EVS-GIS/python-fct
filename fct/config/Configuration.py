@@ -134,10 +134,46 @@ class Configuration():
         """
         return self._datasources[name]
 
-    def filename(self, name, **kwargs):
+    def filename(self, name, mod=True, **kwargs):
         """
         Return Dataset filename instance
         """
+
+        dst = self.dataset(name)
+
+        folder = os.path.join(
+            self.workdir,
+            dst.subdir(**kwargs))
+
+        if mod:
+
+            mod_filename = self.mod(name, **kwargs)
+
+            if mod_filename is not None:
+                return mod_filename
+
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+
+        return os.path.join(
+            folder,
+            dst.filename(**kwargs))
+
+    def mod(self, name, **kwargs):
+        """
+        Check if there exists a modified version of dataset `name`
+        """
+
+        warn = False
+
+        if 'FCT_MOD' in os.environ:
+
+            if os.environ['FCT_MOD'] == 'disable':
+                return None
+
+            if os.environ['FCT_MOD'] == 'warn':
+                warn = True
+
         dst = self.dataset(name)
 
         folder = os.path.join(
@@ -147,14 +183,34 @@ class Configuration():
         if not os.path.exists(folder):
             os.makedirs(folder)
 
-        return os.path.join(
+        mod_filename = os.path.join(
             folder,
+            'MOD',
             dst.filename(**kwargs))
+
+        if not os.path.exists(mod_filename):
+            return None
+
+        if warn:
+
+            dst = self.dataset(name)
+            basename = os.path.join(
+                dst.subdir(**kwargs),
+                'MOD',
+                dst.filename(**kwargs)
+            )
+
+            click.secho(
+                'WARN (mod) %s => %s' % (name, basename),
+                fg='yellow')
+
+        return mod_filename
 
     def basename(self, name, **kwargs):
         """
         Return Dataset filename relative to workdir
         """
+
         dst = self.dataset(name)
 
         return os.path.join(

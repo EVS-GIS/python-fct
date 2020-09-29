@@ -41,15 +41,6 @@ ax_shortest_state:
     template: SHORTEST_STATE_%(row)02d_%(col)02d
     extension: .tif
 
-ax_shortest_tiles:
-  description: |
-    List of tiles in ax_shortest_height dataset
-  type: text
-  group: drainage
-  status: temporary
-  subdir: AXES/AX%(axis)04d
-  filename: SHORTEST_TILES.csv
-
 ax_continuity:
   description: |
     Landcover continuity map

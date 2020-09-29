@@ -1,128 +1,11 @@
-# Per axis datasets
-# Metrology raster support and swath units definition
-
-refaxis:
-  description: |
-    Reference axis (global dataset)
-  type: linestring
-  group: spatial reference
-  status: final
-  subdir: GLOBAL/REFHYDRO
-  filename: REFAXIS.shp
-
-ax_tiles:
-  description: |
-    List of tiles intersecting given axis
-    (TODO remove entry)
-  type: text
-  group: drainage
-  status: temporary
-  subdir: AXES/AX%(axis)04d
-  filename: TILES.csv
-
-ax_flow_tiles:
-  description: |
-    List of tiles intersecting flow height raster
-  type: text
-  group: drainage
-  status: temporary
-  subdir: AXES/AX%(axis)04d
-  filename: FLOW_TILES.csv
-
-ax_talweg:
-  description: |
-    Mapped river network talweg (axis subset)
-  type: linestring
-  group: drainage
-  status: temporary
-  subdir: AXES/AX%(axis)04d/REF
-  filename: TALWEG.shp
-
-ax_refaxis:
-  description: |
-    Reference axis
-  type: linestring
-  group: spatial reference
-  status: final
-  subdir: AXES/AX%(axis)04d/REF
-  filename: REFAXIS.shp
-
-ax_valley_medialaxis:
-  description: |
-    Valley medial axis
-  type: linestring
-  group: spatial reference
-  status: final
-  subdir: AXES/AX%(axis)04d/REF
-  filename: VALLEY_MEDIAL_AXIS.shp
-
-ax_drainage_network:
-  description: |
-    Theoretical stream network (axis subset)
-  type: linestring
-  group: drainage
-  status: temporary
-  subdir: AXES/AX%(axis)04d/REF
-  filename: DRAINAGE.shp
-  
-ax_axis_distance:
-  description: |
-    Distance to reference axis
-  type: raster
-  group: metrology
-  status: temporary
-  subdir: AXES/AX%(axis)04d
-  filename: AXIS_DISTANCE.vrt
-  tiles:
-    tileset: landcover
-    template: AXIS_DISTANCE_%(row)02d_%(col)02d
-    extension: .tif
-
-ax_axis_measure:
-  description: |
-    Location (measure) along reference axis
-  type: raster
-  group: spatial reference
-  status: temporary
-  subdir: AXES/AX%(axis)04d
-  filename: AXIS_MEASURE.vrt
-  tiles:
-    tileset: landcover
-    template: AXIS_MEASURE_%(row)02d_%(col)02d
-    extension: .tif
-
-ax_talweg_distance:
-  description: |
-    Distance to mapped talweg
-  type: raster
-  group: spatial reference
-  status: temporary
-  subdir: AXES/AX%(axis)04d
-  filename: TALWEG_DISTANCE.vrt
-  tiles:
-    tileset: landcover
-    template: TALWEG_DISTANCE_%(row)02d_%(col)02d
-    extension: .tif
-
-ax_talweg_measure:
-  description: |
-    Location (measure) along cartography talweg
-  type: raster
-  group: spatial reference
-  status: temporary
-  subdir: AXES/AX%(axis)04d
-  filename: TALWEG_MEASURE.vrt
-  tiles:
-    tileset: landcover
-    template: TALWEG_MEASURE_%(row)02d_%(col)02d
-    extension: .tif
+# swaths
 
 ax_valley_swaths:
   description: |
     Valley bottom longitudinal units
     (raster intermediate result)
   type: raster
-  group: spatial reference
+  group: reference
   status: temporary
   subdir: AXES/AX%(axis)04d/TEMP
   filename: VALLEY_SWATHS.vrt
@@ -135,7 +18,7 @@ ax_valley_swaths_polygons:
   description: |
     Valleu bottom longitudinal units
   type: polygon
-  group: spatial reference
+  group: reference
   status: final
   subdir: AXES/AX%(axis)04d/REF
   filename: VALLEY_SWATHS.shp
@@ -149,7 +32,7 @@ ax_valley_swaths_bounds:
     coordinate and bounds of valley bottom
     spatial units (after disaggregation)
   type: netcdf
-  group: spatial reference
+  group: reference
   status: temporary
   subdir: AXES/AX%(axis)04d/TEMP
   filename: VALLEY_SWATH_BOUNDS.nc
@@ -159,7 +42,7 @@ ax_corridor_swaths:
     Natural corridor longitudinal units
     (raster intermediate result)
   type: raster
-  group: spatial reference
+  group: reference
   status: temporary
   subdir: AXES/AX%(axis)04d/TEMP
   filename: CORRIDOR_SWATHS.vrt
@@ -172,7 +55,7 @@ ax_corridor_swaths_polygons:
   description: |
     Natural corridor longitudinal units
   type: polygon
-  group: spatial reference
+  group: reference
   status: final
   subdir: AXES/AX%(axis)04d/REF
   filename: CORRIDOR_SWATHS.shp
@@ -186,7 +69,7 @@ ax_corridor_swaths_bounds:
     coordinate and bounds of fluvial corridor
     spatial units (after disaggregation)
   type: netcdf
-  group: spatial reference
+  group: reference
   status: temporary
   subdir: AXES/AX%(axis)04d/TEMP
   filename: CORRIDOR_SWATH_BOUNDS.nc
@@ -197,7 +80,7 @@ ax_natural_corridor_swaths:
     (raster intermediate result)
     TODO duplicate of ax_swaths, to be removed
   type: raster
-  group: spatial reference
+  group: reference
   status: temporary
   subdir: AXES/AX%(axis)04d/TEMP
   filename: NATURAL_CORRIDOR_UNITS.vrt
@@ -210,7 +93,7 @@ ax_natural_corridor_swaths_polygons:
   description: |
     Natural corridor longitudinal units
   type: polygon
-  group: spatial reference
+  group: reference
   status: final
   subdir: AXES/AX%(axis)04d/REF
   filename: NATURAL_CORRIDOR_UNITS.shp
@@ -224,7 +107,7 @@ ax_dgo:
     Spatial units discretization
     TODO duplicate of ax_swaths, to be removed
   type: raster
-  group: spatial reference
+  group: reference
   status: temporary
   subdir: AXES/AX%(axis)04d
   filename: DGO.vrt
@@ -237,7 +120,7 @@ ax_dgo_parts:
   description: |
     Spatial units polygons, extracted from measure raster
   type: polygon
-  group: spatial reference
+  group: reference
   status: temporary
   subdir: AXES/AX%(axis)04d/REF
   filename: DGO_PARTS.shp
@@ -252,7 +135,7 @@ ax_dgo_vector:
     after cross-tile merge and invalid parts removal
     TODO duplicate of ax_swath_polygons, to be removed
   type: polygon
-  group: spatial reference
+  group: reference
   status: temporary
   subdir: AXES/AX%(axis)04d/REF
   filename: DGO.shp
@@ -261,7 +144,7 @@ ax_swaths:
   description: |
     Spatial units discretization
   type: raster
-  group: spatial reference
+  group: reference
   status: temporary
   subdir: AXES/AX%(axis)04d
   filename: DGO.vrt
@@ -275,9 +158,7 @@ ax_swath_polygons:
     Spatial units polygons,
     after cross-tile merge and invalid parts removal
   type: polygon
-  group: spatial reference
+  group: reference
   status: temporary
   subdir: AXES/AX%(axis)04d/REF
   filename: DGO.shp
-
-

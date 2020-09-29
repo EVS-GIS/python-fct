@@ -12,6 +12,7 @@ from ..config import config
 
 from ..cli import (
     fct_entry_point,
+    arg_axis,
     aggregate,
     parallel,
     overwritable,
@@ -394,7 +395,7 @@ def drainage_raster():
     return tileindex()
 
 @cli.command('watershed')
-@click.argument('axis', type=click.INT)
+@arg_axis
 @click.option('--processes', '-j', default=1)
 def delineate_watershed(axis, processes):
     """

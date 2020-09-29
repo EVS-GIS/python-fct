@@ -22,7 +22,10 @@ from matplotlib.ticker import EngFormatter
 import click
 import xarray as xr
 
-from ..cli import fct_entry_point
+from ..cli import (
+    fct_entry_point,
+    arg_axis
+)
 from ..config import config
 from .MapFigureSizer import MapFigureSizer
 from .PlotCorridor import (
@@ -114,7 +117,7 @@ def fct_plot(group, name=None, title=None):
     return decorate
 
 @cli.command('hypsometry')
-@click.option('--axis', type=int)
+@arg_axis
 @filename_opt
 def plot_hypsometry(axis, filename):
     """
@@ -150,10 +153,31 @@ def plot_hypsometry(axis, filename):
         plt.savefig(filename, dpi=300)
         plt.clf()
 
+@fct_plot(cli, 'drainage-area', title='Drainage area')
+@arg_axis
+def plot_drainage_area(ax, axis):
+    """
+    Plot drainage area profile
+    """
+
+    datafile = config.filename('metrics_drainage_area', axis=axis)
+    data = xr.open_dataset(datafile).sortby('measure')
+
+    x = data['measure'].values
+    y = data['drainage_area']
+
+    ax.plot(x, y)
+    SetupMeasureAxis(ax, x)
+
+    # formatter = EngFormatter(unit='km^2')
+    # ax.yaxis.set_major_formatter(formatter)
+    ax.set_ylabel('Drainage area ($km^2$)')
+
+
 @fct_plot(cli, 'swath-area-height', title='Area-height swath profile')
-@click.argument('axis', type=int)
 @click.argument('swath', type=int)
-def plot_swath_area_height(ax, axis, swath):
+@arg_axis
+def plot_swath_area_height(ax, swath, axis):
     """
     Plot cumulative area-height curve for one swath
     """
@@ -188,8 +212,8 @@ def plot_swath_area_height(ax, axis, swath):
 
 
 @cli.command('swath')
-@click.argument('axis', type=int)
 @click.argument('swath', type=int)
+@arg_axis
 @click.option(
     '--kind',
     type=click.Choice(['absolute', 'hand', 'havf'], case_sensitive=True),
@@ -204,7 +228,7 @@ def plot_swath_area_height(ax, axis, swath):
     type=float,
     help='clip data at given height above nearest drainage')
 @filename_opt
-def plot_elevation_swath(axis, swath, kind, clip, filename):
+def plot_elevation_swath(swath, axis, kind, clip, filename):
     """
     Elevation swath profile
     """
@@ -229,7 +253,7 @@ def plot_elevation_swath(axis, swath, kind, clip, filename):
         plt.clf()
 
 @fct_plot(cli, 'elevation-profile', title='Elevation profile')
-@click.argument('axis', type=int)
+@arg_axis
 @click.option('--floodplain/--no-floodplain', default=False, help='Plot flooplain profile')
 @click.option('--talweg/--no-talweg', default=False, help='Plot talweg profile')
 @click.pass_context
@@ -269,7 +293,7 @@ def plot_elevation_profile(ctx, ax, axis, floodplain, talweg):
         ax.legend()
 
 @fct_plot(cli, 'slope-profile', title='Slope profile')
-@click.argument('axis', type=int)
+@arg_axis
 @click.option('--floodplain/--no-floodplain', default=False, help='Plot flooplain profile')
 @click.option('--talweg/--no-talweg', default=False, help='Plot talweg profile')
 @click.option('--smooth/--no-smooth', default=False, help='Plot smoothed profile')
@@ -329,7 +353,7 @@ def plot_slope_profile(ctx, ax, axis, floodplain, talweg, smooth):
     
 
 @fct_plot(cli, 'talwegheight', title='Talweg relative height')
-@click.argument('axis', type=int)
+@arg_axis
 def plot_talweg_height(ax, axis):
     """
     Talweg height relative to valley floor
@@ -352,7 +376,7 @@ def plot_talweg_height(ax, axis):
     SetupMeasureAxis(ax, x)
 
 @fct_plot(cli, 'planform', title='Talweg shift relative to reference axis')
-@click.argument('axis', type=int)
+@arg_axis
 @click.option(
     '--measure', '-m',
     type=click.Choice(['refaxis', 'talweg'], case_sensitive=True),
@@ -399,7 +423,7 @@ def plot_planform_shift(ax, axis, measure):
         ax.xaxis.set_major_formatter(formatter)
 
 @fct_plot(cli, 'landcover-profile', title='Total landcover width')
-@click.argument('axis', type=int)
+@arg_axis
 def plot_landcover_profile(ax, axis):
     """
     Landcover class width long profile
@@ -422,7 +446,7 @@ def plot_landcover_profile(ax, axis):
     ax.set_ylabel('Width (m)')
 
 @fct_plot(cli, 'continuity-profile', title='Continuity buffer width')
-@click.argument('axis', type=int)
+@arg_axis
 def plot_continuity_profile(ax, axis):
     """
     Continuity buffer width long profile
@@ -445,7 +469,7 @@ def plot_continuity_profile(ax, axis):
     ax.set_ylabel('Width (m)')
 
 @fct_plot(cli, 'landcover-profile-lr', title='Left and right bank landcover width')
-@click.argument('axis', type=int)
+@arg_axis
 @click.option('--max-class', default=8, help='Plot until max_class continuity class')
 def plot_left_right_landcover_profile(ax, axis, max_class):
     """
@@ -493,7 +517,7 @@ def plot_left_right_landcover_profile(ax, axis, max_class):
     ax.legend(ncol=2)
 
 @fct_plot(cli, 'continuity-profile-lr', title='Left and right bank continuity buffer width')
-@click.argument('axis', type=int)
+@arg_axis
 @click.option('--max-class', default=6, help='Plot until max_class continuity class')
 def plot_left_right_continuity_profile(ax, axis, max_class):
     """

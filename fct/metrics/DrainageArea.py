@@ -59,7 +59,7 @@ def SwathDrainageArea(k, axis, swid, bounds, **kwargs):
         if np.sum(mask) > 0:
             return k, np.max(acc[mask])
 
-        return k, 0.0
+        return k, np.nan
 
 def MetricDrainageArea(axis, processes, **kwargs):
     """

@@ -27,6 +27,7 @@ from ..subgrid.SubGrid import (
 from ..cli import (
     fct_entry_point,
     fct_command,
+    arg_axis,
     parallel_opt
 )
 
@@ -120,7 +121,7 @@ def hypsometry_global(processes):
     Hypsometry(axis=None, processes=processes)
 
 @fct_command(cli)
-@click.argument('axis', type=int)
+@arg_axis
 @parallel_opt
 def hypsometry(axis, processes):
     """
@@ -132,7 +133,7 @@ def hypsometry(axis, processes):
     Hypsometry(axis=axis, processes=processes)
 
 @fct_command(cli)
-@click.argument('axis', type=int)
+@arg_axis
 @parallel_opt
 def drainage_area(axis, processes):
     """
@@ -144,7 +145,7 @@ def drainage_area(axis, processes):
     MetricDrainageArea(axis, processes)
 
 @fct_command(cli)
-@click.argument('axis', type=int)
+@arg_axis
 def talweg(axis):
     """
     Calculate talweg-related metrics :
@@ -161,7 +162,7 @@ def talweg(axis):
     WriteTalwegMetrics(axis, dataset)
 
 @fct_command(cli)
-@click.argument('axis', type=int)
+@arg_axis
 def planform(axis):
     """
     Calculate talweg-related metrics :
@@ -178,7 +179,7 @@ def planform(axis):
     WritePlanforMetrics(axis, dataset)
 
 @fct_command(cli)
-@click.argument('axis', type=int)
+@arg_axis
 def valleybottom_width(axis):
     """
     Calculate valley bottom width metrics
@@ -193,7 +194,7 @@ def valleybottom_width(axis):
     WriteValleyBottomWidth(axis, width)
 
 @fct_command(cli)
-@click.argument('axis', type=int)
+@arg_axis
 def corridor_width(axis):
     """
     Calculate corridor width metrics
@@ -208,7 +209,7 @@ def corridor_width(axis):
     WriteCorridorWidth(axis, width)
 
 @fct_command(cli)
-@click.argument('axis', type=int)
+@arg_axis
 def landcover_width(axis):
     """
     Calculate landcover width metrics

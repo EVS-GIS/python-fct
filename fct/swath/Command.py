@@ -10,8 +10,11 @@ import click
 from ..cli import (
     fct_entry_point,
     fct_command,
+    arg_axis,
     parallel_opt
 )
+
+from ..tileio import buildvrt
 
 # pylint: disable=import-outside-toplevel,unused-argument
 
@@ -21,8 +24,158 @@ def cli(env):
     Fluvial corridor delineation module
     """
 
+@fct_command(cli, 'discretize valley bottom into longitudinal units')
+@arg_axis
+@click.option('--length', default=200.0, help='unit length / disaggregation step')
+@click.option('--medialaxis', default=False, help='use medial axis for reference')
+@parallel_opt
+def discretize(axis, length, medialaxis, processes):
+    """
+    Disaggregate valley bottom (from nearest height raster)
+    into longitudinal units
+    """
+
+    from .SwathMeasurement import (
+        DisaggregateIntoSwaths,
+        ValleyBottomParameters,
+        ValleyMedialAxisParameters,
+        WriteSwathsBounds,
+        VectorizeSwathPolygons,
+        UpdateSwathRaster
+    )
+
+    if medialaxis:
+
+        parameters = ValleyMedialAxisParameters()
+        parameters.update(mdelta=length, ax_tiles='ax_shortest_tiles')
+
+    else:
+
+        parameters = ValleyBottomParameters()
+        parameters.update(mdelta=length, ax_tiles='ax_shortest_tiles')
+
+    click.secho('Disaggregate valley bottom', fg='cyan')
+    swaths = DisaggregateIntoSwaths(
+        axis=axis,
+        processes=processes,
+        **parameters)
+
+    WriteSwathsBounds(axis, swaths, **parameters)
+
+    buildvrt('default', 'ax_valley_swaths', axis=axis)
+    buildvrt('default', 'ax_axis_measure', axis=axis)
+    buildvrt('default', 'ax_axis_distance', axis=axis)
+
+    click.secho('Vectorize swath polygons', fg='cyan')
+    VectorizeSwathPolygons(
+        axis=axis,
+        processes=processes,
+        **parameters)
+
+@fct_command(cli, 'update swath units')
+@arg_axis
+@click.option('--medialaxis', default=False, help='use medial axis for reference')
+@parallel_opt
+def update(axis, medialaxis, processes):
+    """
+    Disaggregate valley bottom (from nearest height raster)
+    into longitudinal units
+    """
+
+    from .SwathMeasurement import (
+        ValleyBottomParameters,
+        ValleyMedialAxisParameters,
+        UpdateSwathRaster
+    )
+
+    if medialaxis:
+
+        parameters = ValleyMedialAxisParameters()
+        parameters.update(ax_tiles='ax_shortest_tiles')
+
+    else:
+
+        parameters = ValleyBottomParameters()
+        parameters.update(ax_tiles='ax_shortest_tiles')
+
+    click.secho('Update swath raster', fg='cyan')
+    UpdateSwathRaster(
+        axis=axis,
+        processes=processes,
+        **parameters)
+
+# @fct_command(cli, 'valley bottom swaths, using medial axis', name='medialaxis')
+# @arg_axis
+# @click.option('--length', default=200.0, help='unit length / disaggregation step')
+# @parallel_opt
+# def discretize_medial_axis(axis, length, processes):
+#     """
+#     Disaggregate valley bottom (from nearest height raster)
+#     into longitudinal units
+#     """
+
+#     from .SwathMeasurement import (
+#         DisaggregateIntoSwaths,
+#         ValleyMedialAxisParameters,
+#         WriteSwathsBounds,
+#         VectorizeSwathPolygons,
+#         UpdateSwathRaster
+#     )
+
+#     parameters = ValleyMedialAxisParameters()
+#     parameters.update(mdelta=length, ax_tiles='ax_shortest_tiles')
+
+#     click.secho('Disaggregate valley bottom', fg='cyan')
+#     swaths = DisaggregateIntoSwaths(
+#         axis=axis,
+#         processes=processes,
+#         **parameters)
+
+#     WriteSwathsBounds(axis, swaths, **parameters)
+
+#     buildvrt('default', 'ax_valley_swaths', axis=axis)
+#     buildvrt('default', 'ax_axis_measure', axis=axis)
+#     buildvrt('default', 'ax_axis_distance', axis=axis)
+
+#     click.secho('Vectorize swath polygons', fg='cyan')
+#     VectorizeSwathPolygons(
+#         axis=axis,
+#         processes=processes,
+#         **parameters)
+
+#     click.secho('Update swath raster', fg='cyan')
+#     UpdateSwathRaster(
+#         axis=axis,
+#         processes=processes,
+#         **parameters)
+
+# @fct_command(cli, 'natural corridor disaggregation', name='natural')
+# @arg_axis
+# @click.option('--length', default=200.0, help='unit length / disaggregation step')
+# @parallel_opt
+# def discretize_natural(axis, length, processes):
+#     """
+#     Disaggregate natural corridor into longitudinal units
+#     """
+
+#     from .SwathMeasurement import (
+#         DisaggregateIntoSwaths,
+#         AggregateSpatialUnits,
+#         NaturalCorridorParameters
+#     )
+
+#     parameters = NaturalCorridorParameters()
+#     parameters.update(mdelta=length, ax_tiles='ax_shortest_tiles')
+
+#     DisaggregateIntoSwaths(
+#         axis=axis,
+#         processes=processes,
+#         **parameters)
+
+#     AggregateSpatialUnits(axis, **parameters)
+
 @fct_command(cli, 'elevation swath profiles', name='elevation')
-@click.argument('axis', type=int)
+@arg_axis
 @parallel_opt
 def elevation_swath_profiles(axis, processes):
     """
@@ -35,7 +188,7 @@ def elevation_swath_profiles(axis, processes):
     SwathProfiles(axis=axis, processes=processes)
 
 @fct_command(cli, 'export elevation swath profiles to netcdf', name='export-elevation')
-@click.argument('axis', type=int)
+@arg_axis
 def export_elevation_to_netcdf(axis):
     """
     Export elevation swath profiles to netCDF format
@@ -46,7 +199,7 @@ def export_elevation_to_netcdf(axis):
     ExportElevationSwathsToNetCDF(axis)
 
 @fct_command(cli, 'valleybottom swath profiles', name='valleybottom')
-@click.argument('axis', type=int)
+@arg_axis
 @parallel_opt
 def valleybottom_swath(axis, processes):
     """
@@ -62,7 +215,7 @@ def valleybottom_swath(axis, processes):
     )
 
 @fct_command(cli, 'export valleybottom swath profiles to netcdf', name='export-valleybottom')
-@click.argument('axis', type=int)
+@arg_axis
 def export_valleybottom_to_netcdf(axis):
     """
     Export valleybottom swath profiles to netCDF format
@@ -73,7 +226,7 @@ def export_valleybottom_to_netcdf(axis):
     ExportValleyBottomSwathsToNetCDF(axis)
 
 @fct_command(cli, 'landcover swath profiles', name='landcover')
-@click.argument('axis', type=int)
+@arg_axis
 @parallel_opt
 def landcover_swath(axis, processes):
     """
@@ -97,7 +250,7 @@ def landcover_swath(axis, processes):
         subset='CONT_BDT')
 
 @fct_command(cli, 'export landcover swath profiles to netcdf', name='export-landcover')
-@click.argument('axis', type=int)
+@arg_axis
 def export_landcover_to_netcdf(axis):
     """
     Export landcover swath profiles to netCDF format
@@ -118,7 +271,7 @@ def export_landcover_to_netcdf(axis):
     )
 
 @fct_command(cli, 'generate cross-profile swath axes', name='axes')
-@click.argument('axis', type=int)
+@arg_axis
 @parallel_opt
 def swath_axes(axis, processes):
     """

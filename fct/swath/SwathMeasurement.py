@@ -634,6 +634,7 @@ def UpdateSwathTile(axis, tile, params):
 
     with rio.open(swath_raster) as ds:
 
+        swaths = ds.read(1)
         shape = ds.shape
         nodata = ds.nodata
         transform = ds.transform
@@ -645,28 +646,25 @@ def UpdateSwathTile(axis, tile, params):
         def accept(feature):
             return all([
                 feature['properties']['AXIS'] == axis,
-                feature['properties']['VALUE'] == 2
+                feature['properties']['VALUE'] != 2
             ])
 
         geometries = [
-            (f['geometry'], f['properties']['GID']) for f in fs.filter(bbox=tile.bounds)
+            (f['geometry'], 1) for f in fs.filter(bbox=tile.bounds)
             if accept(f)
         ]
 
         if geometries:
 
-            swaths = features.rasterize(
+            mask_invalid = features.rasterize(
                 geometries,
                 out_shape=shape,
                 transform=transform,
-                fill=nodata,
+                fill=0,
                 dtype='int32')
 
-            swaths = np.uint32(features.sieve(swaths, 40)) # TODO externalize parameter
-
-        else:
-
-            swaths = np.full(shape, nodata, dtype='uint32')
+            mask_invalid = features.sieve(mask_invalid, 40) # TODO externalize parameter
+            swaths[mask_invalid == 1] = nodata
 
     with rio.open(swath_raster, 'w', **profile) as dst:
         dst.write(swaths, 1)

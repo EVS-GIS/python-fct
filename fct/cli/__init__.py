@@ -24,6 +24,7 @@ from .Decorators import (
 )
 
 from .Options import (
+    arg_axis,
     overwritable,
     verbosable,
     parallel_opt

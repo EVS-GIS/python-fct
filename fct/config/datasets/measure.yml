@@ -1,0 +1,55 @@
+# Per axis datasets
+# Metrology raster support and swath units definition
+# raster measure and distance
+  
+ax_axis_distance:
+  description: |
+    Distance to reference axis
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: AXIS_DISTANCE.vrt
+  tiles:
+    tileset: landcover
+    template: AXIS_DISTANCE_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_axis_measure:
+  description: |
+    Location (measure) along reference axis
+  type: raster
+  group: spatial reference
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: AXIS_MEASURE.vrt
+  tiles:
+    tileset: landcover
+    template: AXIS_MEASURE_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_talweg_distance:
+  description: |
+    Distance to mapped talweg
+  type: raster
+  group: spatial reference
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: TALWEG_DISTANCE.vrt
+  tiles:
+    tileset: landcover
+    template: TALWEG_DISTANCE_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_talweg_measure:
+  description: |
+    Location (measure) along cartography talweg
+  type: raster
+  group: spatial reference
+  status: temporary
+  subdir: AXES/AX%(axis)04d
+  filename: TALWEG_MEASURE.vrt
+  tiles:
+    tileset: landcover
+    template: TALWEG_MEASURE_%(row)02d_%(col)02d
+    extension: .tif
