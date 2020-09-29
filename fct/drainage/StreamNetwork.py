@@ -188,18 +188,30 @@ def TileInletAreas(tile, keys, areas):
     for key in keys:
         cum_areas[key[1:]] += areas.get(key[1:], 0)
 
-    with fiona.open(config.tileset().tilename('inlet-areas', row=row, col=col), 'w', **options) as dst:
-        for i, j in cum_areas:
+    inlet_shapefile = config.tileset().tilename('inlets', row=row, col=col)
+    emitted = set()
 
-            x, y = dem.xy(i, j)
-            area = cum_areas[i, j]
-            geom = {'type': 'Point', 'coordinates': [x, y]}
-            props = {'TILE': gid, 'AREAKM2': area}
-            feature = {'geometry': geom, 'properties': props}
-            dst.write(feature)
+    with fiona.open(config.tileset().tilename('inlet-areas', row=row, col=col), 'w', **options) as dst:
+        with fiona.open(inlet_shapefile) as fs:
+            for feature in fs:
+
+                x, y = feature['geometry']['coordinates']
+                i, j = dem.index(x, y)
+
+                if (i, j) in emitted:
+                    continue
+
+                assert (i, j) in cum_areas
+                area = cum_areas[i, j]
+
+                geom = {'type': 'Point', 'coordinates': [x, y]}
+                props = {'TILE': gid, 'AREAKM2': area}
+                feature = {'geometry': geom, 'properties': props}
+                dst.write(feature)
+
+                emitted.add((i, j))
 
     dem.close()
-
 
 def InletAreas(exterior):
     """
@@ -244,7 +256,7 @@ def FlowAccumulation(row, col, overwrite):
     with rio.open(flow_raster) as ds:
 
         flow = ds.read(1)
-        out = np.full_like(flow, 25e-6, dtype=np.float32)
+        out = np.full_like(flow, 25e-6, dtype='float32')
         height, width = flow.shape
 
         if os.path.exists(inlet_shapefile):
@@ -263,6 +275,14 @@ def FlowAccumulation(row, col, overwrite):
         speedup.flow_accumulation(flow, out)
 
         # click.secho('Save to %s' % output, fg='green')
+
+        if os.path.exists(inlet_shapefile):
+            with fiona.open(inlet_shapefile) as fs:
+                for feature in fs:
+
+                    x, y = feature['geometry']['coordinates']
+                    i, j = ds.index(x, y)
+                    out[i, j] = feature['properties']['AREAKM2']
 
         profile = ds.profile.copy()
         profile.update(compress='deflate', nodata=0, dtype=np.float32)

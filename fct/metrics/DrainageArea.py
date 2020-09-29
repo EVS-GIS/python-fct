@@ -77,6 +77,7 @@ def MetricDrainageArea(axis, processes, **kwargs):
         gids = np.zeros(size, dtype='uint32')
         measures = np.zeros(size, dtype='float32')
         drainage = np.zeros(size, dtype='float32')
+        valid = np.full(size, True)
 
     def arguments():
 
@@ -87,6 +88,10 @@ def MetricDrainageArea(axis, processes, **kwargs):
                 gids[k] = gid
                 measures[k] = feature['properties']['M']
                 geometry = asShape(feature['geometry'])
+
+                if feature['properties']['VALUE'] != 2:
+                    valid[k] = False
+                    continue
 
                 yield (
                     SwathDrainageArea,
@@ -107,12 +112,12 @@ def MetricDrainageArea(axis, processes, **kwargs):
 
     metrics = xr.Dataset(
         {
-            'drainage_area': ('measure', drainage)
+            'drainage_area': ('measure', drainage[valid])
         },
         coords={
             'axis': axis,
-            'measure': measures,
-            'swath': ('measure', gids),
+            'measure': measures[valid],
+            'swath': ('measure', gids[valid]),
         })
 
     # Metadata

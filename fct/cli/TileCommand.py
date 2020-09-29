@@ -23,12 +23,13 @@ from ..tileio import (
     buildvrt,
     translate
 )
+from ..cli import fct_entry_point
 
 from .Tiles import DatasourceToTiles
 from .Options import overwritable
 
-@click.group()
-def cli():
+@fct_entry_point
+def cli(env):
     """
     Generic tile management utilities
     """
@@ -115,8 +116,7 @@ def extract(datasource, tileset, dataset, processes=1, overwrite=False):
     Extract Tiles from Datasource for tiles defined in Tileset,
     and store as Dataset.
     """
-
-    config.default()
+    
     DatasourceToTiles(datasource, tileset, dataset, processes, overwrite=overwrite)
 
 @cli.command('buildvrt')
@@ -128,7 +128,6 @@ def vrt(tileset, dataset, suffix):
     Build GDAL Virtual Raster (VRT) from dataset tiles
     """
 
-    config.default()
     buildvrt(tileset, dataset, suffix)
 
 @cli.command()
@@ -139,5 +138,4 @@ def export(dataset, driver):
     Export Virtual Raster (VRT) dataset to solid format GTiff or NetCDF
     """
 
-    config.default()
     translate(dataset, driver)
