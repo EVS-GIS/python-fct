@@ -16,7 +16,7 @@ ax_valley_swaths:
 
 ax_valley_swaths_polygons:
   description: |
-    Valleu bottom longitudinal units
+    Valley bottom longitudinal units
   type: polygon
   group: reference
   status: final
@@ -162,6 +162,16 @@ ax_swath_polygons:
   status: temporary
   subdir: AXES/AX%(axis)04d/REF
   filename: DGO.shp
+
+ax_swath_polygons_vb_simplified:
+  description: |
+    Valley bottom (floodplain) longitudinal units,
+    simplified and smoothed for display
+  type: polygon
+  group: reference
+  status: final
+  subdir: AXES/AX%(axis)04d/REF
+  filename: VALLEY_SWATHS_SIMPL.shp
 
 ax_swath_elevation_npz:
   description: |

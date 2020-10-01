@@ -40,8 +40,7 @@ def discretize(axis, length, medialaxis, processes):
         ValleyBottomParameters,
         ValleyMedialAxisParameters,
         WriteSwathsBounds,
-        VectorizeSwathPolygons,
-        UpdateSwathRaster
+        VectorizeSwathPolygons
     )
 
     if medialaxis:
@@ -173,6 +172,22 @@ def update(axis, medialaxis, processes):
 #         **parameters)
 
 #     AggregateSpatialUnits(axis, **parameters)
+
+@fct_command(cli, 'simplify swath polygons', name='simplify')
+@arg_axis
+# @click.option('--medialaxis', default=False, help='use medial axis for reference')
+@click.option('--simplify', default=20.0, help='simplify distance tolerance (Douglas-Peucker)')
+@click.option('--smooth', default=3, help='smoothing iterations (Chaikin)')
+def simplify_swath_polygons(axis, simplify, smooth):
+    """
+    Simplify and smooth swath polygons
+    """
+
+    from .SimplifySwathPolygons import (
+        SimplifySwathPolygons
+    )
+
+    SimplifySwathPolygons(axis, simplify, smooth)
 
 @fct_command(cli, 'elevation swath profiles', name='elevation')
 @arg_axis
