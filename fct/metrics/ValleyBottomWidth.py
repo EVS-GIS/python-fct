@@ -74,7 +74,7 @@ def ValleyBottomWidth(axis, swath_length=200.0, resolution=5.0):
 
                 gid = feature['properties']['GID']
                 measure = feature['properties']['M']
-                swathfile = config.filename('ax_swath_valleybottom', axis=axis, gid=gid)
+                swathfile = config.filename('ax_swath_valleybottom_npz', axis=axis, gid=gid)
                 data = np.load(swathfile, allow_pickle=True)
 
                 x = data['x']

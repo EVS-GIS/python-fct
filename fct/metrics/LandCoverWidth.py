@@ -25,7 +25,7 @@ from ..config import config
 DatasetParameter = namedtuple('DatasetParameter', [
     'landcover',
     'swath_features', # ax_swath_features
-    'swath_data', # ax_swath_landcover
+    'swath_data', # ax_swath_landcover_npz
 ])
 
 def swath_width(swath_area_pixels, unit_width, long_length, resolution):
@@ -204,7 +204,7 @@ def LandCoverTotalWidth(axis, subset='landcover', swath_length=200.0, resolution
     datasets = DatasetParameter(
         landcover='',
         swath_features='ax_valley_swaths_polygons',
-        swath_data='ax_swath_landcover'
+        swath_data='ax_swath_landcover_npz'
     )
 
     return LandCoverWidth(
@@ -226,7 +226,7 @@ def ContinuousBufferWidth(axis, subset='continuity', swath_length=200.0, resolut
     datasets = DatasetParameter(
         landcover='',
         swath_features='ax_valley_swaths_polygons',
-        swath_data='ax_swath_landcover'
+        swath_data='ax_swath_landcover_npz'
     )
 
     return LandCoverWidth(

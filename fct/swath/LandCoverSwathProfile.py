@@ -36,7 +36,7 @@ DatasetParameter = namedtuple('DatasetParameter', [
     'swath_polygons', # ax_dgo_vector
     'axis_distance', # ax_axis_distance
     'drainage_distance', # ax_nearest_distance, ax_talweg_distance
-    'output', # ax_swath_landcover
+    'output', # ax_swath_landcover_npz
 ])
 
 def LandCoverSwath(
@@ -233,7 +233,7 @@ def LandCoverSwathProfile(axis, processes=1, **kwargs):
     output: str, logical name
 
         Output file for each generated swath data,
-        defaults to `ax_swath_landcover`
+        defaults to `ax_swath_landcover_npz`
 
     Other keywords are passed to dataset filename templates.
     """
@@ -244,7 +244,7 @@ def LandCoverSwathProfile(axis, processes=1, **kwargs):
         swath_polygons='ax_valley_swaths_polygons',
         axis_distance='ax_axis_distance',
         drainage_distance='ax_nearest_distance',
-        output='ax_swath_landcover'
+        output='ax_swath_landcover_npz'
     )
 
     defaults.update({k: kwargs[k] for k in kwargs.keys() & defaults.keys()})
@@ -312,7 +312,7 @@ def ExportLandcoverSwathsToNetCDF(axis, **kwargs):
         swath_polygons='ax_valley_swaths_polygons',
         axis_distance='ax_axis_distance',
         drainage_distance='ax_nearest_distance',
-        output='ax_swath_landcover'
+        output='ax_swath_landcover_npz'
     )
 
     defaults.update({k: kwargs[k] for k in kwargs.keys() & defaults.keys()})
@@ -323,7 +323,7 @@ def ExportLandcoverSwathsToNetCDF(axis, **kwargs):
 
     defs = xr.open_dataset(swath_bounds)
     defs = defs.load().sortby('coordm')
-    length = defs['label'].shape[0]
+    length = defs['swath'].shape[0]
     nclasses = 9
 
     # x=x,
@@ -339,10 +339,10 @@ def ExportLandcoverSwathsToNetCDF(axis, **kwargs):
     sw_density = np.zeros(0, dtype='uint32')
     sw_landcover = np.zeros((0, nclasses, 2), dtype='uint32')
 
-    with click.progressbar(defs['label'].values) as iterator:
+    with click.progressbar(defs['swath'].values) as iterator:
         for k, swid in enumerate(iterator):
 
-            coordm = defs['coordm'].sel(label=swid).values
+            coordm = defs['measure'].sel(swath=swid).values
             swathfile = config.filename(datasets.output, axis=axis, gid=swid, **kwargs)
 
             swids[k] = swid
@@ -411,14 +411,14 @@ def ExportLandcoverSwathsToNetCDF(axis, **kwargs):
 
     # dataset.set_index(profile=['sw_measure', 'sw_axis_distance'])
 
-    set_metadata(dataset, 'metrics_swath_landcover')
+    set_metadata(dataset, 'swath_landcover')
 
     dataset.attrs['source'] = config.basename(
         datasets.landcover,
         axis=axis,
         **kwargs)
 
-    output = config.filename('metrics_swath_landcover', axis=axis, **kwargs)
+    output = config.filename('swath_landcover', axis=axis, **kwargs)
     dataset.to_netcdf(output, 'w')
 
     return dataset

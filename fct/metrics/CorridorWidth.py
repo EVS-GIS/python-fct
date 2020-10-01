@@ -80,7 +80,7 @@ def CorridorWidth(axis, long_length=200.0, resolution=5.0):
                 gid = feature['properties']['GID']
                 measure = feature['properties']['M']
                 # swathfile = os.path.join(workdir, 'AXES', 'AX%03d' % axis, 'SWATH', 'ELEVATION', 'SWATH_%04d.npz' % gid)
-                swathfile = config.filename('ax_swath_elevation', axis=axis, gid=gid)
+                swathfile = config.filename('ax_swath_elevation_npz', axis=axis, gid=gid)
                 data = np.load(swathfile, allow_pickle=True)
 
                 x = data['x']

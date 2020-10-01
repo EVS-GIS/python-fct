@@ -229,7 +229,7 @@ def PackElevationSwathProfiles(
                 gid = feature['properties']['GID']
                 measure = feature['properties']['M']
 
-                swathfile = config.filename('ax_swath_elevation', axis=axis, gid=gid)
+                swathfile = config.filename('ax_swath_elevation_npz', axis=axis, gid=gid)
                 data = np.load(swathfile, allow_pickle=True)
 
                 distance = data['x']
@@ -313,7 +313,7 @@ def PackLandCoverSwathProfiles(
                 gid = feature['properties']['GID']
                 measure = feature['properties']['M']
 
-                swathfile = config.filename('ax_swath_landcover', axis=axis, gid=gid, **kwargs)
+                swathfile = config.filename('ax_swath_landcover_npz', axis=axis, gid=gid, **kwargs)
                 data = np.load(swathfile, allow_pickle=True)
 
                 distance = data['x']

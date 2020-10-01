@@ -331,7 +331,7 @@ def DisaggregateTileIntoSwaths(axis, row, col, params, **kwargs):
 
         def calculate_attrs():
 
-            coordm = np.round(0.5 * (breaks + np.roll(breaks, 1)), 1)
+            measures = np.round(0.5 * (breaks + np.roll(breaks, 1)), 1)
             boxes = speedup.flat_boxes(dgo)
 
             if not boxes:
@@ -351,9 +351,9 @@ def DisaggregateTileIntoSwaths(axis, row, col, params, **kwargs):
             bounds = np.column_stack([lowerleft, upperright])
 
             return {
-                label: (coordm[label], bounds[k])
-                for k, label in enumerate(boxes)
-                if label > 0
+                swath: (measures[swath], bounds[k])
+                for k, swath in enumerate(boxes)
+                if swath > 0
             }
 
         profile.update(nodata=0, dtype='uint32')
@@ -448,20 +448,19 @@ def WriteSwathsBounds(axis, attrs, **kwargs):
     kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
     params = SwathMeasurementParams(**parameters)
 
-    labels = np.array([label for label in attrs], dtype='uint32')
-    coordm = np.array([value[0] for value in attrs.values()], dtype='float32')
+    swaths = np.array(list(attrs.keys()), dtype='uint32')
+    measures = np.array([value[0] for value in attrs.values()], dtype='float32')
     bounds = np.array([value[1] for value in attrs.values()], dtype='float32')
-
-    # TODO rename coordm => measure, label => swath
 
     dataset = xr.Dataset(
         {
-            'coordm': (('label',), coordm),
-            'bounds': (('label', 'coord'), bounds)
+            'measure': (('swath',), measures),
+            'bounds': (('swath', 'coord'), bounds),
+            'delta_measure': params.mdelta
         },
         coords={
             'axis': axis,
-            'label': labels,
+            'swath': swaths,
             'coord': ['minx', 'miny', 'maxx', 'maxy']
         })
 
@@ -475,9 +474,9 @@ def WriteSwathsBounds(axis, attrs, **kwargs):
     dataset.to_netcdf(
         output, 'w',
         encoding={
-            'coordm': dict(zlib=True, complevel=9, least_significant_digit=0),
+            'measure': dict(zlib=True, complevel=9, least_significant_digit=0),
             'bounds': dict(zlib=True, complevel=9, least_significant_digit=2),
-            'label': dict(zlib=True, complevel=9)
+            'swath': dict(zlib=True, complevel=9)
         })
 
     return dataset
@@ -488,16 +487,16 @@ def ReadSwathsBounds(axis, params):
     dataset = xr.open_dataset(filename)
     dataset.load()
 
-    dataset = dataset.sortby('coordm')
+    dataset = dataset.sortby('measure')
 
     return {
-        dataset['label'].values[k]: (
-            dataset['coordm'].values[k],
+        dataset['swath'].values[k]: (
+            dataset['measure'].values[k],
             tuple(dataset['bounds'].values[k, :]))
-        for k in range(dataset['label'].shape[0])
+        for k in range(dataset['swath'].shape[0])
     }
 
-def VectorizeOneSwathPolygon(axis, gid, coordm, bounds, params, **kwargs):
+def VectorizeOneSwathPolygon(axis, gid, measure, bounds, params, **kwargs):
     """
     Vectorize swath polygon connected to talweg
     """
@@ -527,7 +526,7 @@ def VectorizeOneSwathPolygon(axis, gid, coordm, bounds, params, **kwargs):
 
         if height == 0 or width == 0:
             click.secho('Invalid swath %d with height = %d and width = %d' % (gid, height, width), fg='red')
-            return gid, coordm, list()
+            return gid, measure, list()
 
         # out = np.full_like(state, 255, dtype='uint32')
         distance = np.zeros_like(state, dtype='float32')
@@ -550,7 +549,7 @@ def VectorizeOneSwathPolygon(axis, gid, coordm, bounds, params, **kwargs):
             connectivity=8,
             transform=transform)
 
-        return gid, coordm, list(polygons)
+        return gid, measure, list(polygons)
 
 def VectorizeSwathPolygons(axis, processes=1, **kwargs):
     """
@@ -566,12 +565,12 @@ def VectorizeSwathPolygons(axis, processes=1, **kwargs):
 
     def arguments():
 
-        for gid, (coordm, bounds) in defs.items():
+        for gid, (measure, bounds) in defs.items():
             yield (
                 VectorizeOneSwathPolygon,
                 axis,
                 gid,
-                coordm,
+                measure,
                 bounds,
                 params,
                 kwargs
@@ -600,7 +599,7 @@ def VectorizeSwathPolygons(axis, processes=1, **kwargs):
             pooled = pool.imap_unordered(starcall, arguments())
 
             with click.progressbar(pooled, length=len(defs)) as iterator:
-                for gid, coordm, polygons in iterator:
+                for gid, measure, polygons in iterator:
                     for (polygon, value) in polygons:
 
                         geom = asShape(polygon).buffer(0.0)
@@ -613,7 +612,7 @@ def VectorizeSwathPolygons(axis, processes=1, **kwargs):
                                 'VALUE': int(value),
                                 # 'ROW': row,
                                 # 'COL': col,
-                                'M': float(coordm)
+                                'M': float(measure)
                             }
                         }
 
@@ -696,7 +695,7 @@ def UpdateSwathRaster(axis, ax_tiles='ax_tiles', processes=1, **kwargs):
             for _ in iterator:
                 pass
 
-def VectorizeSpatialUnit(axis, gid, coordm, bounds, params):
+def VectorizeSpatialUnit(axis, gid, measure, bounds, params):
 
     tileset = config.tileset()
 
@@ -713,7 +712,7 @@ def VectorizeSpatialUnit(axis, gid, coordm, bounds, params):
             connectivity=8,
             transform=ds.transform)
 
-        return gid, coordm, [polygon for polygon, gid in polygons]
+        return gid, measure, [polygon for polygon, gid in polygons]
 
 def Vectorize(axis, params, attrs, processes=1, **kwargs):
     """
@@ -722,12 +721,12 @@ def Vectorize(axis, params, attrs, processes=1, **kwargs):
 
     def arguments():
 
-        for gid, (coordm, bounds) in attrs.items():
+        for gid, (measure, bounds) in attrs.items():
             yield (
                 VectorizeSpatialUnit,
                 axis,
                 gid,
-                coordm,
+                measure,
                 bounds,
                 kwargs
             )
@@ -754,7 +753,7 @@ def Vectorize(axis, params, attrs, processes=1, **kwargs):
             pooled = pool.imap_unordered(starcall, arguments())
 
             with click.progressbar(pooled, length=len(attrs)) as iterator:
-                for gid, coordm, polygons in iterator:
+                for gid, measure, polygons in iterator:
                     for polygon in polygons:
 
                         geom = asShape(polygon).buffer(0.0)
@@ -766,7 +765,7 @@ def Vectorize(axis, params, attrs, processes=1, **kwargs):
                                 'AXIS': axis,
                                 # 'ROW': row,
                                 # 'COL': col,
-                                'M': coordm
+                                'M': measure
                             }
                         }
 

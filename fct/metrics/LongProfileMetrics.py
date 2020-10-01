@@ -233,7 +233,7 @@ def MetricSlopes(axis, **kwargs):
                             refaxis_m[mask_ref]
                         ]))
 
-                        swathfile = config.filename('ax_swath_elevation', axis=axis, gid=gid)
+                        swathfile = config.filename('ax_swath_elevation_npz', axis=axis, gid=gid)
                         swathdata = np.load(swathfile, allow_pickle=True)
 
                         slope_valley_floor = swathdata['slope_valley_floor']

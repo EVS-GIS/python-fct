@@ -185,8 +185,8 @@ def plot_swath_area_height(ax, swath, axis):
     bounds = xr.open_dataset(config.filename('ax_valley_swaths_bounds', axis=axis))
     data = xr.open_dataset(config.filename('metrics_valleybottom_width', axis=axis))
 
-    coordm = bounds['coordm'].sel(label=swath).values
-    swath = data.sel(measure=coordm)
+    measure = bounds['measure'].sel(swath=swath).values
+    swath = data.sel(measure=measure)
 
     heights = swath['height'].values
     areas = swath['valley_bottom_area_h'].values

@@ -93,7 +93,7 @@ def PlotSwath(axis, gid, kind='absolute', clip=None, output=None):
         click.secho('Unknown swath kind %s' % kind, fg='yellow')
         return
 
-    filename = config.filename('ax_swath_elevation', axis=axis, gid=gid)
+    filename = config.filename('ax_swath_elevation_npz', axis=axis, gid=gid)
 
     if os.path.exists(filename):
 
@@ -131,7 +131,7 @@ def PlotSwath(axis, gid, kind='absolute', clip=None, output=None):
             if output is True:
 
                 output = config.filename(
-                    'pdf_ax_swath_elevation',
+                    'pdf_swath_elevation',
                     axis=axis,
                     gid=gid,
                     kind=kind.upper())

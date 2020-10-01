@@ -311,7 +311,7 @@ def SwathProfiles(axis, processes=1):
                     if values['havf'].size == 0:
                         relative_errors += 1
 
-                    output = config.filename('ax_swath_elevation', axis=axis, gid=gid)
+                    output = config.filename('ax_swath_elevation_npz', axis=axis, gid=gid)
 
                     np.savez(
                         output,
@@ -340,13 +340,13 @@ def SwathProfiles(axis, processes=1):
         defs.load()
         defs = defs.sortby('coordm')
 
-        length = defs['label'].shape[0]
+        length = defs['swath'].shape[0]
 
         def arguments():
 
             for k in range(length):
 
-                gid = defs['label'].values[k]
+                gid = defs['swath'].values[k]
                 bounds = tuple(defs['bounds'].values[k, :])
 
                 # if gid < 314:
@@ -369,7 +369,7 @@ def SwathProfiles(axis, processes=1):
                 for _, gid, values in iterator:
 
                     # profile = profiles[axis, gid]
-                    measure = defs['coordm'].sel(label=gid).values
+                    measure = defs['measure'].sel(swath=gid).values
                     profile = [axis, gid, measure]
 
                     if values is None:
@@ -379,7 +379,7 @@ def SwathProfiles(axis, processes=1):
                     if values['havf'].size == 0:
                         relative_errors += 1
 
-                    output = config.filename('ax_swath_elevation', axis=axis, gid=gid)
+                    output = config.filename('ax_swath_elevation_npz', axis=axis, gid=gid)
 
                     np.savez(
                         output,
@@ -404,7 +404,7 @@ def ExportElevationSwathsToNetCDF(axis):
 
     defs = xr.open_dataset(swath_bounds)
     defs = defs.load().sortby('coordm')
-    length = defs['label'].shape[0]
+    length = defs['swath'].shape[0]
 
     swids = np.zeros(length, dtype='uint32')
     measures = np.zeros(length, dtype='float32')
@@ -418,20 +418,20 @@ def ExportElevationSwathsToNetCDF(axis):
     hand = np.zeros((0, 5), dtype='float32')
     havf = np.zeros((0, 5), dtype='float32')
 
-    with click.progressbar(defs['label'].values) as iterator:
+    with click.progressbar(defs['swath'].values) as iterator:
         for k, swid in enumerate(iterator):
 
-            coordm = defs['coordm'].sel(label=swid).values
-            swathfile = config.filename('ax_swath_elevation', axis=axis, gid=swid)
+            measure = defs['measure'].sel(swath=swid).values
+            swathfile = config.filename('ax_swath_elevation_npz', axis=axis, gid=swid)
             data = np.load(swathfile, allow_pickle=True)
 
             swids[k] = swid
-            measures[k] = coordm
+            measures[k] = measure
             slope_fp[k] = data['slope_valley_floor']
             z0_fp[k] = data['z0_valley_floor']
 
             density = np.concatenate([density, data['density']])
-            sw_measure = np.concatenate([sw_measure, np.full_like(data['density'], coordm, dtype='float32')])
+            sw_measure = np.concatenate([sw_measure, np.full_like(data['density'], measure, dtype='float32')])
             distance = np.concatenate([distance, np.float32(data['x'])])
             absz = np.concatenate([absz, data['absz']])
             hand = np.concatenate([hand, data['hand']])
@@ -459,8 +459,8 @@ def ExportElevationSwathsToNetCDF(axis):
 
     # dataset.set_index(profile=['sw_measure', 'sw_axis_distance'])
 
-    set_metadata(dataset, 'metrics_swath_elevation')
-    output = config.filename('metrics_swath_elevation', axis=axis)
+    set_metadata(dataset, 'swath_elevation')
+    output = config.filename('swath_elevation', axis=axis)
 
     dataset.to_netcdf(output, 'w')
 

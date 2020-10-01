@@ -64,14 +64,14 @@ def TalwegMetrics(axis):
 
     defs = xr.open_dataset(swath_bounds)
     defs.load()
-    defs = defs.sortby('coordm')
+    defs = defs.sortby('measure')
 
     estimates = dict()
 
-    with click.progressbar(defs['label'].values) as iterator:
+    with click.progressbar(defs['swath'].values) as iterator:
         for gid in iterator:
 
-            filename = config.filename('ax_swath_elevation', axis=axis, gid=gid)
+            filename = config.filename('ax_swath_elevation_npz', axis=axis, gid=gid)
 
             if os.path.exists(filename):
 
@@ -191,7 +191,7 @@ def TalwegMetrics(axis):
             height_median = height_min = np.nan
             floodplain_slope = np.nan
 
-        swathm = defs['coordm'].sel(label=swid).values
+        swathm = defs['measure'].sel(swath=swid).values
 
         measures.append(swathm)
         swids.append(swid)

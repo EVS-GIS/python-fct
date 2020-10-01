@@ -89,7 +89,7 @@ def ValleySwathElevation(axis):
     with click.progressbar(defs['label'].values) as iterator:
         for gid in iterator:
 
-            filename = config.filename('ax_swath_elevation', axis=axis, gid=gid)
+            filename = config.filename('ax_swath_elevation_npz', axis=axis, gid=gid)
 
             if os.path.exists(filename):
 

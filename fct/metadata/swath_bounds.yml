@@ -4,12 +4,16 @@ global:
 variables:
   axis:
     long_name: stream identifier
-  coordm: # TODO rename to measure
+  swath: # TODO rename to swath
+    long_name: swath identifier
+  measure: # TODO rename to measure
     long_name: position along reference axis
     standard_name: linref_m_coordinate
     units: m
-  label: # TODO rename to swath
-    long_name: swath identifier
   bounds:
     long_name: swath geographic bounds (minx, miny, maxx, maxy)
+    units: m
+    coordinates: axis measure
+  delta_measure:
+    long_name: swath measure interval (so called disaggregation step)
     units: m
