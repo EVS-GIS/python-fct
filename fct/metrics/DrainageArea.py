@@ -67,6 +67,14 @@ def MetricDrainageArea(axis, processes, **kwargs):
     -------
 
     drainage_area: upstream drainage area in km²
+
+    @api    fct-metrics:drainage-area
+
+    @input  accumulation: acc
+    @input  swath_polygons: ax_valley_swaths_polygons
+    @input  swath_raster: ax_valley_swaths
+
+    @output drainage_area: metrics_drainage_area
     """
 
     swath_features = config.filename('ax_valley_swaths_polygons', axis=axis, **kwargs)

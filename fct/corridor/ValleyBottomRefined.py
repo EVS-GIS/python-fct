@@ -100,6 +100,15 @@ def ValleyMask(axis, threshold, ax_tiles='ax_shortest_tiles', processes=1, **kwa
     Refine valley bottom mask
     0: bottom
     1: margin/hole => separate with exterior region algorithm
+
+    @api    fct-corridor:refine-valley-mask
+
+    @input  tiles: ax_shortest_tiles
+    @input  talweg_height: metrics_talweg_height
+    @input  nearest_height: ax_nearest_height
+    @input  swath_raster: ax_valley_swaths
+
+    @output mask: ax_valley_mask_refined
     """
 
     tilefile = config.tileset().filename(ax_tiles, axis=axis, **kwargs)
@@ -222,7 +231,16 @@ def ReclassSwathMargin(axis, row, col, **kwargs):
 
 def ReclassMargin(axis, processes=1, ax_tiles='ax_shortest_tiles', **kwargs):
     """
-    DOCME
+    Distinguish holes from corridor margin
+
+    @api    fct-corridor:?
+
+    @input  tiles: ax_shortest_tiles
+    @input  swath_bounds: ax_valley_swaths_bounds
+    @input  swath_raster: ax_valley_swaths
+    @input  mask: ax_valley_mask_refined
+
+    @output mask: ax_valley_mask_refined
     """
 
     tilefile = config.tileset().filename(ax_tiles, axis=axis, **kwargs)

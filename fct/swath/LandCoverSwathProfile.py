@@ -170,7 +170,22 @@ def LandCoverSwath(
 def LandCoverSwathProfile(axis, processes=1, **kwargs):
     """
     Generate landcover swath for every longitudinal unit
-    defined by procedure fct.metrics.SpatialReferencing.SpatialReference
+
+    @api    fct-swath:profile-landcover
+
+    @input  landcover: ax_continuity
+    @input  swath_raster: ax_valley_swaths
+    @input  swath_polygons: ax_valley_swaths_polygons
+    @input  axis_distance: ax_axis_distance
+    @input  drainage_distance: ax_nearest_distance
+    @input  drainage_height: ax_nearest_height
+    @input  mask: ax_valley_mask_refined
+
+    @param  min_slice_width: 10.0
+    @param  max_slice_count: 200
+    @param  nclasses: 9
+
+    @output swath_landcover_npz: ax_swath_landcover_npz
 
     Parameters
     ----------
@@ -302,8 +317,16 @@ def LandCoverSwathProfile(axis, processes=1, **kwargs):
 
 def ExportLandcoverSwathsToNetCDF(axis, **kwargs):
     """
-    Reads back landcover swath profile from disk,
+    Reads landcover swath profile back from disk,
     and bundles everyting into one netcdf file.
+
+    @api    fct-swath:export-landcover
+
+    @input  landcover: ax_continuity
+    @input  swath_bounds: ax_valley_swaths_bounds
+    @input  swath_landcover_npz: ax_swath_landcover_npz
+
+    @output swath_landcover: swath_landcover
     """
 
     defaults = dict(

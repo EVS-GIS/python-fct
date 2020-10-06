@@ -193,20 +193,20 @@ def valleybottom_width(axis):
     width = ValleyBottomWidth(axis)
     WriteValleyBottomWidth(axis, width)
 
-@fct_command(cli)
-@arg_axis
-def corridor_width(axis):
-    """
-    Calculate corridor width metrics
-    """
+# @fct_command(cli)
+# @arg_axis
+# def corridor_width(axis):
+#     """
+#     Calculate corridor width metrics
+#     """
 
-    from .CorridorWidth import (
-        CorridorWidth,
-        WriteCorridorWidth
-    )
+#     from .CorridorWidth import (
+#         CorridorWidth,
+#         WriteCorridorWidth
+#     )
 
-    width = CorridorWidth(axis)
-    WriteCorridorWidth(axis, width)
+#     width = CorridorWidth(axis)
+#     WriteCorridorWidth(axis, width)
 
 @fct_command(cli)
 @arg_axis

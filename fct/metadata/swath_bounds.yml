@@ -1,7 +1,7 @@
 global:
   description: |-
     talweg-related metrics
-variables:
+coordinates:
   axis:
     long_name: stream identifier
   swath: # TODO rename to swath
@@ -10,6 +10,7 @@ variables:
     long_name: position along reference axis
     standard_name: linref_m_coordinate
     units: m
+variables:
   bounds:
     long_name: swath geographic bounds (minx, miny, maxx, maxy)
     units: m

@@ -71,13 +71,14 @@ def describe(ctx, name, filename):
 
         if name in reverse:
 
-            for dataset in reverse[name]:
-                print_dataset_info(dataset)
-                click.echo()
-
             count = len(reverse[name])
             if count > 1:
                 click.secho('-- Found %d datasets' % count, fg='yellow')
+
+            for dataset in reverse[name]:
+
+                click.echo()
+                print_dataset_info(dataset)
 
         else:
 

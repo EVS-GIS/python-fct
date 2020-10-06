@@ -367,6 +367,19 @@ def DisaggregateIntoSwaths(axis, ax_tiles='ax_tiles', processes=1, **kwargs):
     """
     Calculate measurement support rasters and
     create discrete longitudinal swath units along the reference axis
+
+    @api    fct-swath:discretize
+
+    @input  reference_axis: ax_refaxis
+    @input  mask: ax_valley_mask
+    @input  tiles: ax_shortest_tiles
+    @param  mdelta: 200.0
+
+    @output measure: ax_axis_measure
+    @output distance: ax_axis_distance
+    @output swath_raster: ax_valley_swaths
+    @output swath_polygons: ax_valley_swaths_polygons
+    @output swath_bounds: ax_valley_swaths_bounds
     """
 
     parameters = ValleyBottomParameters()
@@ -576,7 +589,7 @@ def VectorizeSwathPolygons(axis, processes=1, **kwargs):
                 kwargs
             )
 
-    output = config.filename(params.output_swaths_shapefile, axis=axis)
+    output = config.filename(params.output_swaths_shapefile, mod=False, axis=axis)
 
     schema = {
         'geometry': 'Polygon',
@@ -668,7 +681,19 @@ def UpdateSwathTile(axis, tile, params):
     with rio.open(swath_raster, 'w', **profile) as dst:
         dst.write(swaths, 1)
 
-def UpdateSwathRaster(axis, ax_tiles='ax_tiles', processes=1, **kwargs):
+def UpdateSwathRaster(axis, ax_tiles='ax_shortest_tiles', processes=1, **kwargs):
+    """
+    Commit manual swath edits to swaths raster
+
+    @api    fct-swath:update
+
+    @input  tiles: ax_shortest_tiles
+    @input  swath_raster: ax_valley_swaths
+
+    @param  sieve_threshold: 40
+
+    @output swath_raster: ax_valley_swaths
+    """
 
     parameters = ValleyBottomParameters()
     parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})

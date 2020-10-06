@@ -110,11 +110,53 @@ def fct_plot(group, name=None, title=None):
             if ylim != (None, None):
                 ax.set_ylim(ylim)
 
+            if filename == 'auto':
+                filename = None
+                _filename = config.filename(fun.__name__, **kwargs)
+                click.echo(_filename)
+
             FinalizePlot(fig, ax, title=title, filename=filename)
 
         return decorated
 
     return decorate
+
+@cli.command('hypsometry-global')
+@filename_opt
+def plot_hypsometry_global(filename):
+    """
+    Plot elevation distributions (hypsometer)
+
+    @api   fct-plot:hypsometry-global
+    @input metrics_hypsometry: metrics_hypsometry_global
+    """
+
+    from .PlotHypsometry import PlotHypsometry
+
+    datafile = config.filename('metrics_hypsometry_global')
+    hypsometry = xr.open_dataset(datafile)
+
+    # if filename is None:
+    #     plt.ion()
+    # elif filename.endswith('.pdf'):
+    #     mpl.use('cairo')
+
+    fig = PlotHypsometry(hypsometry)
+
+    if filename == 'auto':
+        filename = None
+        _filename = config.filename('plot_hypsometry_global')
+        click.echo(_filename)
+
+    if filename is None:
+        fig.show()
+        plt.show(block=True)
+    elif filename.endswith('.pdf'):
+        plt.savefig(filename, format='pdf', dpi=600)
+        plt.clf()
+    else:
+        plt.savefig(filename, dpi=300)
+        plt.clf()
 
 @cli.command('hypsometry')
 @arg_axis
@@ -122,19 +164,15 @@ def fct_plot(group, name=None, title=None):
 def plot_hypsometry(axis, filename):
     """
     Plot elevation distributions (hypsometer)
+
+    @api   fct-plot:hypsometry
+    @input metrics_hypsometry: metrics_hypsometry
     """
 
     from .PlotHypsometry import PlotHypsometry
 
-    if axis is None:
-
-        datafile = config.filename('metrics_hypsometer')
-        hypsometer = xr.open_dataset(datafile)
-
-    else:
-
-        datafile = config.filename('metrics_hypsometer_ax', axis=axis)
-        hypsometer = xr.open_dataset(datafile)
+    datafile = config.filename('metrics_hypsometry', axis=axis)
+    hypsometer = xr.open_dataset(datafile)
 
     if filename is None:
         plt.ion()
@@ -142,6 +180,11 @@ def plot_hypsometry(axis, filename):
         mpl.use('cairo')
 
     fig = PlotHypsometry(hypsometer)
+
+    if filename == 'auto':
+        filename = None
+        _filename = config.filename('plot_hypsometry', axis=axis)
+        click.echo(_filename)
 
     if filename is None:
         fig.show()
@@ -158,6 +201,9 @@ def plot_hypsometry(axis, filename):
 def plot_drainage_area(ax, axis):
     """
     Plot drainage area profile
+
+    @api   fct-plot:drainage-area
+    @input metrics_drainage_area:metrics_drainage_area
     """
 
     datafile = config.filename('metrics_drainage_area', axis=axis)
@@ -180,6 +226,10 @@ def plot_drainage_area(ax, axis):
 def plot_swath_area_height(ax, swath, axis):
     """
     Plot cumulative area-height curve for one swath
+
+    @api   fct-plot:swath-area-height
+    @input swath_bounds: ax_valley_swaths_bounds
+    @input metrics_valleybottom_width: metrics_valleybottom_width
     """
 
     bounds = xr.open_dataset(config.filename('ax_valley_swaths_bounds', axis=axis))
@@ -211,7 +261,7 @@ def plot_swath_area_height(ax, swath, axis):
     ax.set_ylabel('Height above nearest drainage')
 
 
-@cli.command('swath')
+@cli.command('swath-elevation')
 @click.argument('swath', type=int)
 @arg_axis
 @click.option(
@@ -228,9 +278,12 @@ def plot_swath_area_height(ax, swath, axis):
     type=float,
     help='clip data at given height above nearest drainage')
 @filename_opt
-def plot_elevation_swath(swath, axis, kind, clip, filename):
+def plot_swath_elevation(swath, axis, kind, clip, filename):
     """
     Elevation swath profile
+
+    @api   fct-plot:elevation-swath
+    @input swath_elevation_npz: ax_swath_elevation_npz
     """
 
     from .PlotElevationSwath import PlotSwath
@@ -252,14 +305,20 @@ def plot_elevation_swath(swath, axis, kind, clip, filename):
         plt.savefig(filename, dpi=300)
         plt.clf()
 
-@fct_plot(cli, 'elevation-profile', title='Elevation profile')
+# def plot_swath_landcover():
+
+@fct_plot(cli, 'profile-elevation', title='Elevation profile')
 @arg_axis
 @click.option('--floodplain/--no-floodplain', default=False, help='Plot flooplain profile')
 @click.option('--talweg/--no-talweg', default=False, help='Plot talweg profile')
 @click.pass_context
-def plot_elevation_profile(ctx, ax, axis, floodplain, talweg):
+def plot_profile_elevation(ctx, ax, axis, floodplain, talweg):
     """
-    Idealized elevation profile
+    Smoothed elevation profile
+
+    @api   fct-plot:profile-elevation
+    @input elevation_profile_floodplain: ax_elevation_profile_floodplain
+    @input elevation_profile_talweg: ax_elevation_profile_talweg
     """
 
     if not (floodplain or talweg):
@@ -292,15 +351,20 @@ def plot_elevation_profile(ctx, ax, axis, floodplain, talweg):
 
         ax.legend()
 
-@fct_plot(cli, 'slope-profile', title='Slope profile')
+@fct_plot(cli, 'profile-slope', title='Slope profile')
 @arg_axis
 @click.option('--floodplain/--no-floodplain', default=False, help='Plot flooplain profile')
 @click.option('--talweg/--no-talweg', default=False, help='Plot talweg profile')
 @click.option('--smooth/--no-smooth', default=False, help='Plot smoothed profile')
 @click.pass_context
-def plot_slope_profile(ctx, ax, axis, floodplain, talweg, smooth):
+def plot_profile_slope(ctx, ax, axis, floodplain, talweg, smooth):
     """
     Idealized slope profile
+
+    @api   fct-plot:profile-slope
+    @input elevation_profile_floodplain: ax_elevation_profile_floodplain
+    @input elevation_profile_talweg: ax_elevation_profile_talweg
+    @input metrics_talweg: metrics_talweg
     """
 
     if not (floodplain or talweg):
@@ -350,13 +414,16 @@ def plot_slope_profile(ctx, ax, axis, floodplain, talweg, smooth):
         ax.legend()
 
     ax.set_ylabel('Slope (%)')
-    
 
-@fct_plot(cli, 'talwegheight', title='Talweg relative height')
+
+@fct_plot(cli, 'talweg-height', title='Talweg relative height')
 @arg_axis
 def plot_talweg_height(ax, axis):
     """
     Talweg height relative to valley floor
+
+    @api fct-plot:talweg-height
+    @input metrics_talweg: metrics_talweg
     """
 
     datafile = config.filename('metrics_talweg', axis=axis)
@@ -384,6 +451,9 @@ def plot_talweg_height(ax, axis):
 def plot_planform_shift(ax, axis, measure):
     """
     Planform shift
+
+    @api   fct-plot:planform
+    @input metrics_planform: metrics_planform
     """
 
     data_file = config.filename('metrics_planform', axis=axis)
@@ -422,16 +492,74 @@ def plot_planform_shift(ax, axis, measure):
         ax.yaxis.set_major_formatter(formatter)
         ax.xaxis.set_major_formatter(formatter)
 
+@fct_plot(cli, 'amplitude', title='Planform shift amplitude')
+@arg_axis
+@click.option(
+    '--measure', '-m',
+    type=click.Choice(['refaxis', 'talweg'], case_sensitive=True),
+    default='refaxis')
+@click.option('--window', '-win', default=20, help='smoothin window')
+def plot_planform_amplitude(ax, axis, measure, window):
+    """
+    Planform shift
+
+    @api   fct-plot:amplitude
+    @input metrics_planform: metrics_planform
+    """
+
+    from ..metrics.PlanformShift import PlanformAmplitude
+
+    data_file = config.filename('metrics_planform', axis=axis)
+
+    if measure == 'refaxis':
+
+        data = xr.open_dataset(data_file).sortby('measure')
+        amplitude = PlanformAmplitude(data['talweg_shift'], window)
+
+        # print(
+        #     np.min(data['measure']).values,
+        #     np.max(data['measure']).values
+        # )
+
+        ax.plot(amplitude['measure'].values, amplitude.values)
+        ax.set_ylabel('Amplitude (m)')
+        SetupMeasureAxis(ax, data['measure'])
+
+    else:
+
+        data = xr.open_dataset(data_file).sortby('measure')
+        amplitude = PlanformAmplitude(data['talweg_shift'], window)
+
+        # print(
+        #     np.min(data['talweg_measure']).values,
+        #     np.max(data['talweg_measure']).values
+        # )
+
+        ax.plot(amplitude['measure'].values, amplitude.values)
+        ax.set_xlim([
+            np.min(data['talweg_measure']),
+            np.max(data['talweg_measure'])
+        ])
+        ax.set_xlabel('Stream distance from source')
+        ax.set_ylabel('Amplitude')
+
+        formatter = EngFormatter(unit='m')
+        ax.yaxis.set_major_formatter(formatter)
+        ax.xaxis.set_major_formatter(formatter)
+
 @fct_plot(cli, 'landcover-profile', title='Total landcover width')
 @arg_axis
 def plot_landcover_profile(ax, axis):
     """
     Landcover class width long profile
+
+    @api   fct-plot:landcover-profile
+    @input metrics_landcover_width: metrics_landcover_width
     """
 
     from .PlotCorridor import PlotLandCoverProfile
 
-    data_file = config.filename('metrics_lcw_variant', variant='TOTAL_BDT', axis=axis)
+    data_file = config.filename('metrics_landcover_width', variant='TOTAL_BDT', axis=axis)
     data = xr.open_dataset(data_file).sortby('measure')
 
     PlotLandCoverProfile(
@@ -450,11 +578,14 @@ def plot_landcover_profile(ax, axis):
 def plot_continuity_profile(ax, axis):
     """
     Continuity buffer width long profile
+
+    @api   fct-plot:continuity-profile
+    @input metrics_continuity_width: metrics_continuity_width
     """
 
     from .PlotCorridor import PlotLandCoverProfile
 
-    data_file = config.filename('metrics_lcw_variant', variant='CONT_BDT', axis=axis)
+    data_file = config.filename('metrics_landcover_width', variant='CONT_BDT', axis=axis)
     data = xr.open_dataset(data_file).sortby('measure')
 
     PlotLandCoverProfile(
@@ -474,6 +605,10 @@ def plot_continuity_profile(ax, axis):
 def plot_left_right_landcover_profile(ax, axis, max_class):
     """
     Left/rigth total landcover width long profile
+
+    @api   fct-plot:landcover-profile-lr
+    @input metrics_valleybottom_width: metrics_valleybottom_width
+    @input metrics_landcover_width: metrics_landcover_width
     """
 
     from .PlotCorridor import (
@@ -481,7 +616,7 @@ def plot_left_right_landcover_profile(ax, axis, max_class):
         PlotLeftRightCorridorLimit
     )
 
-    data_file = config.filename('metrics_lcw_variant', variant='TOTAL_BDT', axis=axis)
+    data_file = config.filename('metrics_landcover_width', variant='TOTAL_BDT', axis=axis)
     width_file = config.filename('metrics_valleybottom_width', axis=axis)
 
     width = xr.open_dataset(width_file)
@@ -522,6 +657,10 @@ def plot_left_right_landcover_profile(ax, axis, max_class):
 def plot_left_right_continuity_profile(ax, axis, max_class):
     """
     Left/rigth continuity buffer width long profile
+
+    @api   fct-plot:continuity-profile-lr
+    @input metrics_valleybottom_width: metrics_valleybottom_width
+    @input metrics_continuity_width: metrics_continuity_width
     """
 
     from .PlotCorridor import (
@@ -529,7 +668,7 @@ def plot_left_right_continuity_profile(ax, axis, max_class):
         PlotLeftRightCorridorLimit
     )
 
-    data_file = config.filename('metrics_lcw_variant', variant='CONT_BDT', axis=axis)
+    data_file = config.filename('metrics_landcover_width', variant='CONT_BDT', axis=axis)
     width_file = config.filename('metrics_valleybottom_width', axis=axis)
 
     width = xr.open_dataset(width_file)

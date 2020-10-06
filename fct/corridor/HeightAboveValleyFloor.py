@@ -113,12 +113,21 @@ def HeightAboveValleyFloor(
         ax_tiles='ax_shortest_tiles',
         tileset='default',
         elevation='dem',
-        valley_floor='ax_refaxis_valley_profile',
+        valley_floor='ax_elevation_profile_floodplain',
         mask='ax_valley_mask',
         height='ax_valley_height',
         **kwargs):
     """
-    Calculate distance and height above nearest drainage
+    Calculate distance and height above floodplain
+
+    @api    fct-corridor:height-above-valley-floor
+
+    @input  dem: dem
+    @input  tiles: ax_shortest_tiles
+    @input  mask: ax_valley_mask
+    @input  elevation_profile: ax_elevation_profile_floodplain
+
+    @output height: ax_valley_height
 
     Parameters
     ----------
@@ -227,7 +236,7 @@ def test(axis):
     _, _, seg2 = MetricSlopes(axis)
     seg3 = AdjustRefElevationGaps(seg2)
 
-    valley_floor_file = config.filename('ax_refaxis_valley_profile', axis=axis)
+    valley_floor_file = config.filename('ax_elevation_profile_floodplain', axis=axis)
     valley_profile = np.float32(np.concatenate(seg3, axis=0))
     ExportValleyProfile(axis, valley_profile, valley_floor_file)
 

@@ -282,7 +282,20 @@ def CropAndScale(axis, tiles, processes=1):
 
 def FlowHeight(axis, processes=1):
     """
-    DOCME
+    Relative heights based on flow direction
+
+    @api    fct-corridor:flow-height
+
+    @input  dem: dem
+    @input  flow: flow
+    @input  drainage: ax_drainage_network
+
+    @param  max_height: 15.0
+    @param  max_distance: 2000.0
+
+    @output tiles: ax_flow_tiles
+    @output height: ax_flow_height
+    @output distance: ax_flow_distance
     """
 
     output = config.tileset().filename('ax_flow_tiles', axis=axis)

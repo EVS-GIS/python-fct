@@ -27,7 +27,7 @@ from shapely.geometry import asShape
 from ..config import config
 from ..tileio import as_window
 from ..cli import starcall
-from ..corridor.ValleyMedialAxis import SwathMedialAxis
+from .SwathMedialAxis import SwathMedialPoints
 
 def unproject(axis, measures):
 
@@ -137,15 +137,28 @@ def UnitSwathAxis(axis, k, gid, m0, bounds):
 
         # return axis, gid, find(0), find(dmin), find(dmax)
 
-        medialpoint = SwathMedialAxis(axis, gid, m0, bounds, long_length, resolution)
+        medialpoints = SwathMedialPoints(axis, gid, m0, bounds, long_length, resolution)
 
-        if medialpoint:
-            
-            return axis, gid, k, medialpoint[0], m0, dmin, dmax
+        if medialpoints:
+
+            return axis, gid, k, medialpoints[0], m0, dmin, dmax
 
         return axis, gid, k, (m0, 0.0), m0, dmin, dmax
 
 def SwathAxes(axis, processes=1):
+    """
+    Generate cross-profile swath axes
+
+    @api fct-swath:axes
+
+    @input  swath_raster: ax_valley_swaths
+    @input  swath_polygons: ax_valley_swaths_polygons
+    @input  measure: ax_axis_measure
+    @input  distance: ax_axis_distance
+    @input  mask: ax_valley_mask_refined
+
+    @output swath_axes: ax_swath_axes
+    """
 
     dgo_shapefile = config.filename('ax_valley_swaths_polygons', axis=axis)
     output = config.filename('ax_swath_axes', axis=axis)
@@ -158,10 +171,12 @@ def SwathAxes(axis, processes=1):
             ('GID', 'int:4'),
             ('AXIS', 'int:4'),
             ('M', 'float:10.2'),
-            ('OX', 'float'),
-            ('OY', 'float'),
-            ('MEDX', 'float'),
-            ('MEDY', 'float'),
+            ('XGEN', 'float'),
+            ('YGEN', 'float'),
+            ('XMED', 'float'),
+            ('YMED', 'float'),
+            ('DIRX', 'float'),
+            ('DIRY', 'float')
         ]
     }
     options = dict(driver=driver, crs=crs, schema=schema)
@@ -208,7 +223,8 @@ def SwathAxes(axis, processes=1):
                 for _, gid, k, medialpoint, coordm, dmin, dmax in iterator:
 
                     pt0 = points[k]
-                    normalk = np.array([-directions[k][1], directions[k][0]])
+                    direction = directions[k]
+                    normalk = np.array([-direction[1], direction[0]])
                     pt_min = pt0 - dmin * normalk
                     pt_max = pt0 - dmax * normalk
                     pt_med = pt0 - medialpoint[1] * normalk
@@ -225,9 +241,11 @@ def SwathAxes(axis, processes=1):
                             'GID': gid,
                             'AXIS': axis,
                             'M': coordm,
-                            'OX': float(pt0[0]),
-                            'OY': float(pt0[1]),
-                            'MEDX': float(pt_med[0]),
-                            'MEDY': float(pt_med[1])
+                            'XGEN': float(pt0[0]),
+                            'YGEN': float(pt0[1]),
+                            'XMED': float(pt_med[0]),
+                            'YMED': float(pt_med[1]),
+                            'DIRX': float(direction[0]),
+                            'DIRY': float(direction[1])
                         }
                     })

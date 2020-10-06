@@ -1,44 +1,116 @@
-pdf_ax_swath_elevation:
+plot_hypsometry_global:
+  description: |
+    Global elevations distribution (Hypsometry)
+  type: pdf
+  group: plot
+  status: final
+  subdir: GLOBAL/PDF
+  filename: HYPSOMETRY.pdf
+
+plot_hypsometry:
+  description: |
+    Elevations distribution (Hypsometry)
+  type: pdf
+  group: plot
+  status: final
+  subdir: AXES/AX%(axis)04d/PDF
+  filename: HYPSOMETRY.pdf
+
+plot_drainage_area:
+  description: |
+    Drainage area
+  type: pdf
+  group: plot
+  status: final
+  subdir: AXES/AX%(axis)04d/PDF
+  filename: DRAINAGE_AREA.pdf
+
+plot_profile_elevation:
+  description: |
+    Floodplain or talweg elevation long profile
+  type: pdf
+  group: plot
+  status: final
+  subdir: AXES/AX%(axis)04d/PDF
+  filename: PROFILE_ELEVATION.pdf
+
+plot_profile_slope:
+  description: |
+    Floodplain or talweg slope long profile
+  type: pdf
+  group: plot
+  status: final
+  subdir: AXES/AX%(axis)04d/PDF
+  filename: PROFILE_SLOPE.pdf
+
+plot_swath_area_height:
+  description: |
+    Swath area-height curve
+  type: pdf
+  group: plot
+  status: final
+  subdir: AXES/AX%(axis)04d/PDF/SWATH
+  filename: SWATH_AREA_HEIGHT_%(swath)04d.pdf
+
+plot_swath_elevation:
   description: |
     Elevation swath output, per spatial unit
   type: pdf
-  group: metrics
+  group: plot
   status: final
   subdir: AXES/AX%(axis)04d/PDF/SWATH
-  filename: SWATH_ELEVATION_%(gid)04d_%(kind)s.pdf
+  filename: SWATH_ELEVATION_%(swath)04d_%(kind)s.pdf
 
-pdf_ax_swath_landcover:
+plot_swath_landcover:
   description: |
     Landcover swath output, per spatial unit
   type: pdf
-  group: metrics
+  group: plot
   status: final
   subdir: AXES/AX%(axis)04d/PDF/LANDCOVER/SWATH
-  filename: SWATH_ELEVATION_%(gid)04d_%(kind)s.pdf
+  filename: SWATH_LANDCOVER_%(swath)04d_%(kind)s.pdf
 
-pdf_ax_landcover_profile:
+plot_landcover_profile:
   description: |
     Landcover longitudinal profile
   type: pdf
-  group: metrics
+  group: plot
   status: final
   subdir: AXES/AX%(axis)04d/PDF/LANDCOVER
   filename: LANDCOVER_PROFILE_%(variant)s.pdf
 
-pdf_ax_leftright_profile:
+plot_landcover_profile_lr:
   description: |
     Left bank/right bank landcover longitudinal profile
   type: pdf
-  group: metrics
+  group: plot
   status: final
   subdir: AXES/AX%(axis)04d/PDF/LANDCOVER
-  filename: LEFTRIGHT_PROFILE_%(variant)s.pdf
+  filename: LANDCOVER_PROFILE_%(variant)s_LR.pdf
 
-pdf_ax_watershed_profile:
+plot_continuity_profile:
+  description: |
+    Landcover longitudinal profile
+  type: pdf
+  group: plot
+  status: final
+  subdir: AXES/AX%(axis)04d/PDF/LANDCOVER
+  filename: CONTINUITY_PROFILE_%(variant)s.pdf
+
+plot_continuity_profile_lr:
+  description: |
+    Left bank/right bank landcover longitudinal profile
+  type: pdf
+  group: plot
+  status: final
+  subdir: AXES/AX%(axis)04d/PDF/LANDCOVER
+  filename: CONTINUITY_PROFILE_%(variant)s_LR.pdf
+
+plot_watershed_profile:
   description: |
     Watershed Profile
   type: pdf
-  group: metrics
+  group: plot
   status: final
   subdir: AXES/AX%(axis)04d/PDF/WATERSHED
   filename: WATERSHED_PROFILE_%(variable)s_W%(width).0f.pdf

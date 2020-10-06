@@ -1,13 +1,14 @@
 global:
   description: |-
     Hypsometry (distribution of elevations)
-variables:
+coordinates:
   axis:
     long_name: stream identifier
   z:
     long_name: minimum elevation of hypsometer slice
     standard_name: surface_altitude
     units: m
+variables:
   dz:
     long_name: elevation sampling interval
     units: m

@@ -1,18 +1,29 @@
 global:
   description: |-
     elevation swath profile data
-variables:
+coordinates:
   axis:
     long_name: stream identifier
+  swath:
+    long_name: swath identifier
+    coordinates: axis measure
   measure:
     long_name: position along reference axis
     standard_name: linref_m_coordinate
     units: m
+  profile:
+    long_name: sample index (shadow dimension)
+    compress: sw_measure, sw_axis_distance
+  sw_measure:
+    long_name: position along reference axis
+    standard_name: linref_m_coordinate
+    units: m
+  sw_axis_distance:
+    long_name: sample distance to reference axis
+    units: m
   quantile:
     long_name: quantile of elevation sample at distance d from reference axis
-  swath:
-    long_name: swath identifier
-    coordinates: axis measure
+variables:
   slope_floodplain:
     long_name: |-
       ransac regression slope of floodplain elevation
@@ -25,16 +36,6 @@ variables:
       in the direction of reference axis
     units: m
     coordinates: axis measure
-  profile:
-    long_name: sample index (shadow dimension)
-    multi_index: sw_measure, sw_axis_distance
-  sw_measure:
-    long_name: position along reference axis
-    standard_name: linref_m_coordinate
-    units: m
-  sw_axis_distance:
-    long_name: sample distance to reference axis
-    units: m
   sw_density:
     long_name: pixel count in sample (mi, di)
     units: pixels

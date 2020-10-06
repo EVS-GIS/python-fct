@@ -1,7 +1,7 @@
 global:
   description: |-
     Planform shift from reference axis
-variables:
+coordinates:
   axis:
     long_name: stream identifier
   measure:
@@ -9,6 +9,7 @@ variables:
     standard_name: linref_m_coordinate
     origin: downstream or network outlet
     units: m
+variables:
   talweg_measure:
     long_name: distance along talweg linestring, measured from upstream
     standard_name: linestring_m_coordinate

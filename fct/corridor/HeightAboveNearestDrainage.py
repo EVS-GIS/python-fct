@@ -180,6 +180,16 @@ def HeightAboveNearestDrainage(
     """
     Calculate distance and height above nearest drainage
 
+    @api    fct-corridor:hand
+    @input  tiles: ax_shortest_tiles
+    @input  dem: dem
+    @input  drainage: ax_drainage_network
+    @input  mask: ax_flow_height
+    @output height: ax_nearest_height
+    @output distance: ax_nearest_distance
+    @params buffer_width: 30.0
+    @params resolution: 5.0
+
     Parameters
     ----------
 

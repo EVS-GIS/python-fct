@@ -1,22 +1,22 @@
 # Metrics and output files
 
-metrics_hypsometer:
+metrics_hypsometry_global:
   description:
-    Hypsometer (distribution of elevations)
+    Hypsometry (distribution of elevations)
   type: netcdf
   group: metrics
   status: final
   subdir: GLOBAL/METRICS
-  filename: HYPSOMETER.nc
+  filename: HYPSOMETRY.nc
 
-metrics_hypsometer_ax:
+metrics_hypsometry:
   description:
-    Hypsometer (distribution of elevations)
+    Subwatershed's hypsometry (distribution of elevations)
   type: netcdf
   group: metrics
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
-  filename: HYPSOMETER.nc
+  filename: HYPSOMETRY.nc
 
 metrics_drainage_area:
   description: |
@@ -82,7 +82,7 @@ metrics_lcw:
   subdir: AXES/AX%(axis)04d/METRICS
   filename: LANDCOVER_WIDTH.nc
 
-metrics_lcw_variant:
+metrics_landcover_width:
   description: |
     LandCover Width (Variants)
   type: netcdf

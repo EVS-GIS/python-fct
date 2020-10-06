@@ -450,7 +450,25 @@ def LandcoverContinuityAnalysis(
         maxiter=10,
         **kwargs):
     """
-    Calculate LandCover Continuity from River Channel
+    Calculate landcover continuity from river channel
+
+    @api    fct-corridor:continuity
+
+    @input  tiles: ax_shortest_tiles
+    @input  landcover: landcover-bdt
+    @input  distance: ax_nearest_distance
+    @input  height: ax_nearest_height
+
+    @param  min_distance: 20.0
+    @param  max_distance: 0.0
+    @param  max_class: 0
+    @param  max_height: 20.0
+    @param  with_infra: True
+    @param  jitter: 0.4
+
+    @output continuity_distance: ax_continuity_distance
+    @output continuity_state: ax_continuity_state
+    @output continuity_map: ax_continuity
 
     Parameters
     ----------

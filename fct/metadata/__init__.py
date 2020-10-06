@@ -54,6 +54,11 @@ def set_metadata(dataset, metafile):
         for attr, value in metadata['global'].items():
             dataset.attrs[attr] = value
 
+        for variable in metadata['coordinates']:
+            meta = metadata['coordinates'][variable]
+            for attr, value in meta.items():
+                dataset[variable].attrs[attr] = value
+
         for variable in metadata['variables']:
             meta = metadata['variables'][variable]
             for attr, value in meta.items():

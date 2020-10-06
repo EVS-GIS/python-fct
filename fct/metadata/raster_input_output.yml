@@ -1,0 +1,71 @@
+coordinates:
+  'x':
+    long_name: projection x coordinate
+    units: m
+  'y':
+    long_name: projection y coordinate
+    units: m
+  't':
+    long_name: time
+    units: year
+  'axis':
+    long_name: stream identifier
+variables:
+  input:
+    'z':
+      long_name: altitude
+      units: m
+      coords: y, x
+      datasource:
+        - IGN RGE Alti 5m
+        - IGN BD Alti 25 m
+    'pop':
+      long_name: resident population
+      units: hab
+      coords: t, y, x
+      datasource:
+        - INSEE Filosofi 2015
+    'landcover':
+      long_name: landcover class
+      coords: t, y, x
+      datasource:
+        - IGN BD Topo 2019
+        - Registre Parcellaire Graphique 2018
+  output:
+    'flow':
+      long_name: D8 flow direction
+      coords: y, x
+    'drainage':
+      long_name: upstream drainage area
+      units: km^2
+      coords: y, x
+    'continuity':
+      long_name: landcover continuity class
+      coords: axis, t, y, x
+    'valley_mask':
+      long_name: 
+      coords: axis, y, x
+    'axis_measure':
+      long_name: location along reference axis
+      units: m
+      coords: axis, y, x
+    'axis_distance':
+      long_name: distance to reference axis
+      units: m
+      coords: axis, y, x
+    'height_flow':
+      long_name: height above nearest drainage following flow direction
+      units: m
+      coords: axis, y, x
+    'height_shortest':
+      long_name: height above nearest drainage following shortest path
+      units: m
+      coords: axis, y, x
+    'height_drainage':
+      long_name: height above nearest drainage
+      units: m
+      coords: axis, y, x
+    'height_flooplain':
+      long_name: height above flooplain reference
+      units: m
+      coords: axis, y, x

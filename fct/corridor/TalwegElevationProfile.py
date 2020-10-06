@@ -65,9 +65,18 @@ def ExportTalwegElevationProfile(axis, profile, destination):
 
 def TalwegElevationProfile(axis):
     """
-    Interpolate pixels and idealized elevation
-    along reference axis, in order to create
-    a smooth talweg elevation profile
+    Creates a smooth talweg elevation profile
+    by interpolating swath median talweg elevation values
+    along reference axis
+
+    @api   fct-corridor:talweg-profile
+
+    @input reference_axis: ax_refaxis
+    @input swath_raster: ax_valley_swaths
+    @input elevation_talweg: metrics_talweg
+    @param  spline_order: 3
+
+    @output elevation_profile_talweg: ax_elevation_profile_talweg
     """
 
     refaxis_shapefile = config.filename('ax_refaxis', axis=axis)

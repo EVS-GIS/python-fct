@@ -274,14 +274,26 @@ def WatershedStep(spillover, axis=1, processes=1):
     return g_spillover
 
 def Watershed(axis, processes=1):
+    """
+    Delineate watershed
+    from drainage network and flow direction raster
+
+    @api    fct-drainage:watershed
+    
+    @input  flow: flow
+    @input  drainage: ax_drainage_network
+    
+    @output watershed_raster: ax_watershed_raster
+    @output watershed_polygons: ax_watershed
+    """
 
     # River Ain
     # x = 869165.0
     # y = 6523885.0
 
     # River Rhone
-    x = 849265.0
-    y = 6250190.0
+    # x = 849265.0
+    # y = 6250190.0
     # row, col = config.tileset().index(x, y)
 
     # seeds = [(x, y, 1, row, col)]
@@ -301,7 +313,7 @@ def Watershed(axis, processes=1):
         axis=axis)
 
     with fiona.open(drainage_shapefile) as fs:
-        
+
         seeds = [
             seed
             for feature in fs

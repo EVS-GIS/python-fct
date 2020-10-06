@@ -49,7 +49,7 @@ def ExportValleyProfile(axis, valley_profile, destination):
             'x': ('measure', valley_profile[:, 1]),
             'y': ('measure', valley_profile[:, 2]),
             'z': ('measure', valley_profile[:, 3]),
-            'valley_slope': ('measure', valley_profile[:, 4])
+            'slope': ('measure', valley_profile[:, 4])
         },
         coords={
             'axis': axis,
@@ -81,12 +81,12 @@ def ValleySwathElevation(axis):
 
     defs = xr.open_dataset(swath_defs)
     defs.load()
-    defs = defs.sortby('coordm')
+    defs = defs.sortby('measure')
 
     swids = list()
     values = list()
 
-    with click.progressbar(defs['label'].values) as iterator:
+    with click.progressbar(defs['swath'].values) as iterator:
         for gid in iterator:
 
             filename = config.filename('ax_swath_elevation_npz', axis=axis, gid=gid)
@@ -99,7 +99,7 @@ def ValleySwathElevation(axis):
 
                 if not (np.isnan(z0) or np.isnan(slope)):
 
-                    coordm = defs['coordm'].sel(label=gid).values
+                    coordm = defs['measure'].sel(label=gid).values
                     zvalley = slope*coordm + z0
 
                     swids.append(gid)
@@ -117,9 +117,19 @@ def ValleySwathElevation(axis):
 
 def ValleyElevationProfile(axis):
     """
-    Interpolate pixels and idealized elevation
-    along reference axis, in order to create
-    a smooth valley elevation profile
+    Creates a smooth valley elevation profile
+    by interpolating idealized floodplain elevation values
+    along reference axis
+
+    @api    fct-corridor:valley-profile
+
+    @input  reference_axis: ax_refaxis
+    @input  swath_bounds: ax_valley_swaths_bounds
+    @input  swath_raster: ax_valley_swaths
+    @input  elevation_floodplain: ax_swath_elevation_npz
+    @param  spline_order: 3
+
+    @output elevation_profile_floodplain: ax_elevation_profile_floodplain
     """
 
     refaxis_shapefile = config.filename('ax_refaxis', axis=axis)

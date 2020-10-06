@@ -116,7 +116,7 @@ def _UnitSwathProfile(axis, gid, bounds):
     swath_raster = tileset.filename('ax_valley_swaths', axis=axis)
     measure_raster = tileset.filename('ax_axis_measure', axis=axis)
     distance_raster = tileset.filename('ax_axis_distance', axis=axis)
-    talweg_distance_raster = tileset.filename('ax_talweg_distance', axis=axis)
+    talweg_distance_raster = tileset.filename('ax_nearest_distance', axis=axis)
     elevation_raster = tileset.filename('dem')
     hand_raster = tileset.filename('ax_nearest_height', axis=axis)
     # hand_raster = tileset.filename('ax_valley_mask', axis=axis)
@@ -291,100 +291,85 @@ def UnitSwathProfile(axis, gid, bounds):
         return axis, gid, None
 
 def SwathProfiles(axis, processes=1):
+    """
+    Calculate elevation swath profiles
 
-    swath_shapefile = config.filename('ax_valley_swaths_polygons', axis=axis)
+    @api    fct-swath:profile-elevation
+
+    @input  dem: dem
+    @input  swath_bounds: ax_valley_swaths_bounds
+    #input  swath_polygons: ax_valley_swaths_polygons
+    @input  swath_raster: ax_valley_swaths
+    @input  axis_measure: ax_axis_measure
+    @input  axis_distance: ax_axis_distance
+    @input  talweg_distance: ax_talweg_distance
+    @input  height: ax_nearest_height
+
+    @param  min_slice_width: 10.0
+    @param  max_slice_count: 200
+    @param  max_fit_distance: 1000.0
+    @param  max_fit_height: 10.0
+    @param  quantiles: [.05, .25, .5, .75, .95]
+
+    @output swath_profile: ax_swath_elevation_npz
+    """
+
+    # swath_shapefile = config.filename('ax_valley_swaths_polygons', axis=axis)
     swath_bounds = config.filename('ax_valley_swaths_bounds', axis=axis)
     relative_errors = 0
     invalid_swaths = 0
 
-    if processes == 1:
+    kwargs = dict()
 
-        with fiona.open(swath_shapefile) as fs:
-            with click.progressbar(fs) as iterator:
-                for feature in iterator:
+    defs = xr.open_dataset(swath_bounds)
+    defs.load()
+    defs = defs.sortby('measure')
 
-                    gid = feature['properties']['GID']
-                    measure = feature['properties']['M']
-                    geometry = asShape(feature['geometry'])
-                    _, _, values = UnitSwathProfile(axis, gid, geometry.bounds)
+    length = defs['swath'].shape[0]
 
-                    if values['havf'].size == 0:
-                        relative_errors += 1
+    def arguments():
 
-                    output = config.filename('ax_swath_elevation_npz', axis=axis, gid=gid)
+        for k in range(length):
 
-                    np.savez(
-                        output,
-                        profile=(axis, gid, measure),
-                        **values)
+            gid = defs['swath'].values[k]
+            bounds = tuple(defs['bounds'].values[k, :])
 
-    else:
+            # if gid < 314:
+            #     continue
 
-        kwargs = dict()
-        # profiles = dict()
-        # arguments = list()
+            yield (
+                UnitSwathProfile,
+                axis,
+                gid,
+                bounds,
+                kwargs
+            )
 
-        # with fiona.open(swath_shapefile) as fs:
-        #     for feature in fs:
+    with Pool(processes=processes) as pool:
 
-        #         if feature['properties']['VALUE'] == 2:
+        pooled = pool.imap_unordered(starcall, arguments())
 
-        #             gid = feature['properties']['GID']
-        #             measure = feature['properties']['M']
-        #             geometry = asShape(feature['geometry'])
+        with click.progressbar(pooled, length=length) as iterator:
 
-        #             profiles[axis, gid] = [axis, gid, measure]
-        #             arguments.append([UnitSwathProfile, axis, gid, geometry.bounds, kwargs])
+            for _, gid, values in iterator:
 
-        defs = xr.open_dataset(swath_bounds)
-        defs.load()
-        defs = defs.sortby('coordm')
+                # profile = profiles[axis, gid]
+                measure = defs['measure'].sel(swath=gid).values
+                profile = [axis, gid, measure]
 
-        length = defs['swath'].shape[0]
+                if values is None:
+                    invalid_swaths += 1
+                    continue
 
-        def arguments():
+                if values['havf'].size == 0:
+                    relative_errors += 1
 
-            for k in range(length):
+                output = config.filename('ax_swath_elevation_npz', axis=axis, gid=gid)
 
-                gid = defs['swath'].values[k]
-                bounds = tuple(defs['bounds'].values[k, :])
-
-                # if gid < 314:
-                #     continue
-
-                yield (
-                    UnitSwathProfile,
-                    axis,
-                    gid,
-                    bounds,
-                    kwargs
-                )
-
-        with Pool(processes=processes) as pool:
-
-            pooled = pool.imap_unordered(starcall, arguments())
-
-            with click.progressbar(pooled, length=length) as iterator:
-
-                for _, gid, values in iterator:
-
-                    # profile = profiles[axis, gid]
-                    measure = defs['measure'].sel(swath=gid).values
-                    profile = [axis, gid, measure]
-
-                    if values is None:
-                        invalid_swaths += 1
-                        continue
-
-                    if values['havf'].size == 0:
-                        relative_errors += 1
-
-                    output = config.filename('ax_swath_elevation_npz', axis=axis, gid=gid)
-
-                    np.savez(
-                        output,
-                        profile=profile,
-                        **values)
+                np.savez(
+                    output,
+                    profile=profile,
+                    **values)
 
     if invalid_swaths:
         click.secho('%d invalid swath units' % invalid_swaths, fg='yellow')
@@ -398,12 +383,19 @@ def ExportElevationSwathsToNetCDF(axis):
     """
     Reads back elevation swath profile from disk,
     and bundles everyting into one netcdf file.
+
+    @api    fct-swath:export-elevation
+
+    @input  swath_elevation_npz: ax_swath_elevation_npz
+    @input  swath_bounds: ax_valley_swaths_bounds
+
+    @output swath_elevation: swath_elevation
     """
 
     swath_bounds = config.filename('ax_valley_swaths_bounds', axis=axis)
 
     defs = xr.open_dataset(swath_bounds)
-    defs = defs.load().sortby('coordm')
+    defs = defs.load().sortby('measure')
     length = defs['swath'].shape[0]
 
     swids = np.zeros(length, dtype='uint32')

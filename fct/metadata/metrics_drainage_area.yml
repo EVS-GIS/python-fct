@@ -1,7 +1,7 @@
 global:
   description: |-
     talweg-related metrics
-variables:
+coordinates:
   axis:
     long_name: stream identifier
   measure:
@@ -10,6 +10,7 @@ variables:
     units: m
   swath:
     long_name: swath identifier
+variables:
   drainage_area:
     long_name: upstream drainage/watershed area
     units: km^2

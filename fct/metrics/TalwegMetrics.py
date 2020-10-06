@@ -52,6 +52,17 @@ def InterpolateMissingValues(measures, values, kind='slinear'):
 def TalwegMetrics(axis):
     """
     Calculate median talweg height relative to valley floor
+
+    @api    fct-metrics:talweg
+
+    @input  dem: dem
+    @input  talweg: ax_talweg
+    @input  swath_bounds: ax_valley_swaths_bounds
+    @input  swath_raster: ax_valley_swaths
+    @input  axis_measure: ax_axis_measure
+    @input  swath_elevation: ax_swath_elevation_npz
+
+    @output metrics_talweg: metrics_talweg
     """
 
     elevation_raster = config.tileset().filename('dem')

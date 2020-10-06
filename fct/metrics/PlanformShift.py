@@ -94,9 +94,9 @@ def PlanformAmplitude(planform_shift, window=20):
     """
 
     return np.sqrt(
-        np.square(planform_shift)
-            .rolling(measure=window, min_periods=1, center=True)
-            .mean()
+        2 * np.square(planform_shift)
+        .rolling(measure=window, min_periods=1, center=True)
+        .mean()
     )
 
 def WritePlanforMetrics(axis, dataset):

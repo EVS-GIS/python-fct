@@ -1,9 +1,11 @@
 global:
   description: |-
     corridor buffer metrics by lancover class
-variables:
+coordinates:
   axis:
     long_name: stream identifier
+  swath:
+    long_name: swath identifier
   measure:
     long_name: position along reference axis
     standard_name: linref_m_coordinate
@@ -13,8 +15,7 @@ variables:
     long_name: landcover class label
   side:
     long_name: side of measurement, left or right
-  swath:
-    long_name: swath identifier
+variables:
   buffer_area:
     long_name: swath area of landcover class k
     units: m^2

@@ -96,7 +96,7 @@ def TileHypsometry(axis, row, col, zbins):
 
     if axis is not None:
 
-        watershed_raster = config.tileset().tilename('ax_watershed', axis=axis, row=row, col=col)
+        watershed_raster = config.tileset().tilename('ax_watershed_raster', axis=axis, row=row, col=col)
 
         if os.path.exists(watershed_raster):
 
@@ -122,7 +122,20 @@ def TileHypsometry(axis, row, col, zbins):
 
 def Hypsometry(axis, processes=1, **kwargs):
     """
-    DOCME
+    Calculate elevation distributions (hypsometer)
+
+    @api    fct-metrics:hypsometry
+
+    @input  dem: dem
+    @input  watershed_mask: ax_watershed_raster
+
+    @param  minz: 0.0
+    @param  maxz: 4800.0
+    @param  dz: 10.0
+    @param  pixel_area: 25.0e-6
+
+    @output metrics_hypsometry: metrics_hypsometry_global
+    @output metrics_hypsometry: metrics_hypsometry
     """
 
     tileset = config.tileset()
@@ -163,9 +176,9 @@ def Hypsometry(axis, processes=1, **kwargs):
             'z': np.float32(zbins)
         })
 
-        set_metadata(dataset, 'metrics_hypsometer')
+        set_metadata(dataset, 'metrics_hypsometry')
 
-        output = config.filename('metrics_hypsometer')
+        output = config.filename('metrics_hypsometry_global')
         dataset.to_netcdf(output, 'w')
 
     else:
@@ -178,9 +191,9 @@ def Hypsometry(axis, processes=1, **kwargs):
             'z': np.float32(zbins)
         })
 
-        set_metadata(dataset, 'metrics_hypsometer')
+        set_metadata(dataset, 'metrics_hypsometry')
 
-        output = config.filename('metrics_hypsometer_ax', axis=axis)
+        output = config.filename('metrics_hypsometry', axis=axis)
         dataset.to_netcdf(output, 'w')
 
 

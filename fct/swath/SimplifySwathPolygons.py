@@ -51,6 +51,14 @@ def SimplifySwathPolygons(axis, distance, iterations):
     """
     Simplify (Douglas-Peucker) and smooth (Chaikin) swath polygons
     preserving shared boundaries
+
+    @api    fct-swath:simplify
+
+    @input  swaths_polygons:   ax_valley_swaths_polygons
+    @param  dist_tolerance:    20.0
+    @param  smooth_iterations: 3
+
+    @output simplified: ax_swath_polygons_vb_simplified
     """
 
     polygon_shapefile = config.filename('ax_valley_swaths_polygons', axis=axis)

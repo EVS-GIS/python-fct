@@ -431,7 +431,6 @@ ax_watershed_raster:
     template: WATERSHED_%(row)02d_%(col)02d
     extension: .tif
 
-
 ax_watershed:
   description: |
     Watershed delineation

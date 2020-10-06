@@ -256,6 +256,21 @@ def ShortestHeightDefaultParameters():
 def ShortestHeight(axis, processes=1, **kwargs):
     """
     Valley bottom extraction procedure - shortest path exploration
+
+    @api    fct-corridor:shortest-height
+
+    @input  dem: dem
+    @input  talweg: ax_talweg
+
+    @param  max_dz: 20.0
+    @param  min_distance: 20
+    @param  max_distance: 5000
+    @param  jitter: 0.4
+
+    @output height: ax_shortest_height
+    @output distance: ax_shortest_distance
+    @output state: ax_shortest_state
+    @output tiles: ax_shortest_tiles
     """
 
     parameters = ShortestHeightDefaultParameters()

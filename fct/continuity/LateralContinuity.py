@@ -139,7 +139,19 @@ def LateralContinuity(
         output='ax_continuity',
         **kwargs):
     """
-    Calculate LandCover Continuity from River Channel
+    Calculate landcover continuity from river channel
+
+    @api    fct-corridor:continuity-weighted
+
+    @input  landcover: landcover-bdt
+    @input  distance: ax_talweg_distance
+    @input  heigth: ax_nearest_height
+
+    @param  with_infra: True
+    @param  max_height: 20.0
+    @param  padding: 200
+
+    @output continuity_map_weighted: ax_continuity
 
     Parameters
     ----------

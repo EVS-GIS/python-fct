@@ -170,6 +170,21 @@ def ValleyBottomSwathProfile(axis, processes=1, **kwargs):
          pixel area of slice at distance x from reference axis,
          as defined by ax_axis_distance
 
+    @api    fct-swath:profile-valleybottom
+
+    @input  swath_raster: ax_valley_swaths
+    @input  swath_polygons: ax_valley_swaths_polygons
+    @input  axis_distance: ax_axis_distance
+    @input  drainage_distance: ax_nearest_distance
+    @input  drainage_height: ax_nearest_height
+    @input  mask: ax_valley_mask_refined
+
+    @param  min_slice_width: 10.0
+    @param  max_slice_count: 200
+    @param  heights: np.arange(5.0, 15.5, 0.5)
+
+    @output swath_valleybottom_npz: ax_swath_valleybottom_npz
+
     Parameters
     ----------
 
@@ -290,8 +305,15 @@ def ValleyBottomSwathProfile(axis, processes=1, **kwargs):
 
 def ExportValleyBottomSwathsToNetCDF(axis, **kwargs):
     """
-    Reads back landcover swath profile from disk,
+    Reads landcover swath profile back from disk,
     and bundles everyting into one netcdf file.
+
+    @api    fct-swath:export-valleybottom
+
+    @input  swath_bounds: ax_valley_swaths_bounds
+    @input  swath_valleybottom_npz: ax_swath_valleybottom_npz
+    
+    @output swath_valleybottom: swath_valleybottom
     """
 
     defaults = dict(
@@ -313,7 +335,6 @@ def ExportValleyBottomSwathsToNetCDF(axis, **kwargs):
     defs = xr.open_dataset(swath_bounds)
     defs = defs.load().sortby('measure')
     length = defs['swath'].shape[0]
-    nclasses = 9
 
     heights = np.arange(5.0, 15.5, 0.5)
 

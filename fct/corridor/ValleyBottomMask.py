@@ -159,6 +159,20 @@ def ValleyBottomMask(axis, ax_tiles='ax_shortest_tiles', processes=1, **kwargs):
     """
     Creates a raster buffer with distance buffer_width pixels
     around data pixels and crop out data outside of the resulting buffer
+
+    @api    fct-corridor:valleymask
+
+    @input  tiles: ax_shortest_tiles
+    @input  height: ax_nearest_height
+    @input  distance: ax_nearest_distance
+
+    @param  dist_resolution: 1.0
+    @param  min_distance: 1000.0
+    @param  max_slope: 0.01
+    @param  max_height: 12.0
+    @param  buffer_width: 40.0
+
+    @output mask: ax_valley_mask
     """
 
     parameters = ValleyBottomMaskDefaultParameters()

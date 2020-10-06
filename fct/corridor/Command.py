@@ -224,25 +224,6 @@ def refine_valley_mask(axis, threshold, processes):
 
     buildvrt('default', 'ax_valley_mask_refined', axis=axis)
 
-@cli.command('medialaxis')
-@arg_axis
-def valley_medial_axis(axis):
-    """
-    Calculate valley medial axis
-    """
-
-    from .ValleyMedialAxis import (
-        ValleyMedialAxis,
-        ExportValleyMedialAxisToShapefile,
-        unproject
-    )
-
-    medialaxis = ValleyMedialAxis(axis, processes=6)
-    data = xr.Dataset({'dist': ('measure', medialaxis[:, 1])}, coords={'measure': medialaxis[:, 0]})
-    smoothed = data.rolling(measure=5, center=True, min_periods=1).mean()
-    transformed = unproject(axis, np.column_stack([smoothed.measure, smoothed.dist]))
-    ExportValleyMedialAxisToShapefile(axis, transformed[~np.isnan(transformed[:, 1])])
-
 @cli.command()
 @arg_axis
 def valley_profile(axis):
@@ -263,7 +244,7 @@ def valley_profile(axis):
 @arg_axis
 def talweg_profile(axis):
     """
-    Calculate idealized/smoothed valley elevation profile
+    Calculate idealized/smoothed talweg elevation profile
     """
 
     from .TalwegElevationProfile import TalwegElevationProfile
@@ -357,47 +338,47 @@ def continuity(axis, processes, maxiter, infra):
     elapsed = time.time() - start_time
     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
 
-@cli.command()
-@arg_axis
-@click.option('--width', '-b', default=40.0, help='buffer width in pixels')
-@parallel_opt
-def corridor_mask(axis, width, processes):
-    """
-    Calculate natural/reversible corridor
-    """
+# @cli.command()
+# @arg_axis
+# @click.option('--width', '-b', default=40.0, help='buffer width in pixels')
+# @parallel_opt
+# def corridor_mask(axis, width, processes):
+#     """
+#     Calculate natural/reversible corridor
+#     """
 
-    from .CorridorMask import CorridorMask
+#     from .CorridorMask import CorridorMask
 
-    start_time = PrintCommandInfo(
-        'natural corridor mask',
-        axis,
-        processes,
-        dict(buffer_width=width))
+#     start_time = PrintCommandInfo(
+#         'natural corridor mask',
+#         axis,
+#         processes,
+#         dict(buffer_width=width))
 
-    CorridorMask(
-        axis=axis,
-        buffer_width=width,
-        ax_tiles='ax_shortest_tiles',
-        processes=processes)
+#     CorridorMask(
+#         axis=axis,
+#         buffer_width=width,
+#         ax_tiles='ax_shortest_tiles',
+#         processes=processes)
 
-    elapsed = time.time() - start_time
-    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+#     elapsed = time.time() - start_time
+#     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
 
-@cli.command()
-@arg_axis
-def valley_bottom_boundary(axis):
-    """
-    Pseudo valley bottom boundary
-    """
+# @cli.command()
+# @arg_axis
+# def valley_bottom_boundary(axis):
+#     """
+#     Pseudo valley bottom boundary
+#     """
 
-    from .ValleyBottomBoundary import ValleyBottomBoundary
+#     from .ValleyBottomBoundary import ValleyBottomBoundary
 
-    start_time = PrintCommandInfo(
-        'valley bottom boundary',
-        axis,
-        1)
+#     start_time = PrintCommandInfo(
+#         'valley bottom boundary',
+#         axis,
+#         1)
 
-    ValleyBottomBoundary(axis)
+#     ValleyBottomBoundary(axis)
 
-    elapsed = time.time() - start_time
-    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+#     elapsed = time.time() - start_time
+#     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))

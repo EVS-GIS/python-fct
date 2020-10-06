@@ -399,7 +399,8 @@ def drainage_raster():
 @click.option('--processes', '-j', default=1)
 def delineate_watershed(axis, processes):
     """
-    Delineate watershed from drainage network/flow raster
+    Delineate watershed
+    from drainage network and flow direction raster
     """
 
     #pylint:disable=import-outside-toplevel
