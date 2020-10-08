@@ -58,7 +58,7 @@ extensions = [
 setup(
     name='fct',
     version=version,
-    packages=['fct'],
+    packages=find_packages(),
     ext_modules=cythonize(extensions),
     include_package_data=True,
     install_requires=[
@@ -70,7 +70,9 @@ setup(
         'shapely>=1.7',
         'pyyaml>=5.3',
         'Click>=7.0',
-        'pydotenv'
+        'matplotlib>=3.2',
+        'pycairo>=1.19',
+        'python-dotenv'
     ],
     entry_points='''
         [console_scripts]

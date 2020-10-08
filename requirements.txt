@@ -1,4 +1,5 @@
 cython
+wheel
 numpy>=1.18
 xarray>=0.15
 xarray-extras>=0.4.2
@@ -9,6 +10,8 @@ fiona>=1.8.6
 shapely>=1.7
 pyyaml>=5.3
 Click>=7.0
+matplotlib>=3.2
+pycairo>=1.19
 duecredit>=0.8
-pydotenv
+python-dotenv
 rastachimp

@@ -1,7 +1,5 @@
-matplotlib>=3.2
 seaborn>=0.10
 plotly>=4.9
-pycairo>=1.19
 PyWavelets>=1.1.1
 sklearn
 scikit-learn>=0.23
