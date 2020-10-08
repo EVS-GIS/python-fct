@@ -1,6 +1,6 @@
 #FROM ubuntu:focal
-FROM python:3.8-buster as build
-MAINTAINER rototo
+FROM python:3.8-buster AS build
+MAINTAINER crousson
 
 RUN  export DEBIAN_FRONTEND=noninteractive
 ENV  DEBIAN_FRONTEND noninteractive
@@ -22,21 +22,21 @@ RUN apt-get update -qq && apt-get install -y \
 #RUN apt-get update -qq && apt-get install -y \
 #  git-core
 
-RUN echo "/opt/lib/python3.8/site-packages/" > /usr/local/python3.8/site-packages/opt.path \
- && git clone https://github.com/tramebleue/fct-cli /opt/fct-cli \
+RUN git clone https://github.com/tramebleue/fct-cli /opt/fct-cli \
  && cd /opt/fct-cli \
- && python3 -m pip install --prefix /opt --upgrade pip \
- && python3 -m pip install --prefix /opt -r requirements.txt \
- && python3 -m pip install --prefix /opt sklearn \
- && python3 -m pip install --prefix /opt -r recommended.txt
+ && python3 -m pip install --no-warn-script-location --user --upgrade pip \
+ && python3 -m pip install --no-warn-script-location --user -r requirements.txt \
+ && python3 -m pip install --no-warn-script-location --user sklearn \
+ && python3 -m pip install --no-warn-script-location --user -r recommended.txt \
+ && chmod a+rx /root/.local/lib/python3.8/site-packages
 
 RUN cd /opt/fct-cli \
  && git submodule init \
  && git submodule update --remote \
- && python3 -m pip install --prefix /opt .
+ && python3 -m pip install --no-warn-script-location --user .
 
 FROM python:3.8-buster
-MAINTAINER rototo
+MAINTAINER crousson
 
 RUN apt-get update -qq && apt-get install -y \
   libssl1.1 \
@@ -54,5 +54,5 @@ RUN apt-get update -qq && apt-get install -y \
 RUN addgroup --gid 1000 fct \
  && adduser --uid 1000 --gid 1000 --disabled-password --gecos "" fct
 
-COPY --from=build /opt /usr/local/
-#USER fct
+COPY --from=build /root/.local /usr/local/
+USER fct
