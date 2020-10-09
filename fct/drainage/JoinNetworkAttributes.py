@@ -21,13 +21,14 @@ import click
 import fiona
 import fiona.crs
 from shapely.geometry import asShape
+from shapely.ops import linemerge
 
 from ..config import config
 
 def JoinNetworkAttributes(
-        sourcefile='sources',
-        networkfile='streams-attr',
-        destination='streams-attr-sources'):
+        sources_shapefile,
+        network_shapefile,
+        output):
     """
     Join source attributes to network segments,
     based on network structure and CDENTITEHY hierarchy.
@@ -57,9 +58,9 @@ def JoinNetworkAttributes(
     """
 
 
-    sources_shapefile = config.tileset().filename(sourcefile)
-    network_shapefile = config.tileset().filename(networkfile)
-    output = config.tileset().filename(destination)
+    # sources_shapefile = config.tileset().filename(sourcefile)
+    # network_shapefile = config.tileset().filename(networkfile)
+    # output = config.tileset().filename(destination)
 
     # sources_shapefile = config.filename(sourcefile)
     # network_shapefile = config.filename(networkfile)
@@ -250,8 +251,8 @@ def JoinNetworkAttributes(
                     dst.write(feature)
 
 def UpdateLengthOrder(
-        joined='streams-attr-sources',
-        destination='streams'):
+        network_shapefile,
+        output):
     """
     Update HACK et LENAXIS fields
     according to network connectivity and AXIS identifier
@@ -269,8 +270,8 @@ def UpdateLengthOrder(
         Output dataset
     """
 
-    network_shapefile = config.tileset().filename(joined)
-    output = config.tileset().filename(destination)
+    # network_shapefile = config.tileset().filename(joined)
+    # output = config.tileset().filename(destination)
 
     # network_shapefile = config.filename(joined)
     # output = config.filename(destination)
@@ -286,12 +287,14 @@ def UpdateLengthOrder(
             for feature in iterator:
 
                 properties = feature['properties']
-                geometry = asShape(feature['geometry'])
                 axis = properties['AXIS']
-                lengths[axis] += geometry.length
 
                 a = properties['NODEA']
                 b = properties['NODEB']
+
+                geometry = asShape(feature['geometry'])
+                lengths[axis] += geometry.length
+
                 graph[a] = (b, axis)
                 indegree[b] += 1
 
@@ -362,5 +365,74 @@ def UpdateLengthOrder(
                         'HACK': orders[a] if a in orders else None,
                         'LENAXIS': lengths[axis]
                     })
+
+                    dst.write(feature)
+
+def AggregateByAxis(network_shapefile, output):
+
+    graph = dict()
+    indegree = Counter()
+    segments = defaultdict(list)
+
+    with fiona.open(network_shapefile) as fs:
+        
+        with click.progressbar(fs) as iterator:
+            for feature in iterator:
+
+                properties = feature['properties']
+                axis = properties['AXIS']
+
+                a = properties['NODEA']
+                b = properties['NODEB']
+
+                segments[axis].append(feature['id'])
+
+                graph[a] = (b, axis, feature['id'])
+                indegree[b] += 1
+
+        sources = [
+            node for node in graph
+            if indegree[node] == 0
+        ]
+
+        options = dict(
+            driver=fs.driver,
+            crs=fs.crs,
+            schema=fs.schema
+        )
+
+        def get_nodeb(a, axis):
+
+            node = a
+
+            while node in graph:
+
+                next_node, next_axis, _ = graph[node]
+
+                if next_axis != axis:
+                    break
+
+                node = next_node
+
+            return node
+
+        with fiona.open(output, 'w', **options) as dst:
+            with click.progressbar(sources) as iterator:
+                for source in iterator:
+
+                    _, axis, fid = graph[source]
+                    feature = fs.get(fid)
+                    properties = feature['properties']
+
+                    geometry = linemerge([
+                        asShape(fs.get(fid)['geometry'])
+                        for fid in segments[axis]
+                    ])
+
+                    a = properties['NODEA']
+                    b = get_nodeb(a, axis)
+                    properties.update({'NODEB': b})
+
+                    feature['geometry'] = geometry.__geo_interface__
 
                     dst.write(feature)

@@ -36,7 +36,6 @@ RUN cd /opt/fct-cli \
  && python3 -m pip install --no-warn-script-location --user .
 
 FROM python:3.8-buster
-MAINTAINER crousson
 
 RUN apt-get update -qq && apt-get install -y \
   libssl1.1 \
