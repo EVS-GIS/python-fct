@@ -139,7 +139,8 @@ SwathMeasurementParams = namedtuple('SwathMeasurementParams', [
 
 def ValleyBottomParameters():
     """
-    Default parameters (valley swath units)
+    Create swaths units using talweg reference axis
+    and first-iteration valley bottom mask
     """
 
     return dict(
@@ -148,26 +149,26 @@ def ValleyBottomParameters():
         ax_talweg_distance='ax_nearest_distance',
         output_distance='ax_axis_distance',
         output_measure='ax_axis_measure',
-        output_swaths_raster='ax_valley_swaths',
-        output_swaths_shapefile='ax_valley_swaths_polygons',
-        output_swaths_bounds='ax_valley_swaths_bounds',
+        output_swaths_raster='ax_swaths_refaxis',
+        output_swaths_shapefile='ax_swaths_refaxis_polygons',
+        output_swaths_bounds='ax_swaths_refaxis_bounds',
         mdelta=200.0
     )
 
 def ValleyMedialAxisParameters():
     """
-    Default parameters (valley swath units)
+    Create swaths units using medial axis reference
     """
 
     return dict(
-        ax_mask='ax_valley_mask',
-        ax_reference='ax_valley_medialaxis',
+        ax_mask='ax_swaths_refaxis',
+        ax_reference='ax_medialaxis',
         ax_talweg_distance='ax_nearest_distance',
-        output_distance='ax_axis_distance',
-        output_measure='ax_axis_measure',
-        output_swaths_raster='ax_valley_swaths',
-        output_swaths_shapefile='ax_valley_swaths_polygons',
-        output_swaths_bounds='ax_valley_swaths_bounds',
+        output_distance='ax_medialaxis_distance',
+        output_measure='ax_medialaxis_measure',
+        output_swaths_raster='ax_swaths_medialaxis',
+        output_swaths_shapefile='ax_swaths_medialaxis_polygons',
+        output_swaths_bounds='ax_swaths_medialaxis_bounds',
         mdelta=200.0
     )
 
@@ -228,6 +229,9 @@ def DisaggregateTileIntoSwaths(axis, row, col, params, **kwargs):
     output_swaths_raster = _tilename(params.output_swaths_raster)
 
     mdelta = params.mdelta
+
+    if not os.path.exists(mask_raster):
+        return {}
 
     with rio.open(mask_raster) as ds:
 

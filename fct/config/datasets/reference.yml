@@ -37,11 +37,11 @@ ax_drainage_network:
   subdir: AXES/AX%(axis)04d/REF
   filename: DRAINAGE.shp
 
-ax_valley_medialaxis:
+ax_medialaxis:
   description: |
     Valley medial axis
   type: linestring
   group: reference
   status: final
   subdir: AXES/AX%(axis)04d/REF
-  filename: VALLEY_MEDIAL_AXIS.shp
+  filename: MEDIAL_AXIS.shp

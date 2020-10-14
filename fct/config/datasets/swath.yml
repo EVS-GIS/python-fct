@@ -1,6 +1,6 @@
-# swaths
+# Swaths construction
 
-ax_valley_swaths:
+ax_swaths_refaxis:
   description: |
     Valley bottom longitudinal units
     (raster intermediate result)
@@ -8,26 +8,13 @@ ax_valley_swaths:
   group: reference
   status: temporary
   subdir: AXES/AX%(axis)04d/TEMP
-  filename: VALLEY_SWATHS.vrt
+  filename: SWATHS_REFAXIS.vrt
   tiles:
     tileset: landcover
-    template: VALLEY_SWATHS_%(row)02d_%(col)02d
+    template: SWATHS_REFAXIS_%(row)02d_%(col)02d
     extension: .tif
 
-ax_valley_swaths_polygons:
-  description: |
-    Valley bottom longitudinal units
-  type: polygon
-  group: reference
-  status: final
-  subdir: AXES/AX%(axis)04d/REF
-  filename: VALLEY_SWATHS.shp
-  tiles:
-    tileset: landcover
-    template: VALLEY_SWATHS_%(row)02d_%(col)02d
-    extension: .shp
-
-ax_valley_swaths_bounds:
+ax_swaths_refaxis_bounds:
   description: |
     coordinate and bounds of valley bottom
     spatial units (after disaggregation)
@@ -35,7 +22,137 @@ ax_valley_swaths_bounds:
   group: reference
   status: temporary
   subdir: AXES/AX%(axis)04d/TEMP
-  filename: VALLEY_SWATH_BOUNDS.nc
+  filename: SWATHS_REFAXIS_BOUNDS.nc
+
+ax_swaths_refaxis_polygons:
+  description: |
+    Valley bottom longitudinal units
+  type: polygon
+  group: reference
+  status: final
+  subdir: AXES/AX%(axis)04d/REF
+  filename: SWATHS_REFAXIS.shp
+  tiles:
+    tileset: landcover
+    template: SWATHS_REFAXIS_%(row)02d_%(col)02d
+    extension: .shp
+
+ax_swaths_refaxis_polygons_simplified:
+  description: |
+    Valley bottom (floodplain) longitudinal units,
+    simplified and smoothed for display
+  type: polygon
+  group: reference
+  status: final
+  subdir: AXES/AX%(axis)04d/REF
+  filename: SWATHS_REFAXIS_SIMPL.shp
+
+ax_swaths_medialaxis:
+  description: |
+    Valley bottom longitudinal units
+    (raster intermediate result)
+  type: raster
+  group: reference
+  status: temporary
+  subdir: AXES/AX%(axis)04d/TEMP
+  filename: SWATHS_MEDIALAXIS.vrt
+  tiles:
+    tileset: landcover
+    template: SWATHS_MEDIALAXIS_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_swaths_medialaxis_bounds:
+  description: |
+    coordinate and bounds of valley bottom
+    spatial units (after disaggregation)
+  type: netcdf
+  group: reference
+  status: temporary
+  subdir: AXES/AX%(axis)04d/TEMP
+  filename: SWATHS_MEDIALAXIS_BOUNDS.nc
+
+ax_swaths_medialaxis_polygons:
+  description: |
+    Valley bottom longitudinal units
+  type: polygon
+  group: reference
+  status: temporary
+  subdir: AXES/AX%(axis)04d/REF
+  filename: SWATHS_MEDIALAXIS.shp
+  tiles:
+    tileset: landcover
+    template: SWATHS_MEDIALAXIS_%(row)02d_%(col)02d
+    extension: .shp
+
+ax_swaths_medialaxis_polygons_simplified:
+  description: |
+    Valley bottom (floodplain) longitudinal units,
+    based on valley medial axis,
+    simplified and smoothed for display
+  type: polygon
+  group: reference
+  status: final
+  subdir: AXES/AX%(axis)04d/REF
+  filename: SWATHS_MEDIALAXIS_SIMPL.shp
+
+# Swath profiles
+
+ax_swath_elevation_npz:
+  description: |
+    Elevation swath
+  type: npz
+  group: metrics
+  status: temporary
+  subdir: AXES/AX%(axis)04d/SWATH/ELEVATION
+  filename: SWATH_ELEVATION_%(gid)04d.npz
+
+ax_swath_landcover_npz:
+  description: |
+    Landcover swath
+  type: npz
+  group: metrics
+  status: temporary
+  subdir: AXES/AX%(axis)04d/SWATH/LANDCOVER
+  filename: SWATH_LANDCOVER_%(gid)04d_%(subset)s.npz
+
+ax_swath_valleybottom_npz:
+  description: |
+    Swath transform of valley bottom mask
+    used to measure valley bottom width
+  type: npz
+  group: metrics
+  status: temporary
+  subdir: AXES/AX%(axis)04d/SWATH/VALLEYBOTTOM
+  filename: SWATH_VALLEYBOTTOM_%(gid)04d.npz
+
+swath_elevation:
+  description: |
+    Elevation swath profiles (netCDF archive)
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: ELEVATION_SWATH_PROFILES.nc
+
+swath_landcover:
+  description: |
+    LandCover swath profiles (netCDF archive)
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: LANDCOVER_SWATH_PROFILES_%(subset)s.nc
+
+swath_valleybottom:
+  description: |
+    Valleybottom swath profiles (netCDF archive)
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: VALLEYBOTTOM_SWATH_PROFILES.nc
+
+# Unused, to be removed
 
 ax_corridor_swaths:
   description: |
@@ -162,67 +279,3 @@ ax_swath_polygons:
   status: temporary
   subdir: AXES/AX%(axis)04d/REF
   filename: DGO.shp
-
-ax_swath_polygons_vb_simplified:
-  description: |
-    Valley bottom (floodplain) longitudinal units,
-    simplified and smoothed for display
-  type: polygon
-  group: reference
-  status: final
-  subdir: AXES/AX%(axis)04d/REF
-  filename: VALLEY_SWATHS_SIMPL.shp
-
-ax_swath_elevation_npz:
-  description: |
-    Elevation swath
-  type: npz
-  group: metrics
-  status: temporary
-  subdir: AXES/AX%(axis)04d/SWATH/ELEVATION
-  filename: SWATH_ELEVATION_%(gid)04d.npz
-
-ax_swath_landcover_npz:
-  description: |
-    Landcover swath
-  type: npz
-  group: metrics
-  status: temporary
-  subdir: AXES/AX%(axis)04d/SWATH/LANDCOVER
-  filename: SWATH_LANDCOVER_%(gid)04d_%(subset)s.npz
-
-ax_swath_valleybottom_npz:
-  description: |
-    Landcover swath
-  type: npz
-  group: metrics
-  status: temporary
-  subdir: AXES/AX%(axis)04d/SWATH/VALLEYBOTTOM
-  filename: SWATH_VALLEYBOTTOM_%(gid)04d.npz
-
-swath_elevation:
-  description: |
-    Elevation swath profiles (netCDF archive)
-  type: netcdf
-  group: metrics
-  status: final
-  subdir: AXES/AX%(axis)04d/METRICS
-  filename: ELEVATION_SWATH_PROFILES.nc
-
-swath_landcover:
-  description: |
-    LandCover swath profiles (netCDF archive)
-  type: netcdf
-  group: metrics
-  status: final
-  subdir: AXES/AX%(axis)04d/METRICS
-  filename: LANDCOVER_SWATH_PROFILES_%(subset)s.nc
-
-swath_valleybottom:
-  description: |
-    Valleybottom swath profiles (netCDF archive)
-  type: netcdf
-  group: metrics
-  status: final
-  subdir: AXES/AX%(axis)04d/METRICS
-  filename: VALLEYBOTTOM_SWATH_PROFILES.nc

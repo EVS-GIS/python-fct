@@ -47,7 +47,12 @@ from ..config import config
 
 #     return f_simpl_features
 
-def SimplifySwathPolygons(axis, distance, iterations):
+def SimplifySwathPolygons(
+        axis,
+        distance,
+        iterations,
+        polygons='ax_valley_swaths_polygons',
+        output='ax_swath_polygons_vb_simplified'):
     """
     Simplify (Douglas-Peucker) and smooth (Chaikin) swath polygons
     preserving shared boundaries
@@ -61,8 +66,8 @@ def SimplifySwathPolygons(axis, distance, iterations):
     @output simplified: ax_swath_polygons_vb_simplified
     """
 
-    polygon_shapefile = config.filename('ax_valley_swaths_polygons', axis=axis)
-    output = config.filename('ax_swath_polygons_vb_simplified', axis=axis)
+    polygon_shapefile = config.filename(polygons, axis=axis)
+    output_shapefile = config.filename(output, axis=axis)
 
     with fiona.open(polygon_shapefile) as fs:
 
@@ -88,7 +93,7 @@ def SimplifySwathPolygons(axis, distance, iterations):
 
         options = dict(driver=fs.driver, crs=fs.crs, schema=fs.schema)
 
-        with fiona.open(output, 'w', **options) as dst:
+        with fiona.open(output_shapefile, 'w', **options) as dst:
 
             for geometry, fid in simplified:
 

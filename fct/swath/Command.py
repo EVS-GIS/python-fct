@@ -62,9 +62,17 @@ def discretize(axis, length, medialaxis, processes):
 
     WriteSwathsBounds(axis, swaths, **parameters)
 
-    buildvrt('default', 'ax_valley_swaths', axis=axis)
-    buildvrt('default', 'ax_axis_measure', axis=axis)
-    buildvrt('default', 'ax_axis_distance', axis=axis)
+    if medialaxis:
+
+        buildvrt('default', 'ax_swaths_medialaxis', axis=axis)
+        buildvrt('default', 'ax_medialaxis_measure', axis=axis)
+        buildvrt('default', 'ax_medialaxis_distance', axis=axis)
+
+    else:
+
+        buildvrt('default', 'ax_swaths_refaxis', axis=axis)
+        buildvrt('default', 'ax_axis_measure', axis=axis)
+        buildvrt('default', 'ax_axis_distance', axis=axis)
 
     click.secho('Vectorize swath polygons', fg='cyan')
     VectorizeSwathPolygons(
@@ -175,10 +183,10 @@ def update(axis, medialaxis, processes):
 
 @fct_command(cli, 'simplify swath polygons', name='simplify')
 @arg_axis
-# @click.option('--medialaxis', default=False, is_flag=True, help='use medial axis for reference')
 @click.option('--simplify', default=20.0, help='simplify distance tolerance (Douglas-Peucker)')
 @click.option('--smooth', default=3, help='smoothing iterations (Chaikin)')
-def simplify_swath_polygons(axis, simplify, smooth):
+@click.option('--medialaxis', default=False, is_flag=True, help='use medial axis for reference')
+def simplify_swath_polygons(axis, simplify, smooth, medialaxis):
     """
     Simplify and smooth swath polygons
     """
@@ -187,7 +195,23 @@ def simplify_swath_polygons(axis, simplify, smooth):
         SimplifySwathPolygons
     )
 
-    SimplifySwathPolygons(axis, simplify, smooth)
+    if medialaxis:
+
+        SimplifySwathPolygons(
+            axis,
+            simplify,
+            smooth,
+            polygons='ax_swaths_medialaxis_polygons',
+            output='ax_swaths_medialaxis_polygons_simplified')
+
+    else:
+
+        SimplifySwathPolygons(
+            axis,
+            simplify,
+            smooth,
+            polygons='ax_swaths_refaxis_polygons',
+            output='ax_swaths_refaxis_polygons_simplified')
 
 @fct_command(cli, 'swath medial axis', 'medialaxis')
 @arg_axis
