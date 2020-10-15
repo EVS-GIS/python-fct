@@ -50,7 +50,7 @@ def ExportTalwegElevationProfile(axis, profile, destination):
             'measure': profile[:, 0]
         })
 
-    set_metadata(dataset, 'elevation_profile_talweg')
+    set_metadata(dataset, 'profile_elevation_talweg')
 
     dataset.to_netcdf(
         destination,
@@ -72,7 +72,7 @@ def TalwegElevationProfile(axis):
     @api   fct-corridor:talweg-profile
 
     @input reference_axis: ax_refaxis
-    @input swath_raster: ax_valley_swaths
+    @input swath_raster: ax_swaths_refaxis
     @input elevation_talweg: metrics_talweg
     @param  spline_order: 3
 
@@ -80,7 +80,7 @@ def TalwegElevationProfile(axis):
     """
 
     refaxis_shapefile = config.filename('ax_refaxis', axis=axis)
-    swath_raster = config.tileset().filename('ax_valley_swaths', axis=axis)
+    swath_raster = config.tileset().filename('ax_swaths_refaxis', axis=axis)
     talweg_datafile = config.filename('metrics_talweg', axis=axis)
     talweg_data = xr.open_dataset(talweg_datafile)
 

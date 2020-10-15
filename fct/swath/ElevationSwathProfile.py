@@ -37,9 +37,9 @@ def TileCropInvalidRegions(axis, tile):
     DOCME
     """
 
-    invalid_shapefile = config.filename('ax_valley_swaths_polygons', axis=axis)
+    invalid_shapefile = config.filename('ax_swaths_refaxis_polygons', axis=axis)
     regions_raster = config.tileset().tilename(
-        'ax_valley_swaths',
+        'ax_swaths_refaxis',
         axis=axis,
         row=tile.row,
         col=tile.col)
@@ -113,7 +113,7 @@ def _UnitSwathProfile(axis, gid, bounds):
     # TODO split valley floor fit code into separate module
 
     tileset = config.tileset()
-    swath_raster = tileset.filename('ax_valley_swaths', axis=axis)
+    swath_raster = tileset.filename('ax_swaths_refaxis', axis=axis)
     measure_raster = tileset.filename('ax_axis_measure', axis=axis)
     distance_raster = tileset.filename('ax_axis_distance', axis=axis)
     talweg_distance_raster = tileset.filename('ax_nearest_distance', axis=axis)
@@ -297,9 +297,9 @@ def SwathProfiles(axis, processes=1):
     @api    fct-swath:profile-elevation
 
     @input  dem: dem
-    @input  swath_bounds: ax_valley_swaths_bounds
-    #input  swath_polygons: ax_valley_swaths_polygons
-    @input  swath_raster: ax_valley_swaths
+    @input  swath_bounds: ax_swaths_refaxis_bounds
+    #input  swath_polygons: ax_swaths_refaxis_polygons
+    @input  swath_raster: ax_swaths_refaxis
     @input  axis_measure: ax_axis_measure
     @input  axis_distance: ax_axis_distance
     @input  talweg_distance: ax_talweg_distance
@@ -314,8 +314,8 @@ def SwathProfiles(axis, processes=1):
     @output swath_profile: ax_swath_elevation_npz
     """
 
-    # swath_shapefile = config.filename('ax_valley_swaths_polygons', axis=axis)
-    swath_bounds = config.filename('ax_valley_swaths_bounds', axis=axis)
+    # swath_shapefile = config.filename('ax_swaths_refaxis_polygons', axis=axis)
+    swath_bounds = config.filename('ax_swaths_refaxis_bounds', axis=axis)
     relative_errors = 0
     invalid_swaths = 0
 
@@ -387,12 +387,12 @@ def ExportElevationSwathsToNetCDF(axis):
     @api    fct-swath:export-elevation
 
     @input  swath_elevation_npz: ax_swath_elevation_npz
-    @input  swath_bounds: ax_valley_swaths_bounds
+    @input  swath_bounds: ax_swaths_refaxis_bounds
 
     @output swath_elevation: swath_elevation
     """
 
-    swath_bounds = config.filename('ax_valley_swaths_bounds', axis=axis)
+    swath_bounds = config.filename('ax_swaths_refaxis_bounds', axis=axis)
 
     defs = xr.open_dataset(swath_bounds)
     defs = defs.load().sortby('measure')
@@ -415,6 +415,10 @@ def ExportElevationSwathsToNetCDF(axis):
 
             measure = defs['measure'].sel(swath=swid).values
             swathfile = config.filename('ax_swath_elevation_npz', axis=axis, gid=swid)
+
+            if not os.path.exists(swathfile):
+                continue
+                
             data = np.load(swathfile, allow_pickle=True)
 
             swids[k] = swid

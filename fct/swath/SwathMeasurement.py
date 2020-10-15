@@ -30,7 +30,7 @@ import rasterio as rio
 from rasterio import features
 import fiona
 import fiona.crs
-from shapely.geometry import asShape
+from shapely.geometry import asShape, Polygon
 
 from ..config import config
 # from ..tileio import ReadRasterTile
@@ -619,10 +619,11 @@ def VectorizeSwathPolygons(axis, processes=1, **kwargs):
                 for gid, measure, polygons in iterator:
                     for (polygon, value) in polygons:
 
-                        geom = asShape(polygon).buffer(0.0)
+                        geom = asShape(polygon)
+                        exterior = Polygon(geom.exterior)
 
                         feature = {
-                            'geometry': geom.__geo_interface__,
+                            'geometry': exterior.__geo_interface__,
                             'properties': {
                                 'GID': int(gid),
                                 'AXIS': axis,
@@ -634,6 +635,24 @@ def VectorizeSwathPolygons(axis, processes=1, **kwargs):
                         }
 
                         dst.write(feature)
+
+                        for ring in geom.interiors:
+
+                            if not exterior.contains(ring):
+
+                                feature = {
+                                    'geometry': Polygon(ring).__geo_interface__,
+                                    'properties': {
+                                        'GID': int(gid),
+                                        'AXIS': axis,
+                                        'VALUE': int(value),
+                                        # 'ROW': row,
+                                        # 'COL': col,
+                                        'M': float(measure)
+                                    }
+                                }
+
+                                dst.write(feature)
 
 def UpdateSwathTile(axis, tile, params):
 

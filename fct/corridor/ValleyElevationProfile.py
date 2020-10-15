@@ -56,7 +56,7 @@ def ExportValleyProfile(axis, valley_profile, destination):
             'measure': valley_profile[:, 0]
         })
 
-    set_metadata(dataset, 'elevation_profile_floodplain')
+    set_metadata(dataset, 'profile_elevation_floodplain')
 
     dataset.to_netcdf(
         destination,
@@ -72,10 +72,10 @@ def ExportValleyProfile(axis, valley_profile, destination):
 def ValleySwathElevation(axis):
     """
     Calculate median talweg height relative to valley floor
-    for each valley swath defined in ax_valley_swaths
+    for each valley swath defined in ax_swaths_refaxis
     """
 
-    swath_defs = config.filename('ax_valley_swaths_bounds', axis=axis)
+    swath_defs = config.filename('ax_swaths_refaxis_bounds', axis=axis)
 
     # swath => z0, slope
 
@@ -99,7 +99,7 @@ def ValleySwathElevation(axis):
 
                 if not (np.isnan(z0) or np.isnan(slope)):
 
-                    coordm = defs['measure'].sel(label=gid).values
+                    coordm = defs['measure'].sel(swath=gid).values
                     zvalley = slope*coordm + z0
 
                     swids.append(gid)
@@ -124,8 +124,8 @@ def ValleyElevationProfile(axis):
     @api    fct-corridor:valley-profile
 
     @input  reference_axis: ax_refaxis
-    @input  swath_bounds: ax_valley_swaths_bounds
-    @input  swath_raster: ax_valley_swaths
+    @input  swath_bounds: ax_swaths_refaxis_bounds
+    @input  swath_raster: ax_swaths_refaxis
     @input  elevation_floodplain: ax_swath_elevation_npz
     @param  spline_order: 3
 
@@ -133,7 +133,7 @@ def ValleyElevationProfile(axis):
     """
 
     refaxis_shapefile = config.filename('ax_refaxis', axis=axis)
-    swath_raster = config.tileset().filename('ax_valley_swaths', axis=axis)
+    swath_raster = config.tileset().filename('ax_swaths_refaxis', axis=axis)
     # measure_raster = config.tileset().filename('ax_axis_measure', axis=axis)
 
     swathid = np.array([], dtype='uint32')

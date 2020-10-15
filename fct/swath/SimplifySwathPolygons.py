@@ -100,3 +100,52 @@ def SimplifySwathPolygons(
                 feature = fs.get(fid)
                 feature.update(geometry=geometry.__geo_interface__)
                 dst.write(feature)
+
+# def SmoothSwathPolygons(
+#         axis,
+#         iterations,
+#         polygon_shapefile='ax_swaths_polygons_simplified',
+#         output_shapefile='ax_swaths_polygons_simplified'):
+#     """
+#     Smooth (Chaikin) swath polygons
+#     preserving shared boundaries
+
+#     @api    fct-swath:smooth
+
+#     @input  swaths_polygons:   ax_swaths_polygons_simplified
+#     @param  smooth_iterations: 3
+
+#     @output simplified: ax_swaths_polygons_simplified
+#     """
+
+#     # polygon_shapefile = config.filename(polygons, axis=axis)
+#     # output_shapefile = config.filename(output, axis=axis)
+
+#     features = list()
+#     properties = dict()
+
+#     with fiona.open(polygon_shapefile) as fs:
+
+#         options = dict(driver=fs.driver, crs=fs.crs, schema=fs.schema)
+
+#         for feature in fs:
+#             # if feature['properties']['VALUE'] == 2:
+
+#             fid = feature['id']
+#             properties[fid] = feature['properties']
+#             features.append((asShape(feature['geometry']), fid))
+
+#     smoothed = smooth_chaikin(
+#         features,
+#         iterations,
+#         keep_border=False)
+
+#     with fiona.open(output_shapefile, 'w', **options) as dst:
+
+#         for geometry, fid in smoothed:
+
+#             feature = dict(
+#                 geometry=geometry.__geo_interface__,
+#                 properties=properties[fid])
+
+#             dst.write(feature)

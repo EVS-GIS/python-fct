@@ -32,7 +32,7 @@ from ..cli import starcall
 def SwathMedialPoints(axis, swid, coordm, bounds, long_length, resolution):
 
     tileset = config.tileset()
-    swath_shapefile = config.filename('ax_valley_swaths_polygons', axis=axis)
+    swath_shapefile = config.filename('ax_swaths_refaxis_polygons', axis=axis)
     # swath_raster = tileset.filename('ax_valley_swaths', axis=axis)
     # measure_raster = tileset.filename('ax_axis_measure', axis=axis)
     distance_raster = tileset.filename('ax_axis_distance', axis=axis)
@@ -181,7 +181,7 @@ def SwathMedialAxis(axis, processes=1, **kwargs):
     @output medialaxis: ax_valley_medialaxis
     """
 
-    swath_defs = config.filename('ax_valley_swaths_bounds', axis=axis)
+    swath_defs = config.filename('ax_swaths_refaxis_bounds', axis=axis)
 
     long_length = 200.0
     resolution = 5.0
@@ -286,7 +286,7 @@ def unproject(axis, points):
 def ExportSwathMedialAxisToShapefile(axis, transformed):
 
     refaxis_shapefile = config.filename('ax_refaxis', axis=axis)
-    medialaxis_shapefile = config.filename('ax_valley_medialaxis', mod=False, axis=axis)
+    medialaxis_shapefile = config.filename('ax_medialaxis', mod=False, axis=axis)
 
     with fiona.open(refaxis_shapefile) as fs:
 

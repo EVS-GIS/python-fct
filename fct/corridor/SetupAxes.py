@@ -40,7 +40,7 @@ def SetupAxes():
 
                 # 1. Copy reference axis
 
-                output_refaxis = config.filename('ax_refaxis', axis=axis) # filename ok
+                output_refaxis = config.filename('ax_refaxis', mod=False, axis=axis) # filename ok
                 options = dict(driver=fs.driver, crs=fs.crs, schema=fs.schema)
 
                 with fiona.open(output_refaxis, 'w', **options) as fst:
@@ -48,7 +48,7 @@ def SetupAxes():
 
                 # 2. copy talweg from cartograhy
 
-                output_talweg = config.filename('ax_talweg', axis=axis) # filename ok
+                output_talweg = config.filename('ax_talweg', mod=False, axis=axis) # filename ok
 
                 with fiona.open(talweg_shapefile) as talweg_fs:
 
