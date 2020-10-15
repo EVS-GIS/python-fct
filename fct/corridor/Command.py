@@ -202,6 +202,26 @@ def valleymask(axis, vrt, processes):
 
 @cli.command()
 @arg_axis
+def medialaxis(axis):
+    """
+    Calculate corridor medial axis
+    """
+
+    from .MedialAxis import MedialAxis
+
+    start_time = PrintCommandInfo(
+        'corridor medial axis',
+        axis,
+        1,
+        {})
+
+    MedialAxis(axis)
+
+    elapsed = time.time() - start_time
+    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
+@cli.command()
+@arg_axis
 @click.option('--threshold', '-t', default=5.0, help='height threshold in meters')
 @parallel_opt
 def refine_valley_mask(axis, threshold, processes):

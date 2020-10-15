@@ -213,24 +213,24 @@ def simplify_swath_polygons(axis, simplify, smooth, medialaxis):
             polygons='ax_swaths_refaxis_polygons',
             output='ax_swaths_refaxis_polygons_simplified')
 
-@fct_command(cli, 'swath medial axis', 'medialaxis')
-@arg_axis
-def medial_axis(axis):
-    """
-    Calculate swath medial axis
-    """
+# @fct_command(cli, 'swath medial axis', 'medialaxis')
+# @arg_axis
+# def medial_axis(axis):
+#     """
+#     Calculate swath medial axis
+#     """
 
-    from .SwathMedialAxis import (
-        SwathMedialAxis,
-        ExportSwathMedialAxisToShapefile,
-        unproject
-    )
+#     from .SwathMedialAxis import (
+#         SwathMedialAxis,
+#         ExportSwathMedialAxisToShapefile,
+#         unproject
+#     )
 
-    medialaxis = SwathMedialAxis(axis, processes=6)
-    data = xr.Dataset({'dist': ('measure', medialaxis[:, 1])}, coords={'measure': medialaxis[:, 0]})
-    smoothed = data.rolling(measure=5, center=True, min_periods=1).mean()
-    transformed = unproject(axis, np.column_stack([smoothed.measure, smoothed.dist]))
-    ExportSwathMedialAxisToShapefile(axis, transformed[~np.isnan(transformed[:, 1])])
+#     medialaxis = SwathMedialAxis(axis, processes=6)
+#     data = xr.Dataset({'dist': ('measure', medialaxis[:, 1])}, coords={'measure': medialaxis[:, 0]})
+#     smoothed = data.rolling(measure=5, center=True, min_periods=1).mean()
+#     transformed = unproject(axis, np.column_stack([smoothed.measure, smoothed.dist]))
+#     ExportSwathMedialAxisToShapefile(axis, transformed[~np.isnan(transformed[:, 1])])
 
 @fct_command(cli, 'generate cross-profile swath axes', name='axes')
 @arg_axis
