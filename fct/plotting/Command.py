@@ -406,7 +406,7 @@ def plot_profile_slope(ctx, ax, axis, floodplain, talweg, smooth):
 
         data = data.sortby('measure', ascending=False)
         x = data['measure']
-        y = data['valley_slope']
+        y = data['slope']
         ax.plot(x, y, label='floodplain')
         SetupMeasureAxis(ax, x)
 

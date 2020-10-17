@@ -74,7 +74,7 @@ ax_medialaxis_measure:
   group: spatial reference
   status: temporary
   subdir: AXES/AX%(axis)04d
-  filename: AXIS_MEASURE.vrt
+  filename: MEDIALAXIS_MEASURE.vrt
   tiles:
     tileset: landcover
     template: MEDIALAXIS_MEASURE_%(row)02d_%(col)02d

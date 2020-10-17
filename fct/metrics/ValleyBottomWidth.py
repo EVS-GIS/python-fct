@@ -51,7 +51,7 @@ def ValleyBottomWidth(axis, swath_length=200.0, resolution=5.0):
 
     """
 
-    swath_shapefile = config.filename('ax_valley_swaths_polygons', axis=axis)
+    swath_shapefile = config.filename('ax_swaths_refaxis_polygons', axis=axis)
 
     heights = np.arange(5.0, 15.5, 0.5)
 

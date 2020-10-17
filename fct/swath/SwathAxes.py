@@ -31,7 +31,7 @@ from .SwathMedialAxis import SwathMedialPoints
 
 def unproject(axis, measures):
 
-    refaxis_shapefile = config.filename('ax_valley_medialaxis', axis=axis)
+    refaxis_shapefile = config.filename('ax_refaxis', axis=axis)
 
     with fiona.open(refaxis_shapefile) as fs:
 
@@ -84,7 +84,7 @@ def UnitSwathAxis(axis, k, gid, m0, bounds):
     DOCME
     """
 
-    dgo_raster = config.tileset().filename('ax_valley_swaths', axis=axis)
+    dgo_raster = config.tileset().filename('ax_swaths_refaxis', axis=axis)
     measure_raster = config.tileset().filename('ax_axis_measure', axis=axis)
     distance_raster = config.tileset().filename('ax_axis_distance', axis=axis)
     valleybottom_raster = config.tileset().filename('ax_valley_mask_refined', axis=axis)
@@ -160,7 +160,7 @@ def SwathAxes(axis, processes=1):
     @output swath_axes: ax_swath_axes
     """
 
-    dgo_shapefile = config.filename('ax_valley_swaths_polygons', axis=axis)
+    dgo_shapefile = config.filename('ax_swaths_refaxis_polygons', axis=axis)
     output = config.filename('ax_swath_axes', axis=axis)
 
     driver = 'ESRI Shapefile'
@@ -221,6 +221,9 @@ def SwathAxes(axis, processes=1):
             with click.progressbar(pooled, length=len(arguments)) as iterator:
 
                 for _, gid, k, medialpoint, coordm, dmin, dmax in iterator:
+
+                    if medialpoint is None:
+                        continue
 
                     pt0 = points[k]
                     direction = directions[k]

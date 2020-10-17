@@ -216,7 +216,7 @@ def LandCoverTotalWidth(axis, subset='landcover', swath_length=200.0, resolution
 
     datasets = DatasetParameter(
         landcover='',
-        swath_features='ax_valley_swaths_polygons',
+        swath_features='ax_swaths_refaxis_polygons',
         swath_data='ax_swath_landcover_npz'
     )
 
@@ -238,7 +238,7 @@ def ContinuousBufferWidth(axis, subset='continuity', swath_length=200.0, resolut
 
     datasets = DatasetParameter(
         landcover='',
-        swath_features='ax_valley_swaths_polygons',
+        swath_features='ax_swaths_refaxis_polygons',
         swath_data='ax_swath_landcover_npz'
     )
 

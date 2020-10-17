@@ -134,7 +134,8 @@ def LateralContinuity(
         processes=1,
         tileset='landcover',
         landcover='landcover-bdt',
-        distance='ax_talweg_distance',
+        # distance='ax_talweg_distance',
+        distance='ax_nearest_distance',
         height='ax_nearest_height',
         output='ax_continuity',
         **kwargs):

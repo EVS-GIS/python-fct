@@ -248,7 +248,7 @@ def ShortestHeightDefaultParameters():
         dataset_distance='ax_shortest_distance',
         max_dz=20.0,
         min_distance=20,
-        max_distance=5000,
+        max_distance=2000,
         jitter=0.4,
         tmp='.tmp'
     )

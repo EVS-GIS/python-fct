@@ -223,21 +223,21 @@ def landcover_width(axis):
 
     datasets = DatasetParameter(
         landcover='landcover-bdt',
-        swath_features='ax_valley_swaths_polygons',
+        swath_features='ax_swaths_refaxis_polygons',
         swath_data='ax_swath_landcover_npz'
     )
     method = 'total landcover width'
     subset = 'TOTAL_BDT'
     data = LandCoverWidth(axis, method, datasets, subset=subset)
-    WriteLandCoverWidth(axis, data, output='metrics_lcw_variant', variant=subset)
+    WriteLandCoverWidth(axis, data, output='metrics_landcover_width', variant=subset)
 
     datasets = DatasetParameter(
         # landcover='ax_corridor_mask',
         landcover='ax_continuity',
-        swath_features='ax_valley_swaths_polygons',
+        swath_features='ax_swaths_refaxis_polygons',
         swath_data='ax_swath_landcover_npz'
     )
     method = 'continuous buffer width from river channel'
     subset = 'CONT_BDT'
     data = LandCoverWidth(axis, method, datasets, subset=subset)
-    WriteLandCoverWidth(axis, data, output='metrics_lcw_variant', variant=subset)
+    WriteLandCoverWidth(axis, data, output='metrics_landcover_width', variant=subset)

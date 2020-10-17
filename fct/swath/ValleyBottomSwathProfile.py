@@ -242,8 +242,8 @@ def ValleyBottomSwathProfile(axis, processes=1, **kwargs):
 
     defaults = dict(
         # landcover='ax_continuity',
-        swath_raster='ax_valley_swaths',
-        swath_polygons='ax_valley_swaths_polygons',
+        swath_raster='ax_swaths_refaxis',
+        swath_polygons='ax_swaths_refaxis_polygons',
         axis_distance='ax_axis_distance',
         drainage_distance='ax_nearest_distance',
         drainage_height='ax_nearest_height',
@@ -318,8 +318,8 @@ def ExportValleyBottomSwathsToNetCDF(axis, **kwargs):
 
     defaults = dict(
         # landcover='ax_continuity',
-        swath_raster='ax_valley_swaths',
-        swath_polygons='ax_valley_swaths_polygons',
+        swath_raster='ax_swaths_refaxis',
+        swath_polygons='ax_swaths_refaxis_polygons',
         axis_distance='ax_axis_distance',
         drainage_distance='ax_nearest_distance',
         drainage_height='ax_nearest_height',
@@ -330,7 +330,7 @@ def ExportValleyBottomSwathsToNetCDF(axis, **kwargs):
     datasets = DatasetParameter(**defaults)
     kwargs = {k: kwargs[k] for k in kwargs.keys() - defaults.keys()}
 
-    swath_bounds = config.filename('ax_valley_swaths_bounds', axis=axis)
+    swath_bounds = config.filename('ax_swaths_refaxis_bounds', axis=axis)
 
     defs = xr.open_dataset(swath_bounds)
     defs = defs.load().sortby('measure')

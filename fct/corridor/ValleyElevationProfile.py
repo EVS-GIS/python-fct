@@ -75,6 +75,7 @@ def ValleySwathElevation(axis):
     for each valley swath defined in ax_swaths_refaxis
     """
 
+    # swath_defs = config.filename('ax_swaths_refaxis_bounds', axis=axis)
     swath_defs = config.filename('ax_swaths_refaxis_bounds', axis=axis)
 
     # swath => z0, slope
@@ -133,8 +134,14 @@ def ValleyElevationProfile(axis):
     """
 
     refaxis_shapefile = config.filename('ax_refaxis', axis=axis)
+    # refaxis_shapefile = config.filename('ax_medialaxis', axis=axis)
+    # refaxis_shapefile = config.filename('ax_talweg', axis=axis)
+
     swath_raster = config.tileset().filename('ax_swaths_refaxis', axis=axis)
-    # measure_raster = config.tileset().filename('ax_axis_measure', axis=axis)
+    # swath_raster = config.tileset().filename('ax_swaths_medialaxis', axis=axis)
+
+    measure_raster = config.tileset().filename('ax_axis_measure', axis=axis)
+    # measure_raster = config.tileset().filename('ax_medialaxis_measure', axis=axis)
 
     swathid = np.array([], dtype='uint32')
     coordxy = np.zeros((0, 2), dtype='float32')

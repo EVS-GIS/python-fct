@@ -67,7 +67,8 @@ def HeightAboveValleyFloorTile(
         height, width = mask.shape
 
         profile = ds.profile.copy()
-        profile.update(compress='deflate')
+        nodata = -99999.0
+        profile.update(compress='deflate', dtype='float32', nodata=nodata)
 
         def accept_pixel(i, j):
             return all([i >= -height, i < 2*height, j >= -width, j < 2*width])
@@ -75,13 +76,19 @@ def HeightAboveValleyFloorTile(
         # data = np.load(valley_floor_file, allow_pickle=True)
         # valley_floor = data['valley_profile']
 
-        valley_profile = xr.open_dataset(valley_floor_file)
+        valley_profile = xr.open_dataset(valley_floor_file).sortby('measure')
         valley_pixels = fct.worldtopixel(
             np.column_stack([
                 valley_profile['x'],
                 valley_profile['y']]),
             ds.transform)
         valley_mask = np.zeros(valley_pixels.shape[0], dtype=np.bool)
+
+        valley_profile_z = (
+            valley_profile['z']
+                .rolling(measure=50, min_periods=1)
+                .mean()
+                .values)
 
         for k, (i, j) in enumerate(valley_pixels):
             valley_mask[k] = accept_pixel(i, j)
@@ -96,13 +103,13 @@ def HeightAboveValleyFloorTile(
         reference, _ = nearest_value_and_distance(
             np.column_stack([
                 valley_pixels[valley_mask],
-                valley_profile['z'][valley_mask]
+                valley_profile_z[valley_mask]
             ]),
             mask,
             ds.nodata)
 
-        havf = elevations - reference
-        havf[mask == ds.nodata] = ds.nodata
+        havf = np.float32(elevations - reference)
+        havf[(mask == ds.nodata) | (elevations == ds2.nodata)] = nodata
 
         with rio.open(output_height, 'w', **profile) as dst:
             dst.write(havf, 1)
@@ -114,7 +121,8 @@ def HeightAboveValleyFloor(
         tileset='default',
         elevation='dem',
         valley_floor='ax_elevation_profile_floodplain',
-        mask='ax_valley_mask',
+        # mask='ax_valley_mask',
+        mask='ax_swaths_refaxis',
         height='ax_valley_height',
         **kwargs):
     """
