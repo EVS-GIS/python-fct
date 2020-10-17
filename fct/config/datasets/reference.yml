@@ -45,3 +45,12 @@ ax_medialaxis:
   status: final
   subdir: AXES/AX%(axis)04d/REF
   filename: MEDIAL_AXIS.shp
+
+ax_medialaxis_simplified:
+  description: |
+    Valley medial axis
+  type: linestring
+  group: reference
+  status: final
+  subdir: AXES/AX%(axis)04d/REF
+  filename: MEDIAL_AXIS_SIMPL.shp

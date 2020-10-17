@@ -139,5 +139,5 @@ def MedialAxis(axis):
         # test only one geometry
         fst.write({
             'geometry': medialaxis.__geo_interface__,
-            'properties': {'AXIS': 9}
+            'properties': {'AXIS': axis}
         })
