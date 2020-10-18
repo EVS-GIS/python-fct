@@ -48,9 +48,9 @@ def LateralContinuityTile(
     """
 
     tileset = config.tileset(datasets.tileset)
-    landcover_raster = config.filename(datasets.landcover, **kwargs)
-    distance_raster = config.filename(datasets.distance, axis=axis, **kwargs)
-    hand_raster = config.filename(datasets.height, axis=axis, **kwargs)
+    landcover_raster = tileset.filename(datasets.landcover, **kwargs)
+    distance_raster = tileset.filename(datasets.distance, axis=axis, **kwargs)
+    hand_raster = tileset.filename(datasets.height, axis=axis, **kwargs)
     output = tileset.tilename(datasets.output, axis=axis, row=row, col=col, **kwargs)
 
     height = tileset.height + 2*padding
