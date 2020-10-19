@@ -455,6 +455,7 @@ def PlotLeftRightLandcoverProfile(
         left,
         right,
         window=1,
+        basis=2,
         max_class=-1,
         clip=True,
         proportion=False,
@@ -544,7 +545,7 @@ def PlotLeftRightLandcoverProfile(
         lcck[:, :, 0] = leftk
         lcck[:, :, 1] = rightk
 
-        baseline = np.sum(lcck[:, :2, :], axis=1)
+        baseline = np.sum(lcck[:, :basis, :], axis=1)
 
         if clip:
 
@@ -563,7 +564,7 @@ def PlotLeftRightLandcoverProfile(
 
         if xk.size > 0:
 
-            variables = range(2, lcck.shape[1])
+            variables = range(basis, lcck.shape[1])
             variables = reversed(variables) if direction == 'updown' else variables
 
             for variable in variables:
@@ -754,7 +755,7 @@ def PlotLeftRightLandcoverProfile2(
                         sign*(cumulative[:, side] - baseline[:, side]),
                         color=colors[variable],
                         alpha=1,
-                        linewidth=0.9 if variable > 0 else 0.5,
+                        linewidth=0.9 if variable > 0 else 0.3,
                         zorder=len(variables) - variable)
 
                     # if variable < lcck.shape[1]-2:
