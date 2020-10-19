@@ -358,7 +358,7 @@ def PlotCorridorLimit(ax, data, window=1, basis=2):
 
         ax.plot(x, fcwk - baseline, 'darkgray', linewidth = 1.0)
 
-def PlotLeftRightCorridorLimit(ax, data, x, left, right, window=1):
+def PlotLeftRightCorridorLimit(ax, data, x, left, right, window=1, basis=2):
 
     lcw = data['buffer_width']
 
@@ -374,7 +374,8 @@ def PlotLeftRightCorridorLimit(ax, data, x, left, right, window=1):
     lcw = np.zeros(lcw_left.shape + (2,))
     lcw[:, :, 0] = lcw_left
     lcw[:, :, 1] = lcw_right
-    baseline = np.sum(lcw[:, :2, :], axis=1)
+    
+    baseline = np.sum(lcw[:, :basis, :], axis=1)
 
     # Do not plot zeros
 
@@ -435,15 +436,17 @@ def PlotLeftRightCorridorLimit(ax, data, x, left, right, window=1):
                     0,
                     sign*(vbwk[:, side] - baselinek[:, side]),
                     color='lightgray',
-                    alpha=0.3)
+                    alpha=0.3,
+                    zorder=-10)
 
                 ax.plot(
                     xk,
                     sign*(vbwk[:, side] - baselinek[:, side]),
                     'darkgray',
-                    linewidth=0.6,
+                    linewidth=1.0,
                     # linestyle='dotted',
-                    label='corridor limit' if side == 0 else None)
+                    label='corridor limit' if side == 0 else None,
+                    zorder=2)
 
 def PlotLeftRightLandcoverProfile(
         ax,
@@ -585,6 +588,174 @@ def PlotLeftRightLandcoverProfile(
                         alpha=0.7,
                         interpolate=True,
                         label=labels[variable] if side == 0 else None)
+
+                    # if variable < lcck.shape[1]-2:
+                    # ax.plot(
+                    #     xk,
+                    #     sign*(cumulative[:, side] - baseline[:, side]),
+                    #     colors[variable],
+                    #     linewidth=0.8)
+
+                    lagged[:, side] += lcck[:, variable, side]
+
+                    if clip:
+                        lagged[lagged[:, side] > vbwk[:, side], side] = \
+                            vbwk[lagged[:, side] > vbwk[:, side], side]
+
+def PlotLeftRightLandcoverProfile2(
+        ax,
+        data,
+        x,
+        left,
+        right,
+        window=1,
+        max_class=-1,
+        clip=True,
+        proportion=False,
+        direction='upright'):
+
+    if proportion:
+        ax.set_ylabel("Cover Class Proportion")
+    else:
+        ax.set_ylabel("Cover Class Width (m)")
+
+    # colors = [
+    #     '#0050c8', # Active channel
+    #     '#6f9e00', # Riparian corridor
+    #     '#d2e68a', # Semi-natural
+    #     '#ffff99', # Reversible
+    #     '#f2f2f2', # Disconnected
+    #     '#cecece' # Built environment
+    # ]
+
+    colors = [
+        '#0050c8', # Active channel
+        'darkgreen', # Riparian corridor
+        '#6f9e00', # Semi-natural
+        'orange', # Reversible
+        '#f2f2f2', # Disconnected
+        '#4d4d4d' # Built environment
+    ]
+
+
+    labels = [
+        'active channel',
+        'riparian',
+        'semi-natural',
+        'reversible',
+        'disconnected',
+        'built'
+    ]
+
+    # x = data['measure']
+    # vbw = data['vbw']
+    # lcc = data['lcc']
+    # left = data[variable][:, :, 1]
+    # right = data[variable][:, :, 2]
+
+    # print(fcw.shape, left.shape, right.shape)
+
+    if window > 1:
+        data = data.rolling(measure=window, min_periods=1, center=True).mean()
+        # lcc = lcc.rolling(swath=window, min_periods=1, center=True).mean()
+        left = left.rolling(measure=window, min_periods=1, center=True).mean()
+        right = right.rolling(measure=window, min_periods=1, center=True).mean()
+
+    data_vb_width = data['valley_bottom_width']
+    data_vb_area_lr = data['valley_bottom_area_lr']
+    vbw_left = data_vb_width * data_vb_area_lr.sel(side='left') / np.sum(data_vb_area_lr, axis=1)
+    vbw_right = data_vb_width * data_vb_area_lr.sel(side='right') / np.sum(data_vb_area_lr, axis=1)
+
+    # reverse measure direction
+    # ax.set_xlim([np.max(x), np.min(x)])
+    # formatter = EngFormatter(unit='m')
+    # ax.xaxis.set_major_formatter(formatter)
+
+    # Do not plot zeros
+
+    parts = np.split(
+        np.column_stack([
+            x,
+            vbw_left,
+            vbw_right,
+            left,
+            right]),
+        np.where(np.isnan(vbw_left))[0])
+
+    for k, part in enumerate(parts):
+
+        if k == 0:
+
+            xk = part[:, 0]
+            vbwk = part[:, 1:3]
+            leftk = part[:, 3:9]
+            rightk = part[:, 9:]
+
+        else:
+
+            xk = part[1:, 0]
+            vbwk = part[1:, 1:3]
+            leftk = part[1:, 3:9]
+            rightk = part[1:, 9:]
+
+        lcck = np.zeros(leftk.shape + (2,))
+        lcck[:, :, 0] = leftk
+        lcck[:, :, 1] = rightk
+
+        # baseline = np.sum(lcck[:, :2, :], axis=1)
+        baseline = np.zeros((lcck.shape[0], lcck.shape[2]))
+
+        if clip:
+
+            baseline[baseline[:, 0] > vbwk[:, 0], 0] = vbwk[baseline[:, 0] > vbwk[:, 0], 0]
+            baseline[baseline[:, 1] > vbwk[:, 1], 1] = vbwk[baseline[:, 1] > vbwk[:, 1], 1]
+
+        # if proportion:
+
+        #     fcwk = fcwk - np.sum(baseline, axis=1)
+        #     lcck = lcck / fcwk[:, np.newaxis, np.newaxis]
+        #     baseline = np.zeros(fcwk.shape + (2,))
+        #     fcwk = np.ones_like(fcwk)
+
+        cumulative = np.copy(baseline)
+        lagged = np.copy(cumulative)
+
+        if xk.size > 0:
+
+            variables = range(0, lcck.shape[1])
+            variables = reversed(variables) if direction == 'updown' else variables
+
+            for variable in variables:
+
+                cumulative += lcck[:, variable, :]
+
+                if variable >= max_class > 0:
+                    continue
+
+                for side in (0, 1):
+
+                    if clip:
+                        cumulative[cumulative[:, side] > vbwk[:, side], side] = \
+                            vbwk[cumulative[:, side] > vbwk[:, side], side]
+
+                    sign = 1 if side == 0 else -1
+                    ax.fill_between(
+                        xk,
+                        sign * (lagged[:, side] - baseline[:, side]),
+                        sign*(cumulative[:, side] - baseline[:, side]),
+                        label=labels[variable] if side == 0 else None,
+                        facecolor=colors[variable],
+                        alpha=0.35,
+                        interpolate=True,
+                        zorder=len(variables) - variable)
+
+                    ax.plot(
+                        xk,
+                        sign*(cumulative[:, side] - baseline[:, side]),
+                        color=colors[variable],
+                        alpha=1,
+                        linewidth=0.9 if variable > 0 else 0.5,
+                        zorder=len(variables) - variable)
 
                     # if variable < lcck.shape[1]-2:
                     # ax.plot(

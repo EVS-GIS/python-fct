@@ -664,11 +664,11 @@ def plot_left_right_continuity_profile(ax, axis, max_class):
     """
 
     from .PlotCorridor import (
-        PlotLeftRightLandcoverProfile,
+        PlotLeftRightLandcoverProfile2,
         PlotLeftRightCorridorLimit
     )
 
-    data_file = config.filename('metrics_landcover_width', variant='CONT_BDT', axis=axis)
+    data_file = config.filename('metrics_width_continuity', variant='REMAPPED', axis=axis)
     width_file = config.filename('metrics_valleybottom_width', axis=axis)
 
     width = xr.open_dataset(width_file)
@@ -681,22 +681,25 @@ def plot_left_right_continuity_profile(ax, axis, max_class):
     vbw_left = data_vb_width * data_vb_area_lr.sel(side='left') / np.sum(data_vb_area_lr, axis=1)
     vbw_right = data_vb_width * data_vb_area_lr.sel(side='right') / np.sum(data_vb_area_lr, axis=1)
 
+    PlotLeftRightLandcoverProfile2(
+        ax,
+        merged,
+        merged['measure'],
+        merged['buffer_width'].sel(side='left'),
+        merged['buffer_width'].sel(side='right'),
+        max_class=0,
+        clip=True,
+        window=5)
+
     PlotLeftRightCorridorLimit(
         ax,
         merged,
         merged['measure'],
         vbw_left,
         vbw_right,
-        window=5)
-
-    PlotLeftRightLandcoverProfile(
-        ax,
-        merged,
-        merged['measure'],
-        merged['buffer_width'].sel(side='left'),
-        merged['buffer_width'].sel(side='right'),
-        max_class=max_class,
-        clip=True,
+        basis=0,
         window=5)
 
     SetupMeasureAxis(ax, merged['measure'])
+    ax.set_ylabel('Width (m)')
+    ax.legend(ncol=2)

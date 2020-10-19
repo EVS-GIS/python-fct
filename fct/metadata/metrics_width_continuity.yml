@@ -1,0 +1,24 @@
+global:
+  description: |-
+    corridor buffer metrics by continuity class
+coordinates:
+  axis:
+    long_name: stream identifier
+  swath:
+    long_name: swath identifier
+  measure:
+    long_name: position along reference axis
+    standard_name: linref_m_coordinate
+    origin: downstream or network outlet
+    units: m
+  continuity:
+    long_name: continuity class label
+  side:
+    long_name: side of measurement, left or right
+variables:
+  buffer_area:
+    long_name: swath area of continuity class k
+    units: m^2
+  buffer_width:
+    long_name: cross-corridor width of continuity class k
+    units: m
