@@ -700,7 +700,7 @@ def plot_left_right_landcover_profile(ax, axis, max_class):
         window=5)
 
     SetupMeasureAxis(ax, merged['measure'])
-    ax.set_ylabel('Largeur (m)')
+    ax.set_ylabel('Width (m)')
     ax.legend(ncol=2, loc='lower left')
 
 @fct_plot(cli, 'continuity-profile-lr', title='Largeur de l\'espace fluvial continu')
