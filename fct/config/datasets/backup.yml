@@ -1,0 +1,49 @@
+backup_medialaxis:
+  description: |
+    Valley medial axis
+  type: linestring
+  group: reference
+  status: final
+  source: ax_medialaxis
+  sourcefile: AXES/AX%(axis)04d/REF/MEDIAL_AXIS.shp
+  subdir: AXES/AX%(axis)04d/BACKUP
+  filename: MEDIAL_AXIS.shp
+
+backup_valley_mask:
+  description: |
+    Valley bottom mask
+  type: raster
+  group: reference
+  status: temporary
+  source: ax_swaths_medialaxis
+  sourcefile: AXES/AX%(axis)04d/TEMP/SWATHS_MEDIALAXIS.vrt
+  subdir: AXES/AX%(axis)04d/BACKUP
+  filename: VALLEY_MASK.vrt
+  tiles:
+    template: VALLEY_MASK_%(row)02d_%(col)02d
+    extension: .tif
+
+backup_swaths_polygons:
+  description: |
+    Valley bottom (floodplain) longitudinal units,
+    based on valley medial axis
+  type: polygon
+  group: reference
+  status: final
+  source: ax_swaths_medialaxis_polygons
+  sourcefile: AXES/AX%(axis)04d/REF/SWATHS_MEDIALAXIS.shp
+  subdir: AXES/AX%(axis)04d/BACKUP
+  filename: SWATHS_RAW.shp
+
+backup_swaths_polygons_simplified:
+  description: |
+    Valley bottom (floodplain) longitudinal units,
+    based on valley medial axis,
+    simplified and smoothed for display
+  type: polygon
+  group: reference
+  status: final
+  source: ax_swaths_medialaxis_polygons_simplified
+  sourcefile: AXES/AX%(axis)04d/REF/SWATHS_MEDIALAXIS_SIMPL.shp
+  subdir: AXES/AX%(axis)04d/BACKUP
+  filename: SWATHS.shp
