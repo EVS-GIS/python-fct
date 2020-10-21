@@ -194,7 +194,7 @@ def LandCoverWidth(axis, method, datasets, swath_length=200.0, resolution=5.0, *
 
     # Metadata
 
-    set_metadata(dataset, 'metrics_landcover_width')
+    set_metadata(dataset, 'metrics_width_landcover')
 
     # Extra metadata
 

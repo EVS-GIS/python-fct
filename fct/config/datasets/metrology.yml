@@ -112,7 +112,7 @@ ax_elevation_profile_talweg:
   group: metrology
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
-  filename: ELEVATION_PROFILE_TALWEG.nc
+  filename: ELEVATION_TALWEG.nc
 
 ax_elevation_profile_floodplain:
   description: |
@@ -121,16 +121,16 @@ ax_elevation_profile_floodplain:
   group: metrology
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
-  filename: ELEVATION_PROFILE_FLOODPLAIN.nc
+  filename: ELEVATION_FLOODPLAIN.nc
 
-ax_talweg_profile:
-  description: |
-    Smoothed talweg elevation profile (based on swath profiles)
-  type: netcdf
-  group: metrology
-  status: final
-  subdir: AXES/AX%(axis)04d/METRICS
-  filename: ELEVATION_PROFILE_TALWEG.nc
+# ax_talweg_profile:
+#   description: |
+#     Smoothed talweg elevation profile (based on swath profiles)
+#   type: netcdf
+#   group: metrology
+#   status: final
+#   subdir: AXES/AX%(axis)04d/METRICS
+#   filename: ELEVATION_TALWEG.nc
 
 ax_valley_height:
   description: |

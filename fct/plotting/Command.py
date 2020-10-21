@@ -609,7 +609,7 @@ def plot_landcover_profile(ax, axis):
 
     from .PlotCorridor import PlotLandCoverProfile
 
-    data_file = config.filename('metrics_landcover_width', variant='TOTAL_BDT', axis=axis)
+    data_file = config.filename('metrics_width_landcover', variant='TOTAL', axis=axis)
     data = xr.open_dataset(data_file).sortby('measure')
 
     PlotLandCoverProfile(
@@ -635,7 +635,7 @@ def plot_continuity_profile(ax, axis):
 
     from .PlotCorridor import PlotLandCoverProfile
 
-    data_file = config.filename('metrics_landcover_width', variant='CONT_BDT', axis=axis)
+    data_file = config.filename('metrics_width_continuity', variant='MAX', axis=axis)
     data = xr.open_dataset(data_file).sortby('measure')
 
     PlotLandCoverProfile(
@@ -666,8 +666,8 @@ def plot_left_right_landcover_profile(ax, axis, max_class):
         PlotLeftRightCorridorLimit
     )
 
-    data_file = config.filename('metrics_landcover_width', variant='TOTAL_BDT', axis=axis)
-    width_file = config.filename('metrics_valleybottom_width', axis=axis)
+    data_file = config.filename('metrics_width_landcover', variant='TOTAL', axis=axis)
+    width_file = config.filename('metrics_width_corridor', axis=axis)
 
     width = xr.open_dataset(width_file)
     data = xr.open_dataset(data_file)
@@ -720,8 +720,8 @@ def plot_left_right_continuity_profile(ax, axis, max_class):
         PlotLeftRightCorridorLimit
     )
 
-    data_file = config.filename('metrics_width_continuity', variant='REMAPPED', axis=axis)
-    width_file = config.filename('metrics_valleybottom_width', axis=axis)
+    data_file = config.filename('metrics_width_continuity', variant='MAX', axis=axis)
+    width_file = config.filename('metrics_width_corridor', axis=axis)
 
     width = xr.open_dataset(width_file)
     data = xr.open_dataset(data_file)

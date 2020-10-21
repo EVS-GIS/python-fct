@@ -110,8 +110,8 @@ def LandCoverSwath(
             values = dict(
                 x=np.zeros(0, dtype='float32'),
                 density=np.zeros(0, dtype='float32'),
-                classes=np.zeros(0, dtype='uint32'),
-                swath=np.zeros((0, 0), dtype='float32')
+                landcover_classes=np.zeros(0, dtype='uint32'),
+                landcover_swath=np.zeros((0, 0), dtype='float32')
             )
             return gid, values
 
@@ -442,6 +442,152 @@ def ExportLandcoverSwathsToNetCDF(axis, **kwargs):
         **kwargs)
 
     output = config.filename('swath_landcover', axis=axis, **kwargs)
+    dataset.to_netcdf(output, 'w')
+
+    return dataset
+
+def ExportContinuitySwathsToNetCDF(axis, **kwargs):
+    """
+    Reads landcover swath profile back from disk,
+    and bundles everyting into one netcdf file.
+
+    @api    fct-swath:export-landcover
+
+    @input  landcover: ax_continuity
+    @input  swath_bounds: ax_valley_swaths_bounds
+    @input  swath_landcover_npz: ax_swath_landcover_npz
+
+    @output swath_landcover: swath_landcover
+    """
+
+    defaults = dict(
+        landcover='ax_continuity_variant_remapped',
+        swath_raster='ax_swaths_refaxis',
+        swath_polygons='ax_swaths_refaxis_polygons',
+        axis_distance='ax_axis_distance',
+        drainage_distance='ax_nearest_distance',
+        output='ax_swath_landcover_npz'
+    )
+
+    defaults.update({k: kwargs[k] for k in kwargs.keys() & defaults.keys()})
+    datasets = DatasetParameter(**defaults)
+    kwargs = {k: kwargs[k] for k in kwargs.keys() - defaults.keys()}
+
+    swath_bounds = config.filename('ax_swaths_refaxis_bounds', axis=axis)
+
+    defs = xr.open_dataset(swath_bounds)
+    defs = defs.load().sortby('measure')
+    length = defs['swath'].shape[0]
+    nclasses = 6
+
+    # x=x,
+    # density=density,
+    # landcover_classes=classes,
+    # landcover_swath=landcover_swath
+
+    swids = np.zeros(length, dtype='uint32')
+    measures = np.zeros(length, dtype='float32')
+
+    sw_measure = np.zeros(0, dtype='float32')
+    sw_distance = np.zeros(0, dtype='float32')
+    sw_density = np.zeros(0, dtype='uint32')
+    sw_continuity = np.zeros((0, nclasses, 2), dtype='uint32')
+
+    klass_labels = [1, 10, 20, 30, 40, 50]
+
+    with click.progressbar(defs['swath'].values) as iterator:
+        for i, swid in enumerate(iterator):
+
+            coordm = defs['measure'].sel(swath=swid).values
+            swathfile = config.filename(datasets.output, axis=axis, gid=swid, **kwargs)
+
+            swids[i] = swid
+            measures[i] = coordm
+
+            if not os.path.exists(swathfile):
+                continue
+
+            data = np.load(swathfile, allow_pickle=True)
+
+            classes = data['landcover_classes']
+
+            sw_measure = np.concatenate([
+                sw_measure,
+                np.full_like(data['density'], coordm, dtype='float32')
+            ])
+            sw_distance = np.concatenate([
+                sw_distance,
+                np.float32(data['x'])
+            ])
+            sw_density = np.concatenate([
+                sw_density,
+                data['density']
+            ])
+
+            landcover_swath = data['landcover_swath']
+            expanded_landcover_swath = np.zeros(
+                (landcover_swath.shape[0], nclasses, 2),
+                dtype='uint32'
+            )
+
+            for k, klass in enumerate(classes):
+
+                if klass == 255:
+                    continue
+
+                klass_index = klass_labels.index(klass)
+
+                expanded_landcover_swath[:, klass_index, :] = landcover_swath[:, k, :]
+
+            sw_continuity = np.concatenate([
+                sw_continuity,
+                expanded_landcover_swath
+            ])
+
+    dataset = xr.Dataset({
+        'sw_measure': ('profile', sw_measure),
+        'sw_axis_distance': ('profile', sw_distance),
+        'sw_density': ('profile', sw_density),
+        'sw_continuity': (('profile', 'continuity', 'side'), sw_continuity)
+    }, coords={
+        'axis': axis,
+        'measure': measures,
+        'swath': ('measure', swids),
+        # 'landcover': [
+        #     'Water Channel',
+        #     'Gravel Bars',
+        #     'Natural Open',
+        #     'Forest',
+        #     'Grassland',
+        #     'Crops',
+        #     'Diffuse Urban',
+        #     'Dense Urban',
+        #     'Infrastructures'
+        # ],
+        'continuity': [
+            'Active channel',
+            'Riparian corridor',
+            'Semi-natural',
+            'Reversible',
+            'Disconnected',
+            'Built environment'
+        ],
+        'side': [
+            'left',
+            'right'
+        ]
+    })
+
+    # dataset.set_index(profile=['sw_measure', 'sw_axis_distance'])
+
+    set_metadata(dataset, 'swath_continuity')
+
+    dataset.attrs['source'] = config.basename(
+        datasets.landcover,
+        axis=axis,
+        **kwargs)
+
+    output = config.filename('swath_continuity', axis=axis, **kwargs)
     dataset.to_netcdf(output, 'w')
 
     return dataset

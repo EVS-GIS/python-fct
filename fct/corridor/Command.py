@@ -82,6 +82,35 @@ def setup_axes():
 
 @cli.command()
 @arg_axis
+@parallel_opt
+def prepare_from_backup(axis, processes):
+    """
+    Restore Height above nearest drainage (HAND)
+    and reference axis from first iteration HAND & valley medial axis.
+    """
+
+    from .Prepare import (
+        MaskHeightAboveNearestDrainage,
+        RestoreReferenceAxis
+    )
+
+    MaskHeightAboveNearestDrainage(axis, processes)
+    RestoreReferenceAxis(axis)
+
+@cli.command()
+@arg_axis
+@parallel_opt
+def landcover(axis, processes):
+    """
+    Restore Height above nearest drainage (HAND)
+    and reference axis from first iteration HAND & valley medial axis.
+    """
+
+    from .Prepare import MaskLandcover
+    MaskLandcover(axis, processes)
+
+@cli.command()
+@arg_axis
 @click.option('--vrt/--no-vrt', default=True, help='Build VRT after processing')
 @parallel_opt
 def flow_height(axis, vrt, processes):
@@ -347,6 +376,11 @@ def continuity(axis, processes, maxiter, infra):
     else:
         parameters = NoInfrastructureParameters()
 
+    parameters.update(
+        output='ax_continuity_variant',
+        variant='MAX'
+    )
+
     start_time = PrintCommandInfo('landcover continuity analysis', axis, processes, parameters)
 
     LandcoverContinuityAnalysis(
@@ -354,6 +388,41 @@ def continuity(axis, processes, maxiter, infra):
         processes=processes,
         maxiter=maxiter,
         **parameters)
+
+    # buildvrt('default', 'ax_continuity_variant', axis=axis, variant='MAX')
+
+    elapsed = time.time() - start_time
+    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
+@cli.command()
+@arg_axis
+@parallel_opt
+# @click.option('--maxiter', '-it', default=10, help='Stop after max iterations')
+# @click.option('--infra/--no-infra', default=True, help='Account for infrastructures in space fragmentation')
+def continuity_weighted(axis, processes):
+    """
+    Extract natural corridor from landcover
+    within valley bottom
+    """
+
+    from ..continuity.LateralContinuity import LateralContinuity
+
+    parameters = dict(
+        tileset='default',
+        landcover='landcover-bdt',
+        output='ax_continuity_variant',
+        variant='WEIGHTED'
+    )
+
+    start_time = PrintCommandInfo('distance weighted landcover continuity analysis', axis, processes, parameters)
+
+    LateralContinuity(
+        axis=axis,
+        processes=processes,
+        **parameters
+    )
+
+    buildvrt('default', 'ax_continuity_variant', axis=axis, variant='WEIGHTED')
 
     elapsed = time.time() - start_time
     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
@@ -402,3 +471,28 @@ def continuity(axis, processes, maxiter, infra):
 
 #     elapsed = time.time() - start_time
 #     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
+@cli.command()
+@arg_axis
+@parallel_opt
+# @click.option('--maxiter', '-it', default=10, help='Stop after max iterations')
+# @click.option('--infra/--no-infra', default=True, help='Account for infrastructures in space fragmentation')
+def continuity_remap(axis, processes):
+
+    from ..continuity.RemapContinuityRaster import RemapContinuityRaster
+
+    RemapContinuityRaster(axis, processes, variant='MAX')
+    buildvrt(
+        'default',
+        'ax_continuity_variant_remapped',
+        axis=axis,
+        variant='MAX'
+    )
+
+    RemapContinuityRaster(axis, processes, variant='WEIGHTED')
+    buildvrt(
+        'default',
+        'ax_continuity_variant_remapped',
+        axis=axis,
+        variant='WEIGHTED'
+    )

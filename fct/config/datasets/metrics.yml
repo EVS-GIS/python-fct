@@ -34,7 +34,7 @@ metrics_talweg:
   group: metrics
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
-  filename: TALWEG_RELATED.nc
+  filename: MISC_TALWEG.nc
 
 metrics_planform:
   description: |
@@ -45,51 +45,51 @@ metrics_planform:
   subdir: AXES/AX%(axis)04d/METRICS
   filename: PLANFORM.nc
 
-metrics_long_profile:
-  description: |
-    Long Profile Metrics:
-    slopes, drainage area
-  type: netcdf
-  group: metrics
-  status: final
-  subdir: AXES/AX%(axis)04d/METRICS
-  filename: LONG_PROFILE.nc
+# metrics_long_profile:
+#   description: |
+#     Long Profile Metrics:
+#     slopes, drainage area
+#   type: netcdf
+#   group: metrics
+#   status: final
+#   subdir: AXES/AX%(axis)04d/METRICS
+#   filename: LONG_PROFILE.nc
 
-metrics_valleybottom_width:
+metrics_width_corridor:
   description: |
     Valley bottom width and swath areas
   type: netcdf
   group: metrics
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
-  filename: VALLEY_BOTTOM_WIDTH.nc
+  filename: WIDTH_CORRIDOR.nc
 
-metrics_fcw:
-  description: |
-    Fluvial Corridor Width
-  type: netcdf
-  group: metrics
-  status: final
-  subdir: AXES/AX%(axis)04d/METRICS
-  filename: FLUVIAL_CORRIDOR_WIDTH.nc
+# metrics_fcw:
+#   description: |
+#     Fluvial Corridor Width
+#   type: netcdf
+#   group: metrics
+#   status: final
+#   subdir: AXES/AX%(axis)04d/METRICS
+#   filename: FLUVIAL_CORRIDOR_WIDTH.nc
 
-metrics_lcw:
-  description: |
-    LandCover Width
-  type: netcdf
-  group: metrics
-  status: final
-  subdir: AXES/AX%(axis)04d/METRICS
-  filename: LANDCOVER_WIDTH.nc
+# metrics_lcw:
+#   description: |
+#     LandCover Width
+#   type: netcdf
+#   group: metrics
+#   status: final
+#   subdir: AXES/AX%(axis)04d/METRICS
+#   filename: LANDCOVER_WIDTH.nc
 
-metrics_landcover_width:
+metrics_width_landcover:
   description: |
     LandCover Width (Variants)
   type: netcdf
   group: metrics
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
-  filename: LANDCOVER_WIDTH_%(variant)s.nc
+  filename: WIDTH_LANDCOVER_%(variant)s.nc
 
 metrics_width_continuity:
   description: |

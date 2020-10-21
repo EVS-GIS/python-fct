@@ -97,10 +97,10 @@ def ValleySwathElevation(axis):
                 data = np.load(filename, allow_pickle=True)
                 z0 = data['z0_valley_floor']
                 slope = data['slope_valley_floor']
+                coordm = defs['measure'].sel(swath=gid).values
 
                 if not (np.isnan(z0) or np.isnan(slope)):
 
-                    coordm = defs['measure'].sel(swath=gid).values
                     zvalley = slope*coordm + z0
 
                     swids.append(gid)

@@ -1,9 +1,38 @@
+backup_nearest_height_undelimited:
+  description: |
+    Height above nearest drainage (HAND)
+    before clipping at valley bottom boundary
+  type: raster
+  group: height
+  status: backup
+  source: ax_nearest_height
+  sourcefile: AXES/AX%(axis)04d/NEAREST_HEIGHT.vrt
+  subdir: AXES/AX%(axis)04d/BACKUP
+  filename: NEAREST_HEIGHT_UNDELIMITED.vrt
+  tiles:
+    template: NEAREST_HEIGHT_UNDELIMITED_%(row)02d_%(col)02d
+    extension: .tif
+
+backup_nearest_distance_undelimited:
+  description: |
+    Distance to nearest drainage
+  type: raster
+  group: height
+  status: backup
+  source: ax_nearest_distance
+  sourcefile: AXES/AX%(axis)04d/NEAREST_DISTANCE.vrt
+  subdir: AXES/AX%(axis)04d/BACKUP
+  filename: NEAREST_DISTANCE_UNDELIMITED.vrt
+  tiles:
+    template: NEAREST_DISTANCE_UNDELIMITED_%(row)02d_%(col)02d
+    extension: .tif
+
 backup_medialaxis:
   description: |
     Valley medial axis
   type: linestring
   group: reference
-  status: final
+  status: backup
   source: ax_medialaxis
   sourcefile: AXES/AX%(axis)04d/REF/MEDIAL_AXIS.shp
   subdir: AXES/AX%(axis)04d/BACKUP
@@ -14,7 +43,7 @@ backup_valley_mask:
     Valley bottom mask
   type: raster
   group: reference
-  status: temporary
+  status: backup
   source: ax_swaths_medialaxis
   sourcefile: AXES/AX%(axis)04d/TEMP/SWATHS_MEDIALAXIS.vrt
   subdir: AXES/AX%(axis)04d/BACKUP
@@ -29,7 +58,7 @@ backup_swaths_polygons:
     based on valley medial axis
   type: polygon
   group: reference
-  status: final
+  status: backup
   source: ax_swaths_medialaxis_polygons
   sourcefile: AXES/AX%(axis)04d/REF/SWATHS_MEDIALAXIS.shp
   subdir: AXES/AX%(axis)04d/BACKUP
@@ -42,7 +71,7 @@ backup_swaths_polygons_simplified:
     simplified and smoothed for display
   type: polygon
   group: reference
-  status: final
+  status: backup
   source: ax_swaths_medialaxis_polygons_simplified
   sourcefile: AXES/AX%(axis)04d/REF/SWATHS_MEDIALAXIS_SIMPL.shp
   subdir: AXES/AX%(axis)04d/BACKUP

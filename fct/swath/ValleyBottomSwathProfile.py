@@ -99,14 +99,22 @@ def ValleyBottomSwath(
         assert nearest_distance.shape == mask.shape
         # assert mask.shape == landcover.shape
 
+        heights = np.arange(5.0, 15.5, 0.5)
+
         if np.sum(mask) == 0:
 
             click.secho('No data for swath (%d, %d)' % (axis, gid), fg='yellow')
+            # values = dict(
+            #     x=np.zeros(0, dtype='float32'),
+            #     density=np.zeros(0, dtype='float32'),
+            #     classes=np.zeros(0, dtype='uint32'),
+            #     swath=np.zeros((0, 0), dtype='float32')
+            # )
             values = dict(
                 x=np.zeros(0, dtype='float32'),
-                density=np.zeros(0, dtype='float32'),
-                classes=np.zeros(0, dtype='uint32'),
-                swath=np.zeros((0, 0), dtype='float32')
+                valley_bottom_area_h=np.zeros(len(heights), dtype='uint32'),
+                valley_bottom_area_lr=np.zeros(2, dtype='uint32'),
+                valley_bottom_swath=np.zeros(0, dtype='uint32')
             )
             return gid, values
 
@@ -122,8 +130,6 @@ def ValleyBottomSwath(
         axis_distance_binned = np.digitize(axis_distance, xbins)
 
         # Valley bottom area at height h
-
-        heights = np.arange(5.0, 15.5, 0.5)
         valley_bottom_area_h = np.zeros(len(heights), dtype='uint32')
 
         for k, height_k in enumerate(heights):

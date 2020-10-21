@@ -1,0 +1,34 @@
+global:
+  description: |-
+    landcover continuity swath profile data
+coordinates:
+  axis:
+    long_name: stream identifier
+  measure:
+    long_name: position along reference axis
+    standard_name: linref_m_coordinate
+    units: m
+  swath:
+    long_name: swath identifier
+    coordinates: axis, measure
+  profile:
+    long_name: sample index (shadow dimension)
+    compress: sw_measure, sw_axis_distance
+  sw_measure:
+    long_name: position along reference axis
+    standard_name: linref_m_coordinate
+    units: m
+  sw_axis_distance:
+    long_name: sample distance to reference axis
+    units: m
+  continuity:
+    long_name: continuity class label
+  side:
+    long_name: side of talweg, left or right
+variables:
+  sw_density:
+    long_name: pixel count in sample (mi, di)
+    units: pixels
+  sw_continuity:
+    long_name: pixel count of continuity class k in sample (mi, di)
+    units: pixels

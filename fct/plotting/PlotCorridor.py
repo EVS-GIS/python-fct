@@ -431,13 +431,13 @@ def PlotLeftRightCorridorLimit(ax, data, x, left, right, window=1, basis=2):
 
                 sign = 1 if side == 0 else -1
 
-                ax.fill_between(
-                    xk,
-                    0,
-                    sign*(vbwk[:, side] - baselinek[:, side]),
-                    color='lightgray',
-                    alpha=0.3,
-                    zorder=-10)
+                # ax.fill_between(
+                #     xk,
+                #     0,
+                #     sign*(vbwk[:, side] - baselinek[:, side]),
+                #     color='lightgray',
+                #     alpha=0.3,
+                #     zorder=-10)
 
                 ax.plot(
                     xk,

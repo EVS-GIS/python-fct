@@ -13,6 +13,7 @@ Height above valley floor
 ***************************************************************************
 """
 
+import os
 from collections import namedtuple
 from multiprocessing import Pool
 
@@ -59,6 +60,9 @@ def HeightAboveValleyFloorTile(
 
     output_height = tileset.tilename(datasets.height, axis=axis, row=row, col=col, **kwargs)
     # output_distance = tileset.tilename(datasets.distance, axis=axis, row=row, col=col, **kwargs)
+
+    if not os.path.exists(mask_rasterfile):
+        return
 
     with rio.open(mask_rasterfile) as ds:
 

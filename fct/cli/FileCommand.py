@@ -24,7 +24,8 @@ from .. import __version__ as version
 
 from .Options import (
     overwritable,
-    arg_axis
+    arg_axis,
+    parallel_opt
 )
 
 # pylint: disable=import-outside-toplevel
@@ -143,3 +144,16 @@ def backup(axis):
     BackupMedialAxis(axis)
     BackupSwathPolygons(axis)
     BackupValleyMask(axis)
+
+@cli.command()
+@arg_axis
+@parallel_opt
+def backup_hand(axis, processes):
+    """
+    Backup valley medial axis and valley mask from swaths raster
+    """
+
+    from .Backup import BackupHeightAboveNearestDrainage
+
+    config.auto()
+    BackupHeightAboveNearestDrainage(axis, processes)

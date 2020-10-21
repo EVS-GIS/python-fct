@@ -117,6 +117,9 @@ def SwathMedialPoints(axis, swid, coordm, bounds, long_length, resolution):
     ybinned = np.digitize(distance, ybins)
     y = 0.5*(ybins[1:] + ybins[:-1])
 
+    if len(y) < 2:
+        return points
+
     # unit width of observations
     unit_width = 0.5 * (np.roll(y, -1) - np.roll(y, 1))
     unit_width[0] = y[1] - y[0]

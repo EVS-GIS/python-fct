@@ -132,7 +132,7 @@ swath_elevation:
   group: metrics
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
-  filename: ELEVATION_SWATH_PROFILES.nc
+  filename: SWATHS_ELEVATION.nc
 
 swath_landcover:
   description: |
@@ -141,7 +141,16 @@ swath_landcover:
   group: metrics
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
-  filename: LANDCOVER_SWATH_PROFILES_%(subset)s.nc
+  filename: SWATHS_LANDCOVER_%(subset)s.nc
+
+swath_continuity:
+  description: |
+    LandCover swath profiles (netCDF archive)
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: SWATHS_CONTINUITY_%(subset)s.nc
 
 swath_valleybottom:
   description: |
@@ -150,7 +159,7 @@ swath_valleybottom:
   group: metrics
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
-  filename: VALLEYBOTTOM_SWATH_PROFILES.nc
+  filename: SWATHS_CORRIDOR.nc
 
 # Unused, to be removed
 

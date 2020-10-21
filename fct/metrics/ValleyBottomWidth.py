@@ -82,6 +82,10 @@ def ValleyBottomWidth(axis, swath_length=200.0, resolution=5.0):
                 vb_area_lr = data['valley_bottom_area_lr']
                 vb_swath = data['valley_bottom_swath']
 
+                if len(x) < 2:
+                    valid[k] = False
+                    continue
+
                 # unit width of observations
                 unit_width = 0.5 * (np.roll(x, -1) - np.roll(x, 1))
                 unit_width[0] = x[1] - x[0]
@@ -115,13 +119,13 @@ def ValleyBottomWidth(axis, swath_length=200.0, resolution=5.0):
             'side': ['left', 'right']
         })
 
-    set_metadata(dataset, 'metrics_valleybottom_width')
+    set_metadata(dataset, 'metrics_width_corridor')
 
     return dataset
 
 def WriteValleyBottomWidth(axis, data):
 
-    output = config.filename('metrics_valleybottom_width', axis=axis)
+    output = config.filename('metrics_width_corridor', axis=axis)
 
     data.to_netcdf(
         output, 'w',

@@ -213,8 +213,6 @@ def LateralContinuity(
     Other keywords are passed to dataset filename templates.
     """
 
-    tileindex = config.tileset(tileset)
-
     datasets = DatasetParameter(
         tileset=tileset,
         landcover=landcover,
@@ -223,21 +221,33 @@ def LateralContinuity(
         output=output
     )
 
+    tilefile = config.tileset(tileset).filename('ax_shortest_tiles', axis=axis)
+
+    def length():
+
+        with open(tilefile) as fp:
+            return sum(1 for line in fp)
+
     def arguments():
 
-        for tile in tileindex.tiles():
-            yield (
-                LateralContinuityTile,
-                axis,
-                tile.row,
-                tile.col,
-                datasets,
-                kwargs)
+        with open(tilefile) as fp:
+            for line in fp:
+
+                row, col = tuple(int(x) for x in line.split(','))
+
+                yield (
+                    LateralContinuityTile,
+                    axis,
+                    row,
+                    col,
+                    datasets,
+                    kwargs
+                )
 
     with Pool(processes=processes) as pool:
 
         pooled = pool.imap_unordered(starcall, arguments())
 
-        with click.progressbar(pooled, length=len(tileindex)) as iterator:
+        with click.progressbar(pooled, length=length()) as iterator:
             for _ in iterator:
                 pass

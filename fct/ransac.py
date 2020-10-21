@@ -99,8 +99,14 @@ def ransac(x, model, n, k, t, d):
 
     if bestfit is None:
 
-        raise RuntimeError('Could not meet acceptance criteria, ' + \
-            'required length = %d ' % d + \
-            'max. consensus length = %d' % bestlen)
+        if bestlen > float('-inf'):
+
+            raise RuntimeError('Could not meet acceptance criteria, ' + \
+                'required length = %d ' % d + \
+                'max. consensus length = %d' % bestlen)
+
+        else:
+
+            raise RuntimeError('Could not meet acceptance criteria')
 
     return bestfit, besterror, bestlen

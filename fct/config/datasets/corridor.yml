@@ -113,10 +113,10 @@ ax_continuity_remapped:
   group: corridor
   status: final
   subdir: AXES/AX%(axis)04d
-  filename: LANDCOVER_CONTINUITY_REMAPPED.vrt
+  filename: LANDCOVER_CONTINUITY_FINAL.vrt
   tiles:
     tileset: landcover
-    template: LANDCOVER_CONTINUITY_REMAPPED_%(row)02d_%(col)02d
+    template: LANDCOVER_CONTINUITY_FINAL_%(row)02d_%(col)02d
     extension: .tif
 
 ax_continuity_variant_remapped:
@@ -126,10 +126,10 @@ ax_continuity_variant_remapped:
   group: corridor
   status: final
   subdir: AXES/AX%(axis)04d
-  filename: LANDCOVER_CONTINUITY_%(variant)s_REMAPPED.vrt
+  filename: LANDCOVER_CONTINUITY_%(variant)s_FINAL.vrt
   tiles:
     tileset: landcover
-    template: LANDCOVER_CONTINUITY_%(variant)s_REMAPPED_%(row)02d_%(col)02d
+    template: LANDCOVER_CONTINUITY_%(variant)s_FINAL_%(row)02d_%(col)02d
     extension: .tif
 
 ax_valley_mask:
@@ -152,10 +152,10 @@ ax_valley_mask_refined:
   group: corridor
   status: final
   subdir: AXES/AX%(axis)04d
-  filename: VALLEY_MASK2.vrt
+  filename: VALLEY_BOTTOM.vrt
   tiles:
     tileset: landcover
-    template: VALLEY_MASK2_%(row)02d_%(col)02d
+    template: VALLEY_BOTTOM_%(row)02d_%(col)02d
     extension: .tif
 
 ax_valley_height_mask:

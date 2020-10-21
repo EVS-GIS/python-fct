@@ -80,6 +80,47 @@ def discretize(axis, length, medialaxis, processes):
         processes=processes,
         **parameters)
 
+@fct_command(cli, 'discretize valley bottom into longitudinal units')
+@arg_axis
+@click.option('--length', default=200.0, help='unit length / disaggregation step')
+@parallel_opt
+def create(axis, length, processes):
+    """
+    Disaggregate valley bottom (from nearest height raster)
+    into longitudinal units
+    """
+
+    from .SwathMeasurement import (
+        DisaggregateIntoSwaths,
+        ValleyBottomParameters,
+        WriteSwathsBounds,
+        VectorizeSwathPolygons
+    )
+
+    parameters = ValleyBottomParameters()
+    parameters.update(
+        mdelta=length,
+        ax_tiles='ax_shortest_tiles',
+        ax_mask='ax_nearest_height')
+
+    click.secho('Disaggregate valley bottom', fg='cyan')
+    swaths = DisaggregateIntoSwaths(
+        axis=axis,
+        processes=processes,
+        **parameters)
+
+    WriteSwathsBounds(axis, swaths, **parameters)
+
+    buildvrt('default', 'ax_swaths_refaxis', axis=axis)
+    buildvrt('default', 'ax_axis_measure', axis=axis)
+    buildvrt('default', 'ax_axis_distance', axis=axis)
+
+    click.secho('Vectorize swath polygons', fg='cyan')
+    VectorizeSwathPolygons(
+        axis=axis,
+        processes=processes,
+        **parameters)
+
 @fct_command(cli, 'update swath units')
 @arg_axis
 @click.option('--medialaxis', default=False, is_flag=True, help='use medial axis for reference')
@@ -326,16 +367,25 @@ def landcover_swath(axis, processes):
     LandCoverSwathProfile(
         axis,
         processes=processes,
-        landcover='landcover-bdt',
-        valley_bottom_mask='ax_valley_mask_refined',
-        subset='TOTAL_BDT')
+        landcover='ax_landcover',
+        # valley_bottom_mask='ax_valley_mask_refined',
+        subset='TOTAL')
 
-    LandCoverSwathProfile(
-        axis,
-        processes=processes,
-        # landcover='ax_corridor_mask',
-        landcover='ax_continuity',
-        subset='CONT_BDT')
+    # LandCoverSwathProfile(
+    #     axis,
+    #     processes=processes,
+    #     # landcover='ax_corridor_mask',
+    #     landcover='ax_continuity_variant',
+    #     variant='MAX',
+    #     subset='MAX')
+
+    # LandCoverSwathProfile(
+    #     axis,
+    #     processes=processes,
+    #     # landcover='ax_corridor_mask',
+    #     landcover='ax_continuity_variant',
+    #     variant='WEIGHTED',
+    #     subset='WEIGHTED')
 
 @fct_command(
     export_profile,
@@ -351,12 +401,60 @@ def export_landcover_to_netcdf(axis):
 
     ExportLandcoverSwathsToNetCDF(
         axis,
-        landcover='landcover-bdt',
-        subset='TOTAL_BDT'
+        landcover='ax_landcover',
+        subset='TOTAL'
     )
 
-    ExportLandcoverSwathsToNetCDF(
+    # ExportLandcoverSwathsToNetCDF(
+    #     axis,
+    #     landcover='ax_continuity',
+    #     subset='MAX'
+    # )
+
+    # ExportLandcoverSwathsToNetCDF(
+    #     axis,
+    #     landcover='ax_continuity',
+    #     subset='WEIGHTED'
+    # )
+
+@fct_command(profile, 'continuity swath profiles', name='continuity')
+@arg_axis
+def continuity_swath(axis):
+    """
+    Calculate continuity swaths
+    """
+
+    from fct.swath.LandCoverSwathProfile import (
+        LandCoverSwathProfile,
+        ExportContinuitySwathsToNetCDF
+    )
+
+    LandCoverSwathProfile( 
         axis,
-        landcover='ax_continuity',
-        subset='CONT_BDT'
+        processes=6,
+        # landcover='ax_corridor_mask',
+        landcover='ax_continuity_variant_remapped',
+        variant='MAX',
+        subset='MAX')
+
+    ExportContinuitySwathsToNetCDF(
+        axis,
+        landcover='ax_continuity_variant_remapped',
+        variant='MAX',
+        subset='MAX'
+    )
+
+    LandCoverSwathProfile( 
+        axis,
+        processes=6,
+        # landcover='ax_corridor_mask',
+        landcover='ax_continuity_variant_remapped',
+        variant='WEIGHTED',
+        subset='WEIGHTED')
+
+    ExportContinuitySwathsToNetCDF(
+        axis,
+        landcover='ax_continuity_variant_remapped',
+        variant='WEIGHTED',
+        subset='WEIGHTED'
     )
