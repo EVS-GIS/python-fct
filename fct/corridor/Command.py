@@ -129,9 +129,11 @@ def flow_height(axis, vrt, processes):
 
 @cli.command()
 @arg_axis
-@click.option('--vrt/--no-vrt', default=True, help='Build VRT after processing')
+# @click.option('--vrt/--no-vrt', default=True, help='Build VRT after processing')
+@click.option('--max-height', default=20.0, help='Max height limit (meters)')
+@click.option('--max-distance', default=2000, help='Max distance limit (pixels)')
 @parallel_opt
-def shortest_height(axis, vrt, processes):
+def shortest_height(axis, max_height, max_distance, processes):
     """
     Relative heights following shortest path to drainage/reference
     """
@@ -142,6 +144,7 @@ def shortest_height(axis, vrt, processes):
     )
 
     parameters = ShortestHeightDefaultParameters()
+    parameters.update(max_dz=max_height, max_distance=max_distance)
     start_time = PrintCommandInfo('valley bottom shortest', axis, processes, parameters)
 
     ShortestHeight(axis=axis, processes=processes, **parameters)
@@ -149,17 +152,14 @@ def shortest_height(axis, vrt, processes):
     elapsed = time.time() - start_time
     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
 
-    if vrt:
-
-        click.secho('Building output VRTs', fg='cyan')
-        buildvrt('default', parameters['dataset_height'], axis=axis)
-        buildvrt('default', parameters['dataset_distance'], axis=axis)
+    click.secho('Building output VRTs', fg='cyan')
+    buildvrt('default', parameters['dataset_height'], axis=axis)
+    buildvrt('default', parameters['dataset_distance'], axis=axis)
 
 @cli.command()
 @arg_axis
-@click.option('--vrt/--no-vrt', default=True, help='Build VRT after processing')
 @parallel_opt
-def hand(axis, vrt, processes):
+def hand(axis, processes):
     """
     Refine shortest height output with HAND
     (height above nearest drainage)
@@ -178,11 +178,9 @@ def hand(axis, vrt, processes):
     elapsed = time.time() - start_time
     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
 
-    if vrt:
-
-        click.secho('Building output VRTs', fg='cyan')
-        buildvrt('default', parameters['height'], axis=axis)
-        buildvrt('default', parameters['distance'], axis=axis)
+    click.secho('Building output VRTs', fg='cyan')
+    buildvrt('default', parameters['height'], axis=axis)
+    buildvrt('default', parameters['distance'], axis=axis)
 
 # @cli.command('cliphand')
 # @arg_axis
@@ -203,10 +201,11 @@ def hand(axis, vrt, processes):
 
 @cli.command()
 @arg_axis
-@click.option('--vrt/--no-vrt', default=True, help='Build VRT after processing')
-# @click.option('--buf', default=40.0, help='buffer width in pixels')
+# @click.option('--vrt/--no-vrt', default=True, help='Build VRT after processing')
+@click.option('--buffer-width', default=20.0, help='buffer width in pixels')
+@click.option('--max-height', default=12.0, help='Max height limit (meters)')
 @parallel_opt
-def valleymask(axis, vrt, processes):
+def valleymask(axis, buffer_width, max_height, processes):
     """
     Clip height above threshold in HAND raster
     """
@@ -217,17 +216,39 @@ def valleymask(axis, vrt, processes):
     )
 
     parameters = ValleyBottomMaskDefaultParameters()
-    start_time = PrintCommandInfo('height above nearest drainage', axis, processes, parameters)
+    parameters.update(max_height=max_height, buffer_width=buffer_width)
+    start_time = PrintCommandInfo('extract valley mask', axis, processes, parameters)
 
     ValleyBottomMask(axis, processes=processes, **parameters)
 
     elapsed = time.time() - start_time
     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
 
-    if vrt:
+    click.secho('Building output VRTs', fg='cyan')
+    buildvrt('default', parameters['output'], axis=axis)
 
-        click.secho('Building output VRTs', fg='cyan')
-        buildvrt('default', parameters['output'], axis=axis)
+@cli.command()
+@arg_axis
+@parallel_opt
+def valleymask_hand(axis, processes):
+    """
+    Refine shortest height output with HAND
+    (height above nearest drainage)
+    """
+
+    from .HeightAboveNearestDrainage import (
+        HeightAboveNearestDrainage,
+        HeightAboveTalwegDefaultParameters
+    )
+
+    parameters = HeightAboveTalwegDefaultParameters()
+    parameters.update(mask='ax_valley_mask')
+    start_time = PrintCommandInfo('update valley mask HAND', axis, processes, parameters)
+
+    HeightAboveNearestDrainage(axis=axis, processes=processes, **parameters)
+
+    elapsed = time.time() - start_time
+    click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
 
 @cli.command()
 @arg_axis
@@ -248,6 +269,19 @@ def medialaxis(axis):
 
     elapsed = time.time() - start_time
     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
+@cli.command()
+@arg_axis
+@click.option('--distance', default=2000.0, help='simplification tolerance (meters)')
+def simplify_medialaxis(axis, distance):
+    """
+    Simplify medial axis
+    """
+
+    from .SimplifyMedialAxis import SimplifyMedialAxis
+
+    maskfile = config.tileset().filename('ax_swaths_refaxis', axis=axis)
+    SimplifyMedialAxis(axis, distance, maskfile)
 
 @cli.command()
 @arg_axis

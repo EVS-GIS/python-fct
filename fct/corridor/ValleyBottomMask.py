@@ -70,7 +70,7 @@ def ValleyBottomMaskDefaultParameters():
         max_slope=0.01,
         min_distance=1000.0,
         max_height=12.0,
-        buffer_width=40.0
+        buffer_width=20.0
     )
 
 # def ClipHeight(axis, ax_tiles='ax_shortest_tiles', processes=1, **kwargs):
@@ -145,9 +145,12 @@ def ValleyBottomMaskTile(axis, row, col, params, **kwargs):
         
         mask[hand == ds.nodata] = 0
 
-        speedup.raster_buffer(mask, 0, params.buffer_width, 1)
-
         hand[mask == 0] = ds.nodata
+
+        if params.buffer_width > 0:
+
+            speedup.raster_buffer(mask, 0, params.buffer_width, 1)
+            hand[(hand == ds.nodata) & (mask == 1)] = params.max_height
 
         profile = ds.profile.copy()
         profile.update(compress='deflate')

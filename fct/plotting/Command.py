@@ -633,26 +633,107 @@ def plot_continuity_profile(ax, axis):
     @input metrics_continuity_width: metrics_continuity_width
     """
 
-    from .PlotCorridor import PlotLandCoverProfile
+    from .PlotCorridor import PlotLandCoverProfile2
 
     data_file = config.filename('metrics_width_continuity', variant='MAX', axis=axis)
     data = xr.open_dataset(data_file).sortby('measure')
 
-    PlotLandCoverProfile(
+    PlotLandCoverProfile2(
         ax,
         data['measure'],
         np.sum(data['buffer_width'], axis=2),
-        basis=2,
+        basis=0,
         window=5
     )
 
     SetupMeasureAxis(ax, data['measure'])
     ax.set_ylabel('Width (m)')
 
+@fct_plot(cli, 'corridor-width', title='Left and right bank corridor width')
+@arg_axis
+@click.option('--max-class', default=8, help='Plot until max_class continuity class')
+def plot_left_right_corridor_width(ax, axis, max_class):
+    """
+    Left/rigth total landcover width long profile
+
+    @api   fct-plot:landcover-profile-lr
+    @input metrics_valleybottom_width: metrics_valleybottom_width
+    @input metrics_landcover_width: metrics_landcover_width
+    """
+
+    from .PlotCorridor import PlotCorridorLimit
+
+    data_file = config.filename('metrics_width_landcover', variant='TOTAL', axis=axis)
+    width_file = config.filename('metrics_width_corridor', axis=axis)
+
+    width = xr.open_dataset(width_file)
+    data = xr.open_dataset(data_file)
+
+    merged = data.merge(width).sortby('measure')
+
+    data_vb_width = merged['valley_bottom_width']
+    data_vb_area_lr = merged['valley_bottom_area_lr']
+    vbw_left = data_vb_width * data_vb_area_lr.sel(side='left') / np.sum(data_vb_area_lr, axis=1)
+    vbw_right = data_vb_width * data_vb_area_lr.sel(side='right') / np.sum(data_vb_area_lr, axis=1)
+
+    PlotCorridorLimit(
+        ax,
+        merged,
+        merged['measure'],
+        vbw_left,
+        vbw_right,
+        basis=0,
+        window=5)
+
+    SetupMeasureAxis(ax, merged['measure'])
+    ax.set_ylabel('Width (m)')
+    ax.legend(ncol=2, loc='lower left')
+
+@fct_plot(cli, 'corridor-width-lr', title='Left and right bank corridor width')
+@arg_axis
+@click.option('--max-class', default=8, help='Plot until max_class continuity class')
+def plot_left_right_corridor_width(ax, axis, max_class):
+    """
+    Left/rigth total landcover width long profile
+
+    @api   fct-plot:landcover-profile-lr
+    @input metrics_valleybottom_width: metrics_valleybottom_width
+    @input metrics_landcover_width: metrics_landcover_width
+    """
+
+    from .PlotCorridor import PlotLeftRightCorridorLimit
+
+    data_file = config.filename('metrics_width_landcover', variant='TOTAL', axis=axis)
+    width_file = config.filename('metrics_width_corridor', axis=axis)
+
+    width = xr.open_dataset(width_file)
+    data = xr.open_dataset(data_file)
+
+    merged = data.merge(width).sortby('measure')
+
+    data_vb_width = merged['valley_bottom_width']
+    data_vb_area_lr = merged['valley_bottom_area_lr']
+    vbw_left = data_vb_width * data_vb_area_lr.sel(side='left') / np.sum(data_vb_area_lr, axis=1)
+    vbw_right = data_vb_width * data_vb_area_lr.sel(side='right') / np.sum(data_vb_area_lr, axis=1)
+
+    PlotLeftRightCorridorLimit(
+        ax,
+        merged,
+        merged['measure'],
+        vbw_left,
+        vbw_right,
+        basis=0,
+        window=5)
+
+    SetupMeasureAxis(ax, merged['measure'])
+    ax.set_ylabel('Width (m)')
+    ax.legend(ncol=2, loc='lower left')
+
 @fct_plot(cli, 'landcover-profile-lr', title='Left and right bank landcover width')
 @arg_axis
 @click.option('--max-class', default=8, help='Plot until max_class continuity class')
-def plot_left_right_landcover_profile(ax, axis, max_class):
+@click.option('--legend/--no-legend', default=False, is_flag=True, help='Display legend')
+def plot_left_right_landcover_profile(ax, axis, max_class, legend):
     """
     Left/rigth total landcover width long profile
 
@@ -701,12 +782,15 @@ def plot_left_right_landcover_profile(ax, axis, max_class):
 
     SetupMeasureAxis(ax, merged['measure'])
     ax.set_ylabel('Width (m)')
-    ax.legend(ncol=2, loc='lower left')
+
+    if legend:
+        ax.legend(ncol=2, loc='lower left')
 
 @fct_plot(cli, 'continuity-profile-lr', title='Left and right bank continuity buffer width')
 @arg_axis
 @click.option('--max-class', default=6, help='Plot until max_class continuity class')
-def plot_left_right_continuity_profile(ax, axis, max_class):
+@click.option('--legend/--no-legend', default=False, is_flag=True, help='Display legend')
+def plot_left_right_continuity_profile(ax, axis, max_class, legend):
     """
     Left/rigth continuity buffer width long profile
 
@@ -754,4 +838,6 @@ def plot_left_right_continuity_profile(ax, axis, max_class):
 
     SetupMeasureAxis(ax, merged['measure'])
     ax.set_ylabel('Width (m)')
-    ax.legend(ncol=2, loc='lower left')
+
+    if legend:
+        ax.legend(ncol=2, loc='lower left')

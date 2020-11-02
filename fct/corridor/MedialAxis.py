@@ -22,8 +22,8 @@ import rasterio as rio
 import fiona
 import fiona.crs
 
-from shapely.geometry import LineString
-from shapely.ops import linemerge
+from shapely.geometry import LineString, MultiLineString, Polygon, asShape
+from shapely.ops import linemerge, unary_union
 
 from ..config import config
 from .. import (
@@ -78,7 +78,8 @@ def BoundaryPoints(axis):
         for row, col in iterator:
 
             swath_raster = config.tileset().tilename(
-                'ax_swaths_refaxis',
+                # 'ax_swaths_refaxis',
+                'ax_valley_mask',
                 axis=axis,
                 row=row,
                 col=col)
@@ -107,12 +108,61 @@ def BoundaryPoints(axis):
             with rio.open(distance_raster) as ds:
 
                 distance = ds.read(1)
-                groups = distance[points[:, 0], points[:, 1]] >= 0
+                # groups = distance[points[:, 0], points[:, 1]] >= 0
+                distance = distance[points[:, 0], points[:, 1]]
+                valid = (distance != ds.nodata)
+                
+                groups = distance[valid] >= 0
+                coordinates = coordinates[valid]
 
             coordinates_all = np.concatenate([coordinates_all, coordinates], axis=0)
             groups_all = np.concatenate([groups_all, groups], axis=0)
 
     return coordinates_all, groups_all
+
+def DissolveSwathBounds(axis):
+
+    swath_shapefile = config.filename('ax_swaths_refaxis_polygons', axis=axis)
+    boxes = list()
+
+    with fiona.open(swath_shapefile) as fs:
+        for feature in fs:
+
+            if feature['properties']['VALUE'] == 2:
+
+                bounds = asShape(feature['geometry']).bounds
+                box = Polygon.from_bounds(*bounds)
+                boxes.append(box.buffer(10.0))
+
+    dissolved = unary_union(boxes)
+
+    return dissolved
+
+def FixOrientation(axis, medialaxis):
+
+    measure_raster = config.tileset().filename('ax_axis_measure', axis=axis)
+
+    with rio.open(measure_raster) as ds:
+
+        points = [
+            medialaxis.interpolate((k+1)/201, normalized=True)
+            for k in range(200)
+        ]
+
+        measures = list(map(float, ds.sample([(p.x, p.y) for p in points], 1)))
+
+    x = np.column_stack([
+        np.arange(200),
+        np.ones(200)
+    ])
+
+    coefs, _, _, _ = np.linalg.lstsq(x, measures, rcond=None)
+
+    if coefs.item(0) > 0:
+
+        return LineString(reversed(medialaxis.coords))
+
+    return medialaxis
 
 def MedialAxis(axis):
     """
@@ -127,6 +177,32 @@ def MedialAxis(axis):
     voronoi = Voronoi(coordinates, qhull_options='Qbb Qc')
     lines = list(medial_segments(voronoi, groups))
     medialaxis = linemerge(lines)
+
+    envelope = DissolveSwathBounds(axis)
+
+    if hasattr(medialaxis, 'geoms'):
+
+        lines = [line.intersection(envelope) for line in medialaxis.geoms]
+        lines = sorted(lines, key=lambda line: -line.length)
+        medialaxis = lines[0]
+
+    else:
+
+        medialaxis = medialaxis.intersection(envelope)
+
+    if hasattr(medialaxis, 'geoms'):
+
+        geoms = list()
+
+        for geom in medialaxis.geoms:
+
+            geoms.append(FixOrientation(axis, geom))
+
+        medialaxis = MultiLineString(geoms)
+
+    else:
+
+        medialaxis = FixOrientation(axis, medialaxis)
 
     crs = fiona.crs.from_epsg(2154)
     driver = 'ESRI Shapefile'

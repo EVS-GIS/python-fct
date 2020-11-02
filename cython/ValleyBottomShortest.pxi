@@ -271,7 +271,7 @@ def valley_bottom_shortest(
                 # Using max dz stop criteria for shortest
                 # changes the meaning of shortest :)
 
-                if max_dz > 0 and not (-max_dz < elevations[i, j] - reference[i, j] <= max_dz):
+                if max_dz > 0 and not (-max_dz < (elevations[i, j] - reference[i, j]) <= max_dz):
                     state[i, j] = 3 # height limit
                     continue
 

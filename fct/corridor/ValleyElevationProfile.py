@@ -165,7 +165,11 @@ def ValleyElevationProfile(axis):
         xmin = np.min(x[~w])
         xmax = np.max(x[~w])
 
-        return UnivariateSpline(x[~w], y[~w], k=3)
+        spl = UnivariateSpline(x[~w], y[~w], k=3)
+        # spl.set_smoothing_factor(0.2*np.sum(~w))
+        # spl.set_smoothing_factor(2.0)
+
+        return spl
 
     _, zvalley = ValleySwathElevation(axis)
     spl = interpolator(zvalley)
