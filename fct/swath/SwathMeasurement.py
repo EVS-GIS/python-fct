@@ -144,7 +144,8 @@ def ValleyBottomParameters():
     """
 
     return dict(
-        ax_mask='ax_valley_mask',
+        # ax_mask='ax_valley_mask',
+        ax_mask='ax_nearest_height',
         ax_reference='ax_refaxis',
         ax_talweg_distance='ax_nearest_distance',
         output_distance='ax_axis_distance',

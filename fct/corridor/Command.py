@@ -250,6 +250,10 @@ def valleymask_hand(axis, processes):
     elapsed = time.time() - start_time
     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
 
+    click.secho('Building output VRTs', fg='cyan')
+    buildvrt('default', parameters['height'], axis=axis)
+    buildvrt('default', parameters['distance'], axis=axis)
+
 @cli.command()
 @arg_axis
 def medialaxis(axis):

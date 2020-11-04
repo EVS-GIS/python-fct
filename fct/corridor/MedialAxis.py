@@ -79,7 +79,8 @@ def BoundaryPoints(axis):
 
             swath_raster = config.tileset().tilename(
                 # 'ax_swaths_refaxis',
-                'ax_valley_mask',
+                # 'ax_valley_mask',
+                'ax_nearest_height',
                 axis=axis,
                 row=row,
                 col=col)

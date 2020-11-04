@@ -103,6 +103,7 @@ def ContinuityWidth(axis, method, datasets, swath_length=200.0, resolution=5.0, 
                 # density = data['density']
 
                 if x.shape[0] < 3:
+                    valid[i] = False
                     continue
 
                 # unit width of observations

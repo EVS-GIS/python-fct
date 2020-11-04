@@ -52,6 +52,19 @@ ax_nearest_height:
     template: NEAREST_HEIGHT_%(row)02d_%(col)02d
     extension: .tif
 
+nearest_height:
+  description: |
+    Height above nearest drainage (HAND)
+  type: raster
+  group: metrology
+  status: final
+  subdir: GLOBAL/HEIGHT
+  filename: NEAREST_HEIGHT.vrt
+  tiles:
+    tileset: landcover
+    template: NEAREST_HEIGHT_%(row)02d_%(col)02d
+    extension: .tif
+
 ax_relative_elevation:
   description: |
     Height above nearest drainage (HAND)
@@ -139,6 +152,19 @@ ax_valley_height:
   group: corridor
   status: final
   subdir: AXES/AX%(axis)04d
+  filename: VALLEY_HEIGHT.vrt
+  tiles:
+    tileset: landcover
+    template: VALLEY_HEIGHT_%(row)02d_%(col)02d
+    extension: .tif
+
+valley_height:
+  description: |
+    Height above valley floor
+  type: raster
+  group: corridor
+  status: final
+  subdir: GLOBAL/HEIGHT
   filename: VALLEY_HEIGHT.vrt
   tiles:
     tileset: landcover
