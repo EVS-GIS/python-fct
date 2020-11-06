@@ -124,9 +124,13 @@ def ValleyBottomMaskTile(axis, row, col, params, **kwargs):
             row=row,
             col=col)
 
+    # dem_raster = tileset.tilename('dem', row=row, col=col)
     height_raster = _tilename(params.height)
     distance_raster = _tilename(params.distance)
     output = _tilename(params.output)
+
+    # with rio.open(dem_raster) as ds:
+    #     dem_nodata = (ds.read(1) == ds.nodata)
 
     with rio.open(distance_raster) as ds:
         distance = ds.read(1)
@@ -146,6 +150,7 @@ def ValleyBottomMaskTile(axis, row, col, params, **kwargs):
         mask[hand == ds.nodata] = 0
 
         hand[mask == 0] = ds.nodata
+        # hand[dem_nodata] = ds.nodata
 
         if params.buffer_width > 0:
 

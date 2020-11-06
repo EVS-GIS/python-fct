@@ -99,10 +99,28 @@ def LandCoverSwath(
         window = as_window(bounds, ds.transform)
         landcover = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
 
-        # assert hand.shape == landcover.shape
-        assert axis_distance.shape == landcover.shape
-        assert nearest_distance.shape == landcover.shape
-        assert mask.shape == landcover.shape
+        try:
+
+            # assert hand.shape == landcover.shape
+            assert axis_distance.shape == landcover.shape
+            assert nearest_distance.shape == landcover.shape
+            assert mask.shape == landcover.shape
+
+        except AssertionError:
+
+            # print('landcover', landcover.shape)
+            # print('axis_distance', axis_distance.shape)
+            # print('nearest_distance', nearest_distance.shape)
+            # print('mask', mask.shape)
+
+            click.secho('No data for swath (%d, %d)' % (axis, gid), fg='yellow')
+            values = dict(
+                x=np.zeros(0, dtype='float32'),
+                density=np.zeros(0, dtype='float32'),
+                landcover_classes=np.zeros(0, dtype='uint32'),
+                landcover_swath=np.zeros((0, 0), dtype='float32')
+            )
+            return gid, values
 
         if np.sum(mask) == 0:
 

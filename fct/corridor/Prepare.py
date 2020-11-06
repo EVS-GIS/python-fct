@@ -160,7 +160,8 @@ def MaskLandcoverTile(axis, row, col):
     tileset = config.tileset()
 
     mask_tile = tileset.tilename(
-        'backup_valley_mask',
+        # 'backup_valley_mask',
+        'ax_nearest_height',
         axis=axis,
         row=row,
         col=col

@@ -153,7 +153,7 @@ def HeightAboveNearestDrainageTile(
             distance[mask == ds.nodata] = ds.nodata
 
             hand = elevations - reference
-            hand[mask == ds.nodata] = ds.nodata
+            hand[(mask == ds.nodata) | (elevations == ds2.nodata)] = ds.nodata
 
         else:
 
