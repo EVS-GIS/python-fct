@@ -1,0 +1,241 @@
+shortest_tiles:
+  description: |
+    List of tiles in ax_shortest_height dataset
+  type: text
+  group: drainage
+  status: temporary
+  subdir: NETWORK
+  filename: SHORTEST_TILES.csv
+
+shortest_height:
+  description: |
+    Height above stream talweg following shortest path
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: NETWORK/HEIGHT
+  filename: SHORTEST_HEIGHT.vrt
+  tiles:
+    tileset: landcover
+    template: SHORTEST_HEIGHT_%(row)02d_%(col)02d
+    extension: .tif
+
+shortest_distance:
+  description: |
+    Shortest path distance to stream talweg
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: NETWORK/TEMP
+  filename: SHORTEST_DISTANCE.vrt
+  tiles:
+    tileset: landcover
+    template: SHORTEST_DISTANCE_%(row)02d_%(col)02d
+    extension: .tif
+
+shortest_state:
+  description: |
+    Temporary processing state for shortest height,
+    saved between iterations
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: NETWORK/TEMP
+  filename: SHORTEST_STATE.vrt
+  tiles:
+    tileset: landcover
+    template: SHORTEST_STATE_%(row)02d_%(col)02d
+    extension: .tif
+
+nearest_distance:
+  description: |
+    Distance to nearest drainage
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: NETWORK/HEIGHT
+  filename: NEAREST_DISTANCE.vrt
+  tiles:
+    tileset: landcover
+    template: NEAREST_DISTANCE_%(row)02d_%(col)02d
+    extension: .tif
+
+nearest_height:
+  description: |
+    Height above nearest drainage (HAND)
+  type: raster
+  group: metrology
+  status: final
+  subdir: NETWORK/HEIGHT
+  filename: NEAREST_HEIGHT.vrt
+  tiles:
+    tileset: landcover
+    template: NEAREST_HEIGHT_%(row)02d_%(col)02d
+    extension: .tif
+
+valley_mask:
+  description: |
+    Valley mask from nearest height raster
+  type: raster
+  group: corridor
+  status: temporary
+  subdir: NETWORK/HEIGHT
+  filename: VALLEY_MASK.vrt
+  tiles:
+    tileset: landcover
+    template: VALLEY_MASK_%(row)02d_%(col)02d
+    extension: .tif
+
+continuity:
+  description: |
+    Landcover continuity map
+  type: raster
+  group: corridor
+  status: final
+  subdir: NETWORK/CONTINUITY
+  filename: LANDCOVER_CONTINUITY.vrt
+  tiles:
+    tileset: landcover
+    template: LANDCOVER_CONTINUITY_%(row)02d_%(col)02d
+    extension: .tif
+
+continuity_state:
+  description: |
+    Landcover continuity map
+  type: raster
+  group: corridor
+  status: temporary
+  subdir: NETWORK/TEMP
+  filename: LANDCOVER_CONTINUITY_STATE.vrt
+  tiles:
+    tileset: landcover
+    template: LANDCOVER_CONTINUITY_STATE_%(row)02d_%(col)02d
+    extension: .tif
+
+continuity_distance:
+  description: |
+    Landcover continuity map
+  type: raster
+  group: corridor
+  status: temporary
+  subdir: NETWORK/TEMP
+  filename: LANDCOVER_CONTINUITY_DISTANCE.vrt
+  tiles:
+    tileset: landcover
+    template: LANDCOVER_CONTINUITY_DISTANCE_%(row)02d_%(col)02d
+    extension: .tif
+
+continuity_variant:
+  description: |
+    Landcover continuity map (Variants)
+  type: raster
+  group: corridor
+  status: final
+  subdir: NETWORK/CONTINUITY
+  filename: LANDCOVER_CONTINUITY_%(variant)s.vrt
+  tiles:
+    tileset: landcover
+    template: LANDCOVER_CONTINUITY_%(variant)s_%(row)02d_%(col)02d
+    extension: .tif
+
+continuity_remapped:
+  description: |
+    Interpreted landcover continuity map
+  type: raster
+  group: corridor
+  status: final
+  subdir: NETWORK/CONTINUITY
+  filename: LANDCOVER_CONTINUITY_FINAL.vrt
+  tiles:
+    tileset: landcover
+    template: LANDCOVER_CONTINUITY_FINAL_%(row)02d_%(col)02d
+    extension: .tif
+
+continuity_variant_remapped:
+  description: |
+    Interpreted landcover continuity map (Variants)
+  type: raster
+  group: corridor
+  status: final
+  subdir: NETWORK/CONTINUITY
+  filename: LANDCOVER_CONTINUITY_%(variant)s_FINAL.vrt
+  tiles:
+    tileset: landcover
+    template: LANDCOVER_CONTINUITY_%(variant)s_FINAL_%(row)02d_%(col)02d
+    extension: .tif
+
+axis_distance:
+  description: |
+    Distance to reference axis
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: NETWORK/MEASURE
+  filename: AXIS_DISTANCE.vrt
+  tiles:
+    tileset: landcover
+    template: AXIS_DISTANCE_%(row)02d_%(col)02d
+    extension: .tif
+
+axis_measure:
+  description: |
+    Location (measure) along reference axis
+  type: raster
+  group: spatial reference
+  status: temporary
+  subdir: NETWORK/MEASURE
+  filename: AXIS_MEASURE.vrt
+  tiles:
+    tileset: landcover
+    template: AXIS_MEASURE_%(row)02d_%(col)02d
+    extension: .tif
+
+axis_nearest:
+  description: |
+    Nearest reference axis
+  type: raster
+  group: spatial reference
+  status: temporary
+  subdir: NETWORK/MEASURE
+  filename: AXIS_NEAREST.vrt
+  tiles:
+    tileset: landcover
+    template: AXIS_NEAREST_%(row)02d_%(col)02d
+    extension: .tif
+
+swaths_refaxis:
+  description: |
+    Valley bottom longitudinal units
+    (raster intermediate result)
+  type: raster
+  group: reference
+  status: temporary
+  subdir: NETWORK/MEASURE
+  filename: SWATHS_REFAXIS.vrt
+  tiles:
+    tileset: landcover
+    template: SWATHS_REFAXIS_%(row)02d_%(col)02d
+    extension: .tif
+
+swaths_refaxis_bounds:
+  description: |
+    coordinate and bounds of valley bottom
+    spatial units (after disaggregation)
+  type: netcdf
+  group: reference
+  status: temporary
+  subdir: NETWORK/MEASURE
+  filename: SWATHS_REFAXIS_BOUNDS.nc
+
+swaths_refaxis_polygons:
+  description: |
+    Valley bottom longitudinal units
+  type: polygon
+  group: reference
+  status: final
+  subdir: NETWORK/MEASURE
+  filename: SWATHS_REFAXIS.shp
+  tiles:
+    tileset: landcover
+    template: SWATHS_REFAXIS_%(row)02d_%(col)02d
+    extension: .shp
