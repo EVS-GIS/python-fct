@@ -52,18 +52,18 @@ ax_nearest_height:
     template: NEAREST_HEIGHT_%(row)02d_%(col)02d
     extension: .tif
 
-nearest_height:
-  description: |
-    Height above nearest drainage (HAND)
-  type: raster
-  group: metrology
-  status: final
-  subdir: GLOBAL/HEIGHT
-  filename: NEAREST_HEIGHT.vrt
-  tiles:
-    tileset: landcover
-    template: NEAREST_HEIGHT_%(row)02d_%(col)02d
-    extension: .tif
+# nearest_height:
+#   description: |
+#     Height above nearest drainage (HAND)
+#   type: raster
+#   group: metrology
+#   status: final
+#   subdir: GLOBAL/HEIGHT
+#   filename: NEAREST_HEIGHT.vrt
+#   tiles:
+#     tileset: landcover
+#     template: NEAREST_HEIGHT_%(row)02d_%(col)02d
+#     extension: .tif
 
 ax_relative_elevation:
   description: |

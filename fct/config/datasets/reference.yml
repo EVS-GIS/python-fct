@@ -6,7 +6,7 @@ refaxis:
   type: linestring
   group: reference
   status: final
-  subdir: GLOBAL/REFHYDRO
+  subdir: GLOBAL/REFHYDRO/AIN
   filename: REFAXIS.shp
 
 ax_refaxis:
@@ -17,6 +17,16 @@ ax_refaxis:
   status: final
   subdir: AXES/AX%(axis)04d/REF
   filename: REFAXIS.shp
+
+ax_axis_inflection:
+  description: |
+    Axis passing through talweg inflection points
+    (meandering axis)
+  type: linestring
+  group: reference
+  status: final
+  subdir: AXES/AX%(axis)04d/REF
+  filename: INFLECTION_AXIS.shp
 
 ax_talweg:
   description: |

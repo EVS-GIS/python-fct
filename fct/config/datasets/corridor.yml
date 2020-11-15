@@ -60,7 +60,7 @@ landcover_valley_bottom:
   type: raster
   group: corridor
   status: final
-  subdir: GLOBAL/LANDCOVER
+  subdir: NETWORK/LANDCOVER
   filename: LANDCOVER.vrt
   tiles:
     tileset: landcover

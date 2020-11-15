@@ -10,15 +10,15 @@ stream-network-cartography-in:
   subdir: GLOBAL/INPUT
   filename: REFERENTIEL_HYDRO.shp
 
-stream-network-cartography:
-  description: |
-    Stream network derived from cartography
-    with sources attributes and updated HACK and LENAXIS fields
-  type: linestring
-  group: hydrography
-  status: input
-  subdir: GLOBAL/REFHYDRO
-  filename: REFERENTIEL_HYDRO.shp
+# stream-network-cartography:
+#   description: |
+#     Stream network derived from cartography
+#     with sources attributes and updated HACK and LENAXIS fields
+#   type: linestring
+#   group: hydrography
+#   status: input
+#   subdir: GLOBAL/REFHYDRO
+#   filename: REFERENTIEL_HYDRO.shp
 
 stream-network-cartography-backup:
   description: |
@@ -68,7 +68,7 @@ network-cartography-ready:
   type: linestring
   group: hydrography
   status: input
-  subdir: GLOBAL/REFHYDRO
+  subdir: GLOBAL/REFHYDRO/AIN
   filename: REFERENTIEL_HYDRO.shp
 
 sources-cartography:

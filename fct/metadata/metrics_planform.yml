@@ -17,3 +17,9 @@ variables:
   talweg_shift:
     long_name: signed distance to reference axis
     units: m
+  talweg_curvature:
+    long_name: angular direction change between two talweg segments
+    units: rad
+  talweg_direction_angle:
+    long_name: curve direction angle phi(talweg_measure) with respect to reference axis
+    units: rad
