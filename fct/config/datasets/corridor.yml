@@ -197,6 +197,45 @@ ax_valley_mask_refined:
     template: VALLEY_BOTTOM_%(row)02d_%(col)02d
     extension: .tif
 
+ax_planform_envelope:
+  description: |
+    Planform envelope
+  type: raster
+  group: corridor
+  status: final
+  subdir: AXES/AX%(axis)04d
+  filename: PLANFORM_ENVELOPE.vrt
+  tiles:
+    tileset: landcover
+    template: PLANFORM_ENVELOPE_%(row)02d_%(col)02d
+    extension: .tif
+
+# ax_planform_envelope_distance:
+#   description: |
+#     Planform envelope distance
+#   type: raster
+#   group: corridor
+#   status: final
+#   subdir: AXES/AX%(axis)04d
+#   filename: PLANFORM_ENVELOPE_DISTANCE.vrt
+#   tiles:
+#     tileset: landcover
+#     template: PLANFORM_ENVELOPE_DISTANCE_%(row)02d_%(col)02d
+#     extension: .tif
+
+# ax_planform_envelope_amp:
+#   description: |
+#     Planform envelope
+#   type: raster
+#   group: corridor
+#   status: final
+#   subdir: AXES/AX%(axis)04d
+#   filename: PLANFORM_ENVELOPE_AMP.vrt
+#   tiles:
+#     tileset: landcover
+#     template: PLANFORM_ENVELOPE_AMP_%(row)02d_%(col)02d
+#     extension: .tif
+
 ax_valley_height_mask:
   description: |
     Valley mask from valley height raster
