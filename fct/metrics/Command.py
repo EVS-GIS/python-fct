@@ -170,12 +170,12 @@ def planform(axis):
     mean slope, representative elevation
     """
 
-    from .PlanformShift import (
-        PlanformShift,
+    from .Planform import (
+        Planform,
         WritePlanforMetrics
     )
 
-    dataset = PlanformShift(axis)
+    dataset = Planform(axis)
     WritePlanforMetrics(axis, dataset)
 
 @fct_command(cli)
