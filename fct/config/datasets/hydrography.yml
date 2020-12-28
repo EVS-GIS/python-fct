@@ -68,7 +68,7 @@ network-cartography-ready:
   type: linestring
   group: hydrography
   status: input
-  subdir: GLOBAL/REFHYDRO/AIN
+  subdir: GLOBAL/REFHYDRO
   filename: REFERENTIEL_HYDRO.shp
 
 sources-cartography:

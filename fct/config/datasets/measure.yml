@@ -1,6 +1,19 @@
 # Per axis datasets
 # Metrology raster support and swath units definition
 # raster measure and distance
+
+ax_axis_mask:
+  description: |
+    Axis data mask
+  type: raster
+  group: spatial reference
+  status: temporary
+  subdir: AXES/AX%(axis)04d/TEMP
+  filename: AXIS_MASK.vrt
+  tiles:
+    tileset: landcover
+    template: AXIS_MASK_%(row)02d_%(col)02d
+    extension: .tif
   
 ax_axis_distance:
   description: |

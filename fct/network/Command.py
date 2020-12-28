@@ -12,6 +12,7 @@ from .. import __version__ as version
 from ..config import config
 from ..cli import (
     fct_entry_point,
+    arg_axis,
     parallel_opt
 )
 from ..cli.Decorators import pretty_time_delta
@@ -316,3 +317,24 @@ def vectorize(processes):
 
     elapsed = time.time() - start_time
     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
+
+@cli.command()
+@arg_axis
+@parallel_opt
+def export_axis(axis, processes):
+    """
+    Export network datasets for given axis
+    """
+
+    from .ExportAxisDataset import (
+        CreateAxisMask,
+        ExportSwathBounds,
+        ExportSwathPolygons,
+        ExportRasters,
+        DefaultRasterMap
+    )
+
+    CreateAxisMask(axis)
+    ExportSwathBounds(axis)
+    ExportSwathPolygons(axis)
+    ExportRasters(axis, DefaultRasterMap(), processes)

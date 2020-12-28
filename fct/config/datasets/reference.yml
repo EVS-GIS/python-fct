@@ -6,7 +6,7 @@ refaxis:
   type: linestring
   group: reference
   status: final
-  subdir: GLOBAL/REFHYDRO/AIN
+  subdir: GLOBAL/REFHYDRO
   filename: REFAXIS.shp
 
 ax_refaxis:
