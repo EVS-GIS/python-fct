@@ -80,8 +80,13 @@ def landcover(processes):
     and reference axis from first iteration HAND & valley medial axis.
     """
 
-    from .ValleyBottomLandcover import ValleyBottomLandcover
-    ValleyBottomLandcover(processes)
+    from .ValleyBottomLandcover import (
+        Parameters,
+        ValleyBottomLandcover
+    )
+
+    params = Parameters()
+    ValleyBottomLandcover(params, processes)
 
 @cli.command()
 @click.option('--max-height', default=20.0, help='Max height limit (meters)')

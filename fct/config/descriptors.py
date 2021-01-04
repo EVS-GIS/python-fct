@@ -2,7 +2,7 @@
 
 from . import config
 
-class LiteralParameter:
+class LiteralParameter():
 
     def __init__(self, description):
         self.description = description
@@ -17,7 +17,7 @@ class LiteralParameter:
     def __set__(self, obj, value):
         setattr(obj, self.name, value)
 
-class DatasetParameter:
+class DatasetParameter():
 
     def __init__(self, description, iotype=None):
         self.description = description
@@ -33,7 +33,7 @@ class DatasetParameter:
     def __set__(self, obj, value):
         setattr(obj, self.name, value)
 
-class DatasetResolver:
+class DatasetResolver():
     """
     mode:
 
@@ -61,7 +61,7 @@ class DatasetResolver:
     def __repr__(self):
         return f'DatasetResolver({self.name})'
 
-def Workflow:
+def Workflow():
 
     # def __init__(self, configuration=None):
 
@@ -70,9 +70,14 @@ def Workflow:
     #     else:
     #         self.config = configuration
 
+    def __init__(self):
+        
+        self.times = list()
+
     def __enter__(self):
         
         self.saved_workspace = config.workspace.copy()
+        return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         
@@ -90,6 +95,10 @@ def Workflow:
 
     def set_tiledir(self, tiledir):
         pass
+
+    def record_execution_time(self, name, elapsed):
+
+        self.times.append((name, elapsed))
 
 def test():
 

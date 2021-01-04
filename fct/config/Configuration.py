@@ -350,6 +350,19 @@ class Configuration():
                 AUTHORITY["EPSG","5720"]]
         """)
 
+    def axes(self, name):
+        """
+        Returns all axes defined in named dataset
+        """
+
+        axis_shapefile = self.filename(name)
+
+        with fiona.open(axis_shapefile) as fs:
+            for feature in fs:
+
+                axis = feature['properties']['AXIS']
+                yield axis
+
     def configure(self, workspace, datasources, datasets, tilesets):
         """
         Populate configuration
