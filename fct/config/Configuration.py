@@ -41,6 +41,91 @@ def from_srs(srs):
 
     return 0
 
+class Workspace:
+    """
+    Shared parameters and output dataset definitions
+    """
+
+    # def __init__(self, workspace, datasets):
+    def __init__(self):
+
+        self._workdir = ''
+        self._outputdir = ''
+        self._tileset = 'default'
+        # self._datasets = datasets
+        self._srs = ''
+        self._srid = 0
+
+    #     if 'workdir' in workspace:
+    #         self._workdir = workspace['workdir']
+
+    #     if 'srs' in workspace:
+    #         self._srs = workspace['srs']
+    #         self._srid = from_srs(self._srs)
+
+    # def dataset(self, name):
+    #     """
+    #     Return named Dataset
+    #     """
+
+    #     # if not name in self._datasets:
+    #     #     self._datasets[name] = Dataset(name)
+
+    #     return self._datasets[name]
+
+    def copy(self):
+        """
+        Returns a deep copy of this object
+        """
+
+        # pylint: disable=protected-access
+
+        other = Workspace()
+        other._workdir = self._workdir
+        other._outputdir = self._outputdir
+        other._tileset = self._tileset
+        other._srs = self._srs
+        other._srid = self._srid
+
+        return other
+
+    @property
+    def workdir(self):
+        """
+        Return working directory
+        """
+        return self._workdir
+
+    @property
+    def outputdir(self):
+        return self._outputdir
+
+    @property
+    def tileset(self):
+        return self._tileset
+
+    @property
+    def srid(self):
+        """
+        Return SRID
+        """
+        return self._srid
+
+    @property
+    def srs(self):
+        """
+        Return SRS Identifier
+        """
+        return self._srs
+
+    def set_srs(self, srs):
+        """
+        Set SRS
+        """
+
+        self._srs = srs
+        self._srid = from_srs(srs)
+
 class Configuration():
     """
     Configuration singleton,
@@ -58,7 +143,8 @@ class Configuration():
 
         self._tilesets = dict()
         self._datasources = dict()
-        self._workspace = None
+        self._datasets = dict()
+        self._workspace = Workspace()
 
     def auto(self):
 
@@ -88,11 +174,28 @@ class Configuration():
         """
         self.configure(*FileParser.parse(filename))
 
+    @property
+    def workspace(self):
+        return self._workspace
+    
+    def set_workspace(self, workspace):
+        self._workspace = workspace
+
+    # def dataset(self, name):
+    #     """
+    #     Return Dataset definition
+    #     """
+    #     return self._workspace.dataset(name)
+
     def dataset(self, name):
         """
-        Return Dataset definition
+        Return named Dataset
         """
-        return self._workspace.dataset(name)
+
+        # if not name in self._datasets:
+        #     self._datasets[name] = Dataset(name)
+
+        return self._datasets[name]
 
     def temporary_dataset(self, name):
 
@@ -102,9 +205,9 @@ class Configuration():
 
             temp = template.mktemp()
 
-            if temp.name not in self._workspace._datasets:
+            if temp.name not in self._datasets:
 
-                self._workspace._datasets[temp.name] = temp
+                self._datasets[temp.name] = temp
                 return temp
 
     # def fileset(self, names, **kwargs):
@@ -145,12 +248,12 @@ class Configuration():
             self.workdir,
             dst.subdir(**kwargs))
 
-        if mod:
+        # if mod:
 
-            mod_filename = self.mod(name, **kwargs)
+        #     mod_filename = self.mod(name, **kwargs)
 
-            if mod_filename is not None:
-                return mod_filename
+        #     if mod_filename is not None:
+        #         return mod_filename
 
         if not os.path.exists(folder):
             os.makedirs(folder)
@@ -159,52 +262,52 @@ class Configuration():
             folder,
             dst.filename(**kwargs))
 
-    def mod(self, name, **kwargs):
-        """
-        Check if there exists a modified version of dataset `name`
-        """
+    # def mod(self, name, **kwargs):
+    #     """
+    #     Check if there exists a modified version of dataset `name`
+    #     """
 
-        warn = False
+    #     warn = False
 
-        if 'FCT_MOD' in os.environ:
+    #     if 'FCT_MOD' in os.environ:
 
-            if os.environ['FCT_MOD'] == 'disable':
-                return None
+    #         if os.environ['FCT_MOD'] == 'disable':
+    #             return None
 
-            if os.environ['FCT_MOD'] == 'warn':
-                warn = True
+    #         if os.environ['FCT_MOD'] == 'warn':
+    #             warn = True
 
-        dst = self.dataset(name)
+    #     dst = self.dataset(name)
 
-        folder = os.path.join(
-            self.workdir,
-            dst.subdir(**kwargs))
+    #     folder = os.path.join(
+    #         self.workdir,
+    #         dst.subdir(**kwargs))
 
-        if not os.path.exists(folder):
-            os.makedirs(folder)
+    #     if not os.path.exists(folder):
+    #         os.makedirs(folder)
 
-        mod_filename = os.path.join(
-            folder,
-            'MOD',
-            dst.filename(**kwargs))
+    #     mod_filename = os.path.join(
+    #         folder,
+    #         'MOD',
+    #         dst.filename(**kwargs))
 
-        if not os.path.exists(mod_filename):
-            return None
+    #     if not os.path.exists(mod_filename):
+    #         return None
 
-        if warn:
+    #     if warn:
 
-            dst = self.dataset(name)
-            basename = os.path.join(
-                dst.subdir(**kwargs),
-                'MOD',
-                dst.filename(**kwargs)
-            )
+    #         dst = self.dataset(name)
+    #         basename = os.path.join(
+    #             dst.subdir(**kwargs),
+    #             'MOD',
+    #             dst.filename(**kwargs)
+    #         )
 
-            click.secho(
-                'WARN (mod) %s => %s' % (name, basename),
-                fg='yellow')
+    #         click.secho(
+    #             'WARN (mod) %s => %s' % (name, basename),
+    #             fg='yellow')
 
-        return mod_filename
+    #     return mod_filename
 
     def basename(self, name, **kwargs):
         """
@@ -247,16 +350,17 @@ class Configuration():
                 AUTHORITY["EPSG","5720"]]
         """)
 
-    def configure(self, workspace, datasources, tilesets):
+    def configure(self, workspace, datasources, datasets, tilesets):
         """
         Populate configuration
         """
 
         for tileset in tilesets.values():
-            tileset.workspace = workspace
+            tileset.parent = self
 
         self._workspace = workspace
         self._datasources = datasources
+        self._datasets = datasets
         self._tilesets = tilesets
 
 class Dataset():
@@ -361,56 +465,6 @@ class Dataset():
 
         return self._tilename
 
-class Workspace():
-    """
-    Shared parameters and output dataset definitions
-    """
-
-    def __init__(self, workspace, datasets):
-
-        self._workdir = ''
-        self._datasets = datasets
-        self._srs = ''
-        self._srid = 0
-
-        if 'workdir' in workspace:
-            self._workdir = workspace['workdir']
-
-        if 'srs' in workspace:
-            self._srs = workspace['srs']
-            self._srid = from_srs(self._srs)
-
-    def dataset(self, name):
-        """
-        Return named Dataset
-        """
-
-        # if not name in self._datasets:
-        #     self._datasets[name] = Dataset(name)
-
-        return self._datasets[name]
-
-    @property
-    def workdir(self):
-        """
-        Return working directory
-        """
-        return self._workdir
-
-    @property
-    def srid(self):
-        """
-        Return SRID
-        """
-        return self._srid
-
-    @property
-    def srs(self):
-        """
-        Return SRS Identifier
-        """
-        return self._srs
-
 class Tileset():
     """
     Describes a tileset from a shapefile index
@@ -428,7 +482,7 @@ class Tileset():
         self._tiledir = tiledir
         self._resolution = resolution
         self._is_configured = False
-        self.workspace = None
+        self.parent = None
 
     def configure(self):
 
@@ -543,7 +597,7 @@ class Tileset():
         Return dataset main file with tileset qualifier
         """
 
-        dst = self.workspace.dataset(dataset)
+        dst = self.parent.dataset(dataset)
 
         folder = os.path.join(
             self.workspace.workdir,
@@ -565,7 +619,7 @@ class Tileset():
         Return full-path filename instance for specific tile
         """
 
-        dst = self.workspace.dataset(dataset)
+        dst = self.parent.dataset(dataset)
 
         folder = os.path.join(
             self.workspace.workdir,
@@ -601,7 +655,7 @@ class FileParser():
         sections = list()
         datasources = dict()
         tilesets = dict()
-        workspace = dict()
+        workspace = Workspace()
 
         for section in parser.sections():
 
@@ -624,7 +678,7 @@ class FileParser():
 
             if section == 'Workspace':
                 for key, value in parser.items(section):
-                    workspace[key] = value
+                    setattr(workspace, '_' + key, value)
             elif section == 'DataSources':
                 for key, value in parser.items(section):
                     if value in datasources:
@@ -649,7 +703,7 @@ class FileParser():
         datasets = FileParser.datasets(
             FileParser.load_dataset_yaml(configfile))
 
-        return Workspace(workspace, datasets), datasources, tilesets
+        return workspace, datasources, datasets, tilesets
 
     @staticmethod
     def datasource(name, items):

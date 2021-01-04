@@ -11,21 +11,58 @@ import rasterio as rio
 import fiona
 import pandas as pd
 import click
-from ..config import config
+from ..config import (
+    config,
+    LiteralParameter,
+    DatasetParameter
+)
 from ..metadata import set_metadata
 from ..tileio import buildvrt
 from ..cli import starcall
 
-def CreateAxisMask(axis):
+class Parameters:
+    """
+    Network-to-axis export parameters
+    """
 
-    tilefile = config.tileset().filename('shortest_tiles')
+    tilelist = DatasetParameter('domain tiles as CSV list')
+    axis_nearest = DatasetParameter('nearest axis raster')
+    swaths_index = DatasetParameter('swaths index/bounds')
+    swaths_polygons = DatasetParameter('swaths polygons shapefile')
+
+    output_tilelist = DatasetParameter('per-axis domain tiles as CSV list')
+    output_axis_mask = DatasetParameter('per-axis mask raster')
+    output_swaths_index = DatasetParameter('per-axis swaths index/bounds')
+    output_swaths_polygons = DatasetParameter('per-axis swaths polygons shapefile')
+
+    def __init__(self):
+        """
+        Default parameter values
+        """
+
+        self.tilelist = 'shortest_tiles'
+        self.axis_nearest = 'axis_nearest'
+        self.swaths_index = 'swaths_refaxis_bounds'
+        self.swaths_polygons = 'swaths_refaxis_polygons'
+
+        self.output_tilelist = 'ax_shortest_tiles'
+        self.output_axis_mask = 'ax_axis_mask'
+        self.output_swaths_index = 'ax_swaths_refaxis_bounds'
+        self.output_swaths_polygons = 'ax_swaths_refaxis_polygons'
+
+def CreateAxisMask(axis, params):
+
+    tilefile = params.tilelist.filename()
+    # config.tileset().filename('shortest_tiles')
     tiles = pd.read_csv(tilefile, names=('row', 'col'))
     ax_tiles = set()
 
     for row, col in tiles.values:
 
-        rasterfile = config.tileset().tilename('axis_nearest', row=row, col=col)
-        output = config.tileset().tilename('ax_axis_mask', axis=axis, row=row, col=col)
+        rasterfile = params.axis_nearest.tilename(row=row, col=col)
+        # config.tileset().tilename('axis_nearest', row=row, col=col)
+        output = params.output_axis_mask.tilename(axis=axis, row=row, col=col)
+        #config.tileset().tilename('ax_axis_mask', axis=axis, row=row, col=col)
 
         with rio.open(rasterfile) as ds:
 
@@ -41,18 +78,21 @@ def CreateAxisMask(axis):
 
             ax_tiles.add((row, col))
 
-    output = config.tileset().filename('ax_shortest_tiles', axis=axis)
+    output = params.output_tilelist.filename(axis=axis)
+    # config.tileset().filename('ax_shortest_tiles', axis=axis)
 
     with open(output, 'w') as fp:
         for row, col in sorted(ax_tiles):
             fp.write(f'{row},{col}\n')
 
-    buildvrt('default', 'ax_axis_mask', axis=axis)
+    buildvrt('default', params.output_axis_mask.name, axis=axis)
 
-def ExportSwathBounds(axis):
+def ExportSwathBounds(axis, params):
 
-    filename = config.filename('swaths_refaxis_bounds')
-    output = config.filename('ax_swaths_refaxis_bounds', axis=axis)
+    filename = params.swaths_index.filename(tileset=None)
+    # config.filename('swaths_refaxis_bounds')
+    output = params.output_swaths_index.filename(tileset=None, axis=axis)
+    # config.filename('ax_swaths_refaxis_bounds', axis=axis)
     
     data = (
         xr
@@ -86,10 +126,12 @@ def ExportSwathBounds(axis):
             'swath': dict(zlib=True, complevel=9)
         })
 
-def ExportSwathPolygons(axis):
+def ExportSwathPolygons(axis, params):
 
-    shapefile = config.filename('swaths_refaxis_polygons')
-    output = config.filename('ax_swaths_refaxis_polygons', axis=axis)
+    shapefile = params.swaths_polygons.filename(tileset=None)
+    # config.filename('swaths_refaxis_polygons')
+    output = params.output_swaths_polygons.filename(axis=axis, tileset=None)
+    # config.filename('ax_swaths_refaxis_polygons', axis=axis)
 
     with fiona.open(shapefile) as fs:
 
@@ -105,10 +147,11 @@ def ExportSwathPolygons(axis):
                     if feature['properties']['AXIS'] == axis:
                         fst.write(feature)
 
-def ExportRasterTile(axis, src, dst, row, col, **kwargs):
+def ExportRasterTile(axis, params, src, dst, row, col, **kwargs):
     
     rasterfile = config.tileset().tilename(src, row=row, col=col, **kwargs)
-    maskfile = config.tileset().tilename('ax_axis_mask', axis=axis, row=row, col=col, **kwargs)
+    maskfile = params.output_axis_mask.tilename(axis=axis, row=row, col=col, **kwargs)
+    # config.tileset().tilename('ax_axis_mask', axis=axis, row=row, col=col, **kwargs)
     output = config.tileset().tilename(dst, axis=axis, row=row, col=col, **kwargs)
 
     with rio.open(maskfile) as ds:
@@ -126,9 +169,10 @@ def ExportRasterTile(axis, src, dst, row, col, **kwargs):
         data[mask == 0] = ds.nodata
         dst.write(data, 1)
 
-def ExportRasters(axis, rastermap, processes=1):
+def ExportRasters(axis, params, rastermap, processes=1):
     
-    tilefile = config.tileset().filename('ax_shortest_tiles', axis=axis)
+    tilefile = params.output_tilelist.filename(axis=axis)
+    # config.tileset().filename('ax_shortest_tiles', axis=axis)
     tiles = pd.read_csv(tilefile, names=('row', 'col'))
 
     def arguments():
@@ -138,6 +182,7 @@ def ExportRasters(axis, rastermap, processes=1):
                 yield (
                     ExportRasterTile,
                     axis,
+                    params,
                     src,
                     dst,
                     row,

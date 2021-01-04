@@ -23,43 +23,70 @@ import rasterio as rio
 import fiona
 
 from ..cli import starcall
-from ..config import config
+from ..config import (
+    config,
+    DatasetParameter,
+    LiteralParameter
+)
 
-def RemapContinuityTile(tile, **kwargs):
+class Parameters:
+    """
+    Continuity remapping parameters
+    """
 
-    landcover_raster = config.tileset().tilename(
-        'landcover-bdt',
-        row=tile.row,
-        col=tile.col,
-        **kwargs)
+    landcover = DatasetParameter('landcover raster map', type='input')
+    continuity = DatasetParameter('input continuity map', type='input')
+    output = DatasetParameter('output (remapped) continuity map', type='output')
 
-    if 'variant' in kwargs:
+    def __init__(self):
+        """
+        Default parameter values
+        """
 
-        continuity_raster = config.tileset().tilename(
-            'continuity_variant',
-            row=tile.row,
-            col=tile.col,
-            **kwargs)
+        self.landcover = 'landcover-bdt'
+        self.continuity = 'continuity'
+        self.output = 'continuity_remapped'
 
-        output = config.tileset().tilename(
-            'continuity_variant_remapped',
-            row=tile.row,
-            col=tile.col,
-            **kwargs)
 
-    else:
+def RemapContinuityTile(tile, params, **kwargs):
 
-        continuity_raster = config.tileset().tilename(
-            'continuity',
-            row=tile.row,
-            col=tile.col,
-            **kwargs)
+    # landcover_raster = config.tileset().tilename(
+    #     'landcover-bdt',
+    #     row=tile.row,
+    #     col=tile.col,
+    #     **kwargs)
 
-        output = config.tileset().tilename(
-            'continuity_remapped',
-            row=tile.row,
-            col=tile.col,
-            **kwargs)
+    # if 'variant' in kwargs:
+
+    #     continuity_raster = config.tileset().tilename(
+    #         'continuity_variant',
+    #         row=tile.row,
+    #         col=tile.col,
+    #         **kwargs)
+
+    #     output = config.tileset().tilename(
+    #         'continuity_variant_remapped',
+    #         row=tile.row,
+    #         col=tile.col,
+    #         **kwargs)
+
+    # else:
+
+    #     continuity_raster = config.tileset().tilename(
+    #         'continuity',
+    #         row=tile.row,
+    #         col=tile.col,
+    #         **kwargs)
+
+    #     output = config.tileset().tilename(
+    #         'continuity_remapped',
+    #         row=tile.row,
+    #         col=tile.col,
+    #         **kwargs)
+
+    landcover_raster = params.landcover.tilename(row=tile.row, col=tile.col, **kwargs)
+    continuity_raster = params.continuity.tilename(row=tile.row, col=tile.col, **kwargs)
+    output = params.output.tilename(row=tile.row, col=tile.col, **kwargs)
 
     if os.path.exists(continuity_raster) and os.path.exists(landcover_raster):
 
@@ -92,7 +119,7 @@ def RemapContinuityTile(tile, **kwargs):
             with rio.open(output, 'w', **profile) as dst:
                 dst.write(out, 1)
 
-def RemapContinuityRaster(processes=1, **kwargs):
+def RemapContinuityRaster(params, processes=1, **kwargs):
 
     # tile_shapefile = os.path.join(workdir, 'TILESET', 'GRILLE_10K.shp')
 
@@ -101,7 +128,7 @@ def RemapContinuityRaster(processes=1, **kwargs):
     def arguments():
 
         for tile in tileset.tiles():
-            yield (RemapContinuityTile, tile, kwargs)
+            yield (RemapContinuityTile, tile, params, kwargs)
 
     with Pool(processes=processes) as pool:
 

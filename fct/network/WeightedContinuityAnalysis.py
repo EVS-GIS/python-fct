@@ -24,34 +24,82 @@ import fiona
 
 from .. import terrain_analysis as ta
 from ..cli import starcall
-from ..config import config
+from ..config import (
+    config,
+    DatasetParameter,
+    LiteralParameter
+)
 
-DatasetParameter = namedtuple('DatasetParameter', [
-    'tileset',
-    'landcover',
-    'distance',
-    'height',
-    'output'
-])
+# DatasetParameter = namedtuple('DatasetParameter', [
+#     'tileset',
+#     'landcover',
+#     'distance',
+#     'height',
+#     'output'
+# ])
+
+class Parameters:
+    """
+    Continuity analysis parameters
+    """
+
+    tiles = DatasetParameter('domain tiles as CSV list', type='input')
+    landcover = DatasetParameter('landcover raster map', type='input')
+    distance = DatasetParameter('distance to talweg', type='input')
+    height = DatasetParameter('height above talweg', type='input')
+
+    output = DatasetParameter('continuity map', type='output')
+    output_distance = DatasetParameter('distance to reference pixel', type='output')
+    state = DatasetParameter('processing state raster', type='output')
+
+    tileset = LiteralParameter('tileset')
+    max_class = LiteralParameter('maximum landcover class (stop criterion)')
+    max_height = LiteralParameter('maximum height above reference (stop criterion)')
+    padding = LiteralParameter('tile padding in pixels')
+    infrastructures = LiteralParameter('consider transport infrastructures (landcover class = 8)')
+    jitter = LiteralParameter('apply jitter on performing shortest path raster exploration')
+    tmp_suffix = LiteralParameter('temporary files suffix')
+
+    def __init__(self):
+        """
+        Default parameter values
+        """
+
+        self.tileset = 'default'
+        self.tiles = 'shortest_tiles'
+        self.landcover = 'landcover-bdt'
+        self.distance = 'nearest_distance'
+        self.height = 'nearest_height'
+        self.output = 'continuity'
+        self.output_distance = 'continuity_distance'
+        self.state = 'continuity_state'
+        self.max_class = 0
+        self.max_height = 0.0
+        self.padding = 200
+        self.infrastructures = True
+        self.jitter = 0.4
+        self.tmp_suffix = '.tmp'
 
 def WeightedContinuityAnalysisTile(
         row,
         col,
-        datasets,
-        maxz=20.0,
-        padding=200,
-        with_infrastructures=True,
+        params,
         **kwargs):
     """
     Tile Implementation
     """
 
-    tileset = config.tileset(datasets.tileset)
-    landcover_raster = tileset.filename(datasets.landcover, **kwargs)
-    distance_raster = tileset.filename(datasets.distance, **kwargs)
-    hand_raster = tileset.filename(datasets.height, **kwargs)
-    output = tileset.tilename(datasets.output, row=row, col=col, **kwargs)
+    tileset = config.tileset(params.tileset)
+    landcover_raster = params.landcover.filename(**kwargs)
+    # tileset.filename(datasets.landcover, **kwargs)
+    distance_raster = params.distance.filename(**kwargs)
+    # tileset.filename(datasets.distance, **kwargs)
+    hand_raster = params.height.filename(**kwargs)
+    # tileset.filename(datasets.height, **kwargs)
+    output = params.output.tilename(row=row, col=col, **kwargs)
+    # tileset.tilename(datasets.output, row=row, col=col, **kwargs)
 
+    padding = params.padding
     height = tileset.height + 2*padding
     width = tileset.width + 2*padding
     tile_index = tileset.tileindex
@@ -77,7 +125,7 @@ def WeightedContinuityAnalysisTile(
             window3 = Window(j - padding, i - padding, width, height)
             landcover = ds3.read(1, window=window3, boundless=True, fill_value=ds3.nodata)
 
-        if not with_infrastructures:
+        if not params.infrastructures:
             # Remove infrastructures
             infrastructure_mask = (landcover == 8)
             landcover[infrastructure_mask] = 2
@@ -93,7 +141,7 @@ def WeightedContinuityAnalysisTile(
         landcover[distance == 0] = 0
 
         # Truncate data outside of valley bottom
-        landcover[(hand == ds1.nodata) | (hand > maxz)] = ds3.nodata
+        landcover[(hand == ds1.nodata) | (hand > params.max_height)] = ds3.nodata
 
         # Shortest max analysis
         out = np.zeros_like(landcover)
@@ -104,7 +152,7 @@ def WeightedContinuityAnalysisTile(
         out[landcover == 0] = 1
         out = np.uint8(out) - 1
 
-        if not with_infrastructures:
+        if not params.infrastructures:
             # Restore infrastructures
             out[infrastructure_mask] = 8
 
@@ -129,13 +177,8 @@ def WeightedContinuityAnalysisTile(
             dst.write(out[padding:-padding, padding:-padding], 1)
 
 def WeightedContinuityAnalysis(
+        params,
         processes=1,
-        tileset='landcover',
-        landcover='landcover-bdt',
-        # distance='ax_talweg_distance',
-        distance='nearest_distance',
-        height='nearest_height',
-        output='continuity',
         **kwargs):
     """
     Calculate landcover continuity from river channel
@@ -211,15 +254,16 @@ def WeightedContinuityAnalysis(
     Other keywords are passed to dataset filename templates.
     """
 
-    datasets = DatasetParameter(
-        tileset=tileset,
-        landcover=landcover,
-        distance=distance,
-        height=height,
-        output=output
-    )
+    # datasets = DatasetParameter(
+    #     tileset=tileset,
+    #     landcover=landcover,
+    #     distance=distance,
+    #     height=height,
+    #     output=output
+    # )
 
-    tilefile = config.tileset(tileset).filename('shortest_tiles')
+    tilefile = params.tiles.filename()
+    # config.tileset(tileset).filename('shortest_tiles')
 
     def length():
 
@@ -237,7 +281,7 @@ def WeightedContinuityAnalysis(
                     WeightedContinuityAnalysisTile,
                     row,
                     col,
-                    datasets,
+                    params,
                     kwargs
                 )
 

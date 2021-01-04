@@ -14,5 +14,10 @@ Configuration Module
 """
 
 from .Configuration import Configuration
+from .descriptors import (
+    LiteralParameter,
+    DatasetParameter,
+    Workflow
+)
 
 config = Configuration()

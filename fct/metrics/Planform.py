@@ -33,8 +33,14 @@ from ..plotting.PlotCorridor import (
 def PlanformCurvature(talweg):
     """
     Direction angle change between two talweg points
-    (TODO: normalize by distance in order to get dphi/ds
-    rather than dphi)
+    (TODO: normalize by distance in order to get dφ/ds
+    rather than dφ)
+
+    Parameter:
+
+    - talweg:
+        numpy array of points (x, y) with dimension (n, 2)
+        representing the talweg linestring
     """
 
     dxy = np.diff(talweg, axis=0)

@@ -26,26 +26,87 @@ from rasterio.windows import Window
 
 from .. import speedup
 from ..cli import starcall
-from ..config import config
+from ..config import (
+    config,
+    LiteralParameter,
+    DatasetParameter
+)
 from .. import transform as fct
 from ..tileio import (
     PadRaster,
-    border
+    border,
+    buildvrt
 )
 
-ContinuityParams = namedtuple('ContinuityParams', [
-    # 'tileset',
-    'landcover',
-    'distance',
-    'height',
-    'output',
-    'output_state',
-    'output_distance',
-    'max_class',
-    'vb_max_height',
-    'with_infra',
-    'tmp'
-])
+# ContinuityParams = namedtuple('ContinuityParams', [
+#     # 'tileset',
+#     'landcover',
+#     'distance',
+#     'height',
+#     'output',
+#     'output_state',
+#     'output_distance',
+#     'max_class',
+#     'vb_max_height',
+#     'with_infra',
+#     'tmp'
+# ])
+
+# def ContinuityDefaultParameters():
+#     """
+#     Default parameters for extracting continuity map.
+#     """
+
+#     return dict(
+#         landcover='landcover-bdt',
+#         distance='nearest_distance',
+#         height='nearest_height',
+#         output='continuity',
+#         output_state='continuity_state',
+#         output_distance='continuity_distance',
+#         max_class=0,
+#         vb_max_height=20.0,
+#         with_infra=True,
+#         tmp='.tmp'
+#     )
+
+class Parameters:
+    """
+    Continuity analysis parameters
+    """
+
+    tiles = DatasetParameter('domain tiles as CSV list', type='input')
+    landcover = DatasetParameter('landcover raster map', type='input')
+    distance = DatasetParameter('distance to talweg', type='input')
+    height = DatasetParameter('height above talweg', type='input')
+
+    output = DatasetParameter('continuity map', type='output')
+    output_distance = DatasetParameter('distance to reference pixel', type='output')
+    state = DatasetParameter('processing state raster', type='output')
+
+    max_class = LiteralParameter('maximum landcover class (stop criterion)')
+    max_height = LiteralParameter('maximum height above reference (stop criterion)')
+    infrastructures = LiteralParameter('consider transport infrastructures (landcover class = 8)')
+    jitter = LiteralParameter('apply jitter on performing shortest path raster exploration')
+    tmp_suffix = LiteralParameter('temporary files suffix')
+
+    def __init__(self):
+        """
+        Default parameter values
+        """
+
+        self.tiles = 'shortest_tiles'
+        self.landcover = 'landcover-bdt'
+        self.distance = 'nearest_distance'
+        self.height = 'nearest_height'
+        self.output = 'continuity'
+        self.output_distance = 'continuity_distance'
+        self.state = 'continuity_state'
+        self.max_class = 0
+        self.max_height = 0.0
+        self.infrastructures = True
+        self.jitter = 0.4
+        self.tmp_suffix = '.tmp'
 
 def ContinuityTile(row, col, seeds, params, **kwargs):
     """
@@ -54,37 +115,40 @@ def ContinuityTile(row, col, seeds, params, **kwargs):
 
     tileset = config.tileset()
 
-    output = tileset.tilename(
-        params.output,
-        row=row,
-        col=col,
-        **kwargs)
+    output = params.output.tilename(row=row, col=col, **kwargs)
+    # tileset.tilename(
+    #     params.output,
+    #     row=row,
+    #     col=col,
+    #     **kwargs)
 
-    output_state = tileset.tilename(
-        params.output_state,
-        row=row,
-        col=col,
-        **kwargs)
+    output_state = params.state.tilename(row=row, col=col, **kwargs)
+    # tileset.tilename(
+    #     params.output_state,
+    #     row=row,
+    #     col=col,
+    #     **kwargs)
 
-    output_distance = tileset.tilename(
-        params.output_distance,
-        row=row,
-        col=col,
-        **kwargs)
+    output_distance = params.output_distance.tilename(row=row, col=col, **kwargs)
+    # tileset.tilename(
+    #     params.output_distance,
+    #     row=row,
+    #     col=col,
+    #     **kwargs)
 
     padding = 1
     tile = tileset.tileindex[row, col]
 
     landcover, profile = PadRaster(
         row, col,
-        params.landcover,
+        params.landcover.name,
         padding=padding)
 
     transform = profile['transform']
     nodata = profile['nodata']
     height, width = landcover.shape
 
-    if not params.with_infra:
+    if not params.infrastructures:
         # Remove infrastructures
         infrastructure_mask = (landcover == 8)
         landcover[infrastructure_mask] = 2
@@ -115,14 +179,14 @@ def ContinuityTile(row, col, seeds, params, **kwargs):
 
         return raster, nodata
 
-    nearest_height, nearest_height_nodata = BoundlessRaster(row, col, params.height)
-    nearest_distance, nearest_distance_nodata = BoundlessRaster(row, col, params.distance)
+    nearest_height, nearest_height_nodata = BoundlessRaster(row, col, params.height.name)
+    nearest_distance, nearest_distance_nodata = BoundlessRaster(row, col, params.distance.name)
 
     if os.path.exists(output):
 
-        out, _ = PadRaster(row, col, params.output, padding=padding, **kwargs)
-        distance, _ = PadRaster(row, col, params.output_distance, padding=padding)
-        state, _ = PadRaster(row, col, params.output_state, padding=padding)
+        out, _ = PadRaster(row, col, params.output.name, padding=padding, **kwargs)
+        distance, _ = PadRaster(row, col, params.output_distance.name, padding=padding)
+        state, _ = PadRaster(row, col, params.output_state.name, padding=padding)
 
     else:
 
@@ -179,10 +243,10 @@ def ContinuityTile(row, col, seeds, params, **kwargs):
         distance,
         state,
         max_class=params.max_class,
-        min_distance=20.0,
-        max_distance=0.0,
-        max_height=params.vb_max_height,
-        jitter=0.4)
+        min_distance=params.min_distance,
+        max_distance=params.max_distance,
+        max_height=params.max_height,
+        jitter=params.jitter)
 
     def extract_spillovers():
 
@@ -230,7 +294,7 @@ def ContinuityTile(row, col, seeds, params, **kwargs):
     # restore unresolved cells' state
     state[state == 1] = 2
 
-    if not params.with_infra:
+    if not params.infrastructures:
         # Restore infrastructures
         out[infrastructure_mask & (out != nodata)] = 8
 
@@ -248,9 +312,9 @@ def ContinuityTile(row, col, seeds, params, **kwargs):
     height, width = out.shape
     transform = transform * transform.translation(padding, padding)
 
-    output += params.tmp
-    output_state += params.tmp
-    output_distance += params.tmp
+    output += params.tmp_suffix
+    output_state += params.tmp_suffix
+    output_distance += params.tmp_suffix
 
     profile.update(
         driver='GTiff',
@@ -296,7 +360,7 @@ def ContinuityIteration(params, spillovers, ntiles, processes=1, **kwargs):
             tmpfiles.extend(tmps)
 
         for tmpfile in tmpfiles:
-            os.rename(tmpfile, tmpfile.replace('.tif' + params.tmp, '.tif'))
+            os.rename(tmpfile, tmpfile.replace('.tif' + params.tmp_suffix, '.tif'))
 
     else:
 
@@ -324,16 +388,17 @@ def ContinuityIteration(params, spillovers, ntiles, processes=1, **kwargs):
                     tmpfiles.extend(tmps)
 
         for tmpfile in tmpfiles:
-            os.rename(tmpfile, tmpfile.replace('.tif' + params.tmp, '.tif'))
+            os.rename(tmpfile, tmpfile.replace('.tif' + params.tmp_suffix, '.tif'))
 
     return g_spillover
 
-def ContinuityFirstIteration(params, ax_tiles, processes, **kwargs):
+def ContinuityFirstIteration(params, processes, **kwargs):
     """
     First tile iteration with empty seed list.
     """
 
-    tilefile = config.tileset().filename(ax_tiles, **kwargs)
+    tilefile = params.tiles.filename(**kwargs)
+    # config.tileset().filename(ax_tiles, **kwargs)
 
     def length():
 
@@ -373,30 +438,12 @@ def ContinuityFirstIteration(params, ax_tiles, processes, **kwargs):
         #         g_spillover.extend(t_spillover)
 
     for tmpfile in tmpfiles:
-        os.rename(tmpfile, tmpfile.replace('.tif' + params.tmp, '.tif'))
+        os.rename(tmpfile, tmpfile.replace('.tif' + params.tmp_suffix, '.tif'))
 
     return g_spillover
 
-def ContinuityDefaultParameters():
-    """
-    Default parameters for extracting continuity map.
-    """
-
-    return dict(
-        landcover='landcover-bdt',
-        distance='nearest_distance',
-        height='nearest_height',
-        output='continuity',
-        output_state='continuity_state',
-        output_distance='continuity_distance',
-        max_class=0,
-        vb_max_height=20.0,
-        with_infra=True,
-        tmp='.tmp'
-    )
-
 def LandcoverContinuityAnalysis(
-        ax_tiles='shortest_tiles',
+        params,
         processes=1,
         maxiter=10,
         **kwargs):
@@ -479,22 +526,19 @@ def LandcoverContinuityAnalysis(
 
     Other keywords are passed to dataset filename templates.
     """
+    
+    # parameters = ContinuityDefaultParameters()
 
-    # pylint:disable=import-outside-toplevel
-    from ..tileio import buildvrt
-
-    parameters = ContinuityDefaultParameters()
-
-    parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
-    kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
-    params = ContinuityParams(**parameters)
+    # parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
+    # kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
+    # params = ContinuityParams(**parameters)
 
     count = 1
     tile = itemgetter(0, 1)
     g_tiles = set()
 
     click.echo('Iteration %02d --' % count)
-    seeds = ContinuityFirstIteration(params, ax_tiles, processes=processes, **kwargs)
+    seeds = ContinuityFirstIteration(params, processes=processes, **kwargs)
 
     while seeds:
 
@@ -516,7 +560,7 @@ def LandcoverContinuityAnalysis(
         click.secho('Ok', fg='green')
 
     click.secho('Building output VRTs', fg='cyan')
-    buildvrt('default', params.output, **kwargs)
+    buildvrt('default', params.output.name, **kwargs)
 
     # click.secho('Materialize output VRTs to GeoTIFF', fg='cyan')
 

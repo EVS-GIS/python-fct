@@ -25,7 +25,11 @@ import click
 import rasterio as rio
 import fiona
 
-from ..config import config
+from ..config import (
+    config,
+    LiteralParameter,
+    DatasetParameter
+)
 from ..cli import starcall
 from .. import transform as fct
 from .. import speedup
@@ -34,37 +38,93 @@ from ..tileio import (
     border
 )
 
-ShortestParams = namedtuple(
-    'ShortestParams', (
-        'dataset_height',
-        'dataset_distance',
-        'max_dz',
-        'min_distance',
-        'max_distance',
-        'jitter',
-        'tmp'
-    )
-)
+# ShortestParams = namedtuple(
+#     'ShortestParams', (
+#         'dataset_height',
+#         'dataset_distance',
+#         'max_dz',
+#         'min_distance',
+#         'max_distance',
+#         'jitter',
+#         'tmp'
+#     )
+# )
+
+# def ShortestHeightDefaultParameters():
+#     """
+#     Default parameters
+#     """
+
+#     return dict(
+#         dataset_height='shortest_height',
+#         dataset_distance='shortest_distance',
+#         max_dz=20.0,
+#         min_distance=20,
+#         max_distance=2000,
+#         jitter=0.4,
+#         tmp='.tmp'
+#     )
+
+class Parameters:
+    """
+    Shortesh height parameters
+    """
+
+    elevations = DatasetParameter('elevation raster (DEM)', type='input')
+    reference = DatasetParameter('reference network shapefile', type='input')
+
+    tiles = DatasetParameter('domain tiles as CSV list', type='output')
+    height = DatasetParameter('height raster', type='output')
+    distance = DatasetParameter('distance to reference pixel', type='output')
+    state = DatasetParameter('processing state raster', type='output')
+
+    max_dz = LiteralParameter('maximum height above reference')
+    min_distance = LiteralParameter('minimum distance before applying stop criteria, expressed in pixels)')
+    max_distance = LiteralParameter('maximum distance (stop criterion), expressed in pixels')
+    jitter = LiteralParameter('apply jitter on performing shortest path raster exploration')
+    tmp_suffix = LiteralParameter('temporary files suffix')
+
+    def __init__(self):
+        """
+        Default parameter values,
+        with reference elevation = talweg
+        """
+
+        self.elevations = 'dem'
+        self.reference = 'network-cartography-ready'
+        self.tiles = 'shortest_tiles'
+        self.height = 'shortest_height'
+        self.distance = 'shortest_distance'
+        self.state = 'shortest_state'
+        self.max_dz = 20.0
+        self.min_distance = 20
+        self.max_distance = 2000
+        self.jitter = 0.4
+        self.tmp_suffix = '.tmp'
+
 
 def ShortestHeightTile(row, col, seeds, params):
     """
     Valley bottom shortest path exploration
     """
 
-    elevations, profile = PadRaster(row, col, 'dem', padding=1)
+    elevations, profile = PadRaster(row, col, params.elevations.name, padding=1)
     transform = profile['transform']
     nodata = profile['nodata']
     height, width = elevations.shape
 
-    output_height = config.tileset().tilename('shortest_height', row=row, col=col)
-    output_distance = config.tileset().tilename('shortest_distance', row=row, col=col)
-    output_state = config.tileset().tilename('shortest_state', row=row, col=col)
+    output_height = params.height.tilename(row=row, col=col)
+    # config.tileset().tilename('shortest_height', row=row, col=col)
+    output_distance = params.distance.tilename(row=row, col=col)
+    # config.tileset().tilename('shortest_distance', row=row, col=col)
+    output_state = params.state.tilename(row=row, col=col)
+    # config.tileset().tilename('shortest_state', row=row, col=col)
 
     if os.path.exists(output_height):
 
-        heights, _ = PadRaster(row, col, 'shortest_height', padding=1)
-        distance, _ = PadRaster(row, col, 'shortest_distance', padding=1)
-        state, _ = PadRaster(row, col, 'shortest_state', padding=1)
+        heights, _ = PadRaster(row, col, params.height.name, padding=1)
+        distance, _ = PadRaster(row, col, params.distance.name, padding=1)
+        state, _ = PadRaster(row, col, params.state.name, padding=1)
 
     else:
 
@@ -169,9 +229,9 @@ def ShortestHeightTile(row, col, seeds, params):
         transform=transform,
         compress='deflate')
 
-    output_height += params.tmp
-    output_distance += params.tmp
-    output_state += params.tmp
+    output_height += params.tmp_suffix
+    output_distance += params.tmp_suffix
+    output_state += params.tmp_suffix
 
     with rio.open(output_height, 'w', **profile) as dst:
         dst.write(heights, 1)
@@ -210,7 +270,7 @@ def ShortestHeightIteration(params, spillovers, ntiles, processes=1, **kwargs):
             tmpfiles.extend(tmps)
 
         for tmpfile in tmpfiles:
-            os.rename(tmpfile, tmpfile.replace('.tif' + params.tmp, '.tif'))
+            os.rename(tmpfile, tmpfile.replace('.tif' + params.tmp_suffix, '.tif'))
 
     else:
 
@@ -234,26 +294,11 @@ def ShortestHeightIteration(params, spillovers, ntiles, processes=1, **kwargs):
             #         g_spillover.extend(t_spillover)
 
         for tmpfile in tmpfiles:
-            os.rename(tmpfile, tmpfile.replace('.tif' + params.tmp, '.tif'))
+            os.rename(tmpfile, tmpfile.replace('.tif' + params.tmp_suffix, '.tif'))
 
     return g_spillover
 
-def ShortestHeightDefaultParameters():
-    """
-    Default parameters
-    """
-
-    return dict(
-        dataset_height='shortest_height',
-        dataset_distance='shortest_distance',
-        max_dz=20.0,
-        min_distance=20,
-        max_distance=2000,
-        jitter=0.4,
-        tmp='.tmp'
-    )
-
-def ShortestHeight(processes=1, **kwargs):
+def ShortestHeight(params, processes=1, **kwargs):
     """
     Valley bottom extraction procedure - shortest path exploration
 
@@ -273,11 +318,11 @@ def ShortestHeight(processes=1, **kwargs):
     @output tiles: ax_shortest_tiles
     """
 
-    parameters = ShortestHeightDefaultParameters()
+    # parameters = ShortestHeightDefaultParameters()
 
-    parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
-    kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
-    params = ShortestParams(**parameters)
+    # parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
+    # kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
+    # params = ShortestParams(**parameters)
 
     def generate_seeds(feature):
 
@@ -287,7 +332,8 @@ def ShortestHeight(processes=1, **kwargs):
             yield (row, col, x, y, 0.0, 0.0)
 
     # network_shapefile = config.filename('ax_talweg', axis=axis)
-    network_shapefile = config.filename('network-cartography-ready')
+    network_shapefile = params.reference.filename(tileset=None)
+    # config.filename('network-cartography-ready')
 
     with fiona.open(network_shapefile) as fs:
 
@@ -315,7 +361,8 @@ def ShortestHeight(processes=1, **kwargs):
 
     click.secho('Ok', fg='green')
 
-    output = config.tileset().filename('shortest_tiles')
+    output = params.tiles.filename()
+    # config.tileset().filename('shortest_tiles')
 
     with open(output, 'w') as fp:
         for row, col in sorted(g_tiles):

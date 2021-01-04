@@ -20,7 +20,11 @@ import numpy as np
 import click
 import rasterio as rio
 
-from ..config import config
+from ..config import (
+    config,
+    DatasetParameter,
+    LiteralParameter
+)
 from .. import speedup
 from ..cli import starcall
 
@@ -34,6 +38,55 @@ ValleyBottomMaskParams = namedtuple('ValleyBottomMaskParams', [
     'min_distance',
     'max_height'
 ])
+
+def ValleyBottomMaskDefaultParameters():
+
+    return dict(
+        height='nearest_height',
+        distance='nearest_distance',
+        output='valley_mask',
+        dist_resolution=1.0,
+        max_slope=0.01,
+        min_distance=1000.0,
+        max_height=12.0,
+        buffer_width=20.0
+    )
+
+class Parameters:
+    """
+    Valley bottom mask creation parameters
+    """
+
+    tiles = DatasetParameter('domain tiles as CSV list', type='input')
+    height = DatasetParameter('height raster (HAND)', type='input')
+    distance = DatasetParameter('distance to reference pixels (raster)', type='input')
+    output = DatasetParameter('valley bottom mask (raster)', type='output')
+
+    distance_resolution = LiteralParameter(
+        'distance raster conversion factor to real world distance')
+    min_distance = LiteralParameter(
+        'minimum distance before applying stop criteria, expressed in real distance units (eg. meters))')
+    max_slope = LiteralParameter(
+        'maximum slope (stop criterion)')
+    max_height = LiteralParameter(
+        'maximum height (stop criterion)')
+    buffer_width = LiteralParameter(
+        'enlarge domain mask by buffer width expressed in real distance unit (eg. meters)')
+
+    def __init__(self):
+        """
+        Default parameter values
+        """
+
+        self.tiles = 'shortest_tiles'
+        self.height = 'nearest_height'
+        self.distance = 'nearest_distance'
+        self.output = 'valley_mask'
+        self.distance_resolution = 1.0
+        self.max_slope = 0.01
+        self.min_distance = 1000.0
+        self.max_height = 12.0
+        self.buffer_width = 20.0
 
 # def ClipHeightTile(axis, row, col, params, **kwargs):
 
@@ -59,19 +112,6 @@ ValleyBottomMaskParams = namedtuple('ValleyBottomMaskParams', [
 
 #     with rio.open(height_raster, 'w', **profile) as dst:
 #         dst.write(hand, 1)
-
-def ValleyBottomMaskDefaultParameters():
-
-    return dict(
-        height='nearest_height',
-        distance='nearest_distance',
-        output='valley_mask',
-        dist_resolution=1.0,
-        max_slope=0.01,
-        min_distance=1000.0,
-        max_height=12.0,
-        buffer_width=20.0
-    )
 
 # def ClipHeight(axis, ax_tiles='ax_shortest_tiles', processes=1, **kwargs):
 
@@ -115,19 +155,19 @@ def ValleyBottomMaskDefaultParameters():
 
 def ValleyBottomMaskTile(axis, row, col, params, **kwargs):
 
-    tileset = config.tileset()
+    # tileset = config.tileset()
 
-    def _tilename(dataset):
-        return tileset.tilename(
-            dataset,
-            axis=axis,
-            row=row,
-            col=col)
+    # def _tilename(dataset):
+    #     return tileset.tilename(
+    #         dataset,
+    #         axis=axis,
+    #         row=row,
+    #         col=col)
 
     # dem_raster = tileset.tilename('dem', row=row, col=col)
-    height_raster = _tilename(params.height)
-    distance_raster = _tilename(params.distance)
-    output = _tilename(params.output)
+    height_raster = params.height.tilename(axis=axis, row=row, col=col) # _tilename(params.height)
+    distance_raster = params.distance.tilename(axis=axis, row=row, col=col) # _tilename(params.distance)
+    output = params.output.tilename(axis=axis, row=row, col=col) # _tilename(params.output)
 
     # with rio.open(dem_raster) as ds:
     #     dem_nodata = (ds.read(1) == ds.nodata)
@@ -163,7 +203,7 @@ def ValleyBottomMaskTile(axis, row, col, params, **kwargs):
         with rio.open(output, 'w', **profile) as dst:
             dst.write(hand, 1)
 
-def ValleyBottomMask(axis, ax_tiles='shortest_tiles', processes=1, **kwargs):
+def ValleyBottomMask(axis, params, processes=1, **kwargs):
     """
     Creates a raster buffer with distance buffer_width pixels
     around data pixels and crop out data outside of the resulting buffer
@@ -183,13 +223,14 @@ def ValleyBottomMask(axis, ax_tiles='shortest_tiles', processes=1, **kwargs):
     @output mask: ax_valley_mask
     """
 
-    parameters = ValleyBottomMaskDefaultParameters()
+    # parameters = ValleyBottomMaskDefaultParameters()
 
-    parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
-    kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
-    params = ValleyBottomMaskParams(**parameters)
+    # parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
+    # kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
+    # params = ValleyBottomMaskParams(**parameters)
 
-    tilefile = config.tileset().filename(ax_tiles, axis=axis)
+    tilefile = params.tiles.filename(axis=axis)
+    # config.tileset().filename(ax_tiles, axis=axis)
 
     def length():
 

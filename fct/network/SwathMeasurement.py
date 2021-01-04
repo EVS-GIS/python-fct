@@ -32,7 +32,11 @@ import fiona
 import fiona.crs
 from shapely.geometry import asShape, Polygon
 
-from ..config import config
+from ..config import (
+    config,
+    LiteralParameter,
+    DatasetParameter
+)
 # from ..tileio import ReadRasterTile
 from ..tileio import as_window
 from ..rasterize import rasterize_linestring, rasterize_linestringz
@@ -120,18 +124,18 @@ def nearest_value_and_distance(refpixels, domain, nodata):
 
     return nearest_axes, values, distance
 
-SwathMeasurementParams = namedtuple('SwathMeasurementParams', [
-    'ax_mask',
-    'ax_reference',
-    'ax_talweg_distance',
-    'output_distance',
-    'output_measure',
-    'output_nearest',
-    'output_swaths_raster',
-    'output_swaths_shapefile',
-    'output_swaths_bounds',
-    'mdelta'
-])
+# SwathMeasurementParams = namedtuple('SwathMeasurementParams', [
+#     'ax_mask',
+#     'ax_reference',
+#     'ax_talweg_distance',
+#     'output_distance',
+#     'output_measure',
+#     'output_nearest',
+#     'output_swaths_raster',
+#     'output_swaths_shapefile',
+#     'output_swaths_bounds',
+#     'mdelta'
+# ])
 
 # def DefaultParameters():
 #     """
@@ -149,47 +153,88 @@ SwathMeasurementParams = namedtuple('SwathMeasurementParams', [
 #         mdelta=200.0
 #     )
 
-def ValleyBottomParameters():
+# def ValleyBottomParameters():
+#     """
+#     Create swaths units using talweg reference axis
+#     and first-iteration valley bottom mask
+#     """
+
+#     return dict(
+#         # ax_mask='ax_valley_mask',
+#         ax_mask='nearest_height',
+#         ax_reference='refaxis',
+#         ax_talweg_distance='nearest_distance',
+#         output_distance='axis_distance',
+#         output_measure='axis_measure',
+#         output_nearest='axis_nearest',
+#         output_swaths_raster='swaths_refaxis',
+#         output_swaths_shapefile='swaths_refaxis_polygons',
+#         output_swaths_bounds='swaths_refaxis_bounds',
+#         mdelta=200.0
+#     )
+
+class Parameters:
     """
-    Create swaths units using talweg reference axis
-    and first-iteration valley bottom mask
+    Swath measurement parameters
     """
 
-    return dict(
-        # ax_mask='ax_valley_mask',
-        ax_mask='nearest_height',
-        ax_reference='refaxis',
-        ax_talweg_distance='nearest_distance',
-        output_distance='axis_distance',
-        output_measure='axis_measure',
-        output_nearest='axis_nearest',
-        output_swaths_raster='swaths_refaxis',
-        output_swaths_shapefile='swaths_refaxis_polygons',
-        output_swaths_bounds='swaths_refaxis_bounds',
-        mdelta=200.0
-    )
+    ax_tiles = DatasetParameter('')
+    ax_mask = DatasetParameter('')
+    ax_reference = DatasetParameter('')
+    ax_talweg_distance = DatasetParameter('')
+    output_distance = DatasetParameter('')
+    output_measure = DatasetParameter('')
+    output_nearest = DatasetParameter('')
+    output_swaths_raster = DatasetParameter('')
+    output_swaths_shapefile = DatasetParameter('')
+    output_swaths_bounds = DatasetParameter('')
+    mdelta = LiteralParameter('')
+
+    def __init__(self):
+        """
+        Default parameter values
+        """
+
+        self.ax_tiles = 'shortest_tiles'
+        self.ax_mask = 'nearest_height'
+        self.ax_reference = 'refaxis'
+        self.ax_talweg_distance = 'nearest_distance'
+        self.output_distance = 'axis_distance'
+        self.output_measure = 'axis_measure'
+        self.output_nearest = 'axis_nearest'
+        self.output_swaths_raster = 'swaths_refaxis'
+        self.output_swaths_shapefile = 'swaths_refaxis_polygons'
+        self.output_swaths_bounds = 'swaths_refaxis_bounds'
+        self.mdelta = 200.0
+
 
 def DisaggregateTileIntoSwaths(row, col, params, **kwargs):
     """
     see CarveLongitudinalSwaths
     """
 
-    tileset = config.tileset()
-    # height_raster = tileset.tilename('ax_flow_height', axis=axis, row=row, col=col)
+    # tileset = config.tileset()
+    # # height_raster = tileset.tilename('ax_flow_height', axis=axis, row=row, col=col)
 
-    def _tilename(dataset):
-        return tileset.tilename(
-            dataset,
-            row=row,
-            col=col)
+    # def _tilename(dataset):
+    #     return tileset.tilename(
+    #         dataset,
+    #         row=row,
+    #         col=col)
 
-    refaxis_shapefile = config.filename(params.ax_reference)
-    mask_raster = _tilename(params.ax_mask)
+    refaxis_shapefile = params.ax_reference.filename(tileset=None)
+    # config.filename(params.ax_reference)
+    mask_raster = params.ax_mask.tilename(row=row, col=col)
+    # _tilename(params.ax_mask)
 
-    output_distance = _tilename(params.output_distance)
-    output_measure = _tilename(params.output_measure)
-    output_nearest = _tilename(params.output_nearest)
-    output_swaths_raster = _tilename(params.output_swaths_raster)
+    output_distance = params.output_distance.tilename(row=row, col=col)
+    # _tilename(params.output_distance)
+    output_measure = params.output_measure.tilename(row=row, col=col)
+    # _tilename(params.output_measure)
+    output_nearest = params.output_nearest.tilename(row=row, col=col)
+    # _tilename(params.output_nearest)
+    output_swaths_raster = params.output_swaths_raster.tilename(row=row, col=col)
+    # _tilename(params.output_swaths_raster)
 
     mdelta = params.mdelta
 
@@ -355,7 +400,7 @@ def DisaggregateTileIntoSwaths(row, col, params, **kwargs):
 
         return attrs
 
-def DisaggregateIntoSwaths(ax_tiles='shortest_tiles', processes=1, **kwargs):
+def DisaggregateIntoSwaths(params, processes=1, **kwargs):
     """
     Calculate measurement support rasters and
     create discrete longitudinal swath units along the reference axis
@@ -374,12 +419,12 @@ def DisaggregateIntoSwaths(ax_tiles='shortest_tiles', processes=1, **kwargs):
     @output swath_bounds: ax_valley_swaths_bounds
     """
 
-    parameters = ValleyBottomParameters()
-    parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
-    kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
-    params = SwathMeasurementParams(**parameters)
+    # parameters = ValleyBottomParameters()
+    # parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
+    # kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
+    # params = SwathMeasurementParams(**parameters)
 
-    tilefile = config.tileset().filename(ax_tiles)
+    tilefile = params.ax_tiles.filename() # config.tileset().filename(ax_tiles)
 
     def length():
 
@@ -440,17 +485,17 @@ def DisaggregateIntoSwaths(ax_tiles='shortest_tiles', processes=1, **kwargs):
 
     return g_attrs
 
-def WriteSwathsBounds(attrs, **kwargs):
+def WriteSwathsBounds(params, attrs, **kwargs):
     """
     Write swath coordinates (id, location on ref axis)
     and bounds (minx, miny, maxx, maxy)
     to netcdf file
     """
 
-    parameters = ValleyBottomParameters()
-    parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
-    kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
-    params = SwathMeasurementParams(**parameters)
+    # parameters = ValleyBottomParameters()
+    # parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
+    # kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
+    # params = SwathMeasurementParams(**parameters)
 
     axes_swaths = np.array(list(attrs.keys()), dtype='uint32')
     measures = np.array([value[0] for value in attrs.values()], dtype='float32')
@@ -473,7 +518,7 @@ def WriteSwathsBounds(attrs, **kwargs):
     dataset.attrs['geographic_object'] = params.ax_mask
     dataset.attrs['reference_axis'] = params.ax_reference
 
-    output = config.filename(params.output_swaths_bounds)
+    output = params.output_swaths_bounds.filename(tileset=None) # config.filename(params.output_swaths_bounds)
 
     dataset.to_netcdf(
         output, 'w',
@@ -487,7 +532,7 @@ def WriteSwathsBounds(attrs, **kwargs):
 
 def ReadSwathsBounds(params):
 
-    filename = config.filename(params.output_swaths_bounds)
+    filename = params.output_swaths_bounds.filename(tileset=None) # config.filename(params.output_swaths_bounds)
     dataset = xr.open_dataset(filename)
     dataset.load()
 
@@ -505,13 +550,13 @@ def VectorizeOneSwathPolygon(axis, gid, measure, bounds, params, **kwargs):
     Vectorize swath polygon connected to talweg
     """
 
-    tileset = config.tileset()
+    # tileset = config.tileset()
 
-    nearest_axes_raster = tileset.filename(params.output_nearest)
-    swath_raster = tileset.filename(params.output_swaths_raster)
+    nearest_axes_raster = params.output_nearest.filename() # tileset.filename(params.output_nearest)
+    swath_raster = params.output_swaths_raster.filename() # tileset.filename(params.output_swaths_raster)
     # mask_raster = tileset.filename(params.ax_mask, axis=axis)
     # distance_raster = tileset.filename(params.output_distance, axis=axis)
-    distance_raster = tileset.filename(params.ax_talweg_distance)
+    distance_raster = params.ax_talweg_distance.filename() # tileset.filename(params.ax_talweg_distance)
 
     with rio.open(nearest_axes_raster) as ds:
 
@@ -561,15 +606,15 @@ def VectorizeOneSwathPolygon(axis, gid, measure, bounds, params, **kwargs):
 
         return axis, gid, measure, list(polygons)
 
-def VectorizeSwathPolygons(processes=1, **kwargs):
+def VectorizeSwathPolygons(params, processes=1, **kwargs):
     """
     Vectorize spatial units' polygons
     """
 
-    parameters = ValleyBottomParameters()
-    parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
-    kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
-    params = SwathMeasurementParams(**parameters)
+    # parameters = ValleyBottomParameters()
+    # parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
+    # kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
+    # params = SwathMeasurementParams(**parameters)
 
     defs = ReadSwathsBounds(params)
 
@@ -586,7 +631,8 @@ def VectorizeSwathPolygons(processes=1, **kwargs):
                 kwargs
             )
 
-    output = config.filename(params.output_swaths_shapefile, mod=False)
+    output = params.output_swaths_shapefile.filename(tileset=None)
+    # config.filename(params.output_swaths_shapefile, mod=False)
 
     schema = {
         'geometry': 'Polygon',
@@ -649,13 +695,15 @@ def VectorizeSwathPolygons(processes=1, **kwargs):
 
 def UpdateSwathTile(axis, tile, params):
 
-    tileset = config.tileset()
+    # tileset = config.tileset()
 
-    def _tilename(name):
-        return tileset.tilename(name, axis=axis, row=tile.row, col=tile.col)
+    # def _tilename(name):
+    #     return tileset.tilename(name, axis=axis, row=tile.row, col=tile.col)
 
-    swath_shapefile = config.filename(params.output_swaths_shapefile, axis=axis)
-    swath_raster = _tilename(params.output_swaths_raster)
+    swath_shapefile = params.output_swaths_shapefile.filename(tileset=None, axis=axis)
+    # config.filename(params.output_swaths_shapefile, axis=axis)
+    swath_raster = params.output_swaths_raster.tilename(axis=axis, row=tile.row, col=tile.col)
+    # _tilename(params.output_swaths_raster)
 
     if not os.path.exists(swath_raster):
         return
@@ -697,7 +745,7 @@ def UpdateSwathTile(axis, tile, params):
     with rio.open(swath_raster, 'w', **profile) as dst:
         dst.write(swaths, 1)
 
-def UpdateSwathRaster(axis, ax_tiles='ax_shortest_tiles', processes=1, **kwargs):
+def UpdateSwathRaster(axis, params, processes=1, **kwargs):
     """
     Commit manual swath edits to swaths raster
 
@@ -711,10 +759,10 @@ def UpdateSwathRaster(axis, ax_tiles='ax_shortest_tiles', processes=1, **kwargs)
     @output swath_raster: ax_valley_swaths
     """
 
-    parameters = ValleyBottomParameters()
-    parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
-    kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
-    params = SwathMeasurementParams(**parameters)
+    # parameters = ValleyBottomParameters()
+    # parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
+    # kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
+    # params = SwathMeasurementParams(**parameters)
 
     tileset = config.tileset()
 

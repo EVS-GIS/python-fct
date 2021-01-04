@@ -16,7 +16,7 @@ aka. detrended DEM
 """
 
 import os
-from collections import namedtuple
+# from collections import namedtuple
 from operator import itemgetter
 from multiprocessing import Pool
 
@@ -29,24 +29,79 @@ import fiona.crs
 
 from .. import terrain_analysis as ta
 from .. import speedup
-from ..config import config
+from ..config import (
+    config,
+    LiteralParameter,
+    DatasetParameter
+)
 from ..rasterize import rasterize_linestringz
 from ..swath import nearest_value_and_distance
 from ..cli import starcall
 
-HandParams = namedtuple('HandParams', [
-    'elevation',
-    'drainage',
-    'mask',
-    'height',
-    'distance',
-    'buffer_width',
-    'resolution'
-])
+# HandParams = namedtuple('HandParams', [
+#     'elevation',
+#     'drainage',
+#     'mask',
+#     'height',
+#     'distance',
+#     'buffer_width',
+#     'resolution'
+# ])
 
-def DrapeLineString(coordinates, dataset, **kwargs):
+# def HeightAboveTalwegDefaultParameters():
+#     """
+#     Default parameters for HAND with talweg reference
+#     """
 
-    elevation_raster = config.tileset().filename(dataset, **kwargs)
+#     return dict(
+#         elevation='dem',
+#         ax_tiles='shortest_tiles',
+#         drainage='network-cartography-ready',
+#         mask='shortest_height',
+#         height='nearest_height',
+#         distance='nearest_distance',
+#         buffer_width=0.0,
+#         resolution=5.0
+#     )
+
+class Parameters:
+    """
+    Height above nearest drainage (HAND) parameters
+    """
+
+    elevation = DatasetParameter('elevation raster (DEM)', type='input')
+    tiles = DatasetParameter('domain tiles as CSV list', type='input')
+    drainage = DatasetParameter('drainage network shapefile', type='input')
+    mask = DatasetParameter('domain mask raster', type='input')
+    height = DatasetParameter('height raster (HAND)', type='output')
+    distance = DatasetParameter('distance to reference pixels (raster)', type='output')
+
+    buffer_width = LiteralParameter(
+        'enlarge domain mask by buffer width expressed in real distance unit (eg. meters)')
+    resolution = LiteralParameter(
+        'raster resolution, ie. pixel size, in real distance unit (eg. meters)')
+
+    def __init__(self):
+        """
+        Default parameter values,
+        with reference elevation = talweg
+        """
+
+        self.elevation = 'dem'
+        self.tiles = 'shortest_tiles'
+        self.drainage = 'network-cartography-ready'
+        self.mask = 'shortest_height'
+        self.height = 'nearest_height'
+        self.distance = 'nearest_distance'
+        self.buffer_width = 0.0
+        self.resolution = 5.0
+
+def DrapeLineString(coordinates, elevations, **kwargs):
+    """
+    Set coordinates z from `elevations` values
+    """
+
+    elevation_raster = config.tileset().filename(elevations, **kwargs)
 
     with rio.open(elevation_raster) as ds:
 
@@ -60,24 +115,30 @@ def HeightAboveNearestDrainageTile(
         params,
         **kwargs):
     """
-    see DistanceAndHeightAboveNearestDrainage
+    Tile processing
     """
 
-    tileset = config.tileset()
+    # tileset = config.tileset()
 
-    elevation_raster = tileset.tilename(params.elevation, row=row, col=col, **kwargs)
+    elevation_raster = params.elevation.tilename(row=row, col=col, **kwargs)
+    # tileset.tilename(params.elevation, row=row, col=col, **kwargs)
     
-    drainage_shapefile = tileset.filename(params.drainage, axis=axis, **kwargs)
+    drainage_shapefile = params.drainage.filename(axis=axis, **kwargs)
+    # tileset.filename(params.drainage, axis=axis, **kwargs)
     
     if not os.path.exists(drainage_shapefile):
-        drainage_shapefile = config.filename(params.drainage, axis=axis, **kwargs)
+        drainage_shapefile = params.drainage.filename(axis=axis, tileset=None, **kwargs)
+        # config.filename(params.drainage, axis=axis, **kwargs)
         assert os.path.exists(drainage_shapefile)
 
     # valley_bottom_rasterfile = tileset.tilename('ax_flow_height', axis=axis, row=row, col=col)
-    mask_rasterfile = tileset.tilename(params.mask, axis=axis, row=row, col=col, **kwargs)
+    mask_rasterfile = params.mask.tilename(axis=axis, row=row, col=col, **kwargs)
+    # tileset.tilename(params.mask, axis=axis, row=row, col=col, **kwargs)
 
-    output_height = tileset.tilename(params.height, axis=axis, row=row, col=col, **kwargs)
-    output_distance = tileset.tilename(params.distance, axis=axis, row=row, col=col, **kwargs)
+    output_height = params.height.tilename(axis=axis, row=row, col=col, **kwargs)
+    # tileset.tilename(params.height, axis=axis, row=row, col=col, **kwargs)
+    output_distance = params.distance.tilename(axis=axis, row=row, col=col, **kwargs)
+    # tileset.tilename(params.distance, axis=axis, row=row, col=col, **kwargs)
 
     with rio.open(mask_rasterfile) as ds:
 
@@ -122,7 +183,7 @@ def HeightAboveNearestDrainageTile(
 
                     # override z from elevation raster
                     # just in case we forgot to drape stream network on DEM
-                    DrapeLineString(coordinates, params.elevation, **kwargs)
+                    DrapeLineString(coordinates, params.elevation.name, **kwargs)
 
                     coordinates[:, :2] = ta.worldtopixel(coordinates[:, :2], ds.transform, gdal=False)
 
@@ -167,15 +228,16 @@ def HeightAboveNearestDrainageTile(
 
 def HeightAboveNearestDrainage(
         axis,
+        params,
         processes=1,
-        ax_tiles='ax_tiles',
-        elevation='dem',
-        drainage='ax_drainage_network',
-        mask='ax_flow_height',
-        height='ax_nearest_height',
-        distance='ax_nearest_distance',
-        buffer_width=30.0,
-        resolution=5.0,
+        # ax_tiles='ax_tiles',
+        # elevation='dem',
+        # drainage='ax_drainage_network',
+        # mask='ax_flow_height',
+        # height='ax_nearest_height',
+        # distance='ax_nearest_distance',
+        # buffer_width=30.0,
+        # resolution=5.0,
         **kwargs):
     """
     Calculate distance and height above nearest drainage
@@ -250,17 +312,18 @@ def HeightAboveNearestDrainage(
     Other keywords are passed to dataset filename templates.
     """
 
-    params = HandParams(
-        elevation=elevation,
-        drainage=drainage,
-        mask=mask,
-        height=height,
-        distance=distance,
-        buffer_width=buffer_width,
-        resolution=resolution
-    )
+    # params = HandParams(
+    #     elevation=elevation,
+    #     drainage=drainage,
+    #     mask=mask,
+    #     height=height,
+    #     distance=distance,
+    #     buffer_width=buffer_width,
+    #     resolution=resolution
+    # )
 
-    tilefile = config.tileset().filename(ax_tiles, axis=axis, **kwargs)
+    tilefile = params.tiles.filename(axis=axis, **kwargs)
+    # config.tileset().filename(ax_tiles, axis=axis, **kwargs)
 
     def arguments():
 
@@ -285,19 +348,3 @@ def HeightAboveNearestDrainage(
         with click.progressbar(pooled, length=len(arguments)) as iterator:
             for _ in iterator:
                 pass
-
-def HeightAboveTalwegDefaultParameters():
-    """
-    Default parameters for HAND with talweg reference
-    """
-
-    return dict(
-        elevation='dem',
-        ax_tiles='shortest_tiles',
-        drainage='network-cartography-ready',
-        mask='shortest_height',
-        height='nearest_height',
-        distance='nearest_distance',
-        buffer_width=0.0,
-        resolution=5.0
-    )

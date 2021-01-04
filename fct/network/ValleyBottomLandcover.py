@@ -17,33 +17,55 @@ import os
 from multiprocessing import Pool
 import click
 import rasterio as rio
-import fiona
-from ..config import config
+from ..config import DatasetParameter
 from ..cli import starcall
 from ..tileio import buildvrt
 
-def ValleyBottomLandcoverTile(row, col):
+class Parameters:
+    """
+    Within valley-bottom lancover extraction parameters
+    """
 
-    tileset = config.tileset()
+    tiles = DatasetParameter('domain tiles as CSV list', type='input')
+    landcover = DatasetParameter('landcover raster map', type='input')
+    mask = DatasetParameter('domain mask raster', type='input')
+    output = DatasetParameter('valley bottom lancover', type='output')
 
-    mask_tile = tileset.tilename(
-        # 'backup_valley_mask',
-        'nearest_height',
-        row=row,
-        col=col
-    )
+    def __init__(self):
+        """
+        Default parameter values
+        """
 
-    raster_tile = tileset.tilename(
-        'landcover-bdt',
-        row=row,
-        col=col
-    )
+        self.tiles = 'shortest_tiles'
+        self.lancover = 'landcover-bdt'
+        self.mask = 'nearest_height'
+        self.output = 'landcover_valley_bottom'
 
-    output = tileset.tilename(
-        'landcover_valley_bottom',
-        row=row,
-        col=col
-    )
+def ValleyBottomLandcoverTile(row, col, params):
+
+    # tileset = config.tileset()
+
+    mask_tile = params.mask.tilename(row=row, col=col)
+    # tileset.tilename(
+    #     # 'backup_valley_mask',
+    #     'nearest_height',
+    #     row=row,
+    #     col=col
+    # )
+
+    raster_tile = params.landcover.tilename(row=row, col=col)
+    # tileset.tilename(
+    #     'landcover-bdt',
+    #     row=row,
+    #     col=col
+    # )
+
+    output = params.output.tilename(row=row, col=col)
+    # tileset.tilename(
+    #     'landcover_valley_bottom',
+    #     row=row,
+    #     col=col
+    # )
 
     if not (os.path.exists(raster_tile) and os.path.exists(mask_tile)):
         return
@@ -62,10 +84,11 @@ def ValleyBottomLandcoverTile(row, col):
     with rio.open(output, 'w', **profile) as dst:
         dst.write(data, 1)
 
-def ValleyBottomLandcover(processes=1, **kwargs):
+def ValleyBottomLandcover(params, processes=1, **kwargs):
 
-    tileset = config.tileset()
-    tilefile = tileset.filename('shortest_tiles')
+    # tileset = config.tileset()
+    tilefile = params.tiles.filename(tileset=None)
+    # tileset.filename('shortest_tiles')
 
     def length():
 
@@ -83,6 +106,7 @@ def ValleyBottomLandcover(processes=1, **kwargs):
                     ValleyBottomLandcoverTile,
                     row,
                     col,
+                    params,
                     {}
                 )
 
@@ -94,4 +118,4 @@ def ValleyBottomLandcover(processes=1, **kwargs):
             for _ in iterator:
                 pass
 
-    buildvrt('default', 'landcover_valley_bottom')
+    buildvrt('default', params.output.name)

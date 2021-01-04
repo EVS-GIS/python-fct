@@ -1,7 +1,7 @@
 # coding: utf-8
 
 """
-Command Line Interface for Corridor Module
+Command Line Interface for Network Module
 """
 
 import time
@@ -25,6 +25,22 @@ def PrintCommandInfo(command, axis, processes, parameters=None):
     Print command info
     """
 
+    def params_to_dict(params):
+        """
+        Enumerate values in parameter class instance
+        """
+
+        if isinstance(params, dict):
+
+            for key, value in params.items():
+                yield key, value
+
+        else:
+
+            for key, value in params.__dict__.items():
+                if key.startswith('_'):
+                    yield key[1:], value
+
     start_time = time.time()
 
     tileset = config.tileset()
@@ -41,7 +57,7 @@ def PrintCommandInfo(command, axis, processes, parameters=None):
         click.secho('  %16s: %d' % ('axis', axis))
 
     if parameters:
-        for parameter, value in parameters.items():
+        for parameter, value in params_to_dict(parameters):
             click.echo('  %16s: %s' % (parameter, value))
 
     if processes > 0:
@@ -77,22 +93,25 @@ def shortest_height(max_height, max_distance, processes):
     """
 
     from .ShortestHeight import (
-        ShortestHeight,
-        ShortestHeightDefaultParameters
+        Parameters,
+        ShortestHeight
     )
 
-    parameters = ShortestHeightDefaultParameters()
-    parameters.update(max_dz=max_height, max_distance=max_distance)
-    start_time = PrintCommandInfo('valley bottom shortest', None, processes, parameters)
+    # parameters = ShortestHeightDefaultParameters()
+    # parameters.update(max_dz=max_height, max_distance=max_distance)
+    params = Parameters()
+    params.max_height = max_height
+    params.max_distance = max_distance
+    start_time = PrintCommandInfo('shortest height', None, processes, params)
 
-    ShortestHeight(processes=processes, **parameters)
+    ShortestHeight(params, processes=processes)
 
     elapsed = time.time() - start_time
     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
 
     click.secho('Building output VRTs', fg='cyan')
-    buildvrt('default', parameters['dataset_height'])
-    buildvrt('default', parameters['dataset_distance'])
+    buildvrt('default', params.height.name)
+    buildvrt('default', params.distance.name)
 
 @cli.command()
 @parallel_opt
@@ -103,21 +122,21 @@ def hand(processes):
     """
 
     from .HeightAboveNearestDrainage import (
-        HeightAboveNearestDrainage,
-        HeightAboveTalwegDefaultParameters
+        Parameters,
+        HeightAboveNearestDrainage
     )
 
-    parameters = HeightAboveTalwegDefaultParameters()
-    start_time = PrintCommandInfo('height above nearest drainage', None, processes, parameters)
+    params = Parameters()
+    start_time = PrintCommandInfo('height above nearest drainage', None, processes, params)
 
-    HeightAboveNearestDrainage(axis=None, processes=processes, **parameters)
+    HeightAboveNearestDrainage(axis=None, params=params, processes=processes)
 
     elapsed = time.time() - start_time
     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
 
     click.secho('Building output VRTs', fg='cyan')
-    buildvrt('default', parameters['height'])
-    buildvrt('default', parameters['distance'])
+    buildvrt('default', params.height.name)
+    buildvrt('default', params.distance.name)
 
 
 @cli.command()
@@ -130,21 +149,25 @@ def valleymask(buffer_width, max_height, processes):
     """
 
     from .ValleyBottomMask import (
-        ValleyBottomMask,
-        ValleyBottomMaskDefaultParameters
+        Parameters,
+        ValleyBottomMask
     )
 
-    parameters = ValleyBottomMaskDefaultParameters()
-    parameters.update(max_height=max_height, buffer_width=buffer_width)
-    start_time = PrintCommandInfo('extract valley mask', None, processes, parameters)
+    # parameters = ValleyBottomMaskDefaultParameters()
+    # parameters.update(max_height=max_height, buffer_width=buffer_width)
 
-    ValleyBottomMask(None, processes=processes, **parameters)
+    params = Parameters()
+    params.max_height = max_height
+    params.buffer_width = buffer_width
+    start_time = PrintCommandInfo('extract valley mask', None, processes, params)
+
+    ValleyBottomMask(axis=None, params=params, processes=processes)
 
     elapsed = time.time() - start_time
     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
 
     click.secho('Building output VRTs', fg='cyan')
-    buildvrt('default', parameters['output'])
+    buildvrt('default', params.output.name)
 
 @cli.command()
 @parallel_opt
@@ -155,22 +178,24 @@ def valleymask_hand(processes):
     """
 
     from .HeightAboveNearestDrainage import (
-        HeightAboveNearestDrainage,
-        HeightAboveTalwegDefaultParameters
+        Parameters,
+        HeightAboveNearestDrainage
     )
 
-    parameters = HeightAboveTalwegDefaultParameters()
-    parameters.update(mask='valley_mask')
-    start_time = PrintCommandInfo('update valley mask HAND', None, processes, parameters)
+    # parameters = HeightAboveTalwegDefaultParameters()
+    # parameters.update(mask='valley_mask')
+    params = Parameters()
+    params.mask = 'valley_mask'
+    start_time = PrintCommandInfo('update valley mask HAND', None, processes, params)
 
-    HeightAboveNearestDrainage(axis=None, processes=processes, **parameters)
+    HeightAboveNearestDrainage(axis=None, params=params, processes=processes)
 
     elapsed = time.time() - start_time
     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
 
     click.secho('Building output VRTs', fg='cyan')
-    buildvrt('default', parameters['height'])
-    buildvrt('default', parameters['distance'])
+    buildvrt('default', params.height.name)
+    buildvrt('default', params.distance.name)
 
 @cli.command()
 @parallel_opt
@@ -182,20 +207,25 @@ def continuity(processes, maxiter):
     """
 
     from .LayeredContinuityAnalysis import (
-        LandcoverContinuityAnalysis,
-        ContinuityDefaultParameters
+        Parameters,
+        LandcoverContinuityAnalysis
     )
 
-    parameters = ContinuityDefaultParameters()
+    # parameters = ContinuityDefaultParameters()
 
-    parameters.update(
-        output='continuity_variant',
-        variant='MAX'
-    )
+    # parameters.update(
+    #     output='continuity_variant',
+    #     variant='MAX'
+    # )
 
-    start_time = PrintCommandInfo('landcover continuity analysis', None, processes, parameters)
+    params = Parameters()
+    params.output = 'continuity_variant'
+    parameters = dict(variant='MAX')
+
+    start_time = PrintCommandInfo('landcover continuity analysis', None, processes, params)
 
     LandcoverContinuityAnalysis(
+        params,
         processes=processes,
         maxiter=maxiter,
         **parameters)
@@ -215,18 +245,26 @@ def continuity_weighted(processes):
     within valley bottom
     """
 
-    from .WeightedContinuityAnalysis import WeightedContinuityAnalysis
-
-    parameters = dict(
-        tileset='default',
-        landcover='landcover-bdt',
-        output='continuity_variant',
-        variant='WEIGHTED'
+    from .WeightedContinuityAnalysis import (
+        Parameters,
+        WeightedContinuityAnalysis
     )
 
-    start_time = PrintCommandInfo('distance weighted landcover continuity analysis', None, processes, parameters)
+    # parameters = dict(
+    #     tileset='default',
+    #     landcover='landcover-bdt',
+    #     output='continuity_variant',
+    #     variant='WEIGHTED'
+    # )
+
+    params = Parameters()
+    params.output = 'continuity_variant'
+    parameters = dict(variant='WEIGHTED')
+
+    start_time = PrintCommandInfo('distance weighted landcover continuity analysis', None, processes, params)
 
     WeightedContinuityAnalysis(
+        params,
         processes=processes,
         **parameters
     )
@@ -241,19 +279,26 @@ def continuity_weighted(processes):
 @parallel_opt
 def continuity_remap(processes):
 
-    from .RemapContinuityRaster import RemapContinuityRaster
+    from .RemapContinuityRaster import (
+        Parameters,
+        RemapContinuityRaster
+    )
 
-    RemapContinuityRaster(processes, variant='MAX')
+    params = Parameters()
+    params.continuity = 'continuity_variant'
+    params.output = 'continuity_variant_remapped'
+
+    RemapContinuityRaster(params, processes, variant='MAX')
     buildvrt(
         'default',
-        'continuity_variant_remapped',
+        params.output.name,
         variant='MAX'
     )
 
-    RemapContinuityRaster(processes, variant='WEIGHTED')
+    RemapContinuityRaster(params, processes, variant='WEIGHTED')
     buildvrt(
         'default',
-        'continuity_variant_remapped',
+        params.output.name,
         variant='WEIGHTED'
     )
 
@@ -273,26 +318,28 @@ def measure(length, processes):
     """
 
     from .SwathMeasurement import (
+        Parameters,
         DisaggregateIntoSwaths,
-        ValleyBottomParameters,
         WriteSwathsBounds
     )
 
-    parameters = ValleyBottomParameters()
-    parameters.update(mdelta=length, ax_tiles='shortest_tiles')
+    # parameters = ValleyBottomParameters()
+    # parameters.update(mdelta=length, ax_tiles='shortest_tiles')
 
-    start_time = PrintCommandInfo('disaggregate valley bottom into longitudinal units', None, processes, parameters)
+    params = Parameters()
+    params.mdelta = length
+    params.ax_tiles = 'shortest_tiles'
 
-    swaths = DisaggregateIntoSwaths(
-        processes=processes,
-        **parameters)
+    start_time = PrintCommandInfo('disaggregate valley bottom into longitudinal units', None, processes, params)
 
-    WriteSwathsBounds(swaths, **parameters)
+    swaths = DisaggregateIntoSwaths(params, processes=processes)
 
-    buildvrt('default', 'swaths_refaxis')
-    buildvrt('default', 'axis_measure')
-    buildvrt('default', 'axis_distance')
-    buildvrt('default', 'axis_nearest')
+    WriteSwathsBounds(params, swaths)
+
+    buildvrt('default', params.output_swaths_raster.name)
+    buildvrt('default', params.output_measure.name)
+    buildvrt('default', params.output_distance.name)
+    buildvrt('default', params.output_nearest.name)
 
     elapsed = time.time() - start_time
     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
@@ -304,16 +351,17 @@ def vectorize(processes):
     Vectorize swath polygons
     """
 
-    from .SwathMeasurement import VectorizeSwathPolygons, ValleyBottomParameters
+    from .SwathMeasurement import (
+        Parameters,
+        VectorizeSwathPolygons
+    )
 
-    parameters = ValleyBottomParameters()
-    parameters.update(ax_tiles='ax_shortest_tiles')
+    params = Parameters()
+    params.ax_tiles = 'shortest_tiles'
 
-    start_time = PrintCommandInfo('vectorize swath polygons', None, processes, parameters)
+    start_time = PrintCommandInfo('vectorize swath polygons', None, processes, params)
 
-    VectorizeSwathPolygons(
-        processes=processes,
-        **parameters)
+    VectorizeSwathPolygons(params, processes=processes)
 
     elapsed = time.time() - start_time
     click.secho('Elapsed time   : %s' % pretty_time_delta(elapsed))
@@ -327,6 +375,7 @@ def export_axis(axis, processes):
     """
 
     from .ExportAxisDataset import (
+        Parameters,
         CreateAxisMask,
         ExportSwathBounds,
         ExportSwathPolygons,
@@ -334,7 +383,9 @@ def export_axis(axis, processes):
         DefaultRasterMap
     )
 
-    CreateAxisMask(axis)
-    ExportSwathBounds(axis)
-    ExportSwathPolygons(axis)
-    ExportRasters(axis, DefaultRasterMap(), processes)
+    params = Parameters()
+
+    CreateAxisMask(axis, params)
+    ExportSwathBounds(axis, params)
+    ExportSwathPolygons(axis, params)
+    ExportRasters(axis, params, DefaultRasterMap(), processes=processes)
