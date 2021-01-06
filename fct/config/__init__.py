@@ -16,6 +16,7 @@ Configuration Module
 from .Configuration import Configuration
 from .descriptors import (
     LiteralParameter,
+    DatasourceParameter,
     DatasetParameter,
     Workflow
 )

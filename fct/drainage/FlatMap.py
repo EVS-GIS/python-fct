@@ -21,9 +21,28 @@ from rasterio.features import sieve
 
 from .. import terrain_analysis as ta
 from .. import speedup
-from ..config import config
+from ..config import (
+    config,
+    DatasetParameter
+)
 
-def DepressionDepthMap(row, col, **kwargs):
+class Parameters():
+    """
+    Depth map parameters
+    """
+
+    resolved = DatasetParameter('flat-resolved elevation raster', type='input')
+    output = DatasetParameter('depression depth raster', type='output')
+
+    def __init__(self):
+        """
+        Default paramater values
+        """
+
+        self.resolved = 'dem-drainage-resolved'
+        self.output = 'depression-depth'
+
+def DepressionDepthMap(row, col, params, **kwargs):
     """
     Calculate raster map
     of how much flat cells have been raised
@@ -33,10 +52,12 @@ def DepressionDepthMap(row, col, **kwargs):
     # from scipy.ndimage.morphology import binary_closing
 
     # reference_raster = config.tileset().filename('tiled', row=row, col=col)
-    filled_raster = config.tileset().tilename('dem-drainage-resolved', row=row, col=col)
+    filled_raster = params.resolved.tilename(row=row, col=col)
+    # config.tileset().tilename('dem-drainage-resolved', row=row, col=col)
     # filled_raster = config.tileset().tilename('dem-filled-resolved', row=row, col=col)
 
-    output = config.tileset().tilename('depression-depth', row=row, col=col)
+    output = params.output.tilename(row=row, col=col)
+    # config.tileset().tilename('depression-depth', row=row, col=col)
     overwrite = kwargs.get('overwrite', False)
 
     if os.path.exists(output) and not overwrite:

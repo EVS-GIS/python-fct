@@ -17,6 +17,31 @@ class LiteralParameter():
     def __set__(self, obj, value):
         setattr(obj, self.name, value)
 
+class DatasourceParameter():
+
+    def __init__(self, description):
+        self.description = description
+
+    def __set_name__(self, owner, name):
+        self.name = '_' + name
+
+    def __get__(self, obj, objtype=None):
+        value = getattr(obj, self.name)
+        return DatasourceResolver(value)
+
+    def __set__(self, obj, value):
+        setattr(obj, self.name, value)
+
+class DatasourceResolver():
+
+    def __init__(self, name):
+
+        self.name = name
+
+    def filename(self):
+
+        return config.datasource(self.name).filename
+
 class DatasetParameter():
 
     def __init__(self, description, iotype=None):

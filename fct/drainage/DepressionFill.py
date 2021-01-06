@@ -23,7 +23,11 @@ import rasterio as rio
 import fiona
 import fiona.crs
 
-from ..config import config
+from ..config import (
+    config,
+    DatasetParameter,
+    LiteralParameter
+)
 from .. import terrain_analysis as ta
 from .. import speedup
 from .Burn import BurnTile
@@ -37,11 +41,41 @@ def tileindex():
 def silent(msg):
     pass
 
+class Parameters():
+    """
+    Depression filling parameters
+    """
+
+    elevations = DatasetParameter('elevation raster (DEM)', type='input')
+    hydrography = DatasetParameter('draped stream network', type='input')
+
+    filled = DatasetParameter('filled DEM', type='output')
+    labels = DatasetParameter('watershed labels', type='output')
+    graph = DatasetParameter('watershed labels adjacency graph', type='output')
+    spillover = DatasetParameter('spillover resolution', type='output')
+    resolved = DatasetParameter('filled-resolved elevation raster', type='output')
+
+    offset = LiteralParameter('burn offset in meters')
+    exterior_data = LiteralParameter('exterior value')
+
+    def __init__(self):
+        """
+        Default paramater values
+        """
+
+        self.elevations = 'dem'
+        self.hydrography = 'stream-network-draped'
+        self.filled = 'dem-filled'
+        self.labels = 'dem-watershed-labels'
+        self.graph = 'dem-watershed-graph'
+        self.spillover = 'dem-watershed-spillover'
+        self.resolved = 'dem-filled-resolved'
+        self.offset = -1.0
+        self.exterior_data = 9000.0
+
 def LabelWatersheds(
         row, col,
-        dataset='dem',
-        burn=-1.0,
-        exterior_data=9000.0,
+        params,
         overwrite=True,
         verbose=False):
     """
@@ -55,10 +89,18 @@ def LabelWatersheds(
     if (row, col) not in tile_index:
         return
 
+    elevation_raster = params.elevations.tilename(row=row, col=col)
+    # config.tileset().tilename(dataset, row=row, col=col)
     # outputs = config.fileset(['prefilled', 'labels', 'graph'], row=row, col=col)
-    output_filled = config.tileset().tilename('dem-filled', row=row, col=col)
-    output_labels = config.tileset().tilename('dem-watershed-labels', row=row, col=col)
-    output_graph = config.tileset().tilename('dem-watershed-graph', row=row, col=col)
+    output_filled = params.output.tilename(row=row, col=col)
+    # config.tileset().tilename('dem-filled', row=row, col=col)
+    output_labels = params.labels.tilename(row=row, col=col)
+    # config.tileset().tilename('dem-watershed-labels', row=row, col=col)
+    output_graph = params.graph.tilename(row=row, col=col)
+    # config.tileset().tilename('dem-watershed-graph', row=row, col=col)
+
+    offset = params.offset
+    exterior_data = params.exterior_data
 
     if verbose:
 
@@ -79,15 +121,15 @@ def LabelWatersheds(
 
     info('Processing tile (%02d, %02d)' % (row, col))
 
-    with rio.open(config.tileset().tilename(dataset, row=row, col=col)) as ds:
+    with rio.open(elevation_raster) as ds:
 
         profile = ds.profile.copy()
         nodata = ds.nodata
 
-        if burn < 0:
+        if offset < 0:
             elevations = ds.read(1)
         else:
-            elevations = BurnTile(dataset, row, col, burn)
+            elevations = BurnTile(params, row, col, offset)
 
     step('Label flats')
 
@@ -181,13 +223,14 @@ def ResolveMinimumZ(graph, nodata, epsilon=0.002):
     # return minimum_z, flats
     return directed
 
-def ResolveWatershedSpillover(overwrite):
+def ResolveWatershedSpillover(params, overwrite):
     """
     Calcule le graph de débordement
     entre les différentes tuiles
     """
 
-    output = config.tileset().filename('dem-watershed-spillover')
+    output = params.spillover.filename()
+    # config.tileset().filename('dem-watershed-spillover')
 
     if os.path.exists(output) and not overwrite:
         click.secho('Output already exists: %s' % output, fg='yellow')
@@ -201,7 +244,8 @@ def ResolveWatershedSpillover(overwrite):
     nodata = -99999.0
 
     def tiledatafn(row, col):
-        return config.tileset().tilename('dem-watershed-graph', row=row, col=col)
+        return params.graph.tilename(row=row, col=col)
+        # return config.tileset().tilename('dem-watershed-graph', row=row, col=col)
 
     with click.progressbar(tile_index) as progress:
         for row, col in progress:
@@ -274,7 +318,7 @@ def ResolveWatershedSpillover(overwrite):
     # flats = [(t, w) for t, w in flats]
     # np.savez(os.path.join(workdir, 'FLATS.npz'), flats=np.asarray(flats))
 
-def DispatchWatershedMinimumZ(row, col, **kwargs):
+def DispatchWatershedMinimumZ(row, col, params, **kwargs):
     """
     Ajuste l'altitude des dépressions en bordure de tuile,
     (différentiel d'altitude avec le point de débordement)
@@ -285,14 +329,18 @@ def DispatchWatershedMinimumZ(row, col, **kwargs):
     tile_index = tileindex()
     tile = tile_index[row, col]
 
-    minz_file = config.tileset().filename('dem-watershed-spillover')
+    minz_file = params.spillover.filename()
+    # config.tileset().filename('dem-watershed-spillover')
     minimum_z = np.load(minz_file)['minz']
 
     index = {int(w): z for t, w, z in minimum_z if int(t) == tile.gid}
 
-    filled_raster = config.tileset().tilename('dem-filled', row=row, col=col)
-    label_raster = config.tileset().tilename('dem-watershed-labels', row=row, col=col)
-    output = config.tileset().tilename('dem-filled-resolved', row=row, col=col)
+    filled_raster = params.filled.tilename(row=row, col=col)
+    # config.tileset().tilename('dem-filled', row=row, col=col)
+    label_raster = params.labels.tilename(row=row, col=col)
+    # config.tileset().tilename('dem-watershed-labels', row=row, col=col)
+    output = params.resolved.tilename(row=row, col=col)
+    # config.tileset().tilename('dem-filled-resolved', row=row, col=col)
 
     def info(msg):
         click.secho(msg, fg='yellow')

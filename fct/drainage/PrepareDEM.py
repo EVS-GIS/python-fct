@@ -40,7 +40,12 @@ from rasterio.features import rasterize
 import fiona
 import fiona.crs
 
-from ..config import config
+from ..config import (
+    config,
+    DatasourceParameter,
+    DatasetParameter,
+    LiteralParameter
+)
 from ..tileio import ReadRasterTile
 
 
@@ -96,13 +101,33 @@ def TileExtendedBoundingBox(row, col, padding=20):
             feature = {'geometry': geom, 'properties': props}
             dst.write(feature)
 
+class ExtractParameters():
+
+    source_dem = DatasourceParameter('source elevations (DEM)')
+    source_dem_alt = DatasourceParameter('optional lower resolution source elevations')
+    exterior = DatasourceParameter('exterior domain')
+    elevations = DatasetParameter('elevation raster (DEM)', type='output')
+    
+    exterior_data = LiteralParameter('exterior value')
+    smoothing_window = LiteralParameter('elevation smoothing window in pixels')
+
+    def __init__(self):
+        """
+        Default parameter values
+        """
+
+        self.source_dem = 'dem1'
+        self.source_dem_alt = 'dem2'
+        self.exterior = 'exterior-domain'
+        self.elevations = 'dem'
+        self.exterior_data = 9000.0
+        self.smoothing_window = 0
+
 def ExtractAndPatchTile(
         row, col,
+        params,
         overwrite=True,
-        verbose=False,
-        smooth=0,
-        exterior='exterior-domain',
-        exterior_data=9000.0):
+        verbose=False):
     """
     Remplit les zones NODATA du MNT de résolution 5 m (RGE Alti 5 m)
     avec les valeurs interpolées de la BD Alti 25 m
@@ -116,7 +141,11 @@ def ExtractAndPatchTile(
     # if (row, col) not in tile_index:
     #     return
 
-    output = config.tileset().tilename('dem', row=row, col=col)
+    window = params.smoothing_window
+    exterior = params.exterior.name
+    exterior_data = params.exterior_data
+    output = params.elevations.tilename(row=row, col=col)
+    # config.tileset().tilename('dem', row=row, col=col)
 
     if verbose:
 
@@ -141,23 +170,31 @@ def ExtractAndPatchTile(
 
         # row_offset, col_offset = ds.index(tile.x0, tile.y0)
 
-    elevations, profile = ReadRasterTile(row, col, 'dem1', 'dem2', padding=smooth)
+    elevations, profile = ReadRasterTile(
+        row, col,
+        params.source_dem.name,
+        params.source_dem_alt,
+        padding=window)
+
     transform = profile['transform']
     nodata = profile['nodata']
 
-    if smooth > 0:
-        out = ndfilter(elevations, smooth)
-        mask = ndfilter(np.uint8(elevations != nodata), smooth)
+    if window > 0:
+        out = ndfilter(elevations, window)
+        mask = ndfilter(np.uint8(elevations != nodata), window)
         out[mask < 1] = elevations[mask < 1]
         out[mask == 0] = nodata
-        out = out[smooth:-smooth, smooth:-smooth]
+        out = out[window:-window, window:-window]
         del mask
     else:
         out = elevations
 
     if exterior and exterior != 'off':
 
-        with fiona.open(config.datasource(exterior).filename) as fs:
+        exterior_shapefile = params.exterior.filename()
+        # config.datasource(exterior).filename
+
+        with fiona.open(exterior_shapefile) as fs:
             mask = rasterize(
                 [f['geometry'] for f in fs],
                 out_shape=out.shape,
@@ -180,10 +217,25 @@ def ExtractAndPatchTile(
     with rio.open(output, 'w', **profile) as dst:
         dst.write(out, 1)
 
+class SmoothingParameters():
+
+    elevations = DatasetParameter('elevation raster (DEM)', type='input')
+    output = DatasetParameter('smoothed elevation raster', type='output')
+    window = LiteralParameter('smoothing window in pixels')
+
+    def __init__(self):
+        """
+        Default parameter values
+        """
+
+        self.elevations = 'dem'
+        self.output = 'smoothed'
+        self.window = 5
+
 def MeanFilter(
         row, col,
-        overwrite=True,
-        window=5):
+        params,
+        overwrite=True):
     """
     Smooth elevations by applying a mean filter
     on a square window of size `size`
@@ -196,13 +248,18 @@ def MeanFilter(
     # if (row, col) not in tile_index:
     #     return
 
-    output = config.tileset().tilename('smoothed', row=row, col=col)
+    output = params.output.tilename(row=row, col=col)
+    # config.tileset().tilename('smoothed', row=row, col=col)
+    window = params.window
 
     if os.path.exists(output) and not overwrite:
         click.secho('Output already exists: %s' % output, fg='yellow')
         return
 
-    with rio.open(config.tileset().tilename('dem', row=row, col=col)) as ds:
+    elevation_raster = params.elevations.tilename(row=row, col=col)
+    # config.tileset().tilename('dem', row=row, col=col)
+
+    with rio.open(elevation_raster) as ds:
 
         data = ds.read(1)
         out = ndfilter(data, window)
