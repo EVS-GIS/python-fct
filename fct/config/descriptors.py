@@ -40,13 +40,16 @@ class DatasourceResolver():
 
     def filename(self):
 
+        if self.name == 'off':
+            return None
+
         return config.datasource(self.name).filename
 
 class DatasetParameter():
 
-    def __init__(self, description, iotype=None):
+    def __init__(self, description, type=None):
         self.description = description
-        self.iotype = iotype
+        self.type = type
 
     def __set_name__(self, owner, name):
         self.name = '_' + name

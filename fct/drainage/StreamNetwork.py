@@ -34,7 +34,12 @@ import fiona.crs
 
 from .. import speedup
 from .. import terrain_analysis as ta
-from ..config import config
+from ..config import (
+    config,
+    DatasetParameter,
+    DatasourceParameter,
+    LiteralParameter
+)
 
 def tileindex():
     """
@@ -42,13 +47,38 @@ def tileindex():
     """
     return config.tileset().tileindex
 
-def CreateOutletsGraph(exterior='exterior-inlets'):
+class Parameters():
+    """
+    Drainage area and network extraction parameters
+    """
+
+    exterior = DatasourceParameter('exterior flow')
+    elevations = DatasetParameter('filled-resolved elevation raster (DEM)', type='input')
+    flow = DatasetParameter('flow direction raster', type='input')
+    inlets = DatasetParameter('tile inlets (point) shapefile', type='input')
+    inlet_areas = DatasetParameter('', type='output')
+    acc = DatasetParameter('accumulation raster (drainage area)', type='output')
+
+    def __init__(self):
+        """
+        Default paramater values
+        """
+
+        self.exterior = 'exterior-inlets'
+        self.elevations = 'dem'
+        self.flow = 'flow'
+        self.inlets = 'inlets'
+        self.inlet_areas = 'inlet-areas'
+        self.acc = 'acc'
+
+def CreateOutletsGraph(params, exterior='exterior-inlets'):
     """
     DOCME
     """
 
     tile_index = tileindex()
-    elevation_raster = config.tileset().filename('dem')
+    elevation_raster = params.elevations.filename()
+    # config.tileset().filename('dem')
 
     click.secho('Build outlets graph', fg='cyan')
 
@@ -62,8 +92,10 @@ def CreateOutletsGraph(exterior='exterior-inlets'):
         for row, col in progress:
 
             tile = tile_index[(row, col)].gid
-            inlet_shapefile = config.tileset().tilename('inlets', row=row, col=col)
-            flow_raster = config.tileset().tilename('flow', row=row, col=col)
+            inlet_shapefile = params.inlets.tilename(row=row, col=col)
+            # config.tileset().tilename('inlets', row=row, col=col)
+            flow_raster = params.flow.tilename(row=row, col=col)
+            # config.tileset().tilename('flow', row=row, col=col)
 
             with rio.open(flow_raster) as ds:
 
@@ -95,9 +127,11 @@ def CreateOutletsGraph(exterior='exterior-inlets'):
                             graph[(tile, i, j)] = (tile, ti, tj, 0)
                             indegree[(tile, ti, tj)] += 1
 
-                if exterior and exterior != 'off':
+                exterior = params.exterior.filename()
 
-                    with fiona.open(config.datasource(exterior).filename) as fs:
+                if exterior and os.path.exists(exterior):
+
+                    with fiona.open(exterior) as fs:
                         for feature in fs:
 
                             loci, locj = ds.index(*feature['geometry']['coordinates'])
@@ -158,7 +192,7 @@ def CreateOutletsGraph(exterior='exterior-inlets'):
     # return areas
 
 
-def TileInletAreas(tile, keys, areas):
+def TileInletAreas(tile, params, keys, areas):
     """
     Output inlet points,
     attributed with the total upstream drained area.
@@ -180,7 +214,8 @@ def TileInletAreas(tile, keys, areas):
     options = dict(driver=driver, crs=crs, schema=schema)
 
     # provide world/pixel geotransform
-    dem_file = config.tileset().filename('dem')
+    dem_file = params.elevations.filename()
+    # config.tileset().filename('dem')
     dem = rio.open(dem_file)
 
     cum_areas = defaultdict(lambda: 0.0)
@@ -188,10 +223,14 @@ def TileInletAreas(tile, keys, areas):
     for key in keys:
         cum_areas[key[1:]] += areas.get(key[1:], 0)
 
-    inlet_shapefile = config.tileset().tilename('inlets', row=row, col=col)
+    inlet_shapefile = params.inlets.tilename(row=row, col=col)
+    # config.tileset().tilename('inlets', row=row, col=col)
     emitted = set()
 
-    with fiona.open(config.tileset().tilename('inlet-areas', row=row, col=col), 'w', **options) as dst:
+    output = params.inlet_areas.tilename(row=row, col=col)
+    # config.tileset().tilename('inlet-areas', row=row, col=col)
+
+    with fiona.open(output, 'w', **options) as dst:
         with fiona.open(inlet_shapefile) as fs:
             for feature in fs:
 
@@ -213,7 +252,7 @@ def TileInletAreas(tile, keys, areas):
 
     dem.close()
 
-def InletAreas(exterior):
+def InletAreas(params):
     """
     Accumulate areas across tiles
     and output per tile inlet shapefiles
@@ -223,7 +262,7 @@ def InletAreas(exterior):
     tile_index = tileindex()
     tiles = {tile.gid: tile for tile in tile_index.values()}
 
-    graph, indegree = CreateOutletsGraph(exterior)
+    graph, indegree = CreateOutletsGraph(params)
 
     click.secho('Accumulate areas', fg='cyan')
     areas, res = speedup.graph_acc(graph)
@@ -237,17 +276,20 @@ def InletAreas(exterior):
 
             if tile_gid in tiles:
                 tile = tiles[tile_gid]
-                TileInletAreas(tile, keys, areas)
+                TileInletAreas(tile, params, keys, areas)
 
-def FlowAccumulation(row, col, overwrite):
+def FlowAccumulation(row, col, params, overwrite):
 
     tile_index = tileindex()
 
     tile = tile_index[(row, col)].gid
 
-    flow_raster = config.tileset().tilename('flow', row=row, col=col)
-    inlet_shapefile = config.tileset().tilename('inlet-areas', row=row, col=col)
-    output = config.tileset().tilename('acc', row=row, col=col)
+    flow_raster = params.flow.tilename(row=row, col=col)
+    # config.tileset().tilename('flow', row=row, col=col)
+    inlet_shapefile = params.inlet_areas.tilename(row=row, col=col)
+    # config.tileset().tilename('inlet-areas', row=row, col=col)
+    output = params.acc.tilename(row=row, col=col)
+    # config.tileset().tilename('acc', row=row, col=col)
 
     if os.path.exists(output) and not overwrite:
         click.secho('Output already exists: %s' % output, fg='yellow')

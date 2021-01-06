@@ -30,7 +30,12 @@ from rasterio.features import rasterize
 import fiona
 import fiona.crs
 
-from ..config import config
+from ..config import (
+    config,
+    DatasetParameter,
+    DatasourceParameter,
+    LiteralParameter
+)
 from .. import terrain_analysis as ta
 from ..tileio import PadRaster
 
@@ -39,6 +44,31 @@ def tileindex():
     Return default tileindex
     """
     return config.tileset().tileindex
+
+class Parameters():
+    """
+    Flow direction parameters
+    """
+
+    exterior = DatasourceParameter('exterior domain')
+
+    elevations = DatasetParameter('filled-resolved elevation raster (DEM)', type='input')
+    flow = DatasetParameter('flow direction raster', type='output')
+    outlets = DatasetParameter('tile outlets (point) shapefile', type='output')
+    outlets_pattern = DatasetParameter('tile outlets shapefile glob pattern', type=None)
+    inlets = DatasetParameter('tile inlets (point) shapefile', type='output')
+
+    def __init__(self):
+        """
+        Default paramater values
+        """
+
+        self.exterior = 'exterior-domain'
+        self.dem = 'dem-drainage-resolved'
+        self.flow = 'flow'
+        self.outlets = 'outlets'
+        self.outlets_pattern = 'outlets-glob'
+        self.inlets = 'inlets'
 
 def WallFlats(padded, nodata):
 
@@ -82,7 +112,7 @@ def WallFlats(padded, nodata):
 
 def FlowDirection(
         row, col,
-        exterior='exterior-domain',
+        params,
         overwrite=True,
         **kwargs):
     """
@@ -91,7 +121,8 @@ def FlowDirection(
     """
 
     # elevation_raster = config.tileset().filename('filled', row=row, col=col)
-    output = config.tileset().tilename('flow', row=row, col=col)
+    output = params.flow.tilename(row=row, col=col, **kwargs)
+    # config.tileset().tilename('flow', row=row, col=col)
 
     if os.path.exists(output) and not overwrite:
         click.secho('Output already exists: %s' % output, fg='yellow')
@@ -100,7 +131,7 @@ def FlowDirection(
     # with rio.open(elevation_raster) as ds:
 
     # padded = PadRaster(row, col, 'filled')
-    padded, profile = PadRaster(row, col, 'dem-drainage-resolved')
+    padded, profile = PadRaster(row, col, params.elevations.name)
     transform = profile['transform']
     nodata = profile['nodata']
 
@@ -151,9 +182,11 @@ def FlowDirection(
     # rd.FillDepressions(extended, True, True, 'D8')
     # flow = ta.flowdir(padded, ds.nodata)
 
-    if exterior and exterior != 'off':
+    exterior = params.exterior.filename()
 
-        with fiona.open(config.datasource('exterior').filename) as fs:
+    if exterior and os.path.exists(exterior):
+
+        with fiona.open(exterior) as fs:
             mask = rasterize(
                 [f['geometry'] for f in fs],
                 out_shape=flow.shape,
@@ -181,7 +214,7 @@ def FlowDirection(
     with rio.open(output, 'w', **profile) as dst:
         dst.write(flow, 1)
 
-def Outlets(row, col, verbose=False):
+def Outlets(row, col, params, verbose=False):
     """
     DOCME
     """
@@ -206,7 +239,8 @@ def Outlets(row, col, verbose=False):
 
     # read_tile_index()
 
-    flow_raster = config.tileset().tilename('flow', row=row, col=col)
+    flow_raster = params.flow.tilename(row=row, col=col)
+    # config.tileset().tilename('flow', row=row, col=col)
 
     gid = tile_index[(row, col)].gid
     tiles = defaultdict(list)
@@ -288,7 +322,8 @@ def Outlets(row, col, verbose=False):
                 continue
 
             target = tile_index[(trow, tcol)].gid
-            output = config.tileset().tilename('outlets', row=trow, col=tcol, gid=gid)
+            output = params.outlets.tilename(row=trow, col=tcol, gid=gid)
+            # config.tileset().tilename('outlets', row=trow, col=tcol, gid=gid)
 
             # if os.path.exists(output):
             #     mode = 'a'
@@ -322,7 +357,7 @@ def Outlets(row, col, verbose=False):
 
     return cum_area
 
-def AggregateOutlets():
+def AggregateOutlets(params):
     """
     Aggregate ROW_COL_INLETS_ORIGIN.geojson files
     into one ROW_COL_INLETS.shp shapefile
@@ -347,17 +382,19 @@ def AggregateOutlets():
     with click.progressbar(tile_index) as progress:
         for row, col in progress:
 
-            output = config.tileset().tilename('inlets', row=row, col=col)
+            output = params.inlets.tilename(row=row, col=col)
+            # config.tileset().tilename('inlets', row=row, col=col)
 
             with fiona.open(output, 'w', **options) as dst:
 
-                pattern = config.tileset().tilename(
-                    'outlets-glob',
-                    row=row,
-                    col=col)
+                pattern = params.outlets_pattern.tilename(row=row, col=col)
+                # config.tileset().tilename(
+                #     'outlets-glob',
+                #     row=row,
+                #     col=col)
 
                 for name in glob.glob(pattern):
                     with fiona.open(name) as fs:
-                        
+
                         for feature in fs:
                             dst.write(feature)
