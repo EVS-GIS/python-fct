@@ -20,8 +20,6 @@ Sequence :
 """
 
 import os
-import glob
-from collections import defaultdict
 import numpy as np
 
 import click
@@ -33,8 +31,7 @@ import fiona.crs
 from ..config import (
     config,
     DatasetParameter,
-    DatasourceParameter,
-    LiteralParameter
+    DatasourceParameter
 )
 from .. import terrain_analysis as ta
 from ..tileio import PadRaster
@@ -54,10 +51,7 @@ class Parameters():
 
     elevations = DatasetParameter('filled-resolved elevation raster (DEM)', type='input')
     flow = DatasetParameter('flow direction raster', type='output')
-    outlets = DatasetParameter('tile outlets (point) shapefile', type='output')
-    outlets_pattern = DatasetParameter('tile outlets shapefile glob pattern', type=None)
-    inlets = DatasetParameter('tile inlets (point) shapefile', type='output')
-
+    
     def __init__(self):
         """
         Default paramater values
@@ -66,9 +60,6 @@ class Parameters():
         self.exterior = 'exterior-domain'
         self.dem = 'dem-drainage-resolved'
         self.flow = 'flow'
-        self.outlets = 'outlets'
-        self.outlets_pattern = 'outlets-glob'
-        self.inlets = 'inlets'
 
 def WallFlats(padded, nodata):
 
@@ -110,7 +101,7 @@ def WallFlats(padded, nodata):
     return fixed
 
 
-def FlowDirection(
+def FlowDirectionTile(
         row, col,
         params,
         overwrite=True,
@@ -213,188 +204,3 @@ def FlowDirection(
 
     with rio.open(output, 'w', **profile) as dst:
         dst.write(flow, 1)
-
-def Outlets(row, col, params, verbose=False):
-    """
-    DOCME
-    """
-
-    tile_index = tileindex()
-
-    crs = fiona.crs.from_epsg(2154)
-    driver = 'GeoJSON'
-    schema = {
-        'geometry': 'Point',
-        'properties': [
-            ('TILE', 'int'),
-            ('LCA', 'int'),
-            ('TO', 'int'),
-            ('TOX', 'float'),
-            ('TOY', 'float'),
-            ('Z', 'float'),
-            ('TOZ', 'float')
-        ]
-    }
-    options = dict(driver='ESRI Shapefile', crs=crs, schema=schema)
-
-    # read_tile_index()
-
-    flow_raster = params.flow.tilename(row=row, col=col)
-    # config.tileset().tilename('flow', row=row, col=col)
-
-    gid = tile_index[(row, col)].gid
-    tiles = defaultdict(list)
-
-    # def readz(trow, tcol, x, y):
-
-    #     with rio.open(config.tileset().tilename('filled', row=trow, col=tcol)) as src:
-    #         return float(next(src.sample([(x, y)], 1)))
-
-    with rio.open(flow_raster) as ds:
-
-        height, width = ds.shape
-        flow = ds.read(1)
-        mask = np.ones_like(flow, dtype=np.uint8)
-        outlets, targets = ta.tile_outlets(flow, mask)
-
-        for current, (ti, tj) in enumerate(targets):
-
-            top = (ti < 0)
-            bottom = (ti >= height)
-            left = (tj < 0)
-            right = (tj >= width)
-
-            if top:
-                di = -1
-            elif bottom:
-                di = +1
-            else:
-                di = 0
-
-            if left:
-                dj = -1
-            elif right:
-                dj = +1
-            else:
-                dj = 0
-
-            tiles[(row+di, col+dj)].append(current)
-
-                # target = tile_index[(row+di, col+dj)].gid
-                # (i, j), area = outlets[current]
-                # x, y = ds.xy(i, j)
-                # tx, ty = ds.xy(ti, tj)
-                # outlet_z = readz(row, col, x, y)
-                # target_z = readz(row+di, col+dj, tx, ty)
-
-                # geom = {'type': 'Point', 'coordinates': [x, y]}
-                # props = {
-                #     'TILE': gid,
-                #     'LCA': area,
-                #     'TO': target,
-                #     'TOX': tx,
-                #     'TOY': ty,
-                #     'Z': outlet_z,
-                #     'TOZ': target_z
-                # }
-
-                # dst.write({'geometry': geom, 'properties': props})
-
-        cum_area = 0
-        skipped = 0
-
-        schema = {
-            'geometry': 'Point',
-            'properties': [
-                ('TILE', 'int'),
-                ('LCA', 'int'),
-                ('FROM', 'int'),
-                ('FROMX', 'float'),
-                ('FROMY', 'float')
-            ]
-        }
-        options = dict(driver=driver, crs=crs, schema=schema)
-
-        for trow, tcol in tiles:
-
-            if (trow, tcol) not in tile_index:
-                skipped += len(tiles[(trow, tcol)])
-                continue
-
-            target = tile_index[(trow, tcol)].gid
-            output = params.outlets.tilename(row=trow, col=tcol, gid=gid)
-            # config.tileset().tilename('outlets', row=trow, col=tcol, gid=gid)
-
-            # if os.path.exists(output):
-            #     mode = 'a'
-            # else:
-            #     mode = 'w'
-
-            with fiona.open(output, 'w', **options) as dst:
-                for idx in tiles[(trow, tcol)]:
-
-                    (i, j), area = outlets[idx]
-                    ti, tj = targets[idx]
-                    x, y = ds.xy(i, j)
-                    tx, ty = ds.xy(ti, tj)
-
-                    cum_area += area
-                
-                    geom = {'type': 'Point', 'coordinates': [tx, ty]}
-                    props = {
-                        'TILE': target,
-                        'LCA': area,
-                        'FROM': gid,
-                        'FROMX': x,
-                        'FROMY': y
-                    }
-
-                    dst.write({'geometry': geom, 'properties': props})
-
-    if verbose:
-        click.secho('\nSkipped %d outlets' % skipped, fg='yellow')
-        click.secho('Tile (%02d, %02d) Coverage = %.1f %%' % (row, col, (cum_area / (height*width) * 100)), fg='green')
-
-    return cum_area
-
-def AggregateOutlets(params):
-    """
-    Aggregate ROW_COL_INLETS_ORIGIN.geojson files
-    into one ROW_COL_INLETS.shp shapefile
-    """
-
-    tile_index = tileindex()
-
-    crs = fiona.crs.from_epsg(2154)
-    driver = 'ESRI Shapefile'
-    schema = {
-        'geometry': 'Point',
-        'properties': [
-            ('TILE', 'int'),
-            ('LCA', 'int'),
-            ('FROM', 'int'),
-            ('FROMX', 'float'),
-            ('FROMY', 'float')
-        ]
-    }
-    options = dict(driver=driver, crs=crs, schema=schema)
-
-    with click.progressbar(tile_index) as progress:
-        for row, col in progress:
-
-            output = params.inlets.tilename(row=row, col=col)
-            # config.tileset().tilename('inlets', row=row, col=col)
-
-            with fiona.open(output, 'w', **options) as dst:
-
-                pattern = params.outlets_pattern.tilename(row=row, col=col)
-                # config.tileset().tilename(
-                #     'outlets-glob',
-                #     row=row,
-                #     col=col)
-
-                for name in glob.glob(pattern):
-                    with fiona.open(name) as fs:
-
-                        for feature in fs:
-                            dst.write(feature)

@@ -1,46 +1,102 @@
-# coding: utf-8
-
 """
-Fix Flow Direction for No-Flow Cells
+Fix Flow Direction for No-Flow pixels
 
 ***************************************************************************
 *                                                                         *
 *   This program is free software; you can redistribute it and/or modify  *
 *   it under the terms of the GNU General Public License as published by  *
-*   the Free Software Foundation; either version 2 of the License, or     *
+*   the Free Software Foundation; either version 3 of the License, or     *
 *   (at your option) any later version.                                   *
 *                                                                         *
 ***************************************************************************
 """
 
+import itertools
 import numpy as np
 
+import click
 import rasterio as rio
 import fiona
-import click
 
 from .. import transform as fct
-from ..config import config
+from .. import speedup
+from .. import terrain_analysis as ta
 
-def DrainageRaster(row, col, min_drainage=5.0):
+from ..config import (
+    config,
+    DatasetParameter,
+    LiteralParameter
+)
+
+class Parameters():
+    """
+    Resolve no-flow pixels parameters
+    """
+
+    flow = DatasetParameter(
+        'flow direction raster',
+        type='input')
+
+    acc = DatasetParameter(
+        'accumulation raster (drainage area)',
+        type='input')
+
+    drainage_network = DatasetParameter(
+        'drainage network shapefile',
+        type='input')
+
+    drainage_raster = DatasetParameter(
+        'drainage network raster',
+        type='output')
+
+    noflow = DatasetParameter(
+        'no-flow pixels (point) shapefile',
+        type='output')
+
+    fixed = DatasetParameter(
+        'no-flow destination pixels (point) shapefile',
+        type='output')
+
+    min_drainage = LiteralParameter(
+        'minimum drainage area for stream extraction expressed in square kilometers')
+
+    def __init__(self):
+        """
+        Default paramater values
+        """
+
+        self.flow = 'flow'
+        self.acc = 'acc'
+        self.drainage_network = 'streams-from-sources' # 'dem-drainage-network'
+        self.drainage_raster = 'drainage-raster-from-sources'
+        self.noflow = 'noflow'
+        self.fixed = 'noflow-targets-from-sources'
+        self.min_drainage = 5.0
+
+def DrainageRasterTile(row, col, params):
     """
     Rasterize back drainage network
     """
 
-    acc_raster = config.tileset().tilename(
-        'acc',
-        row=row,
-        col=col)
+    acc_raster = params.acc.tilename(row=row, col=col)
+    # config.tileset().tilename(
+    #     'acc',
+    #     row=row,
+    #     col=col)
 
-    stream_features = config.tileset().tilename(
-        'streams-from-sources',
-        row=row,
-        col=col)
+    stream_features = params.drainage_network.tilename(row=row, col=col)
+    # config.tileset().tilename(
+    #     'streams-from-sources',
+    #     row=row,
+    #     col=col)
 
-    output = config.tileset().tilename(
-        'drainage-raster-from-sources',
-        row=row,
-        col=col)
+    output = params.drainage_raster.tilename(row=row, col=col)
+    # config.tileset().tilename(
+    #     'drainage-raster-from-sources',
+    #     row=row,
+    #     col=col)
+
+    min_drainage = params.min_drainage
 
     with rio.open(acc_raster) as ds:
 
@@ -73,7 +129,90 @@ def DrainageRaster(row, col, min_drainage=5.0):
     with rio.open(output, 'w', **profile) as dst:
         dst.write(streams, 1)
 
-def FixNoFlow(x0, y0, tileset1, tileset2, min_drainage=5.0, fix=False):
+def NoFlowPixels(row, col, params):
+
+    flow_raster = params.flow.tilename(row=row, col=col)
+    # config.tileset().tilename('flow', row=row, col=col)
+    acc_raster = params.acc.tilename(row=row, col=col)
+    # config.tileset().tilename('acc', row=row, col=col)
+    output = params.noflow.tilename(row=row, col=col)
+    # config.tileset().tilename('noflow', row=row, col=col)
+
+    min_drainage = params.min_drainage
+
+    driver = 'ESRI Shapefile'
+    schema = {
+        'geometry': 'Point',
+        'properties': [
+            ('GID', 'int'),
+            ('ROW', 'int:4'),
+            ('COL', 'int:4')
+        ]
+    }
+    crs = fiona.crs.from_epsg(2154)
+    options = dict(driver=driver, crs=crs, schema=schema)
+
+    with rio.open(flow_raster) as ds:
+
+        flow = ds.read(1)
+
+        with rio.open(acc_raster) as ds2:
+            streams = np.int16(ds2.read(1) > min_drainage)
+
+        with fiona.open(output, 'w', **options) as dst:
+
+            pixels = speedup.noflow(streams, flow)
+
+            if pixels:
+
+                coordinates = ta.pixeltoworld(
+                    np.int32(pixels),
+                    ds.transform,
+                    gdal=False)
+
+                for current, point in enumerate(coordinates):
+                    dst.write({
+                        'type': 'Feature',
+                        'geometry': {'type': 'Point', 'coordinates': point},
+                        'properties': {'GID': current, 'ROW': row, 'COL': col}
+                    })
+
+def AggregateNoFlowPixels(params):
+    """
+    Aggregate No Flow Shapefiles
+    """
+
+    # tile_index = tileindex()
+    tileset = config.tileset()
+    output = params.noflow.filename()
+    # config.tileset().filename('noflow')
+
+    driver = 'ESRI Shapefile'
+    schema = {
+        'geometry': 'Point',
+        'properties': [
+            ('GID', 'int'),
+            ('ROW', 'int'),
+            ('COL', 'int')
+        ]
+    }
+    crs = fiona.crs.from_epsg(2154)
+    options = dict(driver=driver, crs=crs, schema=schema)
+
+    gid = itertools.count(1)
+
+    with fiona.open(output, 'w', **options) as dst:
+        with click.progressbar(tileset.tiles(), length=len(tileset)) as iterator:
+            for row, col in iterator:
+                with fiona.open(config.tileset().tilename('noflow', row=row, col=col)) as fs:
+                    for feature in fs:
+                        feature['properties']['GID'] = next(gid)
+                        dst.write(feature)
+
+    count = next(gid) - 1
+    click.secho('Found %d not-flowing stream nodes' % count, fg='cyan')
+
+def FixNoFlow(x0, y0, tileset1, tileset2, params, fix=False):
     """
     DOCME
     """
@@ -89,21 +228,29 @@ def FixNoFlow(x0, y0, tileset1, tileset2, min_drainage=5.0, fix=False):
 
     # flow_raster1 = '/var/local/fct/RMC/FLOW_RGE5M_TILES.vrt'
     # acc_raster1 = '/var/local/fct/RMC/ACC_RGE5M_TILES.vrt'
-    flow_raster1 = config.tileset(tileset1).filename('flow')
-    acc_raster1 = config.tileset(tileset1).filename('acc')
-    stream_raster1 = config.tileset(tileset1).filename('drainage-raster-from-sources')
+    flow_raster1 = params.flow.filename(tileset=tileset1)
+    # config.tileset(tileset1).filename('flow')
+    acc_raster1 = params.acc.filename(tileset=tileset1)
+    # config.tileset(tileset1).filename('acc')
+    stream_raster1 = params.drainage_raster.filename(tileset=tileset1)
+    # config.tileset(tileset1).filename('drainage-raster-from-sources')
+    
     flow1ds = rio.open(flow_raster1)
     acc1ds = rio.open(acc_raster1)
     stream1ds = rio.open(stream_raster1)
 
     # flow_raster2 = '/var/local/fct/RMC/FLOW_RGE5M_TILES2.vrt'
     # acc_raster2 = '/var/local/fct/RMC/ACC_RGE5M_TILES2.vrt'
-    flow_raster2 = config.tileset(tileset2).filename('flow')
+    flow_raster2 = params.flow.filename(tileset=tileset2)
+    # config.tileset(tileset2).filename('flow')
     # acc_raster2 = config.tileset(tileset2).filename('acc')
-    stream_raster2 = config.tileset(tileset2).filename('drainage-raster-from-sources')
+    stream_raster2 = params.drainage_raster.filename(tileset=tileset2)
+    # config.tileset(tileset2).filename('drainage-raster-from-sources')
     flow2ds = rio.open(flow_raster2)
     # acc2ds = rio.open(acc_raster2)
     stream2ds = rio.open(stream_raster2)
+
+    min_drainage = params.min_drainage
 
     def read_tile(row, col):
         """
@@ -120,12 +267,15 @@ def FixNoFlow(x0, y0, tileset1, tileset2, min_drainage=5.0, fix=False):
 
         # click.echo('Reading tile (%d, %d)' % (row, col))
 
-        flow_raster1 = config.tileset(tileset1).tilename('flow', row=row, col=col)
-        acc_raster1 = config.tileset(tileset1).tilename('acc', row=row, col=col)
-        stream_raster1 = config.tileset(tileset1).tilename(
-            'drainage-raster-from-sources',
-            row=row,
-            col=col)
+        flow_raster1 = params.flow.tilename(tileset=tileset1, row=row, col=col)
+        # config.tileset(tileset1).tilename('flow', row=row, col=col)
+        acc_raster1 = params.acc.tilename(tileset=tileset1, row=row, col=col)
+        # config.tileset(tileset1).tilename('acc', row=row, col=col)
+        stream_raster1 = params.drainage_raster.tilename(tileset=tileset1, row=row, col=col)
+        # config.tileset(tileset1).tilename(
+        #     'drainage-raster-from-sources',
+        #     row=row,
+        #     col=col)
 
         with rio.open(acc_raster1) as ds:
             acc1_data = ds.read(1)
@@ -184,7 +334,8 @@ def FixNoFlow(x0, y0, tileset1, tileset2, min_drainage=5.0, fix=False):
 
         def write_tile(row, col):
 
-            flow_raster1 = config.tileset().tilename('flow', row=row, col=col)
+            flow_raster1 = params.flow.tilename(row=row, col=col)
+            # config.tileset().tilename('flow', row=row, col=col)
 
             with rio.open(flow_raster1, 'w', **profile) as dst:
                 dst.write(flow1_data, 1)
@@ -292,7 +443,7 @@ def FixNoFlow(x0, y0, tileset1, tileset2, min_drainage=5.0, fix=False):
 
     return ds.xy(i, j)
 
-def test(tileset1='10k', tileset2='10kbis', fix=False):
+def test(params, tileset1='10k', tileset2='10kbis', fix=False):
     """
     TODO finalize
     DOCME
@@ -305,8 +456,10 @@ def test(tileset1='10k', tileset2='10kbis', fix=False):
     # targets = config.tileset(tileset1).filename('noflow-targets')
 
     config.default()
-    noflow = config.tileset(tileset1).filename('noflow-from-sources')
-    targets = config.tileset(tileset1).filename('noflow-targets-from-sources')
+    noflow = params.noflow.filename(tileset=tileset1)
+    # config.tileset(tileset1).filename('noflow-from-sources')
+    targets = params.fixed.filename(tileset=tileset1)
+    # config.tileset(tileset1).filename('noflow-targets-from-sources')
 
     with fiona.open(noflow) as fs:
 
@@ -321,7 +474,7 @@ def test(tileset1='10k', tileset2='10kbis', fix=False):
 
                     try:
 
-                        tox, toy = FixNoFlow(x, y, tileset1, tileset2, fix=fix)
+                        tox, toy = FixNoFlow(x, y, tileset1, tileset2, params, fix=fix)
                         f['geometry']['coordinates'] = [tox, toy]
                         dst.write(f)
 

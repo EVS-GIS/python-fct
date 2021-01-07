@@ -27,11 +27,36 @@ import fiona
 import fiona.crs
 from shapely.geometry import asShape
 
-from ..config import config
+from ..config import (
+    config,
+    DatasetParameter,
+    DatasourceParameter,
+    LiteralParameter
+)
 from ..cli import starcall
 from .. import terrain_analysis as ta
 from .. import speedup
 from ..tileio import PadRaster
+
+class Parameters():
+    """
+    Watershed delineation parameters
+    """
+
+    flow = DatasetParameter('flow direction raster', type='input')
+    drainage_network = DatasetParameter('drainage network shapefile', type='input')
+    watershed_raster = DatasetParameter('watershed raster', type='output')
+    watershed_polygon = DatasetParameter('watershed polygons', type='output')
+
+    def __init__(self):
+        """
+        Default paramater values
+        """
+
+        self.flow = 'flow'
+        self.drainage_network = 'ax_drainage_network'
+        self.watershed_raster = 'ax_watershed_raster'
+        self.watershed_polygon = 'ax_watershed'
 
 def tileindex():
     """
@@ -57,20 +82,21 @@ def border(height, width):
             yield i, j
         offset = 0
 
-def WatershedTile(row, col, seeds, axis=1, tmp=''):
+def WatershedTile(axis, row, col, params, seeds, tmp=''):
     """
     seeds: (x, y, value, distance)
     """
 
-    flow, profile = PadRaster(row, col, 'flow', padding=1)
+    flow, profile = PadRaster(row, col, params.flow.name, padding=1)
     transform = profile['transform']
-    destination = config.tileset().tilename('ax_watershed_raster', row=row, col=col, axis=axis)
+    destination = params.watershed_raster.tilename(axis=axis, row=row, col=col)
+    # config.tileset().tilename('ax_watershed_raster', row=row, col=col, axis=axis)
     height, width = flow.shape
 
     if os.path.exists(destination):
         # with rio.open(destination) as ds:
         #     ds.read(1, out=out[1:-1, 1:-1])
-        data, _ = PadRaster(row, col, 'ax_watershed_raster', padding=1, axis=axis)
+        data, _ = PadRaster(row, col, params.watershed_raster.name, padding=1, axis=axis)
     else:
         data = np.zeros_like(flow, dtype='float32')
 
@@ -125,16 +151,17 @@ def WatershedTile(row, col, seeds, axis=1, tmp=''):
 
     return spillover, destination + tmp
 
-def VectorizeTile(axis, row, col):
+def VectorizeTile(axis, row, col, params):
     """
     DOCME
     """
 
-    rasterfile = config.tileset().tilename(
-        'ax_watershed_raster',
-        axis=axis,
-        row=row,
-        col=col)
+    rasterfile = params.watershed_raster.tilename(axis=axis, row=row, col=col)
+    # config.tileset().tilename(
+    #     'ax_watershed_raster',
+    #     axis=axis,
+    #     row=row,
+    #     col=col)
 
     if os.path.exists(rasterfile):
 
@@ -153,12 +180,13 @@ def VectorizeTile(axis, row, col):
 
         return [], row, col
 
-def VectorizeWatershed(axis, processes=1):
+def VectorizeWatershed(axis, params, processes=1):
     """
     DOCME
     """
 
-    output = config.filename('ax_watershed', axis=axis) # filename ok
+    output = params.watershed_polygon.filename(axis=axis, tileset=None)
+    # config.filename('ax_watershed', axis=axis) # filename ok
 
     epsg = 2154
     schema = {
@@ -182,7 +210,7 @@ def VectorizeWatershed(axis, processes=1):
         with fiona.open(output, 'w', **options) as dst:
             with click.progressbar(tileindex()) as bar:
                 for row, col in bar:
-                    polygons, _, _ = VectorizeTile(axis, row, col)
+                    polygons, _, _ = VectorizeTile(axis, row, col, params)
                     for polygon in polygons:
                         geom = asShape(polygon).buffer(0.0)
                         feature = {
@@ -225,7 +253,7 @@ def print_spillover_tiles(spillover):
     tiles = set([tile(s) for s in spillover])
     print(tiles)
 
-def WatershedStep(spillover, axis=1, processes=1):
+def WatershedStep(spillover, axis, params, processes=1):
 
     xy = itemgetter(0, 1)
     value = itemgetter(2)
@@ -241,7 +269,7 @@ def WatershedStep(spillover, axis=1, processes=1):
 
         for (row, col), seeds in tiles:
             seeds = [xy(seed) + (value(seed),) for seed in seeds]
-            t_spillover, tmpfile = WatershedTile(row, col, seeds, axis=axis, tmp='.tmp')
+            t_spillover, tmpfile = WatershedTile(axis, row, col, params, seeds, tmp='.tmp')
             g_spillover.extend(t_spillover)
             tmpfiles.append(tmpfile)
 
@@ -250,12 +278,12 @@ def WatershedStep(spillover, axis=1, processes=1):
 
     else:
 
-        kwargs = {'tmp': '.tmp', 'axis': axis}
+        kwargs = {'tmp': '.tmp'}
         arguments = list()
 
         for (row, col), seeds in tiles:
             seeds = [xy(seed) + (value(seed),) for seed in seeds]
-            arguments.append((WatershedTile, row, col, seeds, kwargs))
+            arguments.append((WatershedTile, axis, row, col, params, seeds, kwargs))
 
         with Pool(processes=processes) as pool:
 
@@ -273,7 +301,7 @@ def WatershedStep(spillover, axis=1, processes=1):
 
     return g_spillover
 
-def Watershed(axis, processes=1):
+def Watershed(axis, params, processes=1):
     """
     Delineate watershed
     from drainage network and flow direction raster
@@ -308,9 +336,10 @@ def Watershed(axis, processes=1):
             yield (x, y, axis, row, col)
 
 
-    drainage_shapefile = config.tileset().filename(
-        'ax_drainage_network',
-        axis=axis)
+    drainage_shapefile = params.drainage_network.filename(axis=axis)
+    # config.tileset().filename(
+    #     'ax_drainage_network',
+    #     axis=axis)
 
     with fiona.open(drainage_shapefile) as fs:
 
@@ -328,7 +357,7 @@ def Watershed(axis, processes=1):
 
     while seeds:
 
-        seeds = WatershedStep(seeds, axis, processes)
+        seeds = WatershedStep(seeds, axis, params, processes)
 
         count += 1
         tiles = {tile(s) for s in seeds}
