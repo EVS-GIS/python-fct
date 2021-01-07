@@ -3,6 +3,9 @@
 from . import config
 
 class LiteralParameter():
+    """
+    A simple valued (string or numeric) parameter
+    """
 
     def __init__(self, description):
         self.description = description
@@ -18,6 +21,9 @@ class LiteralParameter():
         setattr(obj, self.name, value)
 
 class DatasourceParameter():
+    """
+    A file-based datasource declared in `config.ini`
+    """
 
     def __init__(self, description):
         self.description = description
@@ -33,12 +39,18 @@ class DatasourceParameter():
         setattr(obj, self.name, value)
 
 class DatasourceResolver():
+    """
+    Resolves a DatasourceParameter according to current configuration.
+    """
 
     def __init__(self, name):
 
         self.name = name
 
     def filename(self):
+        """
+        Resolves to this datasource filename
+        """
 
         if self.name == 'off':
             return None
@@ -46,6 +58,10 @@ class DatasourceResolver():
         return config.datasource(self.name).filename
 
 class DatasetParameter():
+    """
+    A file-based dataset declared in `datasets.yml`,
+    either tiled or not
+    """
 
     def __init__(self, description, type=None):
         self.description = description
@@ -63,12 +79,7 @@ class DatasetParameter():
 
 class DatasetResolver():
     """
-    mode:
-
-        r: read-only, check file exists
-        r?: read-only, file may not exist
-        w: write, update existing file or create new file
-        rw:
+    Resolves a DatasetParameter according to current configuration.
     """
 
     def __init__(self, name):
@@ -76,6 +87,12 @@ class DatasetResolver():
         self.name = name
 
     def filename(self, mode='r', tileset='default', **kwargs):
+        """
+        Resolves to this datasource filename.
+        If `tileset` is None, returns a global dataset.
+        Otherwise, returns the single-file dataset for the specified tileset,
+        such as a VRT file for tiled datasets.
+        """
 
         if tileset is None:
             return config.filename(self.name, **kwargs)
@@ -83,6 +100,9 @@ class DatasetResolver():
         return config.tileset(tileset).filename(self.name, **kwargs)
 
     def tilename(self, mode='r', tileset='default', **kwargs):
+        """
+        Resolves to a specific tilename based on `kwargs` arguments
+        """
 
         return config.tileset(tileset).tilename(self.name, **kwargs)
 

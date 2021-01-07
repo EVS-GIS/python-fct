@@ -1,0 +1,68 @@
+site_name: Fluvial Corridor Toolbox (CLI)
+
+repo_name: tramebleue/fct-cli
+repo_url: https://github.com/tramebleue/fct-cli
+
+nav:
+  - Introduction: index.md
+  - install.md
+  - Workflows:
+    - workflows/drainage.md
+  - Reference:
+    - ref/api.md
+  - Examples:
+    - Mermaid: examples/mermaid.md
+    - Math: examples/math.md
+
+plugins:
+  - search
+  - mkdocstrings
+  # - minify:
+  #     minify_html: true
+
+extra:
+  manifest: 'manifest.webmanifest'
+  social:
+    - icon: fontawesome/brands/github-alt
+      link: 'https://github.com/tramebleue/fct-cli'
+extra_css:
+  - extra_css.min.css
+extra_javascript:
+  - assets/mathjax_config.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js
+  - https://unpkg.com/mermaid@8.8.4/dist/mermaid.min.js
+  - assets/mermaid_config.js
+  - assets/extra_uml.min.js
+
+markdown_extensions:
+  - pymdownx.arithmatex
+  - pymdownx.details
+  - pymdownx.superfences:
+      preserve_tabs: true
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+        - name: math
+          class: arithmatex
+          format: !!python/name:pymdownx.arithmatex.fence_mathjax_format
+
+theme:
+  name: material
+  language: en
+  # palette:
+  #   scheme: slate
+  #   primary: teal
+  #   accent: purple
+  icon:
+    logo: material/book-open-page-variant
+  palette:
+    scheme: default
+    primary: deep purple
+    accent: deep purple
+  font:
+    text: Roboto
+    code: Roboto Mono
+  # features:
+  #   - navigation.tabs

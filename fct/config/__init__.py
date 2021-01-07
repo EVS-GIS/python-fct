@@ -14,11 +14,11 @@ Configuration Module
 """
 
 from .Configuration import Configuration
+config = Configuration()
+
 from .descriptors import (
     LiteralParameter,
     DatasourceParameter,
     DatasetParameter,
     Workflow
 )
-
-config = Configuration()

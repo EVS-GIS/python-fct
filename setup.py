@@ -18,17 +18,43 @@ from distutils.extension import Extension
 import numpy
 from Cython.Build import cythonize
 
-# Parse the version from the main module.
-with open('fct/__init__.py', 'r') as f:
-    for line in f:
-        if line.find("__version__") >= 0:
-            version = line.split("=")[1].strip().strip('"').strip("'")
-            break
+def get_version():
+    """Get version and version_info without importing the entire module."""
 
-open_kwds = {'encoding': 'utf-8'}
+    # Parse the version from the main module.
+    with open('fct/__init__.py', 'r') as f:
+        for line in f:
+            if line.find("__version__") >= 0:
+                version = line.split("=")[1].strip().strip('"').strip("'")
+                break
 
-with open('VERSION.txt', 'w', **open_kwds) as f:
-    f.write(version)
+    open_kwds = {'encoding': 'utf-8'}
+
+    with open('VERSION.txt', 'w', **open_kwds) as f:
+        f.write(version)
+
+    return version
+
+def get_requirements(req):
+    """Load list of dependencies."""
+
+    with open(req) as f:
+
+        install_requires = [
+            line.strip()
+            for line in f
+            if not line.startswith("#")
+        ]
+
+    return install_requires
+
+
+def get_description():
+    """Get long description."""
+
+    with open("README.md") as f:
+        desc = f.read()
+    return desc
 
 extensions = [
 
@@ -57,23 +83,13 @@ extensions = [
 
 setup(
     name='fct',
-    version=version,
-    packages=find_packages(),
+    version=get_version(),
+    long_description=get_description(),
+    long_description_content_type='text/markdown',
+    packages=find_packages(exclude=['tools', 'scripts', 'test*']),
     ext_modules=cythonize(extensions),
     include_package_data=True,
-    install_requires=[
-        'numpy>=1.18',
-        'xarray>=0.15',
-        'scipy>=1.4',
-        'rasterio>=1.1',
-        'fiona>=1.8.6',
-        'shapely>=1.7',
-        'pyyaml>=5.3',
-        'Click>=7.0',
-        'matplotlib>=3.2',
-        'pycairo>=1.19',
-        'python-dotenv'
-    ],
+    install_requires=get_requirements('requirements/fct.txt'),
     entry_points='''
         [console_scripts]
             fct=fct.cli.InfoCommand:cli

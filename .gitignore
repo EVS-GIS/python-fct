@@ -11,5 +11,6 @@ VERSION.txt
 .doit.*
 python3
 build
+site
 __pycache__
 .DS_Store
