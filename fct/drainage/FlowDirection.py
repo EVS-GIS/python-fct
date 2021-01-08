@@ -1,26 +1,12 @@
 # coding: utf-8
 
 """
-Sequence :
-
-1. FlowDirection (*)
-2. Outlets (*)
-3. AggregateOutlets
-
-(*) Possibly Parallel Steps
-
-***************************************************************************
-*                                                                         *
-*   This program is free software; you can redistribute it and/or modify  *
-*   it under the terms of the GNU General Public License as published by  *
-*   the Free Software Foundation; either version 2 of the License, or     *
-*   (at your option) any later version.                                   *
-*                                                                         *
-***************************************************************************
+Flow Direction Module
 """
 
 import os
 import numpy as np
+from typing import Any
 
 import click
 import rasterio as rio
@@ -45,6 +31,18 @@ def tileindex():
 class Parameters():
     """
     Flow direction parameters
+
+    Attributes:
+
+        exterior (DatasourceParameter):
+            exterior domain
+            default = 0.0
+
+        elevations:
+            filled-resolved elevation raster (DEM)
+
+        flow:
+            flow direction raster
     """
 
     exterior = DatasourceParameter('exterior domain')
@@ -54,14 +52,29 @@ class Parameters():
     
     def __init__(self):
         """
-        Default paramater values
+        Default parameter values
         """
 
         self.exterior = 'exterior-domain'
-        self.dem = 'dem-drainage-resolved'
+        self.elevations = 'dem-drainage-resolved'
         self.flow = 'flow'
 
-def WallFlats(padded, nodata):
+def WallFlats(padded: np.ndarray, nodata: Any) -> int:
+    """
+    Raise elevation of noflow pixels on tile borders
+    receiving flow from outside.
+
+    Parameters:
+
+        padded:
+            one-pixel padded tile data
+
+        nodata:
+            no-data value in `padded`
+
+    Returns:
+        number of raised pixels
+    """
 
     ci = [ -1, -1,  0,  1,  1,  1,  0, -1 ]
     cj = [  0,  1,  1,  1,  0, -1, -1, -1 ]
@@ -102,13 +115,33 @@ def WallFlats(padded, nodata):
 
 
 def FlowDirectionTile(
-        row, col,
-        params,
-        overwrite=True,
-        **kwargs):
+        row: int,
+        col: int,
+        params: Parameters,
+        overwrite: bool = True,
+        **kwargs: Any) -> None:
     """
     Resolve flats drainage direction and
     calculate D8 flow direction from adjusted elevations.
+
+    Parameters:
+
+        row:
+            tile row index
+        
+        col:
+            tile column index
+        
+        params:
+            flow direction input/output parameters
+
+        overwrite:
+            if true, overwrite existing output,
+            otherwise skip processing
+        
+        kwargs:
+            extra parameters to be passed to dataset parameters
+            defined in `params`
     """
 
     # elevation_raster = config.tileset().filename('filled', row=row, col=col)

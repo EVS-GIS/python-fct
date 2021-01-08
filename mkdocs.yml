@@ -6,17 +6,30 @@ repo_url: https://github.com/tramebleue/fct-cli
 nav:
   - Introduction: index.md
   - install.md
+  - concepts.md
   - Workflows:
     - workflows/drainage.md
-  - Reference:
+  - Code Reference:
     - ref/api.md
-  - Examples:
-    - Mermaid: examples/mermaid.md
-    - Math: examples/math.md
+    - Modules:
+      - ref/drainage.md
+      - ref/network.md
+      - ref/metrics.md
+    - Cython:
+      - ref/transform.md
+      - ref/speedup.md
+      - ref/terrain.md
+  # - changelog.md
+  - Credits: credits.md
+  - License: license.md
 
 plugins:
   - search
-  - mkdocstrings
+  - mkdocstrings:
+      watch:
+        - fct
+        - workflows
+        - docwrappers
   # - minify:
   #     minify_html: true
 

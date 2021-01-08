@@ -64,7 +64,7 @@ class Parameters():
 
     def __init__(self):
         """
-        Default paramater values
+        Default parameter values
         """
 
         self.exterior_flow = 'exterior-inlets'

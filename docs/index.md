@@ -1,5 +1,7 @@
 # Fluvial Corridor Toolbox
 
+## Presentation
+
 The Fluvial Corridor Toolbox is a set of geoalgorithms for measuring fluvial features and processes.
 
 ![Corridor Width Profile Example (River le Var, France)](img/width_profile.png)
@@ -24,6 +26,6 @@ Funding and support have been kindly provided by :
 
 ## License
 
-The Fluvial Corridor Toolbox is released under the [GNU Public License][].
+The Fluvial Corridor Toolbox is released under the [GNU Public License](license).
 
-[GNU Public License]: https://github.com/tramebleue/fct/blob/master/LICENSE
+## Credits

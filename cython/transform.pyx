@@ -222,10 +222,6 @@ def worldtopixel(np.float32_t[:, :] coordinates, transform):
     transform: object
         GDAL GeoTransform or RasterIO Affine Transform Object
 
-    gdal: boolean
-        True if `transform` is a GDAL GeoTransform,
-        False if it is a Rasterio Affine Transform 
-
     Returns
     -------
 

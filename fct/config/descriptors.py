@@ -1,5 +1,8 @@
 # coding: utf-8
 
+import time
+import click
+from ..cli.Decorators import pretty_time_delta
 from . import config
 
 class LiteralParameter():
@@ -8,16 +11,26 @@ class LiteralParameter():
     """
 
     def __init__(self, description):
+
         self.description = description
+        self.type = 'param'
 
     def __set_name__(self, owner, name):
         self.name = '_' + name
 
     def __get__(self, obj, objtype=None):
+
+        if obj is None:
+            return self
+
         value = getattr(obj, self.name)
         return value
 
     def __set__(self, obj, value):
+
+        if obj is None:
+            return
+
         setattr(obj, self.name, value)
 
 class DatasourceParameter():
@@ -26,16 +39,26 @@ class DatasourceParameter():
     """
 
     def __init__(self, description):
+
         self.description = description
+        self.type = 'source'
 
     def __set_name__(self, owner, name):
         self.name = '_' + name
 
     def __get__(self, obj, objtype=None):
+
+        if obj is None:
+            return self
+
         value = getattr(obj, self.name)
         return DatasourceResolver(value)
 
     def __set__(self, obj, value):
+
+        if obj is None:
+            return
+
         setattr(obj, self.name, value)
 
 class DatasourceResolver():
@@ -64,6 +87,7 @@ class DatasetParameter():
     """
 
     def __init__(self, description, type=None):
+
         self.description = description
         self.type = type
 
@@ -71,10 +95,18 @@ class DatasetParameter():
         self.name = '_' + name
 
     def __get__(self, obj, objtype=None):
+
+        if obj is None:
+            return self
+
         value = getattr(obj, self.name)
         return DatasetResolver(value)
 
     def __set__(self, obj, value):
+
+        if obj is None:
+            return
+
         setattr(obj, self.name, value)
 
 class DatasetResolver():
@@ -109,7 +141,11 @@ class DatasetResolver():
     def __repr__(self):
         return f'DatasetResolver({self.name})'
 
-def Workflow():
+class Workflow():
+    """
+    A context manager that allows for specific execution configuration
+    and records execution details.
+    """
 
     # def __init__(self, configuration=None):
 
@@ -119,32 +155,66 @@ def Workflow():
     #         self.config = configuration
 
     def __init__(self):
-        
+
         self.times = list()
 
     def __enter__(self):
-        
+
         self.saved_workspace = config.workspace.copy()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        
+
         config.set_workspace(self.saved_workspace)
         self.saved_workspace = None
 
     def set_workdir(self, workdir):
+        """
+        Set current workspace's working directory
+        """
         config.workspace._workdir = workdir
 
     def set_outputdir(self, outputdir):
+        """
+        Set output directory within workspace's working directory
+        """
         config.workspace._outputdir = outputdir
 
     def set_tileset(self, tileset):
+        """
+        Set current default tileset
+        """
         config.workspace._tileset = tileset
 
     def set_tiledir(self, tiledir):
+        """
+        Set default tileset's tile directory
+        """
         pass
 
+    def before_operation(self, operation, *args, **kwargs):
+        """
+        Before-execution hook
+        """
+
+        name = operation.__name__
+        self.start_time = time.time()
+
+    def after_operation(self, operation, *args, **kwargs):
+        """
+        After-execution hook
+        """
+
+        name = operation.__name__
+        elapsed = time.time() - self.start_time
+        click.echo(f'{name} : {pretty_time_delta(elapsed)}')
+
+        self.record_execution_time(name, elapsed)
+
     def record_execution_time(self, name, elapsed):
+        """
+        Record execution time for operation `name`
+        """
 
         self.times.append((name, elapsed))
 

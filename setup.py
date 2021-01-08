@@ -86,7 +86,7 @@ setup(
     version=get_version(),
     long_description=get_description(),
     long_description_content_type='text/markdown',
-    packages=find_packages(exclude=['tools', 'scripts', 'test*']),
+    packages=find_packages(exclude=['tools', 'scripts', 'docwrappers', 'test*']),
     ext_modules=cythonize(extensions),
     include_package_data=True,
     install_requires=get_requirements('requirements/fct.txt'),
