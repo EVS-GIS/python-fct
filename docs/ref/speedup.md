@@ -2,7 +2,7 @@
 
 ## Flow and drainage calculation
 
-::: docwrappers.drainage
+::: fct.algorithms.drainage
     handler: python
     rendering:
         show_source: false
@@ -12,7 +12,7 @@
 
 ## Continuity analysis
 
-::: docwrappers.continuity
+::: fct.algorithms.continuity
     handler: python
     rendering:
         show_source: false
@@ -22,7 +22,7 @@
 
 ## General raster processing
 
-::: docwrappers.raster
+::: fct.algorithms.raster
     handler: python
     rendering:
         show_source: false

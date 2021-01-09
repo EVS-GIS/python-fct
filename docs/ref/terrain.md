@@ -1,6 +1,6 @@
 # Terrain Analysis
 
-::: docwrappers.terrain
+::: fct.algorithms.terrain
     handler: python
     rendering:
         show_source: false

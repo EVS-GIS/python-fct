@@ -1,16 +1,6 @@
-# coding: utf-8
 
 """
 Configuration Classes
-
-***************************************************************************
-*                                                                         *
-*   This program is free software; you can redistribute it and/or modify  *
-*   it under the terms of the GNU General Public License as published by  *
-*   the Free Software Foundation; either version 2 of the License, or     *
-*   (at your option) any later version.                                   *
-*                                                                         *
-***************************************************************************
 """
 
 import os
@@ -147,6 +137,11 @@ class Configuration():
         self._workspace = Workspace()
 
     def auto(self):
+        """
+        Populate configuration from `config.ini`
+        defined in `FCT_CONFIG` environment variable.
+        Use .env if exists.
+        """
 
         # pylint: disable=import-outside-toplevel
 

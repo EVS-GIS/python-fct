@@ -6,8 +6,8 @@ repo_url: https://github.com/tramebleue/fct-cli
 nav:
   - Introduction: index.md
   - install.md
-  - concepts.md
-  - Workflows:
+  - framework.md
+  - Example Workflows:
     - workflows/drainage.md
   - Code Reference:
     - ref/api.md
@@ -29,7 +29,6 @@ plugins:
       watch:
         - fct
         - workflows
-        - docwrappers
   # - minify:
   #     minify_html: true
 

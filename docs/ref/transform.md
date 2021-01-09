@@ -1,6 +1,6 @@
 # Transform
 
-::: docwrappers.transform
+::: fct.algorithms.transform
     handler: python
     rendering:
         show_source: false
