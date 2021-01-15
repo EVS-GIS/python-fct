@@ -22,24 +22,22 @@ RUN apt-get update -qq && apt-get install -y \
 #RUN apt-get update -qq && apt-get install -y \
 #  git-core
 
-RUN git clone https://github.com/tramebleue/fct-cli /opt/fct-cli \
+RUN git clone --recurse-submodules https://github.com/tramebleue/fct-cli /opt/fct-cli \
  && cd /opt/fct-cli \
  && python3 -m pip install --no-warn-script-location --user --upgrade pip \
- && python3 -m pip install --no-warn-script-location --user -r requirements.txt \
+ && python3 -m pip install --no-warn-script-location --user -r requirements/fct.txt \
  && python3 -m pip install --no-warn-script-location --user sklearn \
- && python3 -m pip install --no-warn-script-location --user -r recommended.txt \
+ && python3 -m pip install --no-warn-script-location --user -r requirements/extra.txt \
  && chmod a+rx /root/.local/lib/python3.8/site-packages
 
 RUN cd /opt/fct-cli \
- && git submodule init \
- && git submodule update --remote \
  && python3 -m pip install --no-warn-script-location --user .
 
 FROM python:3.8-buster
 
 RUN apt-get update -qq && apt-get install -y \
   libssl1.1 \
-  libcurl3-gnutls \
+  libcurl4-gnutls \
   libcurl4 \
   libudunits2-0 \
   libudunits2-data \

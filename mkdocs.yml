@@ -2,13 +2,19 @@ site_name: Fluvial Corridor Toolbox (CLI)
 
 repo_name: tramebleue/fct-cli
 repo_url: https://github.com/tramebleue/fct-cli
+edit_uri: blob/master/docs/
 
 nav:
   - Introduction: index.md
   - install.md
+  - concepts.md
   - framework.md
   - Example Workflows:
     - workflows/drainage.md
+    - workflows/heights.md
+    - workflows/swaths.md
+    - workflows/metrics.md
+    - workflows/continuity.md
   - Code Reference:
     - ref/api.md
     - Modules:
@@ -20,7 +26,7 @@ nav:
       - ref/speedup.md
       - ref/terrain.md
   # - changelog.md
-  - Credits: credits.md
+  - credits.md
   - License: license.md
 
 plugins:
