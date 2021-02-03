@@ -1,0 +1,96 @@
+coordinates:
+  'axis':
+    long_name: stream identifier
+    long_name_fr: identifiant de l'axe hydrographique
+    coords: ax
+  'measure':
+    long_name: position along reference axis
+    long_name_fr: |
+      position longitudinale
+      le long de l'axe hydrographique de référence
+    standard_name: linref_m_coordinate
+    coords: m
+    units: m
+  'axis_distance':
+    long_name: sample distance to reference axis
+    long_name_fr: distance à l'axe hydrographique de référence
+    coords: d
+    units: m
+  'quantile':
+    long_name: quantile of elevation sample at distance d from reference axis
+    long_name_fr: quantile
+    coords: q
+  'landcover':
+    long_name: landcover class
+    long_name_fr: classe d'occupation du sol
+    coords: k
+  'continuity':
+    long_name: classe d'occupation du sol
+    long_name_fr: |
+      classe de continuité de l'occupation du sol
+      à partir du réseau hydrographique
+    coords: kc
+  'side':
+    long_name: side of talweg, left or right
+    long_name_fr: |
+      côté du talweg,
+      à gauche ou à droite en regardant dans le sens de l'écoulement
+    coords: side
+variables:
+  'swath_pixels':
+    long_name: pixel count in sample (mi, di)
+    long_name_fr: nombre de pixels à la position m et à la distance d du talweg
+    coords: (ax, m, d)
+    units: pixels
+  'sw_elevation_abs':
+    long_name: sample absolute elevation from DEM
+    long_name_fr: quantile de l'altitude absolue
+    standard_name: surface_altitude
+    coords: (ax, m, d), q
+    units: m
+    category: elevation
+  'sw_height_drainage':
+    long_name: sample height above nearest drainage
+    long_name_fr: |
+      quantile de la hauteur au dessus du point le plus proch
+      sur le réseau hydrographique
+    standard_name: surface_height_above_nearest_drainage
+    coords: (ax, m, d), q
+    units: m
+    category: elevation
+  'sw_height_floodplain': 
+    long_name: sample height above floodplain
+    long_name_fr: |
+      quantile de la hauteur au dessus
+      du plan moyen du fond de vallée
+    standard_name: surface_height_above_floodplain
+    coords: (ax, m, d), q
+    description: |-
+      ransac regression of floodplain elevation
+      in the direction of reference axis
+    units: m
+    category: elevation
+  'sw_valley_bottom':
+    long_name: area (pixel count) of valley bottom in sample (mi, di)
+    long_name_fr: surface du fond de vallée
+    coords: (ax, m, d), side
+    units: pixels
+  'sw_landcover':
+    long_name: pixel count of landcover class k in sample (mi, di)
+    long_name_fr: surface de la classe d'occupation du sol k
+    coords: (ax, m, d), k, side
+    units: pixels
+  'sw_continuity':
+    long_name: pixel count of continuity class kc in sample (mi, di)
+    long_name_fr: surface de la classe de continuité latérale kc
+    coords: (ax, m, d), kc, side
+    units: pixels
+  'dm':
+    long_name_fr: |
+      intervalle de discrétisation longitudinale
+      (longueur des unités longitudinales)
+    units: m
+  'dd':
+    long_name_fr: |
+      intervalle d'échantillonage en travers
+    units: m

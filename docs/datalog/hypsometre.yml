@@ -1,0 +1,23 @@
+coordinates:
+  'cdzonehydr':
+    long_name: code de la zone hydrographique BDC
+    coords: czh
+  'z':
+    long_name: altitude minimale de l'intervalle échantillonné
+    coords: z
+    units: m
+  'landcover':
+    long_name: classe d'occupation du sol
+    coords: k
+variables:
+  'areas':
+    long_name: surface de la classe d'occupation du sol
+    units: m²
+    coords: (czh, z), k
+  'areas_valley_bottom':
+    long_name: surface de la classe d'occupation du sol dans le fond de vallée
+    units: m²
+    coords: (czh, z), k
+  'dz':
+    long_name: intervalle d'échantillonage
+    units: m
