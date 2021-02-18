@@ -608,7 +608,7 @@ class Tileset():
         dst = self.parent.dataset(dataset)
 
         folder = os.path.join(
-            self.workspace.workdir,
+            self.parent.workspace.workdir,
             dst.subdir(**kwargs))
 
         if not os.path.exists(folder):
@@ -630,7 +630,7 @@ class Tileset():
         dst = self.parent.dataset(dataset)
 
         folder = os.path.join(
-            self.workspace.workdir,
+            self.parent.workspace.workdir,
             dst.subdir(**kwargs),
             self._tiledir,
             dst.basename)

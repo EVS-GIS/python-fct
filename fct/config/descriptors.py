@@ -2,8 +2,28 @@
 
 import time
 import click
-from ..cli.Decorators import pretty_time_delta
+# from ..cli.Decorators import pretty_time_delta
 from . import config
+
+def pretty_time_delta(delta):
+    """
+    See https://gist.github.com/thatalextaylor/7408395
+    """
+
+    days, seconds = divmod(int(delta), 86400)
+    hours, seconds = divmod(seconds, 3600)
+    minutes, seconds = divmod(seconds, 60)
+
+    if days > 0:
+        return '%d d %d h %d min %.0f s' % (days, hours, minutes, seconds)
+
+    if hours > 0:
+        return '%d h %d min %.0f s' % (hours, minutes, seconds)
+
+    if minutes > 0:
+        return '%d min %d s' % (minutes, seconds)
+
+    return '%.1f s' % (delta,)
 
 class LiteralParameter():
     """
