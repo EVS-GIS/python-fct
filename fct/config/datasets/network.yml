@@ -47,6 +47,46 @@ shortest_state:
     template: SHORTEST_STATE_%(row)02d_%(col)02d
     extension: .tif
 
+shortest_height_p1:
+  description: |
+    Height above stream talweg following shortest path
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: NETWORK/HEIGHT/P1
+  filename: SHORTEST_HEIGHT_P1.vrt
+  tiles:
+    tileset: landcover
+    template: SHORTEST_HEIGHT_P1_%(row)02d_%(col)02d
+    extension: .tif
+
+shortest_distance_p1:
+  description: |
+    Shortest path distance to stream talweg
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: NETWORK/TEMP/P1
+  filename: SHORTEST_DISTANCE_P1.vrt
+  tiles:
+    tileset: landcover
+    template: SHORTEST_DISTANCE_P1_%(row)02d_%(col)02d
+    extension: .tif
+
+shortest_state_p1:
+  description: |
+    Temporary processing state for shortest height,
+    saved between iterations
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: NETWORK/TEMP/P1
+  filename: SHORTEST_STATE_P1.vrt
+  tiles:
+    tileset: landcover
+    template: SHORTEST_STATE_P1_%(row)02d_%(col)02d
+    extension: .tif
+
 nearest_distance:
   description: |
     Distance to nearest drainage
@@ -73,6 +113,19 @@ nearest_height:
     template: NEAREST_HEIGHT_%(row)02d_%(col)02d
     extension: .tif
 
+nearest_drainage_axis:
+  description: |
+    Nearest drainage axis
+  type: raster
+  group: spatial reference
+  status: temporary
+  subdir: NETWORK/HEIGHT
+  filename: NEAREST_DRAINAGE_AXIS.vrt
+  tiles:
+    tileset: landcover
+    template: NEAREST_DRAINAGE_AXIS_%(row)02d_%(col)02d
+    extension: .tif
+
 valley_mask:
   description: |
     Valley mask from nearest height raster
@@ -84,6 +137,19 @@ valley_mask:
   tiles:
     tileset: landcover
     template: VALLEY_MASK_%(row)02d_%(col)02d
+    extension: .tif
+
+valley_bottom_mask:
+  description: |
+    Valley bottom mask
+  type: raster
+  group: corridor
+  status: final
+  subdir: NETWORK/HEIGHT
+  filename: VALLEY_BOTTOM.vrt
+  tiles:
+    tileset: landcover
+    template: VALLEY_BOTTOM_%(row)02d_%(col)02d
     extension: .tif
 
 continuity:

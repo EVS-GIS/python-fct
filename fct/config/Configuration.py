@@ -241,6 +241,7 @@ class Configuration():
 
         folder = os.path.join(
             self.workdir,
+            self.workspace.outputdir,
             dst.subdir(**kwargs))
 
         # if mod:
@@ -609,6 +610,7 @@ class Tileset():
 
         folder = os.path.join(
             self.parent.workspace.workdir,
+            self.parent.workspace.outputdir,
             dst.subdir(**kwargs))
 
         if not os.path.exists(folder):
@@ -631,6 +633,7 @@ class Tileset():
 
         folder = os.path.join(
             self.parent.workspace.workdir,
+            self.parent.workspace.outputdir,
             dst.subdir(**kwargs),
             self._tiledir,
             dst.basename)

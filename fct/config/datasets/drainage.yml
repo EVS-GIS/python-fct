@@ -192,6 +192,19 @@ depression-depth:
     template: DEPRESSION_DEPTH_%(row)02d_%(col)02d
     extension: .tif
 
+slope:
+  description: |
+    Slope derived from DEM elevations (%)
+  type: raster
+  group: drainage
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: SLOPE.vrt
+  tiles:
+    tileset: landcover
+    template: SLOPE_%(row)02d_%(col)02d
+    extension: .tif
+
 flow:
   description: |
     D8 Flow Direction, derived from DEM

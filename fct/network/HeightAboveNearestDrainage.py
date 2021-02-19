@@ -35,47 +35,25 @@ from ..config import (
     DatasetParameter
 )
 from ..rasterize import rasterize_linestringz
-from ..swath import nearest_value_and_distance
+# from ..swath import nearest_value_and_distance
+from .Measurement import nearest_value_and_distance
 from ..cli import starcall
-
-# HandParams = namedtuple('HandParams', [
-#     'elevation',
-#     'drainage',
-#     'mask',
-#     'height',
-#     'distance',
-#     'buffer_width',
-#     'resolution'
-# ])
-
-# def HeightAboveTalwegDefaultParameters():
-#     """
-#     Default parameters for HAND with talweg reference
-#     """
-
-#     return dict(
-#         elevation='dem',
-#         ax_tiles='shortest_tiles',
-#         drainage='network-cartography-ready',
-#         mask='shortest_height',
-#         height='nearest_height',
-#         distance='nearest_distance',
-#         buffer_width=0.0,
-#         resolution=5.0
-#     )
 
 class Parameters:
     """
     Height above nearest drainage (HAND) parameters
     """
 
-    elevation = DatasetParameter('elevation raster (DEM)', type='input')
+    dem = DatasetParameter('elevation raster (DEM)', type='input')
     tiles = DatasetParameter('domain tiles as CSV list', type='input')
     drainage = DatasetParameter('drainage network shapefile', type='input')
-    mask = DatasetParameter('domain mask raster', type='input')
+    mask = DatasetParameter('height raster defining domain mask', type='input')
     height = DatasetParameter('height raster (HAND)', type='output')
     distance = DatasetParameter('distance to reference pixels (raster)', type='output')
+    nearest = DatasetParameter('nearest drainage axis (raster)', type='output')
 
+    mask_height_max = LiteralParameter(
+        'maximum height defining domain mask')
     buffer_width = LiteralParameter(
         'enlarge domain mask by buffer width expressed in real distance unit (eg. meters)')
     resolution = LiteralParameter(
@@ -87,12 +65,14 @@ class Parameters:
         with reference elevation = talweg
         """
 
-        self.elevation = 'dem'
+        self.dem = 'dem'
         self.tiles = 'shortest_tiles'
         self.drainage = 'network-cartography-ready'
         self.mask = 'shortest_height'
         self.height = 'nearest_height'
         self.distance = 'nearest_distance'
+        self.nearest = 'nearest_drainage_axis'
+        self.mask_height_max = 20.0
         self.buffer_width = 0.0
         self.resolution = 5.0
 
@@ -120,8 +100,8 @@ def HeightAboveNearestDrainageTile(
 
     # tileset = config.tileset()
 
-    elevation_raster = params.elevation.tilename(row=row, col=col, **kwargs)
-    # tileset.tilename(params.elevation, row=row, col=col, **kwargs)
+    elevation_raster = params.dem.tilename(row=row, col=col, **kwargs)
+    # tileset.tilename(params.dem, row=row, col=col, **kwargs)
     
     drainage_shapefile = params.drainage.filename(axis=axis, **kwargs)
     # tileset.filename(params.drainage, axis=axis, **kwargs)
@@ -139,14 +119,25 @@ def HeightAboveNearestDrainageTile(
     # tileset.tilename(params.height, axis=axis, row=row, col=col, **kwargs)
     output_distance = params.distance.tilename(axis=axis, row=row, col=col, **kwargs)
     # tileset.tilename(params.distance, axis=axis, row=row, col=col, **kwargs)
+    output_nearest = params.nearest.tilename(axis=axis, row=row, col=col, **kwargs)
 
     with rio.open(mask_rasterfile) as ds:
 
         mask = ds.read(1)
         height, width = mask.shape
-        
+
+        if params.mask_height_max > 0:
+
+            height_max = params.mask_height_max
+            valid = (mask != ds.nodata) & (mask >= -height_max) & (mask <= height_max)
+            mask[~valid] = ds.nodata
+
         if params.buffer_width > 0:
-            speedup.raster_buffer(mask, ds.nodata, params.buffer_width / params.resolution)
+            
+            speedup.raster_buffer(
+                mask,
+                ds.nodata,
+                params.buffer_width / params.resolution)
 
         profile = ds.profile.copy()
         profile.update(compress='deflate')
@@ -177,13 +168,15 @@ def HeightAboveNearestDrainageTile(
 
                     # if accept(feature):
 
+                    axis = feature['properties']['AXIS']
+
                     coordinates = np.array([
                         coord(p) + (0.0, ) for p in feature['geometry']['coordinates']
                     ], dtype='float32')
 
                     # override z from elevation raster
                     # just in case we forgot to drape stream network on DEM
-                    DrapeLineString(coordinates, params.elevation.name, **kwargs)
+                    DrapeLineString(coordinates, params.dem.name, **kwargs)
 
                     coordinates[:, :2] = ta.worldtopixel(coordinates[:, :2], ds.transform, gdal=False)
 
@@ -200,12 +193,12 @@ def HeightAboveNearestDrainageTile(
                                 # distance[i, j] = 0
                                 # measure[i, j] = m
                                 # z = elevations[i, j]
-                                refaxis_pixels.append((i, j, z))
+                                refaxis_pixels.append((i, j, z, axis))
                                 unique.add((i, j))
 
         if refaxis_pixels:
 
-            reference, distance = nearest_value_and_distance(
+            nearest, reference, distance = nearest_value_and_distance(
                 np.array(refaxis_pixels),
                 mask,
                 ds.nodata)
@@ -225,6 +218,11 @@ def HeightAboveNearestDrainageTile(
 
         with rio.open(output_height, 'w', **profile) as dst:
             dst.write(hand, 1)
+
+        profile.update(dtype='uint32', nodata=0)
+
+        with rio.open(output_nearest, 'w', **profile) as dst:
+            dst.write(nearest, 1)
 
 def HeightAboveNearestDrainage(
         axis,

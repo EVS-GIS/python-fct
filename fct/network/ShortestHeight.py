@@ -38,51 +38,32 @@ from ..tileio import (
     border
 )
 
-# ShortestParams = namedtuple(
-#     'ShortestParams', (
-#         'dataset_height',
-#         'dataset_distance',
-#         'max_dz',
-#         'min_distance',
-#         'max_distance',
-#         'jitter',
-#         'tmp'
-#     )
-# )
-
-# def ShortestHeightDefaultParameters():
-#     """
-#     Default parameters
-#     """
-
-#     return dict(
-#         dataset_height='shortest_height',
-#         dataset_distance='shortest_distance',
-#         max_dz=20.0,
-#         min_distance=20,
-#         max_distance=2000,
-#         jitter=0.4,
-#         tmp='.tmp'
-#     )
-
 class Parameters:
     """
     Shortesh height parameters
     """
 
-    elevations = DatasetParameter('elevation raster (DEM)', type='input')
+    dem = DatasetParameter('elevation raster (DEM)', type='input')
     reference = DatasetParameter('reference network shapefile', type='input')
+    mask = DatasetParameter('height raster defining domain mask', type='input')
 
     tiles = DatasetParameter('domain tiles as CSV list', type='output')
     height = DatasetParameter('height raster', type='output')
     distance = DatasetParameter('distance to reference pixel', type='output')
     state = DatasetParameter('processing state raster', type='output')
 
-    max_dz = LiteralParameter('maximum height above reference')
-    min_distance = LiteralParameter('minimum distance before applying stop criteria, expressed in pixels)')
-    max_distance = LiteralParameter('maximum distance (stop criterion), expressed in pixels')
-    jitter = LiteralParameter('apply jitter on performing shortest path raster exploration')
-    tmp_suffix = LiteralParameter('temporary files suffix')
+    mask_height_max = LiteralParameter(
+        'maximum height defining domain mask')
+    height_max = LiteralParameter(
+        'stop at maximum height above reference')
+    distance_min = LiteralParameter(
+        'minimum distance before applying stop criteria, expressed in pixels)')
+    distance_max = LiteralParameter(
+        'stop at maximum distance, expressed in pixels')
+    jitter = LiteralParameter(
+        'apply jitter on performing shortest path exploration')
+    tmp_suffix = LiteralParameter(
+        'temporary files suffix')
 
     def __init__(self):
         """
@@ -90,41 +71,53 @@ class Parameters:
         with reference elevation = talweg
         """
 
-        self.elevations = 'dem'
+        self.dem = 'dem'
         self.reference = 'network-cartography-ready'
+        self.mask = 'off' # 'nearest_height'
+
         self.tiles = 'shortest_tiles'
         self.height = 'shortest_height'
         self.distance = 'shortest_distance'
         self.state = 'shortest_state'
-        self.max_dz = 20.0
-        self.min_distance = 20
-        self.max_distance = 2000
+
+        self.mask_height_max = 20.0
+        self.height_max = 20.0
+        self.distance_min = 20
+        self.distance_max = 2000
         self.jitter = 0.4
         self.tmp_suffix = '.tmp'
 
 
-def ShortestHeightTile(row, col, seeds, params):
+def ShortestHeightTile(row, col, seeds, params, **kwargs):
     """
     Valley bottom shortest path exploration
     """
 
-    elevations, profile = PadRaster(row, col, params.elevations.name, padding=1)
+    elevations, profile = PadRaster(row, col, params.dem.name, padding=1)
     transform = profile['transform']
     nodata = profile['nodata']
     height, width = elevations.shape
 
-    output_height = params.height.tilename(row=row, col=col)
+    # if not params.mask.none:
+
+    #     mask, mask_profile = PadRaster(row, col, params.mask.name, padding=1)
+    #     mask_nodata = mask_profile['nodata']
+    #     elevations[mask == mask_nodata] = nodata
+
+    #     del mask
+
+    output_height = params.height.tilename(row=row, col=col, **kwargs)
     # config.tileset().tilename('shortest_height', row=row, col=col)
-    output_distance = params.distance.tilename(row=row, col=col)
+    output_distance = params.distance.tilename(row=row, col=col, **kwargs)
     # config.tileset().tilename('shortest_distance', row=row, col=col)
-    output_state = params.state.tilename(row=row, col=col)
+    output_state = params.state.tilename(row=row, col=col, **kwargs)
     # config.tileset().tilename('shortest_state', row=row, col=col)
 
     if os.path.exists(output_height):
 
-        heights, _ = PadRaster(row, col, params.height.name, padding=1)
-        distance, _ = PadRaster(row, col, params.distance.name, padding=1)
-        state, _ = PadRaster(row, col, params.state.name, padding=1)
+        heights, _ = PadRaster(row, col, params.height.name, padding=1, **kwargs)
+        distance, _ = PadRaster(row, col, params.distance.name, padding=1, **kwargs)
+        state, _ = PadRaster(row, col, params.state.name, padding=1, **kwargs)
 
     else:
 
@@ -132,6 +125,24 @@ def ShortestHeightTile(row, col, seeds, params):
         distance = np.full((height, width), nodata, dtype='float32')
         state = np.zeros((height, width), dtype='uint8')
         state[elevations == nodata] = 255
+
+        if not params.mask.none:
+
+            mask, mask_profile = PadRaster(row, col, params.mask.name, padding=1)
+            mask_nodata = mask_profile['nodata']
+
+            if params.mask_height_max > 0:
+
+                height_max = params.mask_height_max
+                valid = (mask != mask_nodata) & (mask >= -height_max) & (mask <= height_max)
+                state[~valid] = 255
+                del valid
+
+            else:
+
+                state[mask == mask_nodata] = 255
+
+            del mask
 
     coord = itemgetter(0, 1)
     pixels = fct.worldtopixel(np.array([coord(seed) for seed in seeds], dtype='float32'), transform)
@@ -162,9 +173,9 @@ def ShortestHeightTile(row, col, seeds, params):
         state,
         reference,
         distance,
-        max_dz=params.max_dz,
-        min_distance=params.min_distance,
-        max_distance=params.max_distance,
+        max_dz=params.height_max,
+        min_distance=params.distance_min,
+        max_distance=params.distance_max,
         jitter=params.jitter)
 
     spillovers = [
@@ -265,7 +276,7 @@ def ShortestHeightIteration(params, spillovers, ntiles, processes=1, **kwargs):
 
         for (row, col), seeds in tiles:
             seeds = [coordxy(seed) + values(seed) for seed in seeds]
-            t_spillover, tmps = ShortestHeightTile(row, col, seeds, params)
+            t_spillover, tmps = ShortestHeightTile(row, col, seeds, params, **kwargs)
             g_spillover.extend(t_spillover)
             tmpfiles.extend(tmps)
 
@@ -301,28 +312,7 @@ def ShortestHeightIteration(params, spillovers, ntiles, processes=1, **kwargs):
 def ShortestHeight(params, processes=1, **kwargs):
     """
     Valley bottom extraction procedure - shortest path exploration
-
-    @api    fct-corridor:shortest-height
-
-    @input  dem: dem
-    @input  talweg: ax_talweg
-
-    @param  max_dz: 20.0
-    @param  min_distance: 20
-    @param  max_distance: 5000
-    @param  jitter: 0.4
-
-    @output height: ax_shortest_height
-    @output distance: ax_shortest_distance
-    @output state: ax_shortest_state
-    @output tiles: ax_shortest_tiles
     """
-
-    # parameters = ShortestHeightDefaultParameters()
-
-    # parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
-    # kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
-    # params = ShortestParams(**parameters)
 
     def generate_seeds(feature):
 
@@ -354,7 +344,7 @@ def ShortestHeight(params, processes=1, **kwargs):
         g_tiles.update(tiles)
         click.echo('Iteration %02d -- %d spillovers, %d tiles' % (count, len(seeds), len(tiles)))
 
-        seeds = ShortestHeightIteration(params, seeds, len(tiles), processes)
+        seeds = ShortestHeightIteration(params, seeds, len(tiles), processes, **kwargs)
 
     tiles = {tile(s) for s in seeds}
     g_tiles.update(tiles)

@@ -90,12 +90,20 @@ class DatasourceResolver():
 
         self.name = name
 
+    @property
+    def none(self):
+        """
+        Return True if this parameter should resolve to None
+        """
+
+        return self.name is None or self.name == 'off'
+
     def filename(self):
         """
         Resolves to this datasource filename
         """
 
-        if self.name == 'off':
+        if self.none:
             return None
 
         return config.datasource(self.name).filename
@@ -138,6 +146,14 @@ class DatasetResolver():
 
         self.name = name
 
+    @property
+    def none(self):
+        """
+        Return True if this parameter should resolve to None
+        """
+
+        return self.name is None or self.name == 'off'
+
     def filename(self, mode='r', tileset='default', **kwargs):
         """
         Resolves to this datasource filename.
@@ -145,6 +161,9 @@ class DatasetResolver():
         Otherwise, returns the single-file dataset for the specified tileset,
         such as a VRT file for tiled datasets.
         """
+
+        if self.none:
+            return None
 
         if tileset is None:
             return config.filename(self.name, **kwargs)
@@ -155,6 +174,9 @@ class DatasetResolver():
         """
         Resolves to a specific tilename based on `kwargs` arguments
         """
+
+        if self.none:
+            return None
 
         return config.tileset(tileset).tilename(self.name, **kwargs)
 
