@@ -16,45 +16,67 @@ Valley Bottom Extraction Algorithms
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def shortest_value(
-        float[:, :] domain,
-        float[:, :] reference,
-        float nodata,
+        A[:, :] domain,
+        A[:, :] values,
+        A nodata,
+        A reference,
         float[:, :] distance=None,
-        float max_distance=0.0):
+        float max_distance=0.0,
+        float jitter=0.4):
     """
-    Valley Bottom, based on shortest distance
+    Shortest path exploration of data domain from reference cells :
+
+    - extract subdomain connected to reference cells
+    - propagate refence values from 'values' on shortest path
 
     Parameters
     ----------
 
-    domain: array-like, dtype=float32
-        
-        Domain mask, 1 belongs to domain, 0 is outside
+    domain: array-like, dtype=float32, same shape as `domain`
 
-    reference: array-like, dtype=float32, same shape as `elevations`
+        Domain raster which should contain 3 types of cells :
+
+        - nodata cells indicating exterior domain, not to be processed
+        - reference cells, from which to start domain exploration
+        - other cells, that may have any other value
+          and will be modified in `values` output
+
+    values: array-like, dtype=float32, same shape as `domain`
         
-        Reference elevation raster,
+        Input raster providing reference values,
         that is modified in place during processing.
-        
-        For each cell, the reference elevation is the elevation of the first cell
-        on the stream network following flow direction
-        from that cell.
-        
-        Reference raster must be initialized to a copy of `elevations`
-        set to nodata everywhere except for reference (stream network) cells.
+
+        You may provide values = domain or a copy of domain,
+        in order to calculate the connected subdomain,
+        that will correspond to cells with value `reference` in the output.
 
     nodata: float
         
-        No data value in `reference`
+        No data value in `domain`
 
-    distance: array-like, dtype=float32, same shape as `elevations`
+    reference: float
+
+        Valid data in `domain`
+
+    distance: array-like, dtype=float32, same shape as `domain`
         
-        Optional raster of distance to reference cells
+        Optional raster of distance to raster cells
 
     max_distance: float
         
-        Optional maximum distance to reference cell.
+        Optional maximum distance to raster cell.
         Set to 0 to disable distance stop criteria.
+
+    jitter: float
+
+        Amplitude of jitter to add to grid locations
+        in order to avoid grid artefacts.
+        Disable jitter with jitter = 0
+
+    Returns
+    -------
+
+        `values` raster
 
     References
     ----------
@@ -64,8 +86,10 @@ def shortest_value(
 
     cdef:
 
-        long width, height, count = 0, recount = 0
-        long i, j, k, ik, jk
+        # long width, height, count = 0, recount = 0
+        # long i, j, k, ik, jk
+        Py_ssize_t width, height
+        Py_ssize_t i, j, k, ik, jk
         float d
 
         Cell ij, ijk
@@ -75,25 +99,14 @@ def shortest_value(
         map[Cell, Cell] ancestors
         float[:, :] jitteri, jitterj
 
-    height = reference.shape[0]
-    width = reference.shape[1]
+    height = values.shape[0]
+    width = values.shape[1]
     seen = np.zeros((height, width), dtype=np.uint8)
 
-    jitteri = np.float32(np.random.normal(0, 0.4, (height, width)))
-    jitterj = np.float32(np.random.normal(0, 0.4, (height, width)))
+    if jitter > 0:
 
-    for i in range(height):
-        for j in range(width):
-
-            if jitteri[i, j] > 0.4:
-                jitteri[i, j] = 0.4
-            elif jitteri[i, j] < -0.4:
-                jitteri[i, j] = -0.4
-
-            if jitterj[i, j] > 0.4:
-                jitterj[i, j] = 0.4
-            elif jitterj[i, j] < -0.4:
-                jitterj[i, j] = -0.4
+        jitteri = np.float32(np.random.normal(0, jitter, (height, width)))
+        jitterj = np.float32(np.random.normal(0, jitter, (height, width)))
 
     # if cost is None:
     #     cost = np.ones((height, width), dtype=np.float32)
@@ -110,20 +123,34 @@ def shortest_value(
         # Search for seed cells having data value
         # surrounded by at least one no-data cell
 
+        if jitter > 0:
+
+            for i in range(height):
+                for j in range(width):
+
+                    if jitteri[i, j] > jitter:
+                        jitteri[i, j] = jitter
+                    elif jitteri[i, j] < -jitter:
+                        jitteri[i, j] = -jitter
+
+                    if jitterj[i, j] > jitter:
+                        jitterj[i, j] = jitter
+                    elif jitterj[i, j] < -jitter:
+                        jitterj[i, j] = -jitter
+
         for i in range(height):
             for j in range(width):
 
-                if domain[i, j] == 1:
-                    count += 1
+                if domain[i, j] == reference:
 
-                if reference[i, j] != nodata:
+                    # count += 1
 
                     for k in range(8):
 
                         ik = i + ci[k]
                         jk = j + cj[k]
 
-                        if ingrid(height, width, ik, jk) and reference[ik, jk] == nodata:
+                        if ingrid(height, width, ik, jk) and domain[ik, jk] != reference:
 
                             entry = ShortestEntry(-distance[i, j], Cell(i, j))
                             queue.push(entry)
@@ -143,6 +170,9 @@ def shortest_value(
             i = ij.first
             j = ij.second
 
+            if domain[i, j] == nodata:
+                continue
+
             if seen[i, j] == 2:
                 # already settled
                 continue
@@ -156,8 +186,8 @@ def shortest_value(
                 ik = ijk.first
                 jk = ijk.second
                 
-                if reference[i, j] == nodata:
-                    reference[i, j] = reference[ik, jk]
+                if values[i, j] != nodata:
+                    values[i, j] = values[ik, jk]
                 
                 if i == ik or j == jk:
                     distance[i, j] = distance[ik, jk] + 1
@@ -175,7 +205,7 @@ def shortest_value(
 
             # if max_dz > 0:
 
-            #     if elevations[i, j] - reference[i, j] > max_dz:
+            #     if elevations[i, j] - values[i, j] > max_dz:
             #         continue
         
             if max_distance > 0:
@@ -183,10 +213,10 @@ def shortest_value(
                 if distance[i, j] > max_distance:
                     continue
 
-            if domain[i, j] == 1:
-                recount += 1
-                if recount >= count:
-                    break
+            # if domain[i, j] != nodata:
+            #     recount += 1
+            #     if recount >= count:
+            #         break
 
             # Iterate over direct neighbor cells
 
@@ -205,11 +235,6 @@ def shortest_value(
 
                 # if domain[ik, jk] == nodata:
                 #     continue
-
-                # if k % 2 == 0:
-                #     d = distance[i, j] + 1
-                # else:
-                #     d = distance[i, j] + 1.4142135 # sqrt(2) float32
 
                 d = distance[i, j] + sqrt(
                     (i + jitteri[i, j] - ik - jitteri[ik, jk])**2 +
@@ -235,3 +260,5 @@ def shortest_value(
                         queue.push(entry)
                         distance[ik, jk] = d
                         ancestors[ijk] = ij
+
+    return np.asarray(values)
