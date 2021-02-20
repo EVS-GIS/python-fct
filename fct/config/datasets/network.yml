@@ -156,10 +156,11 @@ valley_bottom_connected:
   description: |
     True valley bottom, excluding terrace, slopes
     and flat areas not connected to drainage network
+    (temporary processing mask)
   type: raster
   group: corridor
-  status: final
-  subdir: NETWORK/HEIGHT
+  status: temporary
+  subdir: NETWORK/TEMP
   filename: VALLEY_BOTTOM_CONNECTED.vrt
   tiles:
     tileset: landcover
@@ -174,10 +175,24 @@ valley_bottom_connected_distance:
   group: corridor
   status: temporary
   subdir: NETWORK/TEMP
-  filename: VALLEY_BOTTOM_CONNECTED_DISTANCE.vrt
+  filename: VALLEY_BOTTOM_DISTANCE_CONNECTED.vrt
   tiles:
     tileset: landcover
-    template: VALLEY_BOTTOM_CONNECTED_DISTANCE_%(row)02d_%(col)02d
+    template: VALLEY_BOTTOM_DISTANCE_CONNECTED_%(row)02d_%(col)02d
+    extension: .tif
+
+valley_bottom_final:
+  description: |
+    True valley bottom, excluding terrace, slopes
+    and flat areas not connected to drainage network
+  type: raster
+  group: corridor
+  status: final
+  subdir: NETWORK/HEIGHT
+  filename: VALLEY_BOTTOM_FINAL.vrt
+  tiles:
+    tileset: landcover
+    template: VALLEY_BOTTOM_FINAL_%(row)02d_%(col)02d
     extension: .tif
 
 continuity:

@@ -39,7 +39,9 @@ from ..tileio import (
 from .ValleyBottomMask2 import (
     MASK_EXTERIOR,
     MASK_FLOOPLAIN_RELIEF,
-    MASK_VALLEY_BOTTOM
+    MASK_VALLEY_BOTTOM,
+    MASK_SLOPE,
+    MASK_TERRACE
 )
 
 DOMAIN_EXTERIOR = 255
@@ -67,6 +69,9 @@ class Parameters:
     output_distance = DatasetParameter(
         'shortest path distance to drainage pixels (temporary processing data)',
         type='output')
+    output_final = DatasetParameter(
+        'true valley bottom (raster)',
+        type='input')
 
     distance_max = LiteralParameter(
         'maximum exploration distance (from drainage pixels)')
@@ -85,6 +90,7 @@ class Parameters:
         self.mask = 'valley_bottom_mask'
         self.output_mask = 'valley_bottom_connected'
         self.output_distance = 'valley_bottom_connected_distance'
+        self.output_final = 'valley_bottom_final'
 
         self.distance_max = 0.0
         self.jitter = 0.4
@@ -306,7 +312,46 @@ def ValleyBottomConnectedFirstIteration(params, processes, **kwargs):
 
     return g_spillover
 
-def ValleyBottomConnected(params, processes=1, **kwargs):
+def ValleyBottomFinalTile(row, col, params, **kwargs):
+
+    mask_raster = params.mask.tilename(row=row, col=col, **kwargs)
+    connected_raster = params.output_mask.tilename(row=row, col=col, **kwargs)
+    output = params.output_final.tilename(row=row, col=col, **kwargs)
+
+    with rio.open(connected_raster) as ds:
+        connected = ds.read(1)
+
+    # TODO detect holes from border
+    # domain = DOMAIN_EXTERIOR
+    # reference = border cells with DOMAIN_EXTERIOR
+    # not reached DOMAIN_EXTERIOR cells -> holes
+
+    with rio.open(mask_raster) as ds:
+
+        mask = ds.read(1)
+
+        mask[
+            (connected == DOMAIN_REFERENCE) &
+            ((mask == MASK_TERRACE) | (mask == MASK_SLOPE))
+        ] = MASK_FLOOPLAIN_RELIEF
+
+        mask[
+            (connected != DOMAIN_REFERENCE) &
+            (mask == MASK_VALLEY_BOTTOM)
+        ] = MASK_TERRACE
+
+        mask[
+            (connected != DOMAIN_REFERENCE) &
+            (mask == MASK_FLOOPLAIN_RELIEF)
+        ] = MASK_SLOPE
+
+        profile = ds.profile.copy()
+        profile.update(compress='deflate')
+
+        with rio.open(output, 'w', **profile) as dst:
+            dst.write(mask, 1)
+
+def ValleyBottomFinal(params, processes=1, **kwargs):
     """
     Extract true valley bottom,
     excluding terraces, slopes and flat areas not connected to drainage network
@@ -328,4 +373,34 @@ def ValleyBottomConnected(params, processes=1, **kwargs):
 
         seeds = ValleyBottomConnectedIteration(params, seeds, len(tiles), processes, **kwargs)
 
-    # TODO extract valley bottom mask
+    click.echo('Extract true valley bottom')
+
+    tilefile = params.tiles.filename(**kwargs)
+
+    def length():
+
+        with open(tilefile) as fp:
+            return sum(1 for line in fp)
+
+    def arguments():
+
+        with open(tilefile) as fp:
+            for line in fp:
+
+                row, col = tuple(int(x) for x in line.split(','))
+
+                yield (
+                    FinalValleyBottomTile,
+                    row,
+                    col,
+                    params,
+                    kwargs
+                )
+
+    with Pool(processes=processes) as pool:
+
+        pooled = pool.imap_unordered(starcall, arguments())
+
+        with click.progressbar(pooled, length=length()) as iterator:
+            for _ in iterator:
+                pass
