@@ -49,7 +49,7 @@ class Parameters:
     drainage = DatasetParameter('drainage network shapefile', type='input')
     mask = DatasetParameter('height raster defining domain mask', type='input')
     height = DatasetParameter('height raster (HAND)', type='output')
-    distance = DatasetParameter('distance to reference pixels (raster)', type='output')
+    distance = DatasetParameter('distance to drainage pixels (raster)', type='output')
     nearest = DatasetParameter('nearest drainage axis (raster)', type='output')
 
     mask_height_max = LiteralParameter(
