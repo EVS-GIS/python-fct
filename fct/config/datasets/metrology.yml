@@ -32,7 +32,7 @@ ax_nearest_distance:
   type: raster
   group: metrology
   status: temporary
-  subdir: AXES/AX%(axis)04d
+  subdir: AXES/AX%(axis)04d/MEASURE
   filename: NEAREST_DISTANCE.vrt
   tiles:
     tileset: landcover
@@ -45,11 +45,24 @@ ax_nearest_height:
   type: raster
   group: metrology
   status: temporary
-  subdir: AXES/AX%(axis)04d
+  subdir: AXES/AX%(axis)04d/HEIGHT
   filename: NEAREST_HEIGHT.vrt
   tiles:
     tileset: landcover
     template: NEAREST_HEIGHT_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_nearest_drainage_axis:
+  description: |
+    Nearest drainage axis
+  type: raster
+  group: spatial reference
+  status: temporary
+  subdir: AXES/AX%(axis)04d/MEASURE
+  filename: NEAREST_DRAINAGE_AXIS.vrt
+  tiles:
+    tileset: landcover
+    template: NEAREST_DRAINAGE_AXIS_%(row)02d_%(col)02d
     extension: .tif
 
 # nearest_height:

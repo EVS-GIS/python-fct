@@ -80,17 +80,28 @@ class Parameters:
     tmp_suffix = LiteralParameter(
         'temporary files suffix')
 
-    def __init__(self):
+    def __init__(self, axis=None):
         """
         Default parameter values
         """
 
-        self.tiles = 'shortest_tiles'
-        self.distance = 'nearest_distance'
-        self.mask = 'valley_bottom_mask'
-        self.output_mask = 'valley_bottom_connected'
-        self.output_distance = 'valley_bottom_connected_distance'
-        self.output_final = 'valley_bottom_final'
+        if axis is None:
+
+            self.tiles = 'shortest_tiles'
+            self.distance = 'nearest_distance'
+            self.mask = 'valley_bottom_mask'
+            self.output_mask = 'valley_bottom_connected'
+            self.output_distance = 'valley_bottom_connected_distance'
+            self.output_final = 'valley_bottom_final'
+
+        else:
+
+            self.tiles = dict(key='ax_shortest_tiles', axis=axis)
+            self.distance = dict(key='ax_nearest_distance', axis=axis)
+            self.mask = dict(key='ax_valley_bottom_mask', axis=axis)
+            self.output_mask = dict(key='ax_valley_bottom_connected', axis=axis)
+            self.output_distance = dict(key='ax_valley_bottom_connected_distance', axis=axis)
+            self.output_final = dict(key='ax_valley_bottom_final', axis=axis)
 
         self.distance_max = 0.0
         self.jitter = 0.4
@@ -98,7 +109,7 @@ class Parameters:
 
 def ValleyBottomConnectedTile(row, col, seeds, params, **kwargs):
 
-    mask, profile = PadRaster(row, col, params.mask.name, padding=1, **kwargs)
+    mask, profile = PadRaster(row, col, params.mask, padding=1, **kwargs)
     transform = profile['transform']
     # nodata = profile['nodata'] # MASK_EXTERIOR
     height, width = mask.shape
@@ -108,12 +119,12 @@ def ValleyBottomConnectedTile(row, col, seeds, params, **kwargs):
 
     if os.path.exists(output_mask):
 
-        domain, _ = PadRaster(row, col, params.output_mask.name, padding=1, **kwargs)
-        distance, _ = PadRaster(row, col, params.output_distance.name, padding=1, **kwargs)
+        domain, _ = PadRaster(row, col, params.output_mask, padding=1, **kwargs)
+        distance, _ = PadRaster(row, col, params.output_distance, padding=1, **kwargs)
 
     else:
 
-        drainage_distance, _ = PadRaster(row, col, params.distance.name, padding=1, **kwargs)
+        drainage_distance, _ = PadRaster(row, col, params.distance, padding=1, **kwargs)
 
         domain = np.full_like(mask, DOMAIN_EXTERIOR, dtype='uint8')
         domain[(mask == MASK_VALLEY_BOTTOM) | (mask == MASK_FLOOPLAIN_RELIEF)] = DOMAIN_INTERIOR
@@ -390,7 +401,7 @@ def ValleyBottomFinal(params, processes=1, **kwargs):
                 row, col = tuple(int(x) for x in line.split(','))
 
                 yield (
-                    FinalValleyBottomTile,
+                    ValleyBottomFinalTile,
                     row,
                     col,
                     params,

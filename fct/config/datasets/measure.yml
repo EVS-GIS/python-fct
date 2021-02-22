@@ -21,7 +21,7 @@ ax_axis_distance:
   type: raster
   group: metrology
   status: temporary
-  subdir: AXES/AX%(axis)04d
+  subdir: AXES/AX%(axis)04d/MEASURE
   filename: AXIS_DISTANCE.vrt
   tiles:
     tileset: landcover
@@ -34,7 +34,7 @@ ax_axis_measure:
   type: raster
   group: spatial reference
   status: temporary
-  subdir: AXES/AX%(axis)04d
+  subdir: AXES/AX%(axis)04d/MEASURE
   filename: AXIS_MEASURE.vrt
   tiles:
     tileset: landcover
@@ -47,7 +47,7 @@ ax_talweg_distance:
   type: raster
   group: spatial reference
   status: temporary
-  subdir: AXES/AX%(axis)04d
+  subdir: AXES/AX%(axis)04d/MEASURE
   filename: TALWEG_DISTANCE.vrt
   tiles:
     tileset: landcover
@@ -60,7 +60,7 @@ ax_talweg_measure:
   type: raster
   group: spatial reference
   status: temporary
-  subdir: AXES/AX%(axis)04d
+  subdir: AXES/AX%(axis)04d/MEASURE
   filename: TALWEG_MEASURE.vrt
   tiles:
     tileset: landcover

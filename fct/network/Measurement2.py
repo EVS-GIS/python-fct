@@ -157,19 +157,31 @@ class Parameters:
     #     'nearest reference axis (raster)',
     #     type='output')
 
-    def __init__(self):
+    def __init__(self, axis=None):
         """
         Default parameter values
         """
 
-        self.tiles = 'shortest_tiles'
-        self.mask = 'nearest_height'
-        self.nearest = 'nearest_drainage_axis'
-        self.reference = 'refaxis'
-        self.talweg_distance = 'nearest_distance'
-        self.output_distance = 'axis_distance'
-        self.output_measure = 'axis_measure'
-        # self.output_nearest = 'axis_nearest'
+        if axis is None:
+
+            self.tiles = 'shortest_tiles'
+            self.mask = 'nearest_height'
+            self.nearest = 'nearest_drainage_axis'
+            self.reference = 'refaxis'
+            self.talweg_distance = 'nearest_distance'
+            self.output_distance = 'axis_distance'
+            self.output_measure = 'axis_measure'
+            # self.output_nearest = 'axis_nearest'
+
+        else:
+
+            self.tiles = dict(key='ax_shortest_tiles', axis=axis)
+            self.mask = dict(key='ax_nearest_height', axis=axis)
+            self.nearest = dict(key='ax_nearest_drainage_axis', axis=axis)
+            self.reference = dict(key='ax_refaxis', axis=axis)
+            self.talweg_distance = dict(key='ax_nearest_distance', axis=axis)
+            self.output_distance = dict(key='ax_axis_distance', axis=axis)
+            self.output_measure = dict(key='ax_axis_measure', axis=axis)
 
 def MeasureTile(row, col, params, **kwargs):
     """
@@ -178,8 +190,7 @@ def MeasureTile(row, col, params, **kwargs):
 
     refaxis_shapefile = params.reference.filename(tileset=None)
     mask_raster = params.mask.tilename(row=row, col=col)
-    nearest_raster = params.nearest.tilename(row=row, col=col)
-
+    
     output_distance = params.output_distance.tilename(row=row, col=col)
     output_measure = params.output_measure.tilename(row=row, col=col)
     # output_nearest = params.output_nearest.tilename(row=row, col=col)
@@ -187,10 +198,11 @@ def MeasureTile(row, col, params, **kwargs):
     if not os.path.exists(mask_raster):
         return
 
+    nearest_raster = params.nearest.tilename(row=row, col=col)
+
     with rio.open(nearest_raster) as ds:
         nearest = ds.read(1)
-
-    axis_list = set(x for x in np.unique(nearest))
+        axis_list = set(x for x in np.unique(nearest))
 
     with rio.open(mask_raster) as ds:
 

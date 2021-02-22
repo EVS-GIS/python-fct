@@ -184,7 +184,9 @@ class DatasetResolver():
 
         return self.key
 
-    def arguments(self, kwargs):
+    def arguments(self, kwargs=None):
+
+        kwargs = kwargs if kwargs is not None else dict()
 
         if self.args is None:
 

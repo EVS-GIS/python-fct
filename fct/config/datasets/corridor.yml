@@ -7,7 +7,7 @@ ax_shortest_height:
   type: raster
   group: metrology
   status: temporary
-  subdir: AXES/AX%(axis)04d
+  subdir: AXES/AX%(axis)04d/HEIGHT
   filename: SHORTEST_HEIGHT.vrt
   tiles:
     tileset: landcover
@@ -39,6 +39,46 @@ ax_shortest_state:
   tiles:
     tileset: landcover
     template: SHORTEST_STATE_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_shortest_height_p1:
+  description: |
+    Height above stream talweg following shortest path
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: AXES/AX%(axis)04d/TEMP/P1
+  filename: SHORTEST_HEIGHT_P1.vrt
+  tiles:
+    tileset: landcover
+    template: SHORTEST_HEIGHT_P1_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_shortest_distance_p1:
+  description: |
+    Shortest path distance to stream talweg
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: AXES/AX%(axis)04d/TEMP/P1
+  filename: SHORTEST_DISTANCE_P1.vrt
+  tiles:
+    tileset: landcover
+    template: SHORTEST_DISTANCE_P1_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_shortest_state_p1:
+  description: |
+    Temporary processing state for shortest height,
+    saved between iterations
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: AXES/AX%(axis)04d/TEMP/P1
+  filename: SHORTEST_STATE_P1.vrt
+  tiles:
+    tileset: landcover
+    template: SHORTEST_STATE_P1_%(row)02d_%(col)02d
     extension: .tif
 
 ax_landcover:
@@ -184,6 +224,62 @@ ax_valley_mask:
     template: VALLEY_MASK_%(row)02d_%(col)02d
     extension: .tif
 
+ax_valley_bottom_mask:
+  description: |
+    Valley bottom mask
+  type: raster
+  group: corridor
+  status: final
+  subdir: AXES/AX%(axis)04d/TEMP
+  filename: VALLEY_BOTTOM_MASK.vrt
+  tiles:
+    tileset: landcover
+    template: VALLEY_BOTTOM_MASK_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_valley_bottom_connected:
+  description: |
+    True valley bottom, excluding terrace, slopes
+    and flat areas not connected to drainage network
+    (temporary processing mask)
+  type: raster
+  group: corridor
+  status: temporary
+  subdir: AXES/AX%(axis)04d/TEMP
+  filename: VALLEY_BOTTOM_CONNECTED.vrt
+  tiles:
+    tileset: landcover
+    template: VALLEY_BOTTOM_CONNECTED_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_valley_bottom_connected_distance:
+  description: |
+    Shortest path distance to drainage pixels
+    (temporary processing data)
+  type: raster
+  group: corridor
+  status: temporary
+  subdir: AXES/AX%(axis)04d/TEMP
+  filename: VALLEY_BOTTOM_DISTANCE_CONNECTED.vrt
+  tiles:
+    tileset: landcover
+    template: VALLEY_BOTTOM_DISTANCE_CONNECTED_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_valley_bottom_final:
+  description: |
+    True valley bottom, excluding terrace, slopes
+    and flat areas not connected to drainage network
+  type: raster
+  group: corridor
+  status: final
+  subdir: AXES/AX%(axis)04d/HEIGHT
+  filename: VALLEY_BOTTOM.vrt
+  tiles:
+    tileset: landcover
+    template: VALLEY_BOTTOM_%(row)02d_%(col)02d
+    extension: .tif
+
 ax_valley_mask_refined:
   description: |
     Valley mask from nearest height raster
@@ -191,10 +287,10 @@ ax_valley_mask_refined:
   group: corridor
   status: final
   subdir: AXES/AX%(axis)04d
-  filename: VALLEY_BOTTOM.vrt
+  filename: VALLEY_BOTTOM_REFINED.vrt
   tiles:
     tileset: landcover
-    template: VALLEY_BOTTOM_%(row)02d_%(col)02d
+    template: VALLEY_BOTTOM_REFINED_%(row)02d_%(col)02d
     extension: .tif
 
 ax_planform_envelope:

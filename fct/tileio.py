@@ -16,6 +16,7 @@ Input/Output Routines
 import os
 import math
 import subprocess
+from typing import Union
 
 import numpy as np
 import rasterio as rio
@@ -23,6 +24,7 @@ from rasterio.windows import Window
 from rasterio.warp import Resampling
 
 from .config import config
+from .config.descriptors import DatasetResolver
 from . import transform as fct
 
 def tileindex():
@@ -182,15 +184,21 @@ def DownsampleRasterTile(row, col, dataset1, dataset2=None, factor=2):
     return data, profile
 
 def PadRaster(
-        row, col,
-        dataset='filled',
-        tileset='default',
-        padding=1,
+        row: int,
+        col: int,
+        dataset: Union[str, DatasetResolver],
+        tileset: str = 'default',
+        padding: int = 1,
         **kwargs):
     """
     Assemble a n-pixels padded raster,
     with borders from neighboring tiles.
     """
+
+    if isinstance(dataset, DatasetResolver):
+
+        kwargs = dataset.arguments(kwargs)
+        dataset = dataset.name
 
     tile_index = config.tileset(tileset).tileindex
     rasterfile = config.tileset(tileset).tilename(dataset, row=row, col=col, **kwargs)
@@ -347,12 +355,20 @@ def PadRaster(
 
     return padded, profile
 
-def buildvrt(tileset, dataset, suffix=True, **kwargs):
+def buildvrt(tileset: str, dataset: Union[str, DatasetResolver], suffix:bool = True, **kwargs):
     """
     Build GDAL Virtual Raster from tile dataset
     """
 
-    vrt = config.filename(dataset, **kwargs)
+    if isinstance(dataset, DatasetResolver):
+
+        vrt = dataset.filename(tileset=None, **kwargs)
+        # vrt = config.filename(dataset.name, **dataset.arguments(kwargs))
+
+    else:
+
+        vrt = config.filename(dataset, **kwargs)
+
     tiledir = config.tileset(tileset).tiledir
     workdir = os.path.dirname(vrt)
     output = os.path.basename(vrt)

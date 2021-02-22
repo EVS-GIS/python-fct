@@ -57,24 +57,39 @@ class Parameters:
     patch_min_pixels = LiteralParameter(
         'minimum patch area expressed in pixels')
 
-    def __init__(self):
+    def __init__(self, axis=None):
         """
         Default parameter values
         """
 
-        self.tiles = 'shortest_tiles'
+        if axis is None:
+
+            self.tiles = 'shortest_tiles'
+            self.height = 'nearest_height'
+            self.axis = 'nearest_drainage_axis' # 'axis_nearest'
+            self.measure = 'axis_measure'
+            self.distance = 'nearest_distance'
+            self.output = 'valley_bottom_mask'
+            self.slope = 'slope'
+
+        else:
+
+            self.tiles = dict(key='ax_shortest_tiles', axis=axis)
+            self.height = dict(key='ax_nearest_height', axis=axis)
+            self.axis = dict(key='ax_nearest_drainage_axis', axis=axis)
+            self.measure = dict(key='ax_axis_measure', axis=axis)
+            self.distance = dict(key='ax_nearest_distance', axis=axis)
+            self.output = dict(key='ax_valley_bottom_mask', axis=axis)
+            self.slope = 'off'
+
         self.dem = 'dem'
         self.drainage = 'acc'
-        self.height = 'nearest_height'
-        self.axis = 'nearest_drainage_axis' # 'axis_nearest'
-        self.measure = 'axis_measure'
-        self.distance = 'nearest_distance'
-        self.output = 'valley_bottom_mask'
-        self.slope = 'slope'
 
         self.swath_length = 200.0
         # self.distance_min = 20.0
         self.height_max = 20.0
+        self.patch_min_pixels = 100
+
         self.thresholds = [
             # drainage area km², distance min, distance max, max height (depth), max slope (%)
             # ValleyBottomThreshold(0, 20.0, 100.0, 1.0, 25.0),
@@ -86,7 +101,6 @@ class Parameters:
             ValleyBottomThreshold(300, 20.0, 1500.0, 5.0, 5.0),
             ValleyBottomThreshold(1000, 20.0, 2500.0, 6.0, 3.5)
         ]
-        self.patch_min_pixels = 100
 
 def calculate_slope(dem_raster, nodata=999.0):
     """
@@ -280,9 +294,11 @@ def ValleyBottomMaskTile(row, col, params, drainage, **kwargs):
 
         profile = ds.profile.copy()
 
-        profile.update(nodata=999.0, compress='deflate')
-        with rio.open(params.slope.tilename(row=row, col=col, **kwargs), 'w', **profile) as dst:
-            dst.write(slope, 1)
+        if not params.slope.none:
+
+            profile.update(nodata=999.0, compress='deflate')
+            with rio.open(params.slope.tilename(row=row, col=col, **kwargs), 'w', **profile) as dst:
+                dst.write(slope, 1)
 
         profile.update(dtype='uint8', nodata=0, compress='deflate')
         with rio.open(output, 'w', **profile) as dst:

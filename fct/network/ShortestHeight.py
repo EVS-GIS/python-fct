@@ -65,20 +65,30 @@ class Parameters:
     tmp_suffix = LiteralParameter(
         'temporary files suffix')
 
-    def __init__(self):
+    def __init__(self, axis=None):
         """
         Default parameter values,
         with reference elevation = talweg
         """
 
         self.dem = 'dem'
-        self.reference = 'network-cartography-ready'
         self.mask = 'off' # 'nearest_height'
 
-        self.tiles = 'shortest_tiles'
-        self.height = 'shortest_height'
-        self.distance = 'shortest_distance'
-        self.state = 'shortest_state'
+        if axis is None:
+
+            self.tiles = 'shortest_tiles'
+            self.reference = 'network-cartography-ready'
+            self.height = 'shortest_height'
+            self.distance = 'shortest_distance'
+            self.state = 'shortest_state'
+
+        else:
+
+            self.tiles = dict(key='ax_shortest_tiles', axis=axis)
+            self.reference = dict(key='ax_talweg', axis=axis)
+            self.height = dict(key='ax_shortest_height', axis=axis)
+            self.distance = dict(key='ax_shortest_distance', axis=axis)
+            self.state = dict(key='ax_shortest_state', axis=axis)
 
         self.mask_height_max = 20.0
         self.height_max = 20.0
@@ -93,7 +103,7 @@ def ShortestHeightTile(row, col, seeds, params, **kwargs):
     Valley bottom shortest path exploration
     """
 
-    elevations, profile = PadRaster(row, col, params.dem.name, padding=1)
+    elevations, profile = PadRaster(row, col, params.dem.name, padding=1, **params.dem.arguments(kwargs))
     transform = profile['transform']
     nodata = profile['nodata']
     height, width = elevations.shape
@@ -115,9 +125,9 @@ def ShortestHeightTile(row, col, seeds, params, **kwargs):
 
     if os.path.exists(output_height):
 
-        heights, _ = PadRaster(row, col, params.height.name, padding=1, **kwargs)
-        distance, _ = PadRaster(row, col, params.distance.name, padding=1, **kwargs)
-        state, _ = PadRaster(row, col, params.state.name, padding=1, **kwargs)
+        heights, _ = PadRaster(row, col, params.height.name, padding=1, **params.height.arguments(kwargs))
+        distance, _ = PadRaster(row, col, params.distance.name, padding=1, **params.distance.arguments(kwargs))
+        state, _ = PadRaster(row, col, params.state.name, padding=1, **params.state.arguments(kwargs))
 
     else:
 
@@ -128,7 +138,7 @@ def ShortestHeightTile(row, col, seeds, params, **kwargs):
 
         if not params.mask.none:
 
-            mask, mask_profile = PadRaster(row, col, params.mask.name, padding=1)
+            mask, mask_profile = PadRaster(row, col, params.mask.name, padding=1, **params.mask.arguments(kwargs))
             mask_nodata = mask_profile['nodata']
 
             if params.mask_height_max > 0:
