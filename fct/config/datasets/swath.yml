@@ -30,7 +30,7 @@ ax_swaths_refaxis_polygons:
   type: polygon
   group: reference
   status: final
-  subdir: AXES/AX%(axis)04d/REF
+  subdir: AXES/AX%(axis)04d/MEASURE
   filename: SWATHS_REFAXIS.shp
   tiles:
     tileset: landcover
@@ -44,7 +44,7 @@ ax_swaths_refaxis_polygons_simplified:
   type: polygon
   group: reference
   status: final
-  subdir: AXES/AX%(axis)04d/REF
+  subdir: AXES/AX%(axis)04d/MEASURE
   filename: SWATHS_REFAXIS_SIMPL.shp
 
 ax_swaths_medialaxis:
@@ -77,7 +77,7 @@ ax_swaths_medialaxis_polygons:
   type: polygon
   group: reference
   status: temporary
-  subdir: AXES/AX%(axis)04d/REF
+  subdir: AXES/AX%(axis)04d/MEASURE
   filename: SWATHS_MEDIALAXIS.shp
   tiles:
     tileset: landcover
@@ -92,7 +92,7 @@ ax_swaths_medialaxis_polygons_simplified:
   type: polygon
   group: reference
   status: final
-  subdir: AXES/AX%(axis)04d/REF
+  subdir: AXES/AX%(axis)04d/MEASURE
   filename: SWATHS_MEDIALAXIS_SIMPL.shp
 
 # Swath profiles
