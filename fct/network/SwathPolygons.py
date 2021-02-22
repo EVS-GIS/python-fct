@@ -54,8 +54,8 @@ class Parameters:
         'true valley bottom (raster)',
         type='input')
 
-    swaths = DatasetParameter('swaths raster (discretized measures)')
-    polygons = DatasetParameter('swaths polygons')
+    swaths = DatasetParameter('swaths raster (discretized measures)', type='output')
+    polygons = DatasetParameter('swaths polygons', type='output')
     
     swath_length = LiteralParameter(
         'swath disaggregation distance in measure unit (eg. meters)')

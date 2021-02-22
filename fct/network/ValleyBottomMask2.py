@@ -26,6 +26,7 @@ MASK_SLOPE = 1
 MASK_TERRACE = 2
 MASK_FLOOPLAIN_RELIEF = 3
 MASK_VALLEY_BOTTOM = 4
+MASK_HOLE = 5
 
 ValleyBottomThreshold = namedtuple(
     'ValleyBottomThreshold',

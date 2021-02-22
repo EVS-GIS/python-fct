@@ -2,15 +2,6 @@
 
 """
 Corridor medial axis (Voronoi method)
-
-***************************************************************************
-*                                                                         *
-*   This program is free software; you can redistribute it and/or modify  *
-*   it under the terms of the GNU General Public License as published by  *
-*   the Free Software Foundation; either version 3 of the License, or     *
-*   (at your option) any later version.                                   *
-*                                                                         *
-***************************************************************************
 """
 
 import os
@@ -22,14 +13,63 @@ import rasterio as rio
 import fiona
 import fiona.crs
 
-from shapely.geometry import LineString, MultiLineString, Polygon, asShape
-from shapely.ops import linemerge, unary_union
+from shapely.geometry import LineString, MultiLineString
+from shapely.ops import linemerge
 
-from ..config import config
+from ..config import (
+    config,
+    # LiteralParameter,
+    DatasetParameter
+)
+from ..network.ValleyBottomMask2 import (
+    MASK_EXTERIOR,
+    MASK_FLOOPLAIN_RELIEF,
+    MASK_VALLEY_BOTTOM,
+    MASK_TERRACE,
+    MASK_SLOPE,
+    MASK_HOLE
+)
+from ..tileio import border
 from .. import (
     transform,
     speedup
 )
+
+class Parameters:
+    """
+    Medial axis parameters
+    """
+
+    tiles = DatasetParameter(
+        'domain tiles as CSV list',
+        type='input')
+    valley_bottom = DatasetParameter(
+        'true valley bottom (raster)',
+        type='input')
+    distance = DatasetParameter(
+        'nearest distance to talweg (raster)',
+        type='input')
+    measure = DatasetParameter(
+        'location along nearest reference axis (raster)',
+        type='input')
+    # swaths_polygons = DatasetParameter(
+    #     'swaths polygons',
+    #     type='input')
+    medialaxis = DatasetParameter(
+        'valley medial axis',
+        type='output')
+
+    def __init__(self):
+        """
+        Default parameter values
+        """
+
+        self.tiles = 'ax_shortest_tiles'
+        self.valley_bottom = 'ax_valley_bottom_final'
+        self.distance = 'ax_nearest_distance'
+        self.measure = 'ax_axis_measure'
+        # self.swaths_polygons = 'ax_swaths_refaxis_polygons'
+        self.medialaxis = 'ax_medialaxis'
 
 def medial_segments(voronoi, groups):
     """
@@ -49,7 +89,7 @@ def medial_segments(voronoi, groups):
         yield LineString([vertex1, vertex2])
 
 
-def BoundaryPoints(axis):
+def BoundaryPoints(axis, params, **kwargs):
     """
     Extract boundary points from corridor swath units.
 
@@ -57,7 +97,7 @@ def BoundaryPoints(axis):
     and the side of corridor of each point.
     """
 
-    tilefile = config.tileset().filename('ax_shortest_tiles', axis=axis)
+    tilefile = params.tiles.filename(axis=axis)
 
     def length():
 
@@ -77,27 +117,30 @@ def BoundaryPoints(axis):
     with click.progressbar(tiles(), length=length()) as iterator:
         for row, col in iterator:
 
-            swath_raster = config.tileset().tilename(
-                # 'ax_swaths_refaxis',
-                # 'ax_valley_mask',
-                'ax_nearest_height',
-                axis=axis,
-                row=row,
-                col=col)
+            # swath_raster = params.height.tilename(row=row, col=col, **kwargs)
+            valley_bottom_raster = params.valley_bottom.tilename(axis=axis, row=row, col=col, **kwargs)
+            distance_raster = params.distance.tilename(axis=axis, row=row, col=col, **kwargs)
 
-            distance_raster = config.tileset().tilename(
-                'ax_nearest_distance',
-                axis=axis,
-                row=row,
-                col=col)
-
-            if not os.path.exists(swath_raster):
+            if not os.path.exists(valley_bottom_raster):
                 continue
 
-            with rio.open(swath_raster) as ds:
+            with rio.open(valley_bottom_raster) as ds:
 
-                swaths = ds.read(1)
-                mask = np.uint8(swaths != ds.nodata)
+                valley_bottom = ds.read(1)
+                # height, width = valley_bottom.shape
+
+                valley_bottom[
+                    (valley_bottom == MASK_SLOPE) |
+                    (valley_bottom == MASK_TERRACE)
+                ] = MASK_HOLE
+                # valley_bottom[np.array(list(border(height, width)))] = MASK_EXTERIOR
+                speedup.reclass_margin(valley_bottom, MASK_HOLE, MASK_EXTERIOR, MASK_EXTERIOR)
+
+                mask = np.uint8(
+                    (valley_bottom == MASK_VALLEY_BOTTOM) |
+                    (valley_bottom == MASK_FLOOPLAIN_RELIEF) |
+                    (valley_bottom == MASK_HOLE)
+                )
                 points = list(speedup.boundary(mask, 1, 0))
 
                 if not points:
@@ -112,7 +155,7 @@ def BoundaryPoints(axis):
                 # groups = distance[points[:, 0], points[:, 1]] >= 0
                 distance = distance[points[:, 0], points[:, 1]]
                 valid = (distance != ds.nodata)
-                
+
                 groups = distance[valid] >= 0
                 coordinates = coordinates[valid]
 
@@ -121,27 +164,55 @@ def BoundaryPoints(axis):
 
     return coordinates_all, groups_all
 
-def DissolveSwathBounds(axis):
+# def DissolveSwathBounds(axis, params):
 
-    swath_shapefile = config.filename('ax_swaths_refaxis_polygons', axis=axis)
-    boxes = list()
+#     swath_shapefile = params.swaths_polygons.filename(axis=axis, tileset=None)
+#     boxes = list()
 
-    with fiona.open(swath_shapefile) as fs:
-        for feature in fs:
+#     with fiona.open(swath_shapefile) as fs:
+#         for feature in fs:
 
-            if feature['properties']['VALUE'] == 2:
+#             if feature['properties']['VALUE'] == 2:
 
-                bounds = asShape(feature['geometry']).bounds
-                box = Polygon.from_bounds(*bounds)
-                boxes.append(box.buffer(10.0))
+#                 bounds = asShape(feature['geometry']).bounds
+#                 box = Polygon.from_bounds(*bounds)
+#                 boxes.append(box.buffer(10.0))
 
-    dissolved = unary_union(boxes)
+#     dissolved = unary_union(boxes)
 
-    return dissolved
+#     return dissolved
 
-def FixOrientation(axis, medialaxis):
+def ClipLinestringToMask(axis, linestring, params):
 
-    measure_raster = config.tileset().filename('ax_axis_measure', axis=axis)
+    valley_bottom_raster = params.valley_bottom.filename(axis=axis)
+
+    with rio.open(valley_bottom_raster) as ds:
+
+        coordinates = list(linestring.coords)
+        values = list(map(int, ds.sample(coordinates, 1)))
+
+        kmin = 0
+        kmax = len(coordinates)-1
+
+        while kmin < kmax:
+
+            if values[kmin] not in (MASK_VALLEY_BOTTOM, MASK_FLOOPLAIN_RELIEF):
+                kmin += 1
+            else:
+                break
+
+        while kmax > kmin:
+
+            if values[kmax] not in (MASK_VALLEY_BOTTOM, MASK_FLOOPLAIN_RELIEF):
+                kmax -= 1
+            else:
+                break
+
+        return LineString(coordinates[kmin:kmax+1])
+
+def FixOrientation(axis, medialaxis, params):
+
+    measure_raster = params.measure.filename(axis=axis)
 
     with rio.open(measure_raster) as ds:
 
@@ -165,31 +236,42 @@ def FixOrientation(axis, medialaxis):
 
     return medialaxis
 
-def MedialAxis(axis):
+def MedialAxis(axis, params):
     """
     Calculate corridor medial axis
     using boundary points from first iteration swath units
     """
 
-    output = config.filename('ax_medialaxis', axis=axis)
+    output = params.medialaxis.filename(axis=axis)
 
-    coordinates, groups = BoundaryPoints(axis)
+    coordinates, groups = BoundaryPoints(axis, params)
+    print(len(coordinates))
 
     voronoi = Voronoi(coordinates, qhull_options='Qbb Qc')
     lines = list(medial_segments(voronoi, groups))
     medialaxis = linemerge(lines)
 
-    envelope = DissolveSwathBounds(axis)
+    # envelope = DissolveSwathBounds(axis, params)
+
+    # if hasattr(medialaxis, 'geoms'):
+
+    #     lines = [line.intersection(envelope) for line in medialaxis.geoms]
+    #     lines = sorted(lines, key=lambda line: -line.length)
+    #     medialaxis = lines[0]
+
+    # else:
+
+    #     medialaxis = medialaxis.intersection(envelope)
 
     if hasattr(medialaxis, 'geoms'):
 
-        lines = [line.intersection(envelope) for line in medialaxis.geoms]
+        lines = [ClipLinestringToMask(axis, line, params) for line in medialaxis.geoms]
         lines = sorted(lines, key=lambda line: -line.length)
         medialaxis = lines[0]
 
     else:
 
-        medialaxis = medialaxis.intersection(envelope)
+        medialaxis = ClipLinestringToMask(axis, medialaxis, params)
 
     if hasattr(medialaxis, 'geoms'):
 
@@ -197,15 +279,15 @@ def MedialAxis(axis):
 
         for geom in medialaxis.geoms:
 
-            geoms.append(FixOrientation(axis, geom))
+            geoms.append(FixOrientation(axis, geom, params))
 
         medialaxis = MultiLineString(geoms)
 
     else:
 
-        medialaxis = FixOrientation(axis, medialaxis)
+        medialaxis = FixOrientation(axis, medialaxis, params)
 
-    crs = fiona.crs.from_epsg(2154)
+    crs = fiona.crs.from_epsg(config.workspace.srid)
     driver = 'ESRI Shapefile'
     schema = {
         'geometry': 'LineString',

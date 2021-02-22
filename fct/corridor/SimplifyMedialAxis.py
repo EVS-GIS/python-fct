@@ -18,7 +18,42 @@ from functools import total_ordering
 import numpy as np
 import rasterio as rio
 import fiona
-from ..config import config
+from ..config import (
+    # config,
+    LiteralParameter,
+    DatasetParameter
+)
+from ..network.ValleyBottomMask2 import (
+    MASK_FLOOPLAIN_RELIEF,
+    MASK_VALLEY_BOTTOM
+)
+
+class Parameters:
+    """
+    Medial axis simplification parameters
+    """
+
+    medialaxis = DatasetParameter(
+        'valley medial axis',
+        type='input')
+    simplified = DatasetParameter(
+        'simplified valley medial axis',
+        type='output')
+    mask = DatasetParameter(
+        'valley bottom (raster)',
+        type='input')
+    simplify_distance = LiteralParameter(
+        'simplification distance threshold')
+
+    def __init__(self):
+        """
+        Default parameter values
+        """
+
+        self.medialaxis = 'ax_medialaxis'
+        self.simplified = 'ax_medialaxis_simplified'
+        self.mask = 'ax_valley_bottom_final'
+        self.simplify_distance = 50.0
 
 def triangle_area(a, b, c):
 
@@ -190,7 +225,8 @@ def mask_simplify(linestring, mask_file):
 
             for value in values:
 
-                if value == ds.nodata:
+                # if value == ds.nodata:
+                if value not in (MASK_VALLEY_BOTTOM, MASK_FLOOPLAIN_RELIEF):
 
                     triangle.weight = float('inf')
                     break
@@ -228,7 +264,7 @@ def mask_simplify(linestring, mask_file):
     end = (linestring[-1], float('inf'))
     return [start] + [(t.bo, t.weight) for t in triangles] + [end]
 
-def SimplifyMedialAxis(axis, distance, mask_file=None):
+def SimplifyMedialAxis(axis: int, params: Parameters):
     """
     Simplify medial axis using Visvalingam & Whyatt algorithm.
 
@@ -241,16 +277,16 @@ def SimplifyMedialAxis(axis, distance, mask_file=None):
     within the mask defined region.
     """
 
-    shapefile = config.filename('ax_medialaxis', axis=axis)
-    output = config.filename('ax_medialaxis_simplified', axis=axis)
+    shapefile = params.medialaxis.filename(axis=axis)
+    output = params.simplified.filename(axis=axis)
 
     # sqrt(3)/4 = 0.4330 ~ 0.5
-    threshold = 0.5 * distance**2
+    threshold = 0.5 * params.simplify_distance**2
 
-    if mask_file:
+    if not params.mask.none:
 
         def do_simplify(linestring):
-            return mask_simplify(linestring, mask_file)
+            return mask_simplify(linestring, params.mask.filename(axis=axis))
 
     else:
 
