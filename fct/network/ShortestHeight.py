@@ -52,6 +52,8 @@ class Parameters:
     distance = DatasetParameter('distance to reference pixel', type='output')
     state = DatasetParameter('processing state raster', type='output')
 
+    scale_distance = LiteralParameter(
+        'scale distance output with given scale factor, corresponding to pixel resolution')
     mask_height_max = LiteralParameter(
         'maximum height defining domain mask')
     height_max = LiteralParameter(
@@ -90,6 +92,7 @@ class Parameters:
             self.distance = dict(key='ax_shortest_distance', axis=axis)
             self.state = dict(key='ax_shortest_state', axis=axis)
 
+        self.scale_distance = 1.0
         self.mask_height_max = 20.0
         self.height_max = 20.0
         self.distance_min = 20
@@ -319,6 +322,21 @@ def ShortestHeightIteration(params, spillovers, ntiles, processes=1, **kwargs):
 
     return g_spillover
 
+def ScaleShortestDistanceTile(row, col, params, **kwargs):
+
+    distance_raster = params.distance.tilename(row=row, col=col, **kwargs)
+
+    with rio.open(distance_raster) as ds:
+
+        distance = params.scale_distance * ds.read(1)
+        profile = ds.profile.copy()
+
+    profile.update(compress='deflate')
+
+    with rio.open(distance_raster, 'w', **profile) as dst:
+
+        dst.write(distance, 1)
+
 def ShortestHeight(params, processes=1, **kwargs):
     """
     Valley bottom extraction procedure - shortest path exploration
@@ -367,3 +385,25 @@ def ShortestHeight(params, processes=1, **kwargs):
     with open(output, 'w') as fp:
         for row, col in sorted(g_tiles):
             fp.write('%d,%d\n' % (row, col))
+
+    if params.scale_distance != 1.0:
+
+        click.echo('Scaling distance output ...')
+
+        def arguments():
+
+            for row, col in g_tiles:
+                yield (
+                    ScaleShortestDistanceTile,
+                    row,
+                    col,
+                    params,
+                    kwargs
+                )
+
+        with Pool(processes=processes) as pool:
+
+            pooled = pool.imap_unordered(starcall, arguments())
+            with click.progressbar(pooled, length=len(g_tiles)) as iterator:
+                for _ in iterator:
+                    pass

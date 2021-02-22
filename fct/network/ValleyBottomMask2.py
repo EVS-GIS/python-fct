@@ -98,7 +98,7 @@ class Parameters:
             # ValleyBottomThreshold(1000, 100.0, 2500.0, 4.0, 7.0)
             ValleyBottomThreshold(0, 20.0, 100.0, 2.0, 10.0),
             ValleyBottomThreshold(30, 20.0, 400.0, 4.0, 7.0),
-            ValleyBottomThreshold(300, 20.0, 1500.0, 5.0, 5.0),
+            ValleyBottomThreshold(250, 20.0, 1500.0, 5.0, 5.0),
             ValleyBottomThreshold(1000, 20.0, 2500.0, 6.0, 3.5)
         ]
 
@@ -170,7 +170,7 @@ def SwathDrainageTile(row, col, params, **kwargs):
 
         for sw in np.unique(swaths[axis == ax]):
 
-            if sw == 0:
+            if sw == 0 or (sw-1) >= len(measures):
                 continue
 
             sw_measure = measures[sw-1]
@@ -233,7 +233,7 @@ def ValleyBottomMaskTile(row, col, params, drainage, **kwargs):
 
             for sw in np.unique(swaths[axis == ax]):
 
-                if sw == 0:
+                if sw == 0 or (sw-1) >= len(measures):
                     continue
 
                 sw_measure = measures[sw-1]
@@ -268,7 +268,7 @@ def ValleyBottomMaskTile(row, col, params, drainage, **kwargs):
 
             for sw in np.unique(swaths[axis == ax]):
 
-                if sw == 0:
+                if sw == 0 or (sw-1) >= len(measures):
                     continue
 
                 sw_measure = measures[sw-1]
