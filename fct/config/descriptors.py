@@ -86,9 +86,9 @@ class DatasourceResolver():
     Resolves a DatasourceParameter according to current configuration.
     """
 
-    def __init__(self, name):
+    def __init__(self, value):
 
-        self.name = name
+        self.key = value
 
     @property
     def none(self):
@@ -96,7 +96,15 @@ class DatasourceResolver():
         Return True if this parameter should resolve to None
         """
 
-        return self.name is None or self.name == 'off'
+        return self.key is None or self.key == 'off'
+
+    @property
+    def name(self):
+        """
+        Return datasource's key
+        """
+
+        return self.key
 
     def filename(self):
         """
@@ -106,7 +114,7 @@ class DatasourceResolver():
         if self.none:
             return None
 
-        return config.datasource(self.name).filename
+        return config.datasource(self.key).filename
 
 class DatasetParameter():
     """
@@ -135,16 +143,30 @@ class DatasetParameter():
         if obj is None:
             return
 
-        setattr(obj, self.name, value)
+        if isinstance(value, (str, dict)):
+
+            setattr(obj, self.name, value)
+
+        else:
+
+            raise ValueError('Expected str or dict, got %s : %s' % (type(value), value))
 
 class DatasetResolver():
     """
     Resolves a DatasetParameter according to current configuration.
     """
 
-    def __init__(self, name):
+    def __init__(self, value):
 
-        self.name = name
+        if isinstance(value, dict):
+
+            self.key = value['key']
+            self.args = {k: v for k, v in value.items() if k != 'key'}
+
+        else:
+
+            self.key = value
+            self.args = None
 
     @property
     def none(self):
@@ -152,7 +174,28 @@ class DatasetResolver():
         Return True if this parameter should resolve to None
         """
 
-        return self.name is None or self.name == 'off'
+        return self.key is None or self.key == 'off'
+
+    @property
+    def name(self):
+        """
+        Return dataset's key
+        """
+
+        return self.key
+
+    def arguments(self, kwargs):
+
+        if self.args is None:
+
+            args = kwargs
+
+        else:
+
+            args = self.args.copy()
+            args.update(kwargs)
+
+        return args
 
     def filename(self, mode='r', tileset='default', **kwargs):
         """
@@ -165,10 +208,12 @@ class DatasetResolver():
         if self.none:
             return None
 
-        if tileset is None:
-            return config.filename(self.name, **kwargs)
+        args = self.arguments(kwargs)
 
-        return config.tileset(tileset).filename(self.name, **kwargs)
+        if tileset is None:
+            return config.filename(self.key, **args)
+
+        return config.tileset(tileset).filename(self.key, **args)
 
     def tilename(self, mode='r', tileset='default', **kwargs):
         """
@@ -178,10 +223,12 @@ class DatasetResolver():
         if self.none:
             return None
 
-        return config.tileset(tileset).tilename(self.name, **kwargs)
+        args = self.arguments(kwargs)
+
+        return config.tileset(tileset).tilename(self.key, **args)
 
     def __repr__(self):
-        return f'DatasetResolver({self.name})'
+        return f'DatasetResolver({self.key})'
 
 class Workflow():
     """
