@@ -71,7 +71,7 @@ class Parameters:
         type='output')
     output_final = DatasetParameter(
         'true valley bottom (raster)',
-        type='input')
+        type='output')
 
     distance_max = LiteralParameter(
         'maximum exploration distance (from drainage pixels)')
