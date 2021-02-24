@@ -4,9 +4,9 @@
 Delineate valley bottom features from drainage dependent thresholds
 """
 
-from collections import namedtuple, defaultdict
+from collections import namedtuple
 from multiprocessing import Pool
-from typing import List, Dict, Tuple, Callable
+from typing import List, Callable
 
 import numpy as np
 from scipy.signal import convolve2d
@@ -22,14 +22,17 @@ from ..config import (
 from .. import speedup
 from ..cli import starcall
 
+from .SwathDrainage import (
+    calculate_swaths,
+    SwathDrainageDict
+)
+
 MASK_EXTERIOR = 0 # NODATA
 MASK_SLOPE = 1
 MASK_TERRACE = 2
 MASK_HOLE = 3
 MASK_FLOOPLAIN_RELIEF = 4
 MASK_VALLEY_BOTTOM = 5
-
-SwathDrainageDict = Dict[Tuple[int, float], float]
 
 ValleyBottomThreshold = namedtuple(
     'ValleyBottomThreshold',
@@ -42,7 +45,6 @@ class Parameters:
 
     tiles = DatasetParameter('domain tiles as CSV list', type='input')
     dem = DatasetParameter('elevation raster (DEM)', type='input')
-    drainage = DatasetParameter('drainage raster', type='input')
     height = DatasetParameter('height raster (HAND)', type='input')
     axis = DatasetParameter('nearest axis raster', type='input')
     measure = DatasetParameter('measure along reference axis', type='input')
@@ -66,6 +68,8 @@ class Parameters:
         Default parameter values
         """
 
+        self.dem = 'dem'
+
         if axis is None:
 
             self.tiles = 'shortest_tiles'
@@ -85,9 +89,6 @@ class Parameters:
             self.distance = dict(key='ax_nearest_distance', axis=axis)
             self.output = dict(key='ax_valley_bottom_features', axis=axis)
             self.slope = 'off'
-
-        self.dem = 'dem'
-        self.drainage = 'acc'
 
         self.swath_length = 200.0
         # self.distance_min = 20.0
@@ -156,64 +157,6 @@ def calculate_slope(dem_raster: str, nodata: float = 999.0):
     slope[arr == ds.nodata] = nodata
 
     return slope
-
-def calculate_swaths(measure_raster: str, swath_length: float):
-    """
-    Transform measure raster into swath identifiers
-    """
-
-    with rio.open(measure_raster) as ds:
-        measure = ds.read(1)
-
-    measure_min = np.floor(np.min(measure) / swath_length) * swath_length
-    measure_max = np.ceil(np.max(measure) / swath_length) * swath_length
-    breaks = np.arange(measure_min, measure_max + swath_length, swath_length)
-    swaths = np.uint32(np.digitize(measure, breaks))
-
-    measures = np.round(0.5 * (breaks[:-1] + breaks[1:]), 1)
-
-    return swaths, measures
-
-def SwathDrainageTile(row: int, col: int, params: Parameters, **kwargs):
-    """
-    Return tile's swaths max drainage area
-    """
-
-    axis_raster = params.axis.tilename(row=row, col=col, **kwargs)
-    drainage_raster = params.drainage.tilename(row=row, col=col, **kwargs)
-    measure_raster = params.measure.tilename(row=row, col=col, **kwargs)
-
-    swaths, measures = calculate_swaths(measure_raster, params.swath_length)
-
-    with rio.open(drainage_raster) as ds:
-        drainage = ds.read(1)
-
-    with rio.open(axis_raster) as ds:
-        axis = ds.read(1)
-        axis_nodata = ds.nodata
-
-    result = dict()
-
-    for ax in np.unique(axis):
-
-        if ax == axis_nodata:
-            continue
-
-        for sw in np.unique(swaths[axis == ax]):
-
-            if sw == 0 or (sw-1) >= len(measures):
-                continue
-
-            sw_measure = measures[sw-1]
-            sw_mask = (axis == ax) & (swaths == sw)
-
-            # compute swath drainage in separate loop
-            # in order to avoid tile boundary problems
-            sw_drainage = np.max(drainage[sw_mask])
-
-            result[ax, sw_measure] = sw_drainage
-
-    return result
 
 def ClassifyValleyBottomTile(
         row: int,
@@ -335,81 +278,6 @@ def ClassifyValleyBottomTile(
         profile.update(dtype='uint8', nodata=0, compress='deflate')
         with rio.open(output, 'w', **profile) as dst:
             dst.write(out, 1)
-
-def ensure_monotonic(drainage: SwathDrainageDict) -> SwathDrainageDict:
-    """
-    Clamp drainage values to ensure monotonic increase
-    in measure descending order
-    """
-
-    values = defaultdict(list)
-    monotonic = dict()
-
-    for (ax, measure), value in drainage.items():
-
-        values[ax].append((measure, value))
-
-    for ax in values:
-
-        value_min = 0.0
-
-        for measure, value in sorted(values[ax], reverse=True):
-
-            if value < value_min:
-                value = value_min
-            else:
-                value_min = value
-
-            monotonic[ax, measure] = value
-
-    return monotonic
-
-def SwathDrainage(params: Parameters, processes: int = 1, **kwargs) -> SwathDrainageDict:
-    """
-    Calculate swaths max drainage area
-    """
-
-    tilefile = params.tiles.filename()
-
-    def length():
-
-        with open(tilefile) as fp:
-            return sum(1 for line in fp)
-
-    def arguments():
-
-        with open(tilefile) as fp:
-            tiles = [tuple(int(x) for x in line.split(',')) for line in fp]
-
-        for row, col in tiles:
-            yield (
-                SwathDrainageTile,
-                row,
-                col,
-                params,
-                kwargs
-            )
-
-    with Pool(processes=processes) as pool:
-
-        pooled = pool.imap_unordered(starcall, arguments())
-
-        drainage = dict()
-
-        with click.progressbar(pooled, length=length()) as iterator:
-            for t_drainage in iterator:
-
-                drainage.update({
-                    k: max(drainage[k], t_drainage[k])
-                    for k in t_drainage.keys() & drainage.keys()
-                })
-
-                drainage.update({
-                    k: t_drainage[k]
-                    for k in t_drainage.keys() - drainage.keys()
-                })
-
-        return ensure_monotonic(drainage)
 
 def ClassifyValleyBottomFeatures(params: Parameters, drainage: SwathDrainageDict, processes: int = 1, **kwargs):
     """

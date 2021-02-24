@@ -28,6 +28,7 @@ from .. import transform as fct
 from .. import speedup
 from ..cli import starcall
 
+from .SwathDrainage import create_interpolate_drainage_fun
 from .ValleyBottomFeatures import (
     MASK_FLOOPLAIN_RELIEF,
     MASK_VALLEY_BOTTOM
@@ -305,10 +306,24 @@ def VectorizeOneSwath(axis, gid, measure, bounds, params, **kwargs):
 
         return axis, gid, measure, list(polygons)
 
-def VectorizeSwaths(swaths_infos, params, processes=1, **kwargs):
+def VectorizeSwaths(swaths_infos, drainage, params, processes=1, **kwargs):
     """
     Vectorize spatial units' polygons
     """
+
+    interp_funs = dict()
+
+    def interpolate_drainage(axis, measure):
+
+        if axis not in interp_funs:
+            
+            fun = interp_funs[axis] = create_interpolate_drainage_fun(drainage, axis)
+
+        else:
+
+            fun = interp_funs[axis]
+
+        return fun(measure)
 
     def arguments():
 
@@ -339,7 +354,8 @@ def VectorizeSwaths(swaths_infos, params, processes=1, **kwargs):
             ('VALUE', 'int:4'),
             # ('ROW', 'int:3'),
             # ('COL', 'int:3'),
-            ('M', 'float:10.2')
+            ('M', 'float:10.2'),
+            ('DRAINAGE', 'float:10.3')
         ]
     }
     crs = fiona.crs.from_epsg(2154)
@@ -353,6 +369,9 @@ def VectorizeSwaths(swaths_infos, params, processes=1, **kwargs):
 
             with click.progressbar(pooled, length=len(swaths_infos)) as iterator:
                 for axis, gid, measure, polygons in iterator:
+
+                    drainage_area = interpolate_drainage(axis, measure)
+
                     for (polygon, value) in polygons:
 
                         geom = asShape(polygon)
@@ -366,7 +385,8 @@ def VectorizeSwaths(swaths_infos, params, processes=1, **kwargs):
                                 'VALUE': int(value),
                                 # 'ROW': row,
                                 # 'COL': col,
-                                'M': float(measure)
+                                'M': float(measure),
+                                'DRAINAGE': float(drainage_area)
                             }
                         }
 
@@ -384,7 +404,8 @@ def VectorizeSwaths(swaths_infos, params, processes=1, **kwargs):
                                         'VALUE': int(value),
                                         # 'ROW': row,
                                         # 'COL': col,
-                                        'M': float(measure)
+                                        'M': float(measure),
+                                        'DRAINAGE': float(drainage_area)
                                     }
                                 }
 

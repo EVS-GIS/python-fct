@@ -348,3 +348,12 @@ swaths_refaxis_polygons:
     tileset: landcover
     template: SWATHS_REFAXIS_%(row)02d_%(col)02d
     extension: .shp
+
+drainage_area:
+  description: |
+    Upstream drainage area calculated from DEM
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: NETWORK/METRICS
+  filename: DRAINAGE_AREA.nc
