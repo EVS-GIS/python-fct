@@ -84,8 +84,10 @@ class Parameters:
     output_distance = DatasetParameter('distance to reference pixel', type='output')
     state = DatasetParameter('processing state raster', type='output')
 
-    max_class = LiteralParameter('maximum landcover class (stop criterion)')
-    max_height = LiteralParameter('maximum height above reference (stop criterion)')
+    class_max = LiteralParameter('maximum landcover class (stop criterion)')
+    height_max = LiteralParameter('maximum height above reference (stop criterion)')
+    distance_min = LiteralParameter('minimum distance')
+    distance_max = LiteralParameter('maximum distance')
     infrastructures = LiteralParameter('consider transport infrastructures (landcover class = 8)')
     jitter = LiteralParameter('apply jitter on performing shortest path raster exploration')
     tmp_suffix = LiteralParameter('temporary files suffix')
@@ -96,14 +98,16 @@ class Parameters:
         """
 
         self.tiles = 'shortest_tiles'
-        self.landcover = 'landcover-bdt'
+        self.landcover = 'landcover_valley_bottom'
         self.distance = 'nearest_distance'
         self.height = 'nearest_height'
         self.output = 'continuity'
         self.output_distance = 'continuity_distance'
         self.state = 'continuity_state'
-        self.max_class = 0
-        self.max_height = 0.0
+        self.class_max = 0
+        self.height_max = 20.0
+        self.distance_min = 20
+        self.distance_max = 0
         self.infrastructures = True
         self.jitter = 0.4
         self.tmp_suffix = '.tmp'
@@ -116,32 +120,15 @@ def ContinuityTile(row, col, seeds, params, **kwargs):
     tileset = config.tileset()
 
     output = params.output.tilename(row=row, col=col, **kwargs)
-    # tileset.tilename(
-    #     params.output,
-    #     row=row,
-    #     col=col,
-    #     **kwargs)
-
     output_state = params.state.tilename(row=row, col=col, **kwargs)
-    # tileset.tilename(
-    #     params.output_state,
-    #     row=row,
-    #     col=col,
-    #     **kwargs)
-
     output_distance = params.output_distance.tilename(row=row, col=col, **kwargs)
-    # tileset.tilename(
-    #     params.output_distance,
-    #     row=row,
-    #     col=col,
-    #     **kwargs)
 
     padding = 1
     tile = tileset.tileindex[row, col]
 
     landcover, profile = PadRaster(
         row, col,
-        params.landcover.name,
+        params.landcover,
         padding=padding)
 
     transform = profile['transform']
@@ -159,7 +146,7 @@ def ContinuityTile(row, col, seeds, params, **kwargs):
         handling the case if the tile does not exist.
         """
 
-        filename = tileset.tilename(dataset, row=row, col=col, **kwargs)
+        filename = dataset.tilename(row=row, col=col, **kwargs)
 
         if os.path.exists(filename):
 
@@ -168,10 +155,11 @@ def ContinuityTile(row, col, seeds, params, **kwargs):
 
         else:
 
-            filename = tileset.filename(dataset, **kwargs)
+            filename = dataset.filename(**kwargs)
             assert os.path.exists(filename)
 
             with rio.open(filename) as ds:
+
                 i0, j0 = ds.index(tile.x0, tile.y0)
                 window = Window(j0 - padding, i0 - padding, width, height)
                 raster = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
@@ -179,25 +167,25 @@ def ContinuityTile(row, col, seeds, params, **kwargs):
 
         return raster, nodata
 
-    nearest_height, nearest_height_nodata = BoundlessRaster(row, col, params.height.name)
-    nearest_distance, nearest_distance_nodata = BoundlessRaster(row, col, params.distance.name)
+    nearest_height, nearest_height_nodata = BoundlessRaster(row, col, params.height)
+    nearest_distance, nearest_distance_nodata = BoundlessRaster(row, col, params.distance)
 
     if os.path.exists(output):
 
-        out, _ = PadRaster(row, col, params.output.name, padding=padding, **kwargs)
-        distance, _ = PadRaster(row, col, params.output_distance.name, padding=padding)
-        state, _ = PadRaster(row, col, params.output_state.name, padding=padding)
+        out, _ = PadRaster(row, col, params.output, padding=padding, **kwargs)
+        distance, _ = PadRaster(row, col, params.output_distance, padding=padding)
+        state, _ = PadRaster(row, col, params.state, padding=padding)
 
     else:
 
         out = np.full_like(landcover, nodata)
         # distance = np.full_like(nearest_distance, nearest_distance_nodata, dtype='float32')
         distance = np.zeros_like(nearest_distance, dtype='float32')
-        state = np.uint8(nearest_distance == 0)
+        state = np.uint8(np.abs(nearest_distance) < 1)
 
     state[
         (nearest_height == nearest_height_nodata) |
-        (nearest_height > params.vb_max_height)
+        (nearest_height > params.height_max)
     ] = 255
 
     if seeds:
@@ -242,10 +230,10 @@ def ContinuityTile(row, col, seeds, params, **kwargs):
         out,
         distance,
         state,
-        max_class=params.max_class,
-        min_distance=params.min_distance,
-        max_distance=params.max_distance,
-        max_height=params.max_height,
+        max_class=params.class_max,
+        min_distance=params.distance_min,
+        max_distance=params.distance_max,
+        max_height=params.height_max,
         jitter=params.jitter)
 
     def extract_spillovers():
@@ -381,7 +369,7 @@ def ContinuityIteration(params, spillovers, ntiles, processes=1, **kwargs):
         with Pool(processes=processes) as pool:
 
             pooled = pool.imap_unordered(starcall, arguments())
-            
+
             with click.progressbar(pooled, length=ntiles) as iterator:
                 for t_spillover, tmps in iterator:
                     g_spillover.extend(t_spillover)
@@ -559,8 +547,8 @@ def LandcoverContinuityAnalysis(
 
         click.secho('Ok', fg='green')
 
-    click.secho('Building output VRTs', fg='cyan')
-    buildvrt('default', params.output.name, **kwargs)
+    # click.secho('Building output VRTs', fg='cyan')
+    # buildvrt('default', params.output.name, **kwargs)
 
     # click.secho('Materialize output VRTs to GeoTIFF', fg='cyan')
 

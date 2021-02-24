@@ -37,7 +37,7 @@ class Parameters:
         """
 
         self.tiles = 'shortest_tiles'
-        self.lancover = 'landcover-bdt'
+        self.landcover = 'landcover-bdt'
         self.mask = 'nearest_height'
         self.output = 'landcover_valley_bottom'
 
@@ -87,7 +87,7 @@ def ValleyBottomLandcoverTile(row, col, params):
 def ValleyBottomLandcover(params, processes=1, **kwargs):
 
     # tileset = config.tileset()
-    tilefile = params.tiles.filename(tileset=None)
+    tilefile = params.tiles.filename(**kwargs)
     # tileset.filename('shortest_tiles')
 
     def length():

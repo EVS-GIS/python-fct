@@ -1,17 +1,7 @@
 # coding: utf-8
 
 """
-LandCover Tiles Extraction
-TODO move outside metrics => data preparation
-
-***************************************************************************
-*                                                                         *
-*   This program is free software; you can redistribute it and/or modify  *
-*   it under the terms of the GNU General Public License as published by  *
-*   the Free Software Foundation; either version 3 of the License, or     *
-*   (at your option) any later version.                                   *
-*                                                                         *
-***************************************************************************
+Reclass landcover classes to continuity classes
 """
 
 import os
@@ -23,17 +13,14 @@ import rasterio as rio
 import fiona
 
 from ..cli import starcall
-from ..config import (
-    config,
-    DatasetParameter,
-    LiteralParameter
-)
+from ..config import DatasetParameter
 
 class Parameters:
     """
     Continuity remapping parameters
     """
 
+    tiles = DatasetParameter('domain tiles as CSV list', type='input')
     landcover = DatasetParameter('landcover raster map', type='input')
     continuity = DatasetParameter('input continuity map', type='input')
     output = DatasetParameter('output (remapped) continuity map', type='output')
@@ -43,50 +30,20 @@ class Parameters:
         Default parameter values
         """
 
+        self.tiles = 'shortest_tiles'
         self.landcover = 'landcover-bdt'
         self.continuity = 'continuity'
         self.output = 'continuity_remapped'
 
 
-def RemapContinuityTile(tile, params, **kwargs):
+def RemapContinuityTile(row: int, col: int, params: Parameters, **kwargs):
+    """
+    Reclass tile
+    """
 
-    # landcover_raster = config.tileset().tilename(
-    #     'landcover-bdt',
-    #     row=tile.row,
-    #     col=tile.col,
-    #     **kwargs)
-
-    # if 'variant' in kwargs:
-
-    #     continuity_raster = config.tileset().tilename(
-    #         'continuity_variant',
-    #         row=tile.row,
-    #         col=tile.col,
-    #         **kwargs)
-
-    #     output = config.tileset().tilename(
-    #         'continuity_variant_remapped',
-    #         row=tile.row,
-    #         col=tile.col,
-    #         **kwargs)
-
-    # else:
-
-    #     continuity_raster = config.tileset().tilename(
-    #         'continuity',
-    #         row=tile.row,
-    #         col=tile.col,
-    #         **kwargs)
-
-    #     output = config.tileset().tilename(
-    #         'continuity_remapped',
-    #         row=tile.row,
-    #         col=tile.col,
-    #         **kwargs)
-
-    landcover_raster = params.landcover.tilename(row=tile.row, col=tile.col, **kwargs)
-    continuity_raster = params.continuity.tilename(row=tile.row, col=tile.col, **kwargs)
-    output = params.output.tilename(row=tile.row, col=tile.col, **kwargs)
+    landcover_raster = params.landcover.tilename(row=row, col=col, **kwargs)
+    continuity_raster = params.continuity.tilename(row=row, col=col, **kwargs)
+    output = params.output.tilename(row=row, col=col, **kwargs)
 
     if os.path.exists(continuity_raster) and os.path.exists(landcover_raster):
 
@@ -119,21 +76,37 @@ def RemapContinuityTile(tile, params, **kwargs):
             with rio.open(output, 'w', **profile) as dst:
                 dst.write(out, 1)
 
-def RemapContinuityRaster(params, processes=1, **kwargs):
+def RemapContinuityRaster(params: Parameters, processes: int = 1, **kwargs):
+    """
+    Reclass landcover classes to continuity classes
+    """
 
-    # tile_shapefile = os.path.join(workdir, 'TILESET', 'GRILLE_10K.shp')
+    tilefile = params.tiles.filename(**kwargs)
 
-    tileset = config.tileset()
+    def length():
+
+        with open(tilefile) as fp:
+            return sum(1 for line in fp)
 
     def arguments():
 
-        for tile in tileset.tiles():
-            yield (RemapContinuityTile, tile, params, kwargs)
+        with open(tilefile) as fp:
+            for line in fp:
+
+                row, col = tuple(int(x) for x in line.split(','))
+
+                yield (
+                    RemapContinuityTile,
+                    row,
+                    col,
+                    params,
+                    kwargs
+                )
 
     with Pool(processes=processes) as pool:
 
         pooled = pool.imap_unordered(starcall, arguments())
 
-        with click.progressbar(pooled, length=len(tileset)) as iterator:
+        with click.progressbar(pooled, length=length()) as iterator:
             for _ in iterator:
                 pass
