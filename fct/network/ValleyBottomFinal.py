@@ -36,7 +36,7 @@ from ..tileio import (
     border
 )
 
-from .ValleyBottomMask2 import (
+from .ValleyBottomFeatures import (
     MASK_EXTERIOR,
     MASK_FLOOPLAIN_RELIEF,
     MASK_VALLEY_BOTTOM,
@@ -61,7 +61,7 @@ class Parameters:
         'distance to drainage pixels (raster)',
         type='input')
     mask = DatasetParameter(
-        'valley bottom mask (raster)',
+        'valley bottom features (raster)',
         type='input')
     output_mask = DatasetParameter(
         'connected valley bottom raster',
@@ -89,7 +89,7 @@ class Parameters:
 
             self.tiles = 'shortest_tiles'
             self.distance = 'nearest_distance'
-            self.mask = 'valley_bottom_mask'
+            self.mask = 'valley_bottom_features'
             self.output_mask = 'valley_bottom_connected'
             self.output_distance = 'valley_bottom_connected_distance'
             self.output_final = 'valley_bottom_final'
@@ -98,7 +98,7 @@ class Parameters:
 
             self.tiles = dict(key='ax_shortest_tiles', axis=axis)
             self.distance = dict(key='ax_nearest_distance', axis=axis)
-            self.mask = dict(key='ax_valley_bottom_mask', axis=axis)
+            self.mask = dict(key='ax_valley_bottom_features', axis=axis)
             self.output_mask = dict(key='ax_valley_bottom_connected', axis=axis)
             self.output_distance = dict(key='ax_valley_bottom_connected_distance', axis=axis)
             self.output_final = dict(key='ax_valley_bottom_final', axis=axis)

@@ -211,37 +211,40 @@ continuity_map_final:
     template: LANDCOVER_CONTINUITY_%(variant)s_FINAL_%(row)02d_%(col)02d
     extension: .tif
 
-ax_valley_mask:
+ax_valley_bottom_mask:
   description: |
     Valley mask from nearest height raster
   type: raster
   group: corridor
   status: temporary
-  subdir: AXES/AX%(axis)04d/TEMP
-  filename: VALLEY_MASK.vrt
-  tiles:
-    tileset: landcover
-    template: VALLEY_MASK_%(row)02d_%(col)02d
-    extension: .tif
-
-ax_valley_bottom_mask:
-  description: |
-    Valley bottom mask
-  type: raster
-  group: corridor
-  status: final
-  subdir: AXES/AX%(axis)04d/TEMP
+  subdir: AXES/AX%(axis)04d/HEIGHT
   filename: VALLEY_BOTTOM_MASK.vrt
   tiles:
     tileset: landcover
     template: VALLEY_BOTTOM_MASK_%(row)02d_%(col)02d
     extension: .tif
 
+ax_valley_bottom_features:
+  description: |
+    Valley bottom features,
+    classified using drainage dependent thresholds
+    from talweg distance, slope and height
+  type: raster
+  group: corridor
+  status: final
+  subdir: AXES/AX%(axis)04d/TEMP
+  filename: VALLEY_BOTTOM_FEATURES.vrt
+  tiles:
+    tileset: landcover
+    template: VALLEY_BOTTOM_FEATURES_%(row)02d_%(col)02d
+    extension: .tif
+
 ax_valley_bottom_connected:
   description: |
-    True valley bottom, excluding terrace, slopes
+    True valley bottom,
+    excluding terrace, slopes
     and flat areas not connected to drainage network
-    (temporary processing mask)
+    (temporary processing data)
   type: raster
   group: corridor
   status: temporary
@@ -268,7 +271,8 @@ ax_valley_bottom_connected_distance:
 
 ax_valley_bottom_final:
   description: |
-    True valley bottom, excluding terrace, slopes
+    True valley bottom,
+    excluding terrace, slopes
     and flat areas not connected to drainage network
   type: raster
   group: corridor

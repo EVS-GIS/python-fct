@@ -47,7 +47,7 @@ class Parameters:
     axis = DatasetParameter('nearest axis raster', type='input')
     measure = DatasetParameter('measure along reference axis', type='input')
     distance = DatasetParameter('distance raster to talweg', type='input')
-    output = DatasetParameter('valley bottom mask (raster)', type='output')
+    output = DatasetParameter('valley bottom features (raster)', type='output')
     slope = DatasetParameter('slope raster', type='output')
 
     swath_length = LiteralParameter(
@@ -73,7 +73,7 @@ class Parameters:
             self.axis = 'nearest_drainage_axis' # 'axis_nearest'
             self.measure = 'axis_measure'
             self.distance = 'nearest_distance'
-            self.output = 'valley_bottom_mask'
+            self.output = 'valley_bottom_features'
             self.slope = 'slope'
 
         else:
@@ -83,7 +83,7 @@ class Parameters:
             self.axis = dict(key='ax_nearest_drainage_axis', axis=axis)
             self.measure = dict(key='ax_axis_measure', axis=axis)
             self.distance = dict(key='ax_nearest_distance', axis=axis)
-            self.output = dict(key='ax_valley_bottom_mask', axis=axis)
+            self.output = dict(key='ax_valley_bottom_features', axis=axis)
             self.slope = 'off'
 
         self.dem = 'dem'

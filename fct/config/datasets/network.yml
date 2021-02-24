@@ -126,30 +126,30 @@ nearest_drainage_axis:
     template: NEAREST_DRAINAGE_AXIS_%(row)02d_%(col)02d
     extension: .tif
 
-valley_mask:
+valley_bottom_mask:
   description: |
     Valley mask from nearest height raster
   type: raster
   group: corridor
   status: temporary
-  subdir: NETWORK/TEMP
-  filename: VALLEY_MASK.vrt
+  subdir: NETWORK/HEIGHT
+  filename: VALLEY_BOTTOM_MASK.vrt
   tiles:
     tileset: landcover
-    template: VALLEY_MASK_%(row)02d_%(col)02d
+    template: VALLEY_BOTTOM_MASK_%(row)02d_%(col)02d
     extension: .tif
 
-valley_bottom_mask:
+valley_bottom_features:
   description: |
     Valley bottom mask
   type: raster
   group: corridor
   status: final
   subdir: NETWORK/TEMP
-  filename: VALLEY_BOTTOM_MASK.vrt
+  filename: VALLEY_BOTTOM_FEATURES.vrt
   tiles:
     tileset: landcover
-    template: VALLEY_BOTTOM_MASK_%(row)02d_%(col)02d
+    template: VALLEY_BOTTOM_FEATURES_%(row)02d_%(col)02d
     extension: .tif
 
 valley_bottom_connected:

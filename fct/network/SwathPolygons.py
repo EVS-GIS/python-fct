@@ -28,7 +28,7 @@ from .. import transform as fct
 from .. import speedup
 from ..cli import starcall
 
-from .ValleyBottomMask2 import (
+from .ValleyBottomFeatures import (
     MASK_FLOOPLAIN_RELIEF,
     MASK_VALLEY_BOTTOM
 )
@@ -197,7 +197,6 @@ def Swaths(params, processes=1, **kwargs):
             )
 
     g_attrs = dict()
-    measure0 = float('inf')
 
     def merge_bounds(bounds1, bounds2):
 
@@ -236,10 +235,7 @@ def Swaths(params, processes=1, **kwargs):
 
                 merge(sw_infos)
 
-                if measure0 > measure_min:
-                    measure0 = measure_min
-
-    return measure0, g_attrs
+    return g_attrs
 
 def measure_to_swath_identifier(measures, swath_length):
     """
