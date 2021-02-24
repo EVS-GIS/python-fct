@@ -241,16 +241,23 @@ def Swaths(params, processes=1, **kwargs):
 
     return measure0, g_attrs
 
-def VectorizeOneSwath(axis, gid, measure, measure_min, bounds, params, **kwargs):
+def measure_to_swath_identifier(measures, swath_length):
+    """
+    Transform congruently metric measures to swath int identifier
+    """
+
+    return np.uint32(np.round(measures / swath_length + 0.5))
+
+def VectorizeOneSwath(axis, gid, measure, bounds, params, **kwargs):
     """
     Vectorize swath polygon connected to talweg
     """
 
     # tileset = config.tileset()
 
-    nearest_raster = params.nearest.filename()
-    swaths_raster = params.swaths.filename()
-    distance_raster = params.distance.filename()
+    nearest_raster = params.nearest.filename(**kwargs)
+    swaths_raster = params.swaths.filename(**kwargs)
+    distance_raster = params.distance.filename(**kwargs)
 
     with rio.open(nearest_raster) as ds:
 
@@ -261,7 +268,8 @@ def VectorizeOneSwath(axis, gid, measure, measure_min, bounds, params, **kwargs)
 
         window = as_window(bounds, ds.transform)
         swaths = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
-        swaths = np.uint32(np.round((swaths - measure_min) / params.swath_length) + 1)
+        # swaths = np.uint32(np.round((swaths - measure_min) / params.swath_length) + 1)
+        swaths = measure_to_swath_identifier(swaths, params.swath_length)
 
     with rio.open(distance_raster) as ds:
 
@@ -301,25 +309,24 @@ def VectorizeOneSwath(axis, gid, measure, measure_min, bounds, params, **kwargs)
 
         return axis, gid, measure, list(polygons)
 
-def VectorizeSwaths(swaths_infos, measure_min, params, processes=1, **kwargs):
+def VectorizeSwaths(swaths_infos, params, processes=1, **kwargs):
     """
     Vectorize spatial units' polygons
     """
-
-    # swaths_infos = SwathsBounds(params)
 
     def arguments():
 
         for (axis, measure), bounds in swaths_infos.items():
 
-            gid = np.round((measure - measure_min) / params.swath_length) + 1
+            # gid = np.round((measure - measure_min) / params.swath_length) + 1
+            gid = measure_to_swath_identifier(measure, params.swath_length)
 
             yield (
                 VectorizeOneSwath,
                 axis,
                 gid,
                 measure,
-                measure_min,
+                # measure_min,
                 bounds,
                 params,
                 kwargs

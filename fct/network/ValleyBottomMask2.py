@@ -1,11 +1,12 @@
 # coding: utf-8
 
 """
-Create Valley Bottom Mask from Height Raster
+Delineate valley bottom features from drainage dependent thresholds
 """
 
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 from multiprocessing import Pool
+from typing import List, Dict, Tuple, Callable
 
 import numpy as np
 from scipy.signal import convolve2d
@@ -24,9 +25,11 @@ from ..cli import starcall
 MASK_EXTERIOR = 0 # NODATA
 MASK_SLOPE = 1
 MASK_TERRACE = 2
-MASK_FLOOPLAIN_RELIEF = 3
-MASK_VALLEY_BOTTOM = 4
-MASK_HOLE = 5
+MASK_HOLE = 3
+MASK_FLOOPLAIN_RELIEF = 4
+MASK_VALLEY_BOTTOM = 5
+
+SwathDrainageDict = Dict[Tuple[int, float], float]
 
 ValleyBottomThreshold = namedtuple(
     'ValleyBottomThreshold',
@@ -34,7 +37,7 @@ ValleyBottomThreshold = namedtuple(
 
 class Parameters:
     """
-    Valley bottom mask creation parameters
+    Valley bottom delineation creation parameters
     """
 
     tiles = DatasetParameter('domain tiles as CSV list', type='input')
@@ -103,7 +106,31 @@ class Parameters:
             ValleyBottomThreshold(1000, 20.0, 2500.0, 6.0, 3.5)
         ]
 
-def calculate_slope(dem_raster, nodata=999.0):
+def make_resolve_thresholds_fun(thresholds: List[ValleyBottomThreshold]) -> Callable:
+    """
+    Create a new function to resolve drainage dependent thresholds
+    from on drainage-ordered list of threshold values.
+    """
+
+    def resolve_thresholds(sw_drainage: float) -> ValleyBottomThreshold:
+        """
+        Return drainage dependent thresholds
+        """
+
+        threshold = thresholds[0]
+
+        for t in thresholds[1:]:
+
+            if sw_drainage < t.drainage_min:
+                break
+
+            threshold = t
+
+        return threshold
+
+    return resolve_thresholds
+
+def calculate_slope(dem_raster: str, nodata: float = 999.0):
     """
     Calculate slope in % from DEM elevations
     """
@@ -130,7 +157,7 @@ def calculate_slope(dem_raster, nodata=999.0):
 
     return slope
 
-def calculate_swaths(measure_raster, swath_length):
+def calculate_swaths(measure_raster: str, swath_length: float):
     """
     Transform measure raster into swath identifiers
     """
@@ -147,7 +174,10 @@ def calculate_swaths(measure_raster, swath_length):
 
     return swaths, measures
 
-def SwathDrainageTile(row, col, params, **kwargs):
+def SwathDrainageTile(row: int, col: int, params: Parameters, **kwargs):
+    """
+    Return tile's swaths max drainage area
+    """
 
     axis_raster = params.axis.tilename(row=row, col=col, **kwargs)
     drainage_raster = params.drainage.tilename(row=row, col=col, **kwargs)
@@ -185,7 +215,15 @@ def SwathDrainageTile(row, col, params, **kwargs):
 
     return result
 
-def ValleyBottomMaskTile(row, col, params, drainage, **kwargs):
+def ClassifyValleyBottomTile(
+        row: int,
+        col: int,
+        params: Parameters,
+        drainage: SwathDrainageDict,
+        **kwargs):
+    """
+    Classify valley bottom features - tile algorithm
+    """
 
     dem_raster = params.dem.tilename(row=row, col=col, **kwargs)
     # drainage_raster = params.drainage.tilename(row=row, col=col, **kwargs)
@@ -209,21 +247,16 @@ def ValleyBottomMaskTile(row, col, params, drainage, **kwargs):
     with rio.open(distance_raster) as ds:
         distance = np.abs(ds.read(1))
 
-    def resolve_thresholds(sw_drainage):
+    if isinstance(params.thresholds, Callable):
 
-        thresholds = params.thresholds[0]
+        resolve_thresholds = params.thresholds
 
-        for t in params.thresholds[1:]:
-            
-            if sw_drainage < t.drainage_min:
-                break
+    else:
 
-            thresholds = t
-
-        return thresholds
+        resolve_thresholds = make_resolve_thresholds_fun(params.thresholds)
 
     with rio.open(height_raster) as ds:
-    
+
         height = ds.read(1)
         out = np.full_like(height, MASK_EXTERIOR, dtype='uint8')
 
@@ -240,8 +273,6 @@ def ValleyBottomMaskTile(row, col, params, drainage, **kwargs):
                 sw_measure = measures[sw-1]
                 sw_mask = (axis == ax) & (swaths == sw)
 
-                # TODO compute swath drainage in separate loop
-                #      in order to avoid tile boundary problems
                 sw_drainage = drainage[ax, sw_measure]
                 sw_height_max = params.height_max
                 thresholds = resolve_thresholds(sw_drainage)
@@ -305,7 +336,38 @@ def ValleyBottomMaskTile(row, col, params, drainage, **kwargs):
         with rio.open(output, 'w', **profile) as dst:
             dst.write(out, 1)
 
-def SwathDrainage(params, processes=1, **kwargs):
+def ensure_monotonic(drainage: SwathDrainageDict) -> SwathDrainageDict:
+    """
+    Clamp drainage values to ensure monotonic increase
+    in measure descending order
+    """
+
+    values = defaultdict(list)
+    monotonic = dict()
+
+    for (ax, measure), value in drainage.items():
+
+        values[ax].append((measure, value))
+
+    for ax in values:
+
+        value_min = 0.0
+
+        for measure, value in sorted(values[ax], reverse=True):
+
+            if value < value_min:
+                value = value_min
+            else:
+                value_min = value
+
+            monotonic[ax, measure] = value
+
+    return monotonic
+
+def SwathDrainage(params: Parameters, processes: int = 1, **kwargs) -> SwathDrainageDict:
+    """
+    Calculate swaths max drainage area
+    """
 
     tilefile = params.tiles.filename()
 
@@ -336,16 +398,27 @@ def SwathDrainage(params, processes=1, **kwargs):
 
         with click.progressbar(pooled, length=length()) as iterator:
             for t_drainage in iterator:
-                
-                drainage.update({k: max(drainage[k], t_drainage[k]) for k in t_drainage.keys() & drainage.keys()})
-                drainage.update({k: t_drainage[k] for k in t_drainage.keys() - drainage.keys()})
 
-        return drainage
+                drainage.update({
+                    k: max(drainage[k], t_drainage[k])
+                    for k in t_drainage.keys() & drainage.keys()
+                })
 
-def ValleyBottomMask(params, drainage, processes=1, **kwargs):
+                drainage.update({
+                    k: t_drainage[k]
+                    for k in t_drainage.keys() - drainage.keys()
+                })
+
+        return ensure_monotonic(drainage)
+
+def ClassifyValleyBottomFeatures(params: Parameters, drainage: SwathDrainageDict, processes: int = 1, **kwargs):
     """
-    Creates a raster buffer with distance buffer_width pixels
-    around data pixels and crop out data outside of the resulting buffer
+    Classify valley bottom features :
+
+    - apply drainage dependent thresholds
+      on input rasters (height, slope, distance)
+
+    - optionally, output slopes calculated from DEM.
     """
 
     tilefile = params.tiles.filename()
@@ -362,7 +435,7 @@ def ValleyBottomMask(params, drainage, processes=1, **kwargs):
 
         for row, col in tiles:
             yield (
-                ValleyBottomMaskTile,
+                ClassifyValleyBottomTile,
                 row,
                 col,
                 params,
