@@ -35,6 +35,9 @@ class Parameters:
     slope = DatasetParameter(
         'slope raster',
         type='input')
+    height = DatasetParameter(
+        'height raster (HAND)',
+        type='input')
     distance = DatasetParameter(
         'distance to drainage pixels (raster)',
         type='input')
@@ -60,6 +63,7 @@ class Parameters:
         self.tiles = dict(key='ax_shortest_tiles', axis=axis)
         self.dem = 'dem'
         self.slope = 'slope'
+        self.height = dict(key='ax_nearest_height', axis=axis)
         self.distance = dict(key='ax_nearest_distance', axis=axis)
         self.measure = dict(key='ax_axis_measure', axis=axis)
         self.valley_bottom = dict(key='ax_valley_bottom_final', axis=axis)
@@ -142,6 +146,9 @@ def ElevationDistroTile(
     with rio.open(params.distance.tilename(row=row, col=col, **kwargs)) as ds:
         distance = ds.read(1)
 
+    with rio.open(params.height.tilename(row=row, col=col, **kwargs)) as ds:
+        height = ds.read(1)
+
     if params.include_xy:
 
         rows, cols = np.nonzero(mask)
@@ -152,6 +159,7 @@ def ElevationDistroTile(
             measure[mask],
             distance[mask],
             elevations[mask],
+            height[mask],
             slope[mask],
             valley_bottom[mask],
             xy
@@ -161,6 +169,7 @@ def ElevationDistroTile(
         measure[mask],
         distance[mask],
         elevations[mask],
+        height[mask],
         slope[mask],
         valley_bottom[mask]
     ])
@@ -197,11 +206,11 @@ def ElevationDistro(
 
     if params.include_xy:
 
-        distro = np.zeros((0, 7), dtype='float32')
-        
+        distro = np.zeros((0, 8), dtype='float32')
+
     else:
-        
-        distro = np.zeros((0, 5), dtype='float32')
+
+        distro = np.zeros((0, 6), dtype='float32')
 
     with Pool(processes=processes) as pool:
 
@@ -218,39 +227,49 @@ def ElevationDistro(
     if params.include_xy:
 
         return xr.Dataset({
-            'x': (('sample',), distro[:, 5]),
-            'y': (('sample',), distro[:, 6]),
+            'x': (('sample',), distro[:, 6]),
+            'y': (('sample',), distro[:, 7]),
             'measure': (('sample',), distro[:, 0]),
             'distance': (('sample',), distro[:, 1]),
             'z': (('sample',), distro[:, 2]),
-            'slope': (('sample',), distro[:, 3]),
-            'vbot': (('sample',), np.uint8(distro[:, 4]))
+            'height': (('sample',), distro[:, 3]),
+            'slope': (('sample',), distro[:, 4]),
+            'vbot': (('sample',), np.uint8(distro[:, 5]))
         })
 
     return xr.Dataset({
         'measure': (('sample',), distro[:, 0]),
         'distance': (('sample',), distro[:, 1]),
         'z': (('sample',), distro[:, 2]),
-        'slope': (('sample',), distro[:, 3]),
-        'vbot': (('sample',), np.uint8(distro[:, 4]))
+        'height': (('sample',), distro[:, 3]),
+        'slope': (('sample',), distro[:, 4]),
+        'vbot': (('sample',), np.uint8(distro[:, 5]))
     })
 
 def WriteDistroToDisk(data: xr.Dataset, filename: str):
 
     # TODO set metadata
 
+    encoding = {
+        'measure': dict(zlib=True, complevel=9, least_significant_digit=0),
+        'distance': dict(zlib=True, complevel=9, least_significant_digit=1),
+        'z': dict(zlib=True, complevel=9, least_significant_digit=1),
+        'height': dict(zlib=True, complevel=9, least_significant_digit=2),
+        'slope': dict(zlib=True, complevel=9, least_significant_digit=3),
+        'vbot': dict(zlib=True, complevel=9)
+    }
+
+    if 'x' in data:
+
+        encoding.update({
+            'x': dict(zlib=True, complevel=9, least_significant_digit=0),
+            'y': dict(zlib=True, complevel=9, least_significant_digit=0)
+        })
+
     data.to_netcdf(
         filename,
         'w',
-        encoding={
-            # 'x': dict(zlib=True, complevel=9, least_significant_digit=0),
-            # 'y': dict(zlib=True, complevel=9, least_significant_digit=0),
-            'measure': dict(zlib=True, complevel=9, least_significant_digit=0),
-            'distance': dict(zlib=True, complevel=9, least_significant_digit=1),
-            'z': dict(zlib=True, complevel=9, least_significant_digit=1),
-            'slope': dict(zlib=True, complevel=9, least_significant_digit=3),
-            'vbot': dict(zlib=True, complevel=9)
-        })
+        encoding=encoding)
 
 def WriteDistroToShapefile(data: xr.Dataset, filename: str):
 
