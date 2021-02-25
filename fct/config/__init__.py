@@ -20,5 +20,5 @@ from .descriptors import (
     LiteralParameter,
     DatasourceParameter,
     DatasetParameter,
-    Workflow
+    WorkflowContext
 )

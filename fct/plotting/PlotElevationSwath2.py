@@ -153,19 +153,19 @@ def plot_profile_quantiles(ax: Axes, dataset: xr.Dataset) -> Axes:
             ax.fill_between(
                 xk, profilek[:, 0], profilek[:, 4],
                 facecolor='#b9d8e6',
-                alpha = 0.2,
+                alpha=0.2,
                 interpolate=True)
 
             ax.plot(
                 xk, profilek[:, 0], "gray", xk, profilek[:, 4],
                 "gray",
-                linewidth = 0.5,
+                linewidth=0.5,
                 linestyle='--')
 
             ax.fill_between(
                 xk, profilek[:, 1], profilek[:, 3],
                 facecolor='#48638a',
-                alpha = 0.5,
+                alpha=0.5,
                 interpolate=True)
 
             ax.plot(

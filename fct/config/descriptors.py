@@ -232,7 +232,7 @@ class DatasetResolver():
     def __repr__(self):
         return f'DatasetResolver({self.key})'
 
-class Workflow():
+class WorkflowContext():
     """
     A context manager that allows for specific execution configuration
     and records execution details.

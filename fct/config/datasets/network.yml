@@ -195,7 +195,7 @@ valley_bottom_final:
     template: VALLEY_BOTTOM_%(row)02d_%(col)02d
     extension: .tif
 
-continuity:
+continuity_raw:
   description: |
     Landcover continuity map
   type: raster
@@ -205,7 +205,7 @@ continuity:
   filename: LANDCOVER_CONTINUITY.vrt
   tiles:
     tileset: landcover
-    template: LANDCOVER_CONTINUITY_%(row)02d_%(col)02d
+    template: LANDCOVER_CONTINUITY_RAW_%(row)02d_%(col)02d
     extension: .tif
 
 continuity_state:
@@ -234,9 +234,35 @@ continuity_distance:
     template: LANDCOVER_CONTINUITY_DISTANCE_%(row)02d_%(col)02d
     extension: .tif
 
-continuity_variant:
+continuity_variant_raw:
   description: |
     Landcover continuity map (Variants)
+  type: raster
+  group: corridor
+  status: final
+  subdir: NETWORK/CONTINUITY
+  filename: LANDCOVER_CONTINUITY_RAW_%(variant)s.vrt
+  tiles:
+    tileset: landcover
+    template: LANDCOVER_CONTINUITY_RAW_%(variant)s_%(row)02d_%(col)02d
+    extension: .tif
+
+continuity_final:
+  description: |
+    Interpreted landcover continuity map
+  type: raster
+  group: corridor
+  status: final
+  subdir: NETWORK/CONTINUITY
+  filename: LANDCOVER_CONTINUITY.vrt
+  tiles:
+    tileset: landcover
+    template: LANDCOVER_CONTINUITY_%(row)02d_%(col)02d
+    extension: .tif
+
+continuity_variant_final:
+  description: |
+    Interpreted landcover continuity map (Variants)
   type: raster
   group: corridor
   status: final
@@ -245,32 +271,6 @@ continuity_variant:
   tiles:
     tileset: landcover
     template: LANDCOVER_CONTINUITY_%(variant)s_%(row)02d_%(col)02d
-    extension: .tif
-
-continuity_remapped:
-  description: |
-    Interpreted landcover continuity map
-  type: raster
-  group: corridor
-  status: final
-  subdir: NETWORK/CONTINUITY
-  filename: LANDCOVER_CONTINUITY_FINAL.vrt
-  tiles:
-    tileset: landcover
-    template: LANDCOVER_CONTINUITY_FINAL_%(row)02d_%(col)02d
-    extension: .tif
-
-continuity_variant_remapped:
-  description: |
-    Interpreted landcover continuity map (Variants)
-  type: raster
-  group: corridor
-  status: final
-  subdir: NETWORK/CONTINUITY
-  filename: LANDCOVER_CONTINUITY_%(variant)s_FINAL.vrt
-  tiles:
-    tileset: landcover
-    template: LANDCOVER_CONTINUITY_%(variant)s_FINAL_%(row)02d_%(col)02d
     extension: .tif
 
 axis_distance:

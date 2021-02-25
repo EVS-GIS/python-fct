@@ -15,6 +15,23 @@ import fiona
 from ..cli import starcall
 from ..config import DatasetParameter
 
+LANDCOVER_WATER = 0
+LANDCOVER_GRAVELS = 1
+LANDCOVER_OPEN_VEGETATION = 2
+LANDCOVER_FORESTED = 3
+LANDCOVER_MEADOWS = 4
+LANDCOVER_CROPS = 5
+LANDCOVER_URBAN_DIFFUSE = 6
+LANDCOVER_BUILT = 7
+LANDCOVER_INFRASTRUCTURES = 8
+
+CONTINUITY_ACTIVE_CHANNEL = 1
+CONTINUITY_RIPARIAN_BUFFER = 10
+CONTINUITY_CONNECTED_MEADOWS = 20
+CONTINUITY_CONNECTED_CULTIVATED = 30
+CONTINUITY_DISCONNECTED = 40
+CONTINUITY_BUILT = 50
+
 class Parameters:
     """
     Continuity remapping parameters
@@ -34,7 +51,6 @@ class Parameters:
         self.landcover = 'landcover-bdt'
         self.continuity = 'continuity'
         self.output = 'continuity_remapped'
-
 
 def RemapContinuityTile(row: int, col: int, params: Parameters, **kwargs):
     """
@@ -57,12 +73,37 @@ def RemapContinuityTile(row: int, col: int, params: Parameters, **kwargs):
             data = ds.read(1)
             out = np.full_like(data, ds.nodata)
 
-            out[(data == 0) | (data == 1)] = 1
-            out[(data == 2) | (data == 3)] = 10
-            out[(data == 4)] = 20
-            out[(data == 5)] = 30
-            out[(data >= 6) & (data <= 8) & (landcover >= 0) & (landcover <= 5)] = 40
-            out[(data >= 6) & (data <= 8) & (landcover >= 6) & (landcover <= 8)] = 50
+            out[
+                (data == LANDCOVER_WATER) |
+                (data == LANDCOVER_GRAVELS)
+            ] = CONTINUITY_ACTIVE_CHANNEL
+
+            out[
+                (data == LANDCOVER_OPEN_VEGETATION) |
+                (data == LANDCOVER_FORESTED)
+            ] = CONTINUITY_RIPARIAN_BUFFER
+
+            out[
+                (data == LANDCOVER_MEADOWS)
+            ] = CONTINUITY_CONNECTED_MEADOWS
+
+            out[
+                (data == LANDCOVER_CROPS)
+            ] = CONTINUITY_CONNECTED_CULTIVATED
+
+            out[
+                (data >= LANDCOVER_URBAN_DIFFUSE) &
+                (data <= LANDCOVER_INFRASTRUCTURES) &
+                (landcover >= LANDCOVER_WATER) &
+                (landcover <= LANDCOVER_CROPS)
+            ] = CONTINUITY_DISCONNECTED
+
+            out[
+                (data >= LANDCOVER_URBAN_DIFFUSE) &
+                (data <= LANDCOVER_INFRASTRUCTURES) &
+                (landcover >= LANDCOVER_URBAN_DIFFUSE) &
+                (landcover <= LANDCOVER_INFRASTRUCTURES)
+            ] = CONTINUITY_BUILT
 
             # profile.update(
             #     height=height,
