@@ -36,8 +36,11 @@ class Parameters:
     nearest = DatasetParameter(
         'nearest drainage axis (raster)',
         type='input')
-    distance = DatasetParameter(
-        'distance to drainage pixels (raster)',
+    axis_distance = DatasetParameter(
+        'distance to measure axis (raster)',
+        type='input')
+    talweg_distance = DatasetParameter(
+        'distance to talweg (raster)',
         type='input')
     swaths = DatasetParameter(
         'swaths raster (discretized measures)',
@@ -67,7 +70,8 @@ class Parameters:
 
         self.values = 'dem'
         self.nearest = 'nearest_drainage_axis'
-        self.distance = 'nearest_distance'
+        self.axis_distance = 'axis_distance'
+        self.talweg_distance = 'nearest_distance'
         self.swaths = 'swaths_refaxis'
         self.polygons = 'swaths_refaxis_polygons'
         self.output = 'swath_elevation'
@@ -123,11 +127,17 @@ def SwathProfileUnit(
         nearest = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
         # nearest_nodata = ds.nodata
 
-    with rio.open(params.distance.filename(**kwargs)) as ds:
+    with rio.open(params.axis_distance.filename(**kwargs)) as ds:
 
         window = as_window(bounds, ds.transform)
         distance = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
         # distance_nodata = ds.nodata
+
+    with rio.open(params.talweg_distance.filename(**kwargs)) as ds:
+
+        window = as_window(bounds, ds.transform)
+        talweg_distance = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
+        talweg_distance_nodata = ds.nodata
 
     with rio.open(params.swaths.filename(**kwargs)) as ds:
 
@@ -150,55 +160,77 @@ def SwathProfileUnit(
 
     binned = np.digitize(distance, distance_bins)
     middle = np.float32(0.5*(distance_bins[1:] + distance_bins[:-1]))
+    left = (talweg_distance != talweg_distance_nodata) & (talweg_distance >= 0)
+    right = (talweg_distance != talweg_distance_nodata) & (talweg_distance < 0)
 
     if params.is_continuous:
 
-        density = np.zeros(len(middle), dtype='uint16')
+        density = np.zeros((len(middle), 2), dtype='uint16')
+        means = np.zeros((len(middle), 2), dtype='float32')
         percentiles = np.zeros((len(middle), len(params.percentiles)), dtype='float32')
 
         for i, _ in enumerate(middle):
 
             maski = mask & (binned == i+1)
-            count = density[i] = np.sum(maski)
+            count_left = density[i, 0] = np.sum(maski & left)
+            count_right = density[i, 1] = np.sum(maski & right)
 
-            if count > 0:
+            if (count_left + count_right) > 0:
+
+                if count_left > 0:
+                    means[i, 0] = np.mean(values[maski & left])
+
+                if count_right > 0:
+                    means[i, 1] = np.mean(values[maski & right])
 
                 percentiles[i, :] = np.percentile(values[maski], params.percentiles)
 
         dataset = xr.Dataset({
+            'density': (('sample', 'side'), density),
+            'mean': (('sample', 'side'), means),
+            'profile': (('sample', 'quantile'), percentiles)
+        }, coords={
             'axis': (('sample',), np.full_like(middle, axis, dtype='uint32')),
             'measure': (('sample',), np.full_like(middle, measure)),
             'distance': (('sample',), middle),
-            'density': (('sample',), density),
-            'height': (('sample', 'quantile'), percentiles)
-        }, coords={
-            'quantile': params.percentiles
+            'quantile': params.percentiles,
+            'side': ['left', 'right']
         })
 
     else:
 
         labels = list(sorted(params.labels.items()))
 
-        profile = np.zeros((len(middle), len(labels)), dtype='uint16')
+        profile = np.zeros((len(middle), len(labels), 2), dtype='uint16')
 
         for i, _ in enumerate(middle):
 
             maski = mask & (binned == i+1)
-            count = np.sum(maski)
 
-            if count > 0:
+            mask_left = maski & left
+            mask_right = maski & right
 
-                for k, (label, _) in enumerate(labels):
+            count_left = np.sum(mask_left)
+            count_right = np.sum(mask_right)
 
-                    profile[i, k] = np.sum(maski & (values == label))
+            for k, (label, _) in enumerate(labels):
+
+                mask_k = (values == label)
+
+                if count_left > 0:
+                    profile[i, k, 0] = np.sum(mask_k & mask_left)
+
+                if count_right > 0:
+                    profile[i, k, 1] = np.sum(mask_k & mask_right)
 
         dataset = xr.Dataset({
+            'profile': (('sample', 'label', 'side'), profile)
+        }, coords={
             'axis': (('sample',), np.full_like(middle, axis, dtype='uint32')),
             'measure': (('sample',), np.full_like(middle, measure)),
             'distance': (('sample',), middle),
-            'profile': (('sample', 'klasses'), profile)
-        }, coords={
-            'klasses': [label for _, label in labels]
+            'label': [label for _, label in labels],
+            'side': ['left', 'right']
         })
 
     # return dataset.set_index(sample=('axis', 'measure', 'distance'))
