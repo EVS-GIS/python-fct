@@ -1,0 +1,35 @@
+planform_inflection_points:
+  description: |
+    planform inflection points
+  type: point
+  group: planform
+  status: final
+  subdir: NETWORK/PLANFORM
+  filename: INFLECTION_POINTS.shp
+
+planform_axis:
+  description: |
+    planform axis passing through inflection points
+  type: linestring
+  group: planform
+  status: final
+  subdir: NETWORK/PLANFORM
+  filename: PLANFORM_AXIS.shp
+
+planform_segments:
+  description: |
+    segments between inflection points
+  type: linestring
+  group: planform
+  status: final
+  subdir: NETWORK/PLANFORM
+  filename: SEGMENTS.shp
+
+amplitude_stems:
+  description: |
+    maximum amplitude stems
+  type: linestring
+  group: planform
+  status: final
+  subdir: NETWORK/PLANFORM
+  filename: AMPLITUDE.shp
