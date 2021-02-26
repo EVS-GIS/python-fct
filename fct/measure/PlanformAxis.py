@@ -14,6 +14,7 @@ Planform Metrics
 """
 
 import math
+from collections import defaultdict
 from heapq import heappush, heappop, heapify
 from functools import total_ordering
 from operator import itemgetter
@@ -22,9 +23,10 @@ import numpy as np
 import click
 import fiona
 import fiona.crs
-from shapely.geometry import asShape, LineString, Point
-from shapely.ops import nearest_points
+from shapely.geometry import LineString, Point
+from shapely.ops import nearest_points, linemerge
 
+from ..simplify import simplify
 from ..config import (
     DatasetParameter,
     LiteralParameter
@@ -42,10 +44,13 @@ class Parameters:
     inflection_points = DatasetParameter('inflection points', type='output')
     segments = DatasetParameter('segments between inflection points', type='output')
     amplitude_stems = DatasetParameter('maximum amplitude stems', type='output')
-    planform_axis = DatasetParameter('planform axis passing through inflection points', type='output')
+    planform_axis_segments = DatasetParameter('planform axis passing through inflection points', type='output')
+    planform_axis = DatasetParameter('concatenated and smoothed planform axis', type='output')
 
     amplitude_min = LiteralParameter('minimum amplitude value to retain')
     distance_max = LiteralParameter('maximum interdistance between inflection points')
+    simplify_distance = LiteralParameter('planform simplification distance threshold')
+    smooth_iterations = LiteralParameter('smooth iterations')
 
     def __init__(self):
         """
@@ -56,10 +61,13 @@ class Parameters:
         self.inflection_points = 'planform_inflection_points'
         self.segments = 'planform_segments'
         self.amplitude_stems = 'amplitude_stems'
+        self.planform_axis_segments = 'planform_axis_segments'
         self.planform_axis = 'planform_axis'
 
         self.amplitude_min = 20.0
-        self.distance_max = 2000.0
+        self.distance_max = 1000.0
+        self.simplify_distance = 45.0
+        self.smooth_iterations = 3
 
 def vector_angle(a, b):
     """
@@ -249,8 +257,8 @@ class QueueEntry(object):
     def __repr__(self):
 
         return (
-            'QueueEntry %d previous = %s, next = %s, priority = %f, interdistance = %f' %
-            (self.index, self.previous, self.next, self.priority, self.interdistance)
+            'QueueEntry %d previous = %s, next = %s, priority = %f' %
+            (self.index, self.previous, self.next, self.priority)
         )
 
     def axis_angle(self, inflection_points):
@@ -287,6 +295,126 @@ class QueueEntry(object):
 
         return l1 + l2
 
+def open_sink_axis_segment(filename, **options):
+
+    schema = {
+        'geometry': 'LineString',
+        'properties': [
+            ('FID', 'int'),
+            ('AXIS', 'int')
+        ]
+    }
+
+    with fiona.open(filename, 'w', schema=schema, **options) as fst:
+        while True:
+
+            axis, fid, p0, p1 = (yield)
+
+            geometry = {'type': 'LineString', 'coordinates': [p0, p1]}
+            properties = {
+                'FID': fid,
+                'AXIS': axis
+            }
+
+            fst.write(dict(geometry=geometry, properties=properties))
+
+def open_sink_segment(filename, **options):
+
+    schema = {
+        'geometry': 'LineString',
+        'properties': [
+            ('fid', 'int'),
+            ('axis', 'int'),
+            ('measure', 'float:7.1'),
+            ('npts', 'int'),
+            ('lbend', 'float:7.1'),
+            ('lwave', 'float:7.1'),
+            ('sinuo', 'float:5.3'),
+            ('ampli', 'float:6.2'),
+            ('omeg0', 'float'),
+            ('omeg1', 'float')
+        ]
+    }
+
+    with fiona.open(filename, 'w', schema=schema, **options) as fst:
+        while True:
+
+            axis, fid, bend = (yield)
+
+            geometry = {'type': 'LineString', 'coordinates': bend.points}
+            properties = {
+                'fid': fid,
+                'axis': axis,
+                'measure': bend.measure,
+                'npts': bend.npoints(),
+                'lbend': bend.length(),
+                'lwave': bend.wavelength(),
+                'sinuo': bend.sinuosity(),
+                'ampli': bend.amplitude(),
+                'omeg0': bend.omega_origin(),
+                'omeg1': bend.omega_end()
+            }
+
+            fst.write(dict(geometry=geometry, properties=properties))
+
+def open_sink_amplitude_stem(filename, **options):
+
+    schema = {
+        'geometry': 'LineString',
+        'properties': [
+            ('fid', 'int'),
+            ('axis', 'int'),
+            ('ampli', 'float:6.2')
+        ]
+    }
+
+    with fiona.open(filename, 'w', schema=schema, **options) as fst:
+        while True:
+
+            axis, fid, bend = (yield)
+
+            stem, _ = bend.max_amplitude_stem()
+
+            if stem is None:
+                # ProcessingLog.addToLog(ProcessingLog.LOG_INFO, str(points))
+                continue
+
+            geometry = stem.__geo_interface__
+            properties = {
+                'fid': fid,
+                'axis': axis,
+                'ampli': stem.length
+            }
+
+            fst.write(dict(geometry=geometry, properties=properties))
+
+def open_sink_inflection_point(filename, **options):
+
+    schema = {
+        'geometry': 'Point',
+        'properties': [
+            ('gid', 'int'),
+            ('axis', 'int'),
+            ('angle', 'float'),
+            ('interdist', 'float:6.2')
+        ]
+    }
+
+    with fiona.open(filename, 'w', schema=schema, **options) as fst:
+        while True:
+
+            axis, point_id, point, angle, interdistance = (yield)
+
+            geometry = {'type': 'Point', 'coordinates': point}
+            properties = {
+                'gid': point_id,
+                'axis': axis,
+                'angle': angle,
+                'interdist': interdistance
+            }
+
+            fst.write(dict(geometry=geometry, properties=properties))
+
 def PlanformAxis(params: Parameters, **kwargs):
     """
     Disaggregate stream polyline by inflection points,
@@ -295,117 +423,7 @@ def PlanformAxis(params: Parameters, **kwargs):
 
     resolution = params.amplitude_min
     lmax = params.distance_max
-
-    def sink_axis_segment(filename, **options):
-
-        schema = {
-            'geometry': 'LineString',
-            'properties': [
-                ('fid', 'int')
-            ]
-        }
-
-        with fiona.open(filename, 'w', schema=schema, **options) as fst:
-            while True:
-
-                fid, p0, p1, feature = (yield)
-
-                geometry = {'type': 'LineString', 'coordinates': [p0, p1]}
-                properties = {
-                    'fid': fid
-                }
-
-                fst.write(dict(geometry=geometry, properties=properties))
-
-    def sink_segment(filename, **options):
-
-        schema = {
-            'geometry': 'LineString',
-            'properties': [
-                ('fid', 'int'),
-                ('measure', 'float:7.1'),
-                ('npts', 'int'),
-                ('lbend', 'float:7.1'),
-                ('lwave', 'float:7.1'),
-                ('sinuo', 'float:5.3'),
-                ('ampli', 'float:6.2'),
-                ('omeg0', 'float'),
-                ('omeg1', 'float')
-            ]
-        }
-
-        with fiona.open(filename, 'w', schema=schema, **options) as fst:
-            while True:
-
-                fid, bend, feature = (yield)
-
-                geometry = {'type': 'LineString', 'coordinates': bend.points}
-                properties = {
-                    'fid': fid,
-                    'measure': bend.measure,
-                    'npts': bend.npoints(),
-                    'lbend': bend.length(),
-                    'lwave': bend.wavelength(),
-                    'sinuo': bend.sinuosity(),
-                    'ampli': bend.amplitude(),
-                    'omeg0': bend.omega_origin(),
-                    'omeg1': bend.omega_end()
-                }
-
-                fst.write(dict(geometry=geometry, properties=properties))
-
-    def sink_amplitude_stem(filename, **options):
-
-        schema = {
-            'geometry': 'LineString',
-            'properties': [
-                ('fid', 'int'),
-                ('ampli', 'float:6.2')
-            ]
-        }
-
-        with fiona.open(filename, 'w', schema=schema, **options) as fst:
-            while True:
-
-                fid, bend = (yield)
-
-                stem, _ = bend.max_amplitude_stem()
-
-                if stem is None:
-                    # ProcessingLog.addToLog(ProcessingLog.LOG_INFO, str(points))
-                    continue
-
-                geometry = stem.__geo_interface__
-                properties = {
-                    'fid': fid,
-                    'ampli': stem.length
-                }
-
-                fst.write(dict(geometry=geometry, properties=properties))
-
-    def sink_inflection_point(filename, **options):
-
-        schema = {
-            'geometry': 'Point',
-            'properties': [
-                ('gid', 'int'),
-                ('angle', 'float'),
-                ('interdist', 'float:6.2')
-            ]
-        }
-
-        with fiona.open(filename, 'w', schema=schema, **options) as fst:
-            while True:
-
-                point_id, point, angle, interdistance = (yield)
-                geometry = {'type': 'Point', 'coordinates': point}
-                properties = {
-                    'gid': point_id,
-                    'angle': angle,
-                    'interdist': interdistance
-                }
-
-                fst.write(dict(geometry=geometry, properties=properties))
+    simplify_threshold = 0.4330 * params.simplify_distance**2
 
     # total = 100.0 / layer.featureCount() if layer.featureCount() else 0
     fid = 0
@@ -419,19 +437,19 @@ def PlanformAxis(params: Parameters, **kwargs):
 
         options = dict(driver=fs.driver, crs=fs.crs)
 
-        output_segment = sink_segment(
+        output_segment = open_sink_segment(
             params.segments.filename(tileset=None, **kwargs),
             **options)
 
-        output_inflection_point = sink_inflection_point(
+        output_inflection_point = open_sink_inflection_point(
             params.inflection_points.filename(tileset=None, **kwargs),
             **options)
 
-        output_axis_segment = sink_axis_segment(
-            params.planform_axis.filename(tileset=None, **kwargs),
+        output_axis_segment = open_sink_axis_segment(
+            params.planform_axis_segments.filename(tileset=None, **kwargs),
             **options)
 
-        output_amplitude_stem = sink_amplitude_stem(
+        output_amplitude_stem = open_sink_amplitude_stem(
             params.amplitude_stems.filename(tileset=None, **kwargs),
             **options)
 
@@ -443,8 +461,19 @@ def PlanformAxis(params: Parameters, **kwargs):
         with click.progressbar(fs) as iterator:
             for feature in iterator:
 
-                # points = feature.geometry().asPolyline()
-                points = np.asarray(feature['geometry']['coordinates'])
+                axis = feature['properties']['AXIS']
+
+                if simplify_threshold > 0:
+
+                    points = np.asarray([
+                        p for p, weight in simplify(feature['geometry']['coordinates'])
+                        if weight > simplify_threshold
+                    ])
+
+                else:
+
+                    points = np.asarray(feature['geometry']['coordinates'])
+
                 points_iterator = iter(points)
 
                 a = next(points_iterator)
@@ -625,7 +654,7 @@ def PlanformAxis(params: Parameters, **kwargs):
                         point_id = point_id + 1
                         angle = entry.axis_angle(inflection_points)
                         dist = entry.interdistance(inflection_points)
-                        output_inflection_point.send((point_id, point, angle, dist))
+                        output_inflection_point.send((axis, point_id, point, angle, dist))
                         retained = retained + 1
                         break
 
@@ -636,11 +665,11 @@ def PlanformAxis(params: Parameters, **kwargs):
                     # ProcessingLog.addToLog(ProcessingLog.LOG_INFO, 'Points = %s' % bend.points)
                     angle = entry.axis_angle(inflection_points)
                     dist = entry.interdistance(inflection_points)
-                    output_inflection_point.send((point_id, point, angle, dist))
+                    output_inflection_point.send((axis, point_id, point, angle, dist))
                     retained = retained + 1
-                    output_axis_segment.send((fid, bend.p_origin, bend.p_end, feature))
-                    output_segment.send((fid, bend, feature))
-                    output_amplitude_stem.send((fid, bend))
+                    output_axis_segment.send((axis, fid, bend.p_origin, bend.p_end))
+                    output_segment.send((axis, fid, bend))
+                    output_amplitude_stem.send((axis, fid, bend))
 
                     index = entry.next
 
@@ -648,3 +677,73 @@ def PlanformAxis(params: Parameters, **kwargs):
     output_segment.close()
     output_axis_segment.close()
     output_amplitude_stem.close()
+
+def smooth_chaikin(coords, iterations=3):
+    """
+    https://stackoverflow.com/a/47255374
+    """
+
+    for _ in range(iterations):
+
+        L = coords.repeat(2, axis=0)
+        R = np.empty_like(L)
+        R[0] = L[0]
+        R[2::2] = L[1:-1:2]
+        R[1:-1:2] = L[2::2]
+        R[-1] = L[-1]
+        coords = L * 0.75 + R * 0.25
+
+    return coords
+
+def smooth_planform_axis(params: Parameters, **kwargs):
+
+    filename = params.planform_axis_segments.filename(tileset=None, **kwargs)
+    output = params.planform_axis.filename(tileset=None, **kwargs)
+    iterations = params.smooth_iterations
+
+    coordinates = defaultdict(list)
+
+    with fiona.open(filename) as fs:
+
+        options = dict(
+            driver=fs.driver,
+            crs=fs.crs,
+            schema=fs.schema)
+
+        for feature in fs:
+
+            axis = feature['properties']['AXIS']
+            coordinates[axis].append(feature['geometry']['coordinates'])
+
+    with fiona.open(output, 'w', **options) as fst:
+        with click.progressbar(coordinates.items()) as iterator:
+
+            for k, (axis, segments) in enumerate(iterator):
+
+                sequence = np.array(
+                    list(linemerge([
+                        LineString(segment) for segment in segments
+                    ]).coords)
+                )
+
+                # sequence = np.array([
+                #     p for p, weight in simplify(sequence)
+                #     if weight >= 2000.0
+                # ])
+
+                if iterations > 0:
+
+                    sequence = smooth_chaikin(
+                        sequence,
+                        iterations=iterations)
+
+                geometry = {
+                    'type': 'LineString',
+                    'coordinates': sequence}
+
+                properties = {
+                    'FID': k,
+                    'AXIS': axis
+                }
+
+                fst.write(dict(geometry=geometry, properties=properties))

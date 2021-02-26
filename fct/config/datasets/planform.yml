@@ -7,9 +7,20 @@ planform_inflection_points:
   subdir: NETWORK/PLANFORM
   filename: INFLECTION_POINTS.shp
 
+planform_axis_segments:
+  description: |
+    planform axis passing through inflection points,
+    segments between inflection points
+  type: linestring
+  group: planform
+  status: final
+  subdir: NETWORK/PLANFORM
+  filename: PLANFORM_AXIS_SEGMENTS.shp
+
 planform_axis:
   description: |
     planform axis passing through inflection points
+    (concatenated and smoothed)
   type: linestring
   group: planform
   status: final
