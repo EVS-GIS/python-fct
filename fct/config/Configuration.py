@@ -4,6 +4,7 @@ Configuration Classes
 """
 
 import os
+from pathlib import Path
 import glob
 from collections import namedtuple
 from configparser import ConfigParser
@@ -239,10 +240,25 @@ class Configuration():
 
         dst = self.dataset(name)
 
-        folder = os.path.join(
-            self.workdir,
-            self.workspace.outputdir,
+        folder1 = (
+            Path(self.workdir) /
+            self.workspace.outputdir /
             dst.subdir(**kwargs))
+
+        path1 = (
+            folder1 / 
+            dst.filename(**kwargs))
+
+        if path1.exists():
+            return path1
+
+        path2 = (
+            Path(self.workdir) /
+            dst.subdir(**kwargs) /
+            dst.filename(**kwargs))
+
+        if path2.exists():
+            return path2
 
         # if mod:
 
@@ -251,12 +267,10 @@ class Configuration():
         #     if mod_filename is not None:
         #         return mod_filename
 
-        if not os.path.exists(folder):
-            os.makedirs(folder)
+        if not folder1.exists():
+            os.makedirs(folder1)
 
-        return os.path.join(
-            folder,
-            dst.filename(**kwargs))
+        return path1
 
     # def mod(self, name, **kwargs):
     #     """
@@ -607,22 +621,33 @@ class Tileset():
         """
 
         dst = self.parent.dataset(dataset)
+        basename, extension = os.path.splitext(dst.filename(**kwargs))
+        fname = ''.join([basename, '_', self._tiledir, extension])
 
-        folder = os.path.join(
-            self.parent.workspace.workdir,
-            self.parent.workspace.outputdir,
-            dst.subdir(**kwargs))
+        folder1 = (
+            Path(self.parent.workspace.workdir) /
+            self.parent.workspace.outputdir /
+            dst.subdir(**kwargs)
+        )
 
-        if not os.path.exists(folder):
-            os.makedirs(folder)
+        path1 = (folder1 / fname)
 
-        basename = os.path.join(
-            folder,
-            dst.filename(**kwargs))
+        if path1.exists():
+            return path1
 
-        basename, extension = os.path.splitext(basename)
+        path2 = (
+            Path(self.parent.workspace.workdir) /
+            dst.subdir(**kwargs) /
+            fname
+        )
 
-        return ''.join([basename, '_', self._tiledir, extension])
+        if path2.exists():
+            return path2
+
+        if not folder1.exists():
+            os.makedirs(folder1)
+
+        return path1
 
     def tilename(self, dataset, row, col, **kwargs):
         """
@@ -630,24 +655,40 @@ class Tileset():
         """
 
         dst = self.parent.dataset(dataset)
+        fname = dst.tilename(row=row, col=col, **kwargs)
 
-        folder = os.path.join(
-            self.parent.workspace.workdir,
-            self.parent.workspace.outputdir,
-            dst.subdir(**kwargs),
-            self._tiledir,
-            dst.basename)
+        folder1 = (
+            Path(self.parent.workspace.workdir) /
+            self.parent.workspace.outputdir /
+            dst.subdir(**kwargs) /
+            self._tiledir /
+            dst.basename
+        )
 
-        if not os.path.exists(folder):
+        path1 = (folder1 / fname)
+
+        if path1.exists():
+            return path1
+
+        path2 = (
+            Path(self.parent.workspace.workdir) /
+            dst.subdir(**kwargs) /
+            self._tiledir /
+            dst.basename /
+            fname
+        )
+
+        if path2.exists():
+            return path2
+
+        if not folder1.exists():
             try:
-                os.makedirs(folder)
+                os.makedirs(folder1)
             except FileExistsError as error:
-                if not os.path.isdir(folder):
+                if not os.path.isdir(folder1):
                     raise error
 
-        return os.path.join(
-            folder,
-            dst.tilename(row=row, col=col, **kwargs))
+        return path1
 
 class FileParser():
     """
