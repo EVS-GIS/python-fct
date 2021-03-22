@@ -52,7 +52,7 @@ variables:
   'sw_height_drainage':
     long_name: sample height above nearest drainage
     long_name_fr: |
-      quantile de la hauteur au dessus du point le plus proch
+      quantile de la hauteur au dessus du point le plus proche
       sur le réseau hydrographique
     standard_name: surface_height_above_nearest_drainage
     coords: (ax, m, d), q

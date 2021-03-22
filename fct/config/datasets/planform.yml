@@ -44,3 +44,13 @@ amplitude_stems:
   status: final
   subdir: NETWORK/PLANFORM
   filename: AMPLITUDE.shp
+
+planform_basic_metrics:
+  description: |
+    planform basic descriptors :
+    shift, curvature and direction angle phi
+  type: netcdf
+  group: planform
+  status: final
+  subdir: NETWORK/METRICS
+  filename: PLANFORM_%(refaxis)s.nc

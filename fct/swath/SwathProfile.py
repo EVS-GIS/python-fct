@@ -236,9 +236,9 @@ def SwathProfileUnit(
     # return dataset.set_index(sample=('axis', 'measure', 'distance'))
     return dataset
 
-def SwathProfile(params: Parameters, processes=1, **kwargs):
+def SwathBounds(params: Parameters, **kwargs):
 
-    shapefile = params.polygons.filename(tileset=None)
+    shapefile = params.polygons.filename(tileset=None, **kwargs)
     geometries = dict()
 
     with fiona.open(shapefile) as fs:
@@ -255,12 +255,39 @@ def SwathProfile(params: Parameters, processes=1, **kwargs):
                 else:
                     geometries[axis, measure] = geometry
 
+    return {
+        (axis, measure): geometries[axis, measure].bounds
+        for axis, measure in geometries
+    }
+
+def SwathProfile(params: Parameters, processes=1, **kwargs):
+
+    swath_bounds = SwathBounds(params, **kwargs)
+
+    # shapefile = params.polygons.filename(tileset=None)
+    # geometries = dict()
+
+    # with fiona.open(shapefile) as fs:
+    #     for feature in fs:
+
+    #         if feature['properties']['VALUE'] == 2:
+
+    #             axis = feature['properties']['AXIS']
+    #             measure = feature['properties']['M']
+    #             geometry = asShape(feature['geometry'])
+
+    #             if (axis, measure) in geometries:
+    #                 geometries[axis, measure] = geometries[axis, measure].union(geometry)
+    #             else:
+    #                 geometries[axis, measure] = geometry
+
     def length():
 
         # with fiona.open(shapefile) as fs:
         #     return sum(1 for f in fs if f['properties']['VALUE'] == 2)
 
-        return len(geometries)
+        # return len(geometries)
+        return len(swath_bounds)
 
     def arguments():
 
@@ -274,13 +301,13 @@ def SwathProfile(params: Parameters, processes=1, **kwargs):
         #         measure = feature['properties']['M']
         #         bounds = asShape(feature['geometry']).bounds
 
-        for (axis, measure), geometry in geometries.items():
+        for (axis, measure), bounds in swath_bounds.items():
 
             yield (
                 SwathProfileUnit,
                 axis,
                 measure,
-                geometry.bounds,
+                bounds,
                 params,
                 kwargs
             )
