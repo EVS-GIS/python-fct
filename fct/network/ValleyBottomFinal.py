@@ -40,6 +40,7 @@ from .ValleyBottomFeatures import (
     MASK_EXTERIOR,
     MASK_FLOOPLAIN_RELIEF,
     MASK_VALLEY_BOTTOM,
+    MASK_HOLE,
     MASK_SLOPE,
     MASK_TERRACE
 )
@@ -114,8 +115,8 @@ def ValleyBottomConnectedTile(row, col, seeds, params, **kwargs):
     # nodata = profile['nodata'] # MASK_EXTERIOR
     height, width = mask.shape
 
-    output_mask = params.output_mask.tilename(row=row, col=col, **kwargs)
-    output_distance = params.output_distance.tilename(row=row, col=col, **kwargs)
+    output_mask = str(params.output_mask.tilename(row=row, col=col, **kwargs))
+    output_distance = str(params.output_distance.tilename(row=row, col=col, **kwargs))
 
     if os.path.exists(output_mask):
 
@@ -355,6 +356,20 @@ def ValleyBottomFinalTile(row, col, params, **kwargs):
             (connected != DOMAIN_REFERENCE) &
             (mask == MASK_FLOOPLAIN_RELIEF)
         ] = MASK_SLOPE
+
+        margins = np.copy(mask)
+        margins[
+            (mask == MASK_SLOPE) |
+            (mask == MASK_TERRACE)
+        ] = MASK_HOLE
+
+        margins[:, 0] = MASK_EXTERIOR
+        margins[:, -1] = MASK_EXTERIOR
+        margins[0, :] = MASK_EXTERIOR
+        margins[-1, :] = MASK_EXTERIOR
+        
+        speedup.reclass_margin(margins, MASK_HOLE, MASK_EXTERIOR, MASK_EXTERIOR)
+        mask[margins == MASK_HOLE] = MASK_HOLE
 
         profile = ds.profile.copy()
         profile.update(compress='deflate')

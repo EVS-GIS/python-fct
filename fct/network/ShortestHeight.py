@@ -106,7 +106,7 @@ def ShortestHeightTile(row, col, seeds, params, **kwargs):
     Valley bottom shortest path exploration
     """
 
-    elevations, profile = PadRaster(row, col, params.dem.name, padding=1, **params.dem.arguments(kwargs))
+    elevations, profile = PadRaster(row, col, params.dem, padding=1, **params.dem.arguments(kwargs))
     transform = profile['transform']
     nodata = profile['nodata']
     height, width = elevations.shape
@@ -119,18 +119,18 @@ def ShortestHeightTile(row, col, seeds, params, **kwargs):
 
     #     del mask
 
-    output_height = params.height.tilename(row=row, col=col, **kwargs)
+    output_height = str(params.height.tilename(row=row, col=col, **kwargs))
     # config.tileset().tilename('shortest_height', row=row, col=col)
-    output_distance = params.distance.tilename(row=row, col=col, **kwargs)
+    output_distance = str(params.distance.tilename(row=row, col=col, **kwargs))
     # config.tileset().tilename('shortest_distance', row=row, col=col)
-    output_state = params.state.tilename(row=row, col=col, **kwargs)
+    output_state = str(params.state.tilename(row=row, col=col, **kwargs))
     # config.tileset().tilename('shortest_state', row=row, col=col)
 
     if os.path.exists(output_height):
 
-        heights, _ = PadRaster(row, col, params.height.name, padding=1, **params.height.arguments(kwargs))
-        distance, _ = PadRaster(row, col, params.distance.name, padding=1, **params.distance.arguments(kwargs))
-        state, _ = PadRaster(row, col, params.state.name, padding=1, **params.state.arguments(kwargs))
+        heights, _ = PadRaster(row, col, params.height, padding=1, **params.height.arguments(kwargs))
+        distance, _ = PadRaster(row, col, params.distance, padding=1, **params.distance.arguments(kwargs))
+        state, _ = PadRaster(row, col, params.state, padding=1, **params.state.arguments(kwargs))
 
     else:
 

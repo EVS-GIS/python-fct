@@ -148,7 +148,7 @@ def ensure_monotonic(drainage: SwathDrainageDict) -> SwathDrainageDict:
 
         for measure, value in sorted(values[ax], reverse=True):
 
-            if value < 30.0 < value_min:
+            if value < value_min:
                 value = value_min
             else:
                 value_min = value

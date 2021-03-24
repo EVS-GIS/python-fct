@@ -31,7 +31,8 @@ from ..cli import starcall
 from .SwathDrainage import create_interpolate_drainage_fun
 from .ValleyBottomFeatures import (
     MASK_FLOOPLAIN_RELIEF,
-    MASK_VALLEY_BOTTOM
+    MASK_VALLEY_BOTTOM,
+    MASK_HOLE
 )
 
 class Parameters:
@@ -109,7 +110,8 @@ def SwathsTile(row, col, params, **kwargs):
         valley_bottom = ds.read(1)
         valley_bottom_mask = (
             (valley_bottom == MASK_VALLEY_BOTTOM) |
-            (valley_bottom == MASK_FLOOPLAIN_RELIEF)
+            (valley_bottom == MASK_FLOOPLAIN_RELIEF) |
+            (valley_bottom == MASK_HOLE)
         )
 
         del valley_bottom

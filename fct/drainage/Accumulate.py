@@ -67,7 +67,7 @@ class Parameters():
         Default parameter values
         """
 
-        self.exterior_flow = 'exterior-inlets'
+        self.exterior_flow = 'off' # 'exterior-inlets'
         self.elevations = 'dem'
         self.flow = 'flow'
         self.outlets = 'outlets'
@@ -250,7 +250,7 @@ def AggregateOutlets(params):
 
             with fiona.open(output, 'w', **options) as dst:
 
-                pattern = params.outlets_pattern.tilename(row=row, col=col)
+                pattern = str(params.outlets_pattern.tilename(row=row, col=col))
                 # config.tileset().tilename(
                 #     'outlets-glob',
                 #     row=row,
@@ -318,9 +318,12 @@ def CreateOutletsGraph(params, exterior='exterior-inlets'):
                             graph[(tile, i, j)] = (tile, ti, tj, 0)
                             indegree[(tile, ti, tj)] += 1
 
-                exterior_flow = params.exterior_flow.filename()
+                # exterior_flow = params.exterior_flow.filename()
 
-                if exterior_flow and os.path.exists(exterior_flow):
+                # if exterior_flow and os.path.exists(exterior_flow):
+                if not params.exterior_flow.none:
+
+                    exterior_flow = params.exterior_flow.filename()
 
                     with fiona.open(exterior_flow) as fs:
                         for feature in fs:

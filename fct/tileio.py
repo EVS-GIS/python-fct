@@ -24,7 +24,9 @@ from rasterio.windows import Window
 from rasterio.warp import Resampling
 
 from .config import config
-from .config.descriptors import DatasetResolver
+from .config.descriptors import (
+    DatasetResolver,
+    DatasourceResolver)
 from . import transform as fct
 
 def tileindex():
@@ -79,7 +81,20 @@ def grow_window(window, padding):
         window.width + 2*padding,
         window.height + 2*padding)
 
-def ReadRasterTile(row, col, dataset1, dataset2=None, padding=0):
+def ReadRasterTile(
+        row: int,
+        col: int,
+        dataset1: Union[str, DatasourceResolver],
+        dataset2: Union[str, DatasourceResolver] = None,
+        padding: int = 0):
+
+    if isinstance(dataset1, DatasourceResolver):
+        # kwargs = dataset.arguments(kwargs)
+        dataset1 = dataset1.name
+
+    if isinstance(dataset2, DatasourceResolver):
+        # kwargs = dataset.arguments(kwargs)
+        dataset2 = dataset2.name
 
     tileset = config.tileset('default')
     tile = tileset.tileindex[row, col]

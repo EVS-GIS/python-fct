@@ -104,7 +104,8 @@ class Parameters:
             ValleyBottomThreshold(0, 20.0, 100.0, 2.0, 10.0),
             ValleyBottomThreshold(30, 20.0, 400.0, 4.0, 7.0),
             ValleyBottomThreshold(250, 20.0, 1500.0, 5.0, 5.0),
-            ValleyBottomThreshold(1000, 20.0, 2500.0, 6.0, 3.5)
+            ValleyBottomThreshold(1000, 20.0, 2500.0, 6.0, 3.5),
+            ValleyBottomThreshold(5000, 20.0, 3500.0, 6.0, 3.0)
         ]
 
 def make_resolve_thresholds_fun(thresholds: List[ValleyBottomThreshold]) -> Callable:

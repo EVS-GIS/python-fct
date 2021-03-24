@@ -135,6 +135,7 @@ class Configuration():
         self._tilesets = dict()
         self._datasources = dict()
         self._datasets = dict()
+        self._touched = set()
         self._workspace = Workspace()
 
     def auto(self):
@@ -185,13 +186,22 @@ class Configuration():
 
     def dataset(self, name):
         """
-        Return named Dataset
+        Return Dataset by name/key
         """
 
         # if not name in self._datasets:
         #     self._datasets[name] = Dataset(name)
 
+        self._touched.add(name)
         return self._datasets[name]
+
+    @property
+    def touched(self):
+        """
+        Return list of datasets which have been accessed or created
+        during processing session
+        """
+        return list(self._touched)
 
     def temporary_dataset(self, name):
 
@@ -233,42 +243,49 @@ class Configuration():
         """
         return self._datasources[name]
 
-    def filename(self, name, mod=True, **kwargs):
+    def filename(self, name, **kwargs):
         """
         Return Dataset filename instance
         """
 
         dst = self.dataset(name)
 
-        folder1 = (
-            Path(self.workdir) /
-            self.workspace.outputdir /
-            dst.subdir(**kwargs))
+        if self.workspace.outputdir:
 
-        path1 = (
-            folder1 / 
-            dst.filename(**kwargs))
+            path1 = (
+                Path(self.workdir) /
+                self.workspace.outputdir /
+                dst.subdir(**kwargs) /
+                dst.filename(**kwargs)
+            )
+
+        else:
+
+            path1 = (
+                Path(self.workdir) /
+                dst.subdir(**kwargs) /
+                dst.filename(**kwargs)
+            )
 
         if path1.exists():
             return path1
 
+        # TODO check if we should create resource or not
+
         path2 = (
             Path(self.workdir) /
             dst.subdir(**kwargs) /
-            dst.filename(**kwargs))
+            dst.filename(**kwargs)
+        )
 
         if path2.exists():
             return path2
 
-        # if mod:
-
-        #     mod_filename = self.mod(name, **kwargs)
-
-        #     if mod_filename is not None:
-        #         return mod_filename
-
-        if not folder1.exists():
-            os.makedirs(folder1)
+        if not path1.parent.exists():
+            try:
+                path1.parent.mkdir(parents=True)
+            except FileExistsError:
+                pass
 
         return path1
 
@@ -515,6 +532,8 @@ class Tileset():
         with fiona.open(self._index) as fs:
             self._bounds = fs.bounds
             self._length = len(fs)
+            self._row_min = min(f['properties']['ROW'] for f in fs)
+            self._col_min = min(f['properties']['COL'] for f in fs)
 
         self._is_configured = True
 
@@ -611,8 +630,8 @@ class Tileset():
 
         self.configure()
         minx, _, _, maxy = self._bounds
-        row = int((maxy - y) // self._resolution)
-        col = int((x - minx) // self._resolution)
+        row = int((maxy - y) // self._resolution) + self._row_min
+        col = int((x - minx) // self._resolution) + self._col_min
         return row, col
 
     def filename(self, dataset, **kwargs):
@@ -622,30 +641,44 @@ class Tileset():
 
         dst = self.parent.dataset(dataset)
         basename, extension = os.path.splitext(dst.filename(**kwargs))
-        fname = ''.join([basename, '_', self._tiledir, extension])
+        name = ''.join([basename, '_', self.tiledir, extension])
 
-        folder1 = (
-            Path(self.parent.workspace.workdir) /
-            self.parent.workspace.outputdir /
-            dst.subdir(**kwargs)
-        )
+        if self.parent.workspace.outputdir:
 
-        path1 = (folder1 / fname)
+            path1 = (
+                Path(self.parent.workspace.workdir) /
+                self.parent.workspace.outputdir /
+                dst.subdir(**kwargs) /
+                name
+            )
+
+        else:
+
+            path1 = (
+                Path(self.parent.workspace.workdir) /
+                dst.subdir(**kwargs) /
+                name
+            )
 
         if path1.exists():
             return path1
 
+        # TODO check if we should create resource or not
+
         path2 = (
             Path(self.parent.workspace.workdir) /
             dst.subdir(**kwargs) /
-            fname
+            name
         )
 
         if path2.exists():
             return path2
 
-        if not folder1.exists():
-            os.makedirs(folder1)
+        if not path1.parent.exists():
+            try:
+                path1.parent.mkdir(parents=True)
+            except FileExistsError:
+                pass
 
         return path1
 
@@ -655,38 +688,50 @@ class Tileset():
         """
 
         dst = self.parent.dataset(dataset)
-        fname = dst.tilename(row=row, col=col, **kwargs)
+        filename = dst.tilename(row=row, col=col, **kwargs)
 
-        folder1 = (
-            Path(self.parent.workspace.workdir) /
-            self.parent.workspace.outputdir /
-            dst.subdir(**kwargs) /
-            self._tiledir /
-            dst.basename
-        )
+        if self.parent.workspace.outputdir:
 
-        path1 = (folder1 / fname)
+            path1 = (
+                Path(self.parent.workspace.workdir) /
+                self.parent.workspace.outputdir /
+                dst.subdir(**kwargs) /
+                self.tiledir /
+                dst.basename /
+                filename
+            )
+
+        else:
+
+            path1 = (
+                Path(self.parent.workspace.workdir) /
+                dst.subdir(**kwargs) /
+                self.tiledir /
+                dst.basename /
+                filename
+            )
 
         if path1.exists():
             return path1
 
+        # TODO check if we should create resource or not
+
         path2 = (
             Path(self.parent.workspace.workdir) /
             dst.subdir(**kwargs) /
-            self._tiledir /
+            self.tiledir /
             dst.basename /
-            fname
+            filename
         )
 
         if path2.exists():
             return path2
 
-        if not folder1.exists():
+        if not path1.parent.exists():
             try:
-                os.makedirs(folder1)
-            except FileExistsError as error:
-                if not os.path.isdir(folder1):
-                    raise error
+                path1.parent.mkdir(parents=True)
+            except FileExistsError:
+                pass
 
         return path1
 
