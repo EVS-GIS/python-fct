@@ -97,6 +97,11 @@ def SwathDrainageTile(row: int, col: int, params: Parameters, **kwargs):
     drainage_raster = params.drainage.tilename(row=row, col=col, **kwargs)
     measure_raster = params.measure.tilename(row=row, col=col, **kwargs)
 
+    result = dict()
+
+    if not measure_raster.exists():
+        return result
+
     swaths, measures = calculate_swaths(measure_raster, params.swath_length)
 
     with rio.open(drainage_raster) as ds:
@@ -105,8 +110,6 @@ def SwathDrainageTile(row: int, col: int, params: Parameters, **kwargs):
     with rio.open(axis_raster) as ds:
         axis = ds.read(1)
         axis_nodata = ds.nodata
-
-    result = dict()
 
     for ax in np.unique(axis):
 
@@ -146,7 +149,16 @@ def ensure_monotonic(drainage: SwathDrainageDict) -> SwathDrainageDict:
 
         value_min = 0.0
 
-        for measure, value in sorted(values[ax], reverse=True):
+        # apply some sort of median filter to remove errors
+        data = np.array(values[ax])
+        data = (
+            xr.DataArray(data[:, 1], dims=('measure',), coords=dict(measure=data[:, 0]))
+            .sortby('measure', ascending=False)
+            .rolling(measure=3, min_periods=1, center=True)
+            .median()
+        )
+
+        for measure, value in zip(data.measure.values, data.values):
 
             if value < value_min:
                 value = value_min

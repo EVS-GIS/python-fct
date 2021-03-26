@@ -119,9 +119,9 @@ def ContinuityTile(row, col, seeds, params, **kwargs):
 
     tileset = config.tileset()
 
-    output = params.output.tilename(row=row, col=col, **kwargs)
-    output_state = params.state.tilename(row=row, col=col, **kwargs)
-    output_distance = params.output_distance.tilename(row=row, col=col, **kwargs)
+    output = str(params.output.tilename(row=row, col=col, **kwargs))
+    output_state = str(params.state.tilename(row=row, col=col, **kwargs))
+    output_distance = str(params.output_distance.tilename(row=row, col=col, **kwargs))
 
     padding = 1
     tile = tileset.tileindex[row, col]

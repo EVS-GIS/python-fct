@@ -105,7 +105,9 @@ class Parameters:
             ValleyBottomThreshold(30, 20.0, 400.0, 4.0, 7.0),
             ValleyBottomThreshold(250, 20.0, 1500.0, 5.0, 5.0),
             ValleyBottomThreshold(1000, 20.0, 2500.0, 6.0, 3.5),
-            ValleyBottomThreshold(5000, 20.0, 3500.0, 6.0, 3.0)
+            ValleyBottomThreshold(5000, 20.0, 3500.0, 6.5, 3.5),
+            ValleyBottomThreshold(11500, 20.0, 4000.0, 7.5, 3.0),
+            ValleyBottomThreshold(13000, 20.0, 4000.0, 8.5, 3.0)
         ]
 
 def make_resolve_thresholds_fun(thresholds: List[ValleyBottomThreshold]) -> Callable:
@@ -175,6 +177,9 @@ def ClassifyValleyBottomTile(
     axis_raster = params.axis.tilename(row=row, col=col, **kwargs)
     measure_raster = params.measure.tilename(row=row, col=col, **kwargs)
     distance_raster = params.distance.tilename(row=row, col=col, **kwargs)
+
+    if not measure_raster.exists():
+        return
 
     output = params.output.tilename(row=row, col=col, **kwargs)
 

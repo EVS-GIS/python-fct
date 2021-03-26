@@ -6,7 +6,7 @@ refaxis:
   type: linestring
   group: reference
   status: final
-  subdir: GLOBAL/REFHYDRO
+  subdir: GLOBAL/MEASURE
   filename: REFAXIS.shp
 
 ax_refaxis:
@@ -15,18 +15,18 @@ ax_refaxis:
   type: linestring
   group: reference
   status: final
-  subdir: AXES/AX%(axis)04d/REF
+  subdir: AXES/AX%(axis)04d/MEASURE
   filename: REFAXIS.shp
 
-ax_axis_inflection:
+ax_planform_axis:
   description: |
     Axis passing through talweg inflection points
     (meandering axis)
   type: linestring
   group: reference
   status: final
-  subdir: AXES/AX%(axis)04d/REF
-  filename: INFLECTION_AXIS.shp
+  subdir: AXES/AX%(axis)04d/PLANFORM
+  filename: PLANFORM_AXIS.shp
 
 ax_talweg:
   description: |
@@ -53,7 +53,7 @@ ax_medialaxis:
   type: linestring
   group: reference
   status: final
-  subdir: AXES/AX%(axis)04d/REF
+  subdir: AXES/AX%(axis)04d/MEASURE
   filename: MEDIAL_AXIS.shp
 
 ax_medialaxis_simplified:
@@ -62,5 +62,5 @@ ax_medialaxis_simplified:
   type: linestring
   group: reference
   status: final
-  subdir: AXES/AX%(axis)04d/REF
+  subdir: AXES/AX%(axis)04d/MEASURE
   filename: MEDIAL_AXIS_SIMPL.shp

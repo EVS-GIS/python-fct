@@ -102,6 +102,9 @@ def SwathsTile(row, col, params, **kwargs):
     maximinj = itemgetter(2, 1)
     minimaxj = itemgetter(0, 3)
 
+    if not measure_raster.exists():
+        return None, dict()
+
     with rio.open(nearest_raster) as ds:
         nearest = ds.read(1)
 
@@ -122,7 +125,7 @@ def SwathsTile(row, col, params, **kwargs):
         measure[~valley_bottom_mask] = ds.nodata
 
         if np.sum(measure[measure != ds.nodata]) == 0:
-            return None, {}
+            return None, dict()
 
         measure_min = np.floor(np.min(measure[measure != ds.nodata]) / swath_length) * swath_length
         measure_max = np.ceil(np.max(measure[measure != ds.nodata]) / swath_length) * swath_length
@@ -130,10 +133,9 @@ def SwathsTile(row, col, params, **kwargs):
         measures = np.round(0.5 * (breaks[:-1] + breaks[1:]), 1)
 
         if measures.size == 0:
-            return None, {}
+            return None, dict()
 
         swaths = np.uint32(np.digitize(measure, breaks))
-
         swaths_infos = dict()
 
         for axis in np.unique(nearest):

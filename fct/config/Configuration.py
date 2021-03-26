@@ -91,6 +91,9 @@ class Workspace:
     def outputdir(self):
         return self._outputdir
 
+    def set_outputdir(self, outputdir):
+        self._outputdir = outputdir
+
     @property
     def tileset(self):
         return self._tileset

@@ -110,6 +110,9 @@ class Parameters:
 
 def ValleyBottomConnectedTile(row, col, seeds, params, **kwargs):
 
+    if not params.mask.tilename(row=row, col=col, **kwargs).exists():
+        return list(), tuple()
+
     mask, profile = PadRaster(row, col, params.mask, padding=1, **kwargs)
     transform = profile['transform']
     # nodata = profile['nodata'] # MASK_EXTERIOR
@@ -330,6 +333,9 @@ def ValleyBottomFinalTile(row, col, params, **kwargs):
     connected_raster = params.output_mask.tilename(row=row, col=col, **kwargs)
     output = params.output_final.tilename(row=row, col=col, **kwargs)
 
+    if not mask_raster.exists():
+        return
+
     with rio.open(connected_raster) as ds:
         connected = ds.read(1)
 
@@ -377,7 +383,7 @@ def ValleyBottomFinalTile(row, col, params, **kwargs):
         with rio.open(output, 'w', **profile) as dst:
             dst.write(mask, 1)
 
-def ValleyBottomFinal(params, processes=1, **kwargs):
+def ConnectedValleyBottom(params, processes=1, **kwargs):
     """
     Extract true valley bottom,
     excluding terraces, slopes and flat areas not connected to drainage network
@@ -399,7 +405,7 @@ def ValleyBottomFinal(params, processes=1, **kwargs):
 
         seeds = ValleyBottomConnectedIteration(params, seeds, len(tiles), processes, **kwargs)
 
-    click.echo('Extract true valley bottom')
+def TrueValleyBottom(params: Parameters, processes: int = 1, **kwargs):
 
     tilefile = params.tiles.filename(**kwargs)
 

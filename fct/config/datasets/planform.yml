@@ -4,7 +4,7 @@ planform_inflection_points:
   type: point
   group: planform
   status: final
-  subdir: NETWORK/PLANFORM
+  subdir: GLOBAL/PLANFORM
   filename: INFLECTION_POINTS.shp
 
 planform_axis_segments:
@@ -14,7 +14,7 @@ planform_axis_segments:
   type: linestring
   group: planform
   status: final
-  subdir: NETWORK/PLANFORM
+  subdir: GLOBAL/PLANFORM
   filename: PLANFORM_AXIS_SEGMENTS.shp
 
 planform_axis:
@@ -24,7 +24,7 @@ planform_axis:
   type: linestring
   group: planform
   status: final
-  subdir: NETWORK/PLANFORM
+  subdir: GLOBAL/PLANFORM
   filename: PLANFORM_AXIS.shp
 
 planform_segments:
@@ -33,7 +33,7 @@ planform_segments:
   type: linestring
   group: planform
   status: final
-  subdir: NETWORK/PLANFORM
+  subdir: GLOBAL/PLANFORM
   filename: SEGMENTS.shp
 
 amplitude_stems:
@@ -42,7 +42,7 @@ amplitude_stems:
   type: linestring
   group: planform
   status: final
-  subdir: NETWORK/PLANFORM
+  subdir: GLOBAL/PLANFORM
   filename: AMPLITUDE.shp
 
 planform_basic_metrics:
@@ -52,5 +52,5 @@ planform_basic_metrics:
   type: netcdf
   group: planform
   status: final
-  subdir: NETWORK/METRICS
+  subdir: GLOBAL/METRICS
   filename: PLANFORM_%(refaxis)s.nc

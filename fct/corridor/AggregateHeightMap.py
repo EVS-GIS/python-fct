@@ -19,15 +19,65 @@ import numpy as np
 import click
 import rasterio as rio
 from ..cli import starcall
-from ..config import config
+from ..config import DatasetParameter
 
-def AggregateTile(name, ax_name, row, col, axes, **kwargs):
+class Parameters:
 
-    output = config.tileset().tilename(name, row=row, col=col, **kwargs)
+    tiles = DatasetParameter(
+        'domain tiles as CSV list',
+        type='input')
 
-    aggregate = None
-    profile = None
-    nodata = None
+    height = DatasetParameter(
+        'height raster (HAND)',
+        type='input')
+
+    def __init__(self, axis=None):
+        """
+        Default parameter values
+        """
+
+        if axis is None:
+
+            self.tiles = 'shortest_tiles'
+            self.height = 'nearest_height'
+
+        else:
+
+            self.tiles = dict(key='ax_shortest_tiles', axis=axis)
+            self.height = dict(key='ax_nearest_height', axis=axis)
+
+def AggregateTile(
+        row: int,
+        col: int,
+        src1: Parameters,
+        src2: Parameters,
+        out: Parameters,
+        **kwargs):
+
+    raster1 = src1.height.tilename(row=row, col=col, **kwargs)
+    raster2 = src2.height.tilename(row=row, col=col, **kwargs)
+    output = out.height.tilename(row=row, col=col, **kwargs)
+
+    if not (raster1.exists() and raster2.exists()):
+
+        def copy(raster, output):
+
+            with rio.open(raster) as ds:
+
+                data = ds.read(1)
+                profile = ds.profile.copy()
+                profile.update(compress='deflate')
+
+            with rio.open(output, 'w', **profile) as dst:
+                dst.write(data, 1)
+
+        if raster1.exists() and not (output.exists() and raster1.samefile(output)):
+            copy(raster1, output)
+
+        if raster2.exists() and not (output.exists() and raster2.samefile(output)):
+            copy(raster2, output)
+
+        return
 
     # if os.path.exists(output):
 
@@ -36,57 +86,74 @@ def AggregateTile(name, ax_name, row, col, axes, **kwargs):
     #         aggregate = ds.read(1)
     #         profile = ds.profile.copy()
 
-    for axis in axes:
+    with rio.open(raster1) as ds:
+        
+        data1 = ds.read(1)
+        nodata1 = ds.nodata
 
-        axtile = config.tileset().tilename(ax_name, axis=axis, row=row, col=col, **kwargs)
+    with rio.open(raster2) as ds:
 
-        if os.path.exists(axtile):
-
-            with rio.open(axtile) as ds:
-
-                data = ds.read(1)
-
-                if aggregate is None:
-
-                    aggregate = data
-                    nodata = ds.nodata
-                    profile = ds.profile.copy()
-
-                else:
-
-                    lower = (
-                        (data != ds.nodata) &
-                        (
-                            (aggregate != nodata) &
-                            (np.abs(data) < np.abs(aggregate)) |
-                            (aggregate == nodata)
-                        )
-                    )
-
-                    aggregate[lower] = data[lower]
-
-    if aggregate is not None:
-
+        data2 = ds.read(1)
+        nodata2 = ds.nodata
+        profile = ds.profile.copy()
         profile.update(compress='deflate')
 
-        with rio.open(output, 'w', **profile) as dst:
-            dst.write(aggregate, 1)
+        lower = (
+            (data1 != nodata1) &
+            (
+                (data2 != nodata2) &
+                (np.abs(data1) < np.abs(data2)) |
+                (data2 == nodata2)
+            )
+        )
 
+    data2[lower] = data1[lower]
 
-def AggregateHeightMap(axes, datasets=('nearest_height', 'ax_nearest_height'), processes=1, **kwargs):
+    with rio.open(output, 'w', **profile) as dst:
+        dst.write(data2, 1)
 
-    tileset = config.tileset()
-    name, ax_name = datasets
+def AggregateHeightMap(
+        src1: Parameters,
+        src2: Parameters,
+        output: Parameters,
+        processes: int = 1,
+        **kwargs):
+
+    tilefile1 = src1.tiles.filename(**kwargs)
+    tilefile2 = src2.tiles.filename(**kwargs)
+
+    def get_tiles():
+
+        with open(tilefile1) as fp:
+            for line in fp:
+
+                yield tuple(int(x) for x in line.split(','))
+
+        with open(tilefile2) as fp:
+            for line in fp:
+
+                yield tuple(int(x) for x in line.split(','))
+
+    tiles = set(get_tiles())
 
     def arguments():
 
-        for tile in tileset.tiles():
-            yield (AggregateTile, name, ax_name, tile.row, tile.col, axes, kwargs)
+        for row, col in tiles:
+
+            yield (
+                AggregateTile,
+                row,
+                col,
+                src1,
+                src2,
+                output,
+                kwargs
+            )
 
     with Pool(processes=processes) as pool:
 
         pooled = pool.imap_unordered(starcall, arguments())
 
-        with click.progressbar(pooled, length=len(tileset)) as iterator:
+        with click.progressbar(pooled, length=len(tiles)) as iterator:
             for _ in iterator:
                 pass
