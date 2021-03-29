@@ -129,12 +129,12 @@ def BoundaryPoints(axis, params, **kwargs):
                 valley_bottom = ds.read(1)
                 # height, width = valley_bottom.shape
 
-                valley_bottom[
-                    (valley_bottom == MASK_SLOPE) |
-                    (valley_bottom == MASK_TERRACE)
-                ] = MASK_HOLE
-                # valley_bottom[np.array(list(border(height, width)))] = MASK_EXTERIOR
-                speedup.reclass_margin(valley_bottom, MASK_HOLE, MASK_EXTERIOR, MASK_EXTERIOR)
+                # valley_bottom[
+                #     (valley_bottom == MASK_SLOPE) |
+                #     (valley_bottom == MASK_TERRACE)
+                # ] = MASK_HOLE
+                # # valley_bottom[np.array(list(border(height, width)))] = MASK_EXTERIOR
+                # speedup.reclass_margin(valley_bottom, MASK_HOLE, MASK_EXTERIOR, MASK_EXTERIOR)
 
                 mask = np.uint8(
                     (valley_bottom == MASK_VALLEY_BOTTOM) |

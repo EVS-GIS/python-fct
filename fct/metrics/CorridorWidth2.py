@@ -20,8 +20,14 @@ def CorridorWidth(width_continuity: xr.Dataset, length_talweg: xr.Dataset) -> xr
         width.sum(['label', 'side'])
         .rename(area='area_valley_bottom'))
 
+    wcw = (
+        width.sel(label='Water channel')
+        .sum('side')
+        .drop_vars('label')
+        .rename(area='area_wc'))
+
     acw = (
-        width.sel(label='Active channel')
+        width.sel(label=['Water channel', 'Active channel'])
         .sum('side')
         .drop_vars('label')
         .rename(area='area_ac'))
@@ -37,6 +43,7 @@ def CorridorWidth(width_continuity: xr.Dataset, length_talweg: xr.Dataset) -> xr
         .rename(width2='width_cc'))
 
     data = xr.merge([
+        wcw.area_wc,
         acw.area_ac,
         ncw.width_nc,
         ccw.width_cc,
@@ -44,11 +51,13 @@ def CorridorWidth(width_continuity: xr.Dataset, length_talweg: xr.Dataset) -> xr
         length
     ]).load()
 
+    data['width_water_channel'] = data.area_wc / data.length_talweg
     data['width_active_channel'] = data.area_ac / data.length_talweg
     data['width_natural_corridor'] = data.width_nc * data.width1 / data.width2
     data['width_connected_corridor'] = data.width_cc * data.width1 / data.width2
 
     data = data.drop_vars([
+        'area_wc',
         'area_ac',
         'width_nc',
         'width_cc',

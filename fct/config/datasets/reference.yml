@@ -9,6 +9,24 @@ refaxis:
   subdir: GLOBAL/MEASURE
   filename: REFAXIS.shp
 
+medialaxis:
+  description: |
+    Valley medial axis
+  type: linestring
+  group: reference
+  status: final
+  subdir: GLOBAL/MEASURE
+  filename: MEDIAL_AXIS.shp
+
+medialaxis_simplified:
+  description: |
+    Valley medial axis
+  type: linestring
+  group: reference
+  status: final
+  subdir: GLOBAL/MEASURE
+  filename: MEDIAL_AXIS_SIMPL.shp
+
 ax_refaxis:
   description: |
     Reference axis
