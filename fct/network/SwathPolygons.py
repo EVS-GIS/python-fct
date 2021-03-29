@@ -7,6 +7,7 @@ discretize space along reference axis
 
 from operator import itemgetter
 from multiprocessing import Pool
+import logging
 
 import numpy as np
 import click
@@ -34,6 +35,8 @@ from .ValleyBottomFeatures import (
     MASK_VALLEY_BOTTOM,
     MASK_HOLE
 )
+
+logger = logging.getLogger(__name__)
 
 class Parameters:
     """
@@ -321,7 +324,14 @@ def VectorizeSwaths(swaths_infos, drainage, params, processes=1, **kwargs):
 
         if axis not in interp_funs:
             
-            fun = interp_funs[axis] = create_interpolate_drainage_fun(drainage, axis)
+            try:
+
+                fun = interp_funs[axis] = create_interpolate_drainage_fun(drainage, axis)
+
+            except ValueError:
+
+                logger.error('No drainage data for axis %d', axis)
+                fun = interp_funs[axis] = lambda x: -99999.0
 
         else:
 

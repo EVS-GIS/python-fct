@@ -16,7 +16,7 @@ LandCover Lateral Continuity Analysis
 import os
 from operator import itemgetter
 import itertools
-from collections import namedtuple
+import logging
 from multiprocessing import Pool
 import numpy as np
 
@@ -34,41 +34,9 @@ from ..config import (
 from .. import transform as fct
 from ..tileio import (
     PadRaster,
-    border,
-    buildvrt
+    border
 )
-
-# ContinuityParams = namedtuple('ContinuityParams', [
-#     # 'tileset',
-#     'landcover',
-#     'distance',
-#     'height',
-#     'output',
-#     'output_state',
-#     'output_distance',
-#     'max_class',
-#     'vb_max_height',
-#     'with_infra',
-#     'tmp'
-# ])
-
-# def ContinuityDefaultParameters():
-#     """
-#     Default parameters for extracting continuity map.
-#     """
-
-#     return dict(
-#         landcover='landcover-bdt',
-#         distance='nearest_distance',
-#         height='nearest_height',
-#         output='continuity',
-#         output_state='continuity_state',
-#         output_distance='continuity_distance',
-#         max_class=0,
-#         vb_max_height=20.0,
-#         with_infra=True,
-#         tmp='.tmp'
-#     )
+from .ValleyBottomFeatures import MASK_EXTERIOR
 
 class Parameters:
     """
@@ -78,19 +46,17 @@ class Parameters:
     tiles = DatasetParameter('domain tiles as CSV list', type='input')
     landcover = DatasetParameter('landcover raster map', type='input')
     distance = DatasetParameter('distance to talweg', type='input')
-    height = DatasetParameter('height above talweg', type='input')
 
     output = DatasetParameter('continuity map', type='output')
     output_distance = DatasetParameter('distance to reference pixel', type='output')
     state = DatasetParameter('processing state raster', type='output')
 
     class_max = LiteralParameter('maximum landcover class (stop criterion)')
-    height_max = LiteralParameter('maximum height above reference (stop criterion)')
     distance_min = LiteralParameter('minimum distance')
     distance_max = LiteralParameter('maximum distance')
+    padding = LiteralParameter('tile padding in pixels')
     infrastructures = LiteralParameter('consider transport infrastructures (landcover class = 8)')
     jitter = LiteralParameter('apply jitter on performing shortest path raster exploration')
-    tmp_suffix = LiteralParameter('temporary files suffix')
 
     def __init__(self):
         """
@@ -100,14 +66,13 @@ class Parameters:
         self.tiles = 'shortest_tiles'
         self.landcover = 'landcover_valley_bottom'
         self.distance = 'nearest_distance'
-        self.height = 'nearest_height'
         self.output = 'continuity'
         self.output_distance = 'continuity_distance'
         self.state = 'continuity_state'
         self.class_max = 0
-        self.height_max = 20.0
         self.distance_min = 20
         self.distance_max = 0
+        self.padding = 1
         self.infrastructures = True
         self.jitter = 0.4
         self.tmp_suffix = '.tmp'
@@ -123,7 +88,7 @@ def ContinuityTile(row, col, seeds, params, **kwargs):
     output_state = str(params.state.tilename(row=row, col=col, **kwargs))
     output_distance = str(params.output_distance.tilename(row=row, col=col, **kwargs))
 
-    padding = 1
+    padding = params.padding
     tile = tileset.tileindex[row, col]
 
     landcover, profile = PadRaster(
@@ -150,7 +115,7 @@ def ContinuityTile(row, col, seeds, params, **kwargs):
 
         if os.path.exists(filename):
 
-            raster, profile = PadRaster(row, col, dataset, **kwargs)
+            raster, profile = PadRaster(row, col, dataset, padding=padding, **kwargs)
             nodata = profile['nodata']
 
         else:
@@ -167,7 +132,6 @@ def ContinuityTile(row, col, seeds, params, **kwargs):
 
         return raster, nodata
 
-    nearest_height, nearest_height_nodata = BoundlessRaster(row, col, params.height)
     nearest_distance, nearest_distance_nodata = BoundlessRaster(row, col, params.distance)
 
     if os.path.exists(output):
@@ -179,14 +143,10 @@ def ContinuityTile(row, col, seeds, params, **kwargs):
     else:
 
         out = np.full_like(landcover, nodata)
-        # distance = np.full_like(nearest_distance, nearest_distance_nodata, dtype='float32')
         distance = np.zeros_like(nearest_distance, dtype='float32')
         state = np.uint8(np.abs(nearest_distance) < 1)
 
-    state[
-        (nearest_height == nearest_height_nodata) |
-        (nearest_height > params.height_max)
-    ] = 255
+    state[landcover == nodata] = 255
 
     if seeds:
 
@@ -226,14 +186,14 @@ def ContinuityTile(row, col, seeds, params, **kwargs):
 
     speedup.layered_continuity_analysis(
         landcover,
-        nearest_height,
+        # nearest_height,
         out,
         distance,
         state,
         max_class=params.class_max,
         min_distance=params.distance_min,
         max_distance=params.distance_max,
-        max_height=params.height_max,
+        # max_height=params.height_max,
         jitter=params.jitter)
 
     def extract_spillovers():
@@ -300,9 +260,10 @@ def ContinuityTile(row, col, seeds, params, **kwargs):
     height, width = out.shape
     transform = transform * transform.translation(padding, padding)
 
-    output += params.tmp_suffix
-    output_state += params.tmp_suffix
-    output_distance += params.tmp_suffix
+    tmp_suffix = params.tmp_suffix
+    output += tmp_suffix
+    output_state += tmp_suffix
+    output_distance += tmp_suffix
 
     profile.update(
         driver='GTiff',
@@ -437,89 +398,9 @@ def LandcoverContinuityAnalysis(
         **kwargs):
     """
     Calculate landcover continuity from river channel
-
-    @api    fct-corridor:continuity
-
-    @input  tiles: ax_shortest_tiles
-    @input  landcover: landcover-bdt
-    @input  distance: ax_nearest_distance
-    @input  height: ax_nearest_height
-
-    @param  min_distance: 20.0
-    @param  max_distance: 0.0
-    @param  max_class: 0
-    @param  max_height: 20.0
-    @param  with_infra: True
-    @param  jitter: 0.4
-
-    @output continuity_distance: ax_continuity_distance
-    @output continuity_state: ax_continuity_state
-    @output continuity_map: ax_continuity
-
-    Parameters
-    ----------
-
-    axis: int
-
-        Axis identifier
-
-    processes: int
-
-        Number of parallel processes to execute
-        (defaults to one)
-
-    Keyword Parameters
-    ------------------
-
-    # tileset: str, logical name
-
-    #     Tileset to use,
-    #     defaults to `landcover`
-
-    landcover: str, logical name
-
-        Landcover data raster,
-        defaults to `landcover`
-
-    distance: str, logical name
-
-        Distance from drainage raster,
-        defaults to `ax_talweg_distance`.
-
-    height: str, logical name
-
-        Height above drainage raster,
-        defaults to `ax_nearest_height`
-
-    output: str, logical name
-
-        Continuity raster output,
-        defaults to `ax_continuity`
-
-    max_height: float
-
-        Truncate landcover data with height above maxz,
-        defaults to 20.0 m
-
-    # padding: int
-
-    #     Number of pixels to pad tiles with,
-    #     defaults to 200
-
-    with_infrastructures: bool
-
-        Whether to exclude landcover infrastructure class (8)
-        from continuity analysis,
-        defaults to True
-
-    Other keywords are passed to dataset filename templates.
     """
-    
-    # parameters = ContinuityDefaultParameters()
 
-    # parameters.update({key: kwargs[key] for key in kwargs.keys() & parameters.keys()})
-    # kwargs = {key: kwargs[key] for key in kwargs.keys() - parameters.keys()}
-    # params = ContinuityParams(**parameters)
+    logger = logging.getLogger(__name__)
 
     count = 1
     tile = itemgetter(0, 1)
@@ -533,7 +414,7 @@ def LandcoverContinuityAnalysis(
         count += 1
 
         if count > maxiter:
-            click.secho('Stopping after %d iterations' % maxiter, fg='yellow')
+            logger.warning('Stopping after %d iterations', maxiter)
             break
 
         seeds = [s for s in seeds if tile(s) in config.tileset().tileindex]
@@ -542,17 +423,3 @@ def LandcoverContinuityAnalysis(
         click.echo('Iteration %02d -- %d spillovers, %d tiles' % (count, len(seeds), len(tiles)))
 
         seeds = ContinuityIteration(params, seeds, len(tiles), processes=processes, **kwargs)
-
-    else:
-
-        click.secho('Ok', fg='green')
-
-    # click.secho('Building output VRTs', fg='cyan')
-    # buildvrt('default', params.output.name, **kwargs)
-
-    # click.secho('Materialize output VRTs to GeoTIFF', fg='cyan')
-
-    # if params.with_infra:
-    #     translate(params.output, axis=axis, **kwargs)
-    # else:
-    #     translate(params.output, axis=axis, **kwargs)

@@ -21,14 +21,12 @@ ctypedef priority_queue[LayeredShortestEntry] LayeredShortestQueue
 @cython.wraparound(False)
 def layered_continuity_analysis(
         LandCoverClass[:, :] landcover,
-        float[:, :] heights,
         LandCoverClass[:, :] out,
         float[:, :] distance,
         unsigned char[:, :] state,
         LandCoverClass max_class=0,
         float min_distance=0.0,
         float max_distance=0.0,
-        float max_height=0.0,
         float jitter=0.4):
     """
     Assign to each input cell the maximum value on the shortest path
@@ -40,11 +38,6 @@ def layered_continuity_analysis(
     landcover: array-like, ndims=2, dtype=uint8
 
         Landcover raster with ordered class count
-    
-    heights: array-like, same shape as `landcover`, dtype=float32
-
-        Heights relative to stream or drainage network,
-        used as exploration stop criteria
 
     Input/Output Parameters
     -----------------------
@@ -97,11 +90,6 @@ def layered_continuity_analysis(
         Stop exploration when reaching cells
         with distance > max_distance
 
-    max_height: float
-
-        Stop exploration when reaching cells
-        with height > max_height in `heights`
-
     jitter: float
 
         Amplitude of jitter to add to grid locations
@@ -128,9 +116,7 @@ def layered_continuity_analysis(
 
     height = landcover.shape[0]
     width = landcover.shape[1]
-    # state = np.zeros((height, width), dtype=np.uint8)
 
-    assert heights.shape[0] == height and heights.shape[1] == width
     assert state.shape[0] == height and state.shape[1] == width
     assert out.shape[0] == height and out.shape[1] == width
     assert distance.shape[0] == height and distance.shape[1] == width
@@ -246,10 +232,6 @@ def layered_continuity_analysis(
                 
                 if max_class > 0 and klass > max_class:
                     state[i, j] = 5 # class limit
-                    continue
-
-                if max_height > 0 and heights[i, j] > max_height:
-                    state[i, j] = 3 # height limit
                     continue
 
             # Iterate over direct neighbor cells

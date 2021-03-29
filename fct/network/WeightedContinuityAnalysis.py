@@ -38,21 +38,15 @@ class Parameters:
     tiles = DatasetParameter('domain tiles as CSV list', type='input')
     landcover = DatasetParameter('landcover raster map', type='input')
     distance = DatasetParameter('distance to talweg', type='input')
-    height = DatasetParameter('height above talweg', type='input')
-
     output = DatasetParameter('continuity map', type='output')
-    output_distance = DatasetParameter('distance to reference pixel', type='output')
-    state = DatasetParameter('processing state raster', type='output')
 
     tileset = LiteralParameter('tileset')
     class_max = LiteralParameter('maximum landcover class (stop criterion)')
-    height_max = LiteralParameter('maximum height above reference (stop criterion)')
     distance_min = LiteralParameter('minimum distance')
     distance_max = LiteralParameter('maximum distance')
     padding = LiteralParameter('tile padding in pixels')
     infrastructures = LiteralParameter('consider transport infrastructures (landcover class = 8)')
     jitter = LiteralParameter('apply jitter on performing shortest path raster exploration')
-    tmp_suffix = LiteralParameter('temporary files suffix')
 
     def __init__(self):
         """
@@ -63,18 +57,13 @@ class Parameters:
         self.tiles = 'shortest_tiles'
         self.landcover = 'landcover_valley_bottom'
         self.distance = 'nearest_distance'
-        self.height = 'nearest_height'
         self.output = 'continuity'
-        self.output_distance = 'continuity_distance'
-        self.state = 'continuity_state'
         self.class_max = 0
-        self.height_max = 20.0
         self.distance_min = 100.0
         self.distance_max = 0
         self.padding = 200
         self.infrastructures = True
         self.jitter = 0.4
-        self.tmp_suffix = '.tmp'
 
 def WeightedContinuityAnalysisTile(
         row,
@@ -88,7 +77,6 @@ def WeightedContinuityAnalysisTile(
     tileset = config.tileset(params.tileset)
     landcover_raster = params.landcover.filename(**kwargs)
     nearest_distance_raster = params.distance.filename(**kwargs)
-    hand_raster = params.height.filename(**kwargs)
     output = params.output.tilename(row=row, col=col, **kwargs)
 
     padding = params.padding
@@ -97,25 +85,19 @@ def WeightedContinuityAnalysisTile(
     tile_index = tileset.tileindex
     tile = tile_index[row, col]
 
-    with rio.open(hand_raster) as ds1:
+    with rio.open(nearest_distance_raster) as ds2:
 
-        i0, j0 = ds1.index(tile.x0, tile.y0)
-        window1 = Window(j0 - padding, i0 - padding, width, height)
-        hand = ds1.read(1, window=window1, boundless=True, fill_value=ds1.nodata)
+        i, j = ds2.index(tile.x0, tile.y0)
+        window2 = Window(j - padding, i - padding, width, height)
+        nearest_distance = ds2.read(1, window=window2, boundless=True, fill_value=ds2.nodata)
 
-        with rio.open(nearest_distance_raster) as ds2:
+    with rio.open(landcover_raster) as ds3:
 
-            i, j = ds2.index(tile.x0, tile.y0)
-            window2 = Window(j - padding, i - padding, width, height)
-            nearest_distance = ds2.read(1, window=window2, boundless=True, fill_value=ds2.nodata)
+        profile = ds3.profile.copy()
 
-        with rio.open(landcover_raster) as ds3:
-
-            profile = ds3.profile.copy()
-
-            i, j = ds3.index(tile.x0, tile.y0)
-            window3 = Window(j - padding, i - padding, width, height)
-            landcover = ds3.read(1, window=window3, boundless=True, fill_value=ds3.nodata)
+        i, j = ds3.index(tile.x0, tile.y0)
+        window3 = Window(j - padding, i - padding, width, height)
+        landcover = ds3.read(1, window=window3, boundless=True, fill_value=ds3.nodata)
 
         if not params.infrastructures:
             # Remove infrastructures
@@ -138,10 +120,7 @@ def WeightedContinuityAnalysisTile(
         state = np.uint8(np.abs(nearest_distance) < 1)
         del nearest_distance
 
-        state[
-            (hand == ds1.nodata) |
-            (hand > params.height_max)
-        ] = 255
+        state[landcover == ds3.nodata] = 255
 
         # Shortest max analysis
         out = np.full_like(landcover, ds3.nodata)
@@ -151,7 +130,6 @@ def WeightedContinuityAnalysisTile(
 
         speedup.continuity_analysis(
             landcover,
-            hand,
             out,
             distance,
             state,
@@ -159,7 +137,6 @@ def WeightedContinuityAnalysisTile(
             max_class=params.class_max,
             min_distance=params.distance_min,
             max_distance=params.distance_max,
-            max_height=params.height_max,
             jitter=params.jitter)
 
         # Reclass stream pixels as water pixels
@@ -179,7 +156,7 @@ def WeightedContinuityAnalysisTile(
 
         height = height - 2*padding
         width = width - 2*padding
-        transform = ds1.transform * ds1.transform.translation(j0, i0)
+        transform = ds3.transform * ds3.transform.translation(j, i)
 
         profile.update(
             driver='GTiff',
@@ -197,76 +174,6 @@ def WeightedContinuityAnalysis(
         **kwargs):
     """
     Calculate landcover continuity from river channel
-
-    @api    fct-corridor:continuity-weighted
-
-    @input  landcover: landcover-bdt
-    @input  distance: ax_talweg_distance
-    @input  heigth: ax_nearest_height
-
-    @param  with_infra: True
-    @param  max_height: 20.0
-    @param  padding: 200
-
-    @output continuity_map_weighted: ax_continuity
-
-    Parameters
-    ----------
-
-    axis: int
-
-        Axis identifier
-
-    processes: int
-
-        Number of parallel processes to execute
-        (defaults to one)
-
-    Keyword Parameters
-    ------------------
-
-    tileset: str, logical name
-
-        Tileset to use,
-        defaults to `landcover`
-
-    landcover: str, logical name
-
-        Landcover data raster,
-        defaults to `landcover`
-
-    distance: str, logical name
-
-        Distance from drainage raster,
-        defaults to `ax_talweg_distance`.
-
-    height: str, logical name
-
-        Height above drainage raster,
-        defaults to `ax_nearest_height`
-
-    output: str, logical name
-
-        Continuity raster output,
-        defaults to `ax_continuity`
-
-    maxz: float
-
-        Truncate landcover data with height above maxz,
-        defaults to 20.0 m
-
-    padding: int
-
-        Number of pixels to pad tiles with,
-        defaults to 200
-
-    with_infrastructures: bool
-
-        Whether to exclude landcover infrastructure class (8)
-        from continuity analysis,
-        defaults to True
-
-    Other keywords are passed to dataset filename templates.
     """
 
     tilefile = params.tiles.filename(**kwargs)

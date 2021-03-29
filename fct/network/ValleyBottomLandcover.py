@@ -38,7 +38,8 @@ class Parameters:
 
         self.tiles = 'shortest_tiles'
         self.landcover = 'landcover-bdt'
-        self.mask = 'nearest_height'
+        self.mask = 'valley_bottom_final'
+        # self.mask = 'nearest_height'
         self.output = 'landcover_valley_bottom'
 
 def ValleyBottomLandcoverTile(row, col, params):

@@ -24,13 +24,16 @@ LANDCOVER_CROPS = 5
 LANDCOVER_URBAN_DIFFUSE = 6
 LANDCOVER_BUILT = 7
 LANDCOVER_INFRASTRUCTURES = 8
+LANDCOVER_NODATA = 255
 
+CONTINUITY_WATER_CHANNEL = 0
 CONTINUITY_ACTIVE_CHANNEL = 1
 CONTINUITY_RIPARIAN_BUFFER = 10
 CONTINUITY_CONNECTED_MEADOWS = 20
 CONTINUITY_CONNECTED_CULTIVATED = 30
 CONTINUITY_DISCONNECTED = 40
 CONTINUITY_BUILT = 50
+CONTINUITY_NODATA = 255
 
 class Parameters:
     """
@@ -71,11 +74,14 @@ def RemapContinuityTile(row: int, col: int, params: Parameters, **kwargs):
             profile = ds.profile.copy()
 
             data = ds.read(1)
-            out = np.full_like(data, ds.nodata)
+            out = np.full_like(data, CONTINUITY_NODATA)
 
             out[
-                (data == LANDCOVER_WATER) |
-                (data == LANDCOVER_GRAVELS)
+                data == LANDCOVER_WATER
+            ] = CONTINUITY_WATER_CHANNEL
+
+            out[
+                data == LANDCOVER_GRAVELS
             ] = CONTINUITY_ACTIVE_CHANNEL
 
             out[
