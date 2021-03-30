@@ -31,16 +31,26 @@ class Parameters:
     mask = DatasetParameter('domain mask raster', type='input')
     output = DatasetParameter('valley bottom lancover', type='output')
 
-    def __init__(self):
+    def __init__(self, axis=None):
         """
         Default parameter values
         """
 
-        self.tiles = 'shortest_tiles'
         self.landcover = 'landcover-bdt'
-        self.mask = 'valley_bottom_final'
-        # self.mask = 'nearest_height'
-        self.output = 'landcover_valley_bottom'
+
+        if axis is None:
+
+            self.tiles = 'shortest_tiles'
+            self.mask = 'valley_bottom_final'
+            # self.mask = 'nearest_height'
+            self.output = 'landcover_valley_bottom'
+
+        else:
+
+            self.tiles = dict(key='ax_shortest_tiles', axis=axis)
+            self.mask = dict(key='ax_valley_bottom_final', axis=axis)
+            # self.mask = 'nearest_height'
+            self.output = dict(key='ax_landcover_valley_bottom', axis=axis)
 
 def ValleyBottomLandcoverTile(row, col, params):
 
@@ -118,5 +128,3 @@ def ValleyBottomLandcover(params, processes=1, **kwargs):
         with click.progressbar(pooled, length=length()) as iterator:
             for _ in iterator:
                 pass
-
-    buildvrt('default', params.output.name)

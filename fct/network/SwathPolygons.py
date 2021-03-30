@@ -288,7 +288,7 @@ def VectorizeOneSwath(axis, gid, measure, bounds, params, **kwargs):
 
         if height == 0 or width == 0:
             click.secho('Invalid swath %d with height = %d and width = %d' % (gid, height, width), fg='red')
-            return gid, measure, list()
+            return axis, gid, measure, list()
 
         # out = np.full_like(state, 255, dtype='uint32')
         distance = np.zeros_like(state, dtype='float32')

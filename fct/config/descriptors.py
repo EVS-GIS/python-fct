@@ -161,11 +161,13 @@ class DatasetResolver():
         if isinstance(value, dict):
 
             self.key = value['key']
-            self.args = {k: v for k, v in value.items() if k != 'key'}
+            self.tiled = value.get('tiled', True)
+            self.args = {k: v for k, v in value.items() if k not in ('key', 'tiled')}
 
         else:
 
             self.key = value
+            self.tiled = True
             self.args = None
 
     @property
@@ -212,7 +214,7 @@ class DatasetResolver():
 
         args = self.arguments(kwargs)
 
-        if tileset is None:
+        if not self.tiled or tileset is None:
             return config.filename(self.key, **args)
 
         return config.tileset(tileset).filename(self.key, **args)

@@ -107,13 +107,26 @@ landcover_valley_bottom:
     template: LANDCOVER_%(row)02d_%(col)02d
     extension: .tif
 
+ax_landcover_valley_bottom:
+  description: |
+    Landcover map (valley bottom)
+  type: raster
+  group: corridor
+  status: final
+  subdir: AXES/AX%(axis)04d/LANDCOVER
+  filename: LANDCOVER.vrt
+  tiles:
+    tileset: landcover
+    template: LANDCOVER_%(row)02d_%(col)02d
+    extension: .tif
+
 ax_continuity:
   description: |
     Landcover continuity map
   type: raster
   group: corridor
   status: final
-  subdir: AXES/AX%(axis)04d
+  subdir: AXES/AX%(axis)04d/CONTINUITY
   filename: LANDCOVER_CONTINUITY.vrt
   tiles:
     tileset: landcover
@@ -152,7 +165,7 @@ ax_continuity_variant:
   type: raster
   group: corridor
   status: final
-  subdir: AXES/AX%(axis)04d
+  subdir: AXES/AX%(axis)04d/CONTINUITY
   filename: LANDCOVER_CONTINUITY_%(variant)s.vrt
   tiles:
     tileset: landcover
@@ -165,7 +178,7 @@ ax_continuity_remapped:
   type: raster
   group: corridor
   status: final
-  subdir: AXES/AX%(axis)04d
+  subdir: AXES/AX%(axis)04d/CONTINUITY
   filename: LANDCOVER_CONTINUITY_FINAL.vrt
   tiles:
     tileset: landcover
@@ -178,7 +191,7 @@ ax_continuity_variant_remapped:
   type: raster
   group: corridor
   status: final
-  subdir: AXES/AX%(axis)04d
+  subdir: AXES/AX%(axis)04d/CONTINUITY
   filename: LANDCOVER_CONTINUITY_%(variant)s_FINAL.vrt
   tiles:
     tileset: landcover

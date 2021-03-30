@@ -55,6 +55,15 @@ metrics_planform:
 #   subdir: AXES/AX%(axis)04d/METRICS
 #   filename: LONG_PROFILE.nc
 
+metrics_width_valley_bottom:
+  description: |
+    Valley bottom width and swath areas
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: WIDTH_VALLEY_BOTTOM.nc
+
 metrics_width_corridor:
   description: |
     Valley bottom width and swath areas

@@ -357,3 +357,13 @@ drainage_area:
   status: final
   subdir: NETWORK/METRICS
   filename: DRAINAGE_AREA.nc
+
+width_valley_bottom:
+  description: |
+    Valley bottom width measured from medial axis
+    (aka. feature size)
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: NETWORK/METRICS
+  filename: WIDTH_VALLEY_BOTTOM.nc
