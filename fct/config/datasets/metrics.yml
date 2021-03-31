@@ -45,6 +45,24 @@ metrics_planform:
   subdir: AXES/AX%(axis)04d/METRICS
   filename: PLANFORM.nc
 
+metrics_planform_refaxis:
+  description: |
+    Talweg shift and position relative to reference axis
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: PLANFORM_REFAXIS.nc
+
+metrics_planform_planaxis:
+  description: |
+    Talweg shift and position relative to reference axis
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: PLANFORM_PLANAXIS.nc
+
 # metrics_long_profile:
 #   description: |
 #     Long Profile Metrics:
@@ -55,6 +73,51 @@ metrics_planform:
 #   subdir: AXES/AX%(axis)04d/METRICS
 #   filename: LONG_PROFILE.nc
 
+metrics_talweg_points:
+  description: |
+    Talweg (x, y, z)
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: TALWEG_POINTS.nc
+
+metrics_elevation_profile:
+  description: |
+    Elevation profile
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: ELEVATION_PROFILE.nc
+
+metrics_talweg_elevation:
+  description: |
+    Talweg elevation (projected on elevation profile)
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: TALWEG_ELEVATION.nc
+
+metrics_talweg_length:
+  description: |
+    swath-intercepted talweg length
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: TALWEG_LENGTH.nc
+
+metrics_planform_amplitude:
+  description: |
+    Planform ampltiude
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: PLANFORM_AMPLITUDE.nc
+
 metrics_width_valley_bottom:
   description: |
     Valley bottom width and swath areas
@@ -62,11 +125,11 @@ metrics_width_valley_bottom:
   group: metrics
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
-  filename: WIDTH_VALLEY_BOTTOM.nc
+  filename: WIDTH_VALLEY_BOTTOM_SW.nc
 
 metrics_width_corridor:
   description: |
-    Valley bottom width and swath areas
+    Corridor synthetic widths
   type: netcdf
   group: metrics
   status: final
@@ -98,7 +161,7 @@ metrics_width_landcover:
   group: metrics
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
-  filename: WIDTH_LANDCOVER_%(variant)s.nc
+  filename: WIDTH_LANDCOVER.nc
 
 metrics_width_continuity:
   description: |
@@ -107,7 +170,7 @@ metrics_width_continuity:
   group: metrics
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
-  filename: WIDTH_CONTINUITY_%(variant)s.nc
+  filename: WIDTH_CONTINUITY.nc
 
 metrics_watershed:
   description: |

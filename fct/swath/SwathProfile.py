@@ -63,18 +63,30 @@ class Parameters:
     labels = LiteralParameter(
         'values labels if discrete variable')
 
-    def __init__(self):
+    def __init__(self, axis=None):
         """
         Default parameter values
         """
 
         self.values = 'dem'
-        self.nearest = 'nearest_drainage_axis'
-        self.axis_distance = 'axis_distance'
-        self.talweg_distance = 'nearest_distance'
-        self.swaths = 'swaths_refaxis'
-        self.polygons = 'swaths_refaxis_polygons'
-        self.output = 'swath_elevation'
+
+        if axis is None:
+
+            self.nearest = 'nearest_drainage_axis'
+            self.axis_distance = 'axis_distance'
+            self.talweg_distance = 'nearest_distance'
+            self.swaths = 'swaths_refaxis'
+            self.polygons = 'swaths_refaxis_polygons'
+            self.output = 'swath_elevation'
+
+        else:
+
+            self.nearest = dict(key='ax_nearest_drainage_axis', axis=axis)
+            self.axis_distance = dict(key='ax_axis_distance', axis=axis)
+            self.talweg_distance = dict(key='ax_nearest_distance', axis=axis)
+            self.swaths = dict(key='ax_swaths_refaxis', axis=axis)
+            self.polygons = dict(key='ax_swaths_refaxis_polygons', axis=axis)
+            self.output = dict(key='ax_swath_elevation', axis=axis)
 
         self.is_continuous = True
         self.swath_length = 200.0
@@ -84,9 +96,12 @@ class Parameters:
         # self.labels = {1: 'Slope', 2: 'Terrace', 3: 'Holes', 4: 'Relief', 5: 'Bottom'}
 
     @classmethod
-    def continuous(cls, values, percentiles=None):
+    def continuous(cls, values, axis=None, percentiles=None):
+        """
+        Create continuous data swath profile parameters
+        """
 
-        params = cls()
+        params = cls(axis=axis)
         params.values = values
         params.is_continuous = True
 
@@ -96,9 +111,12 @@ class Parameters:
         return params
 
     @classmethod
-    def discrete(cls, values, labels):
+    def discrete(cls, values, labels, axis=None):
+        """
+        Create discrete data swath profile parameters
+        """
 
-        params = cls()
+        params = cls(axis=axis)
         params.values = values
         params.labels = labels
         params.is_continuous = False

@@ -93,10 +93,16 @@ def scale_average_wavelet(yt, scale_min=0.0, scale_max= 20e3, dt=20.0, dj=0.25):
 
     return scale_avg
 
-def Amplitude(params: Parameters) -> xr.Dataset:
+def Amplitude(source, params: Parameters) -> xr.Dataset:
+
+    # planform = (
+    #     xr.open_dataset(params.planform.filename(tileset=None))
+    #     .set_index(sample=('axis', 'talweg_measure'))
+    #     .load()
+    # )
 
     planform = (
-        xr.open_dataset(params.planform.filename(tileset=None))
+        xr.open_dataset(source.filename(tileset=None))
         .set_index(sample=('axis', 'talweg_measure'))
         .load()
     )
@@ -156,3 +162,66 @@ def Amplitude(params: Parameters) -> xr.Dataset:
         dataset.append(values)
 
     return xr.concat(dataset, 'sample', 'all')
+
+def InterpolateSwaths(data, reference, dm=100.0):
+
+    refaxis = (
+        xr.open_dataset(reference.filename())
+        .set_index(sample=('axis', 'talweg_measure'))
+        .load()
+    )
+
+    data = (
+        data
+        .set_index(sample=('axis', 'talweg_measure'))
+        .merge(refaxis)
+    )
+
+    dataset = list()
+
+    for axis in np.unique(data.axis):
+
+        datax = data.sel(axis=axis)
+        measure_min = np.floor(np.min(datax.ref_measure) / dm) * dm
+        measure_max = np.ceil(np.max(datax.ref_measure) / dm) * dm
+        bins = np.arange(measure_min, measure_max + dm, dm)
+
+        reindexed = (
+            datax
+            .set_index(talweg_measure='ref_measure')
+            .rename(talweg_measure='measure')
+        )
+
+        grouped = (
+            reindexed[['amplitude_scale_avg', 'omega_scale_avg']]
+            .rename(amplitude_scale_avg='amplitude', omega_scale_avg='omega')
+            .groupby_bins('measure', bins)
+            .mean()
+        )
+
+        measures = np.array(
+            [iv.mid for iv in grouped.measure_bins.values],
+            dtype='float32')
+
+        # missing = np.isnan(values)
+
+        # if np.any(missing):
+
+        #     values[missing] = np.interp(
+        #         measures[missing],
+        #         measures[~missing],
+        #         values[~missing])
+
+        size = grouped.measure_bins.size
+        values = xr.Dataset(
+            {
+                'amplitude': (('swath',), np.float32(grouped.amplitude.values)),
+                'omega': (('swath',), np.float32(grouped.omega.values))
+            }, coords={
+                'axis': (('swath',), np.full(size, axis, dtype='uint32')),
+                'measure': (('swath',), measures)
+            })
+
+        dataset.append(values)
+
+    return xr.concat(dataset, 'swath', 'all')

@@ -457,6 +457,10 @@ class Dataset():
         """
         Return storage subdirectory
         """
+
+        if 'subdir' in kwargs:
+            return kwargs['subdir']
+
         return self._subdir % kwargs
 
     @property

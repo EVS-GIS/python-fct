@@ -360,7 +360,10 @@ def AdjustedProfile(profile, fitted):
             fill_value=np.nan)
 
         elevations = elevation_fun(points_ax.measure.values)
-        elevations[np.isnan(elevations)] = points_ax.z[np.isnan(elevations)]
+        missing = np.isnan(elevations)
+
+        if np.any(missing):
+            elevations[missing] = points_ax.z[missing]
 
         return xr.Dataset(
             {

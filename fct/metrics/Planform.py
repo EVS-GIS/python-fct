@@ -220,7 +220,7 @@ def calculate_planform_variables(axis, talweg, params: Parameters) -> xr.Dataset
 
     return dataset
 
-def PlanformVariables(params: Parameters) -> xr.Dataset:
+def PlanformVariables(params: Parameters, ax=None) -> xr.Dataset:
     """
     Project talweg linestring on linear reference axis,
     yielding a long profile signal of the amplitude of talweg shift.
@@ -240,6 +240,10 @@ def PlanformVariables(params: Parameters) -> xr.Dataset:
             for feature in iterator:
 
                 axis = feature['properties']['AXIS']
+
+                if ax is not None and axis != ax:
+                    continue
+
                 talweg = np.asarray(feature['geometry']['coordinates'])
                 axis_values = calculate_planform_variables(axis, talweg, params)
                 values.append(axis_values)
