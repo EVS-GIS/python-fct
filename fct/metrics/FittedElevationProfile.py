@@ -3,6 +3,7 @@ Planform signal,
 talweg shift with respect to given reference axis
 """
 
+from multiprocessing import Pool
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.linalg import lstsq
@@ -13,6 +14,7 @@ import rasterio as rio
 from shapely.geometry import LineString, asShape
 import xarray as xr
 
+from ..cli import starcall
 from ..tileio import as_window
 from ..config import (
     DatasetParameter,
@@ -132,33 +134,71 @@ def extract_talweg_data(axis, talweg, params: Parameters) -> xr.Dataset:
         }
     )
 
-def TalwegElevation(params: Parameters) -> xr.Dataset:
+def talweg_elevation_mp(params: Parameters, processes: int = 6, **kwargs) -> xr.Dataset:
+
+    talweg_shapefile = params.talweg.filename(tileset=None)
+
+    def length():
+
+        with fiona.open(talweg_shapefile) as fs:
+            return len(fs)
+
+    def arguments():
+
+        with fiona.open(talweg_shapefile) as fs:
+            for feature in fs:
+
+                axis = feature['properties']['AXIS']
+                talweg = np.asarray(feature['geometry']['coordinates'])
+
+                yield (
+                    extract_talweg_data,
+                    axis,
+                    talweg,
+                    params,
+                    kwargs
+                )
+
+    with Pool(processes=processes) as pool:
+
+        pooled = pool.imap_unordered(starcall, arguments())
+
+        with click.progressbar(pooled, length=length()) as iterator:
+            values = list(iterator)
+
+    return xr.concat(values, 'sample', 'all')
+
+def TalwegElevation(params: Parameters, processes: int = 6, **kwargs) -> xr.Dataset:
     """
     Extract regularly spaced elevation data point and coordinates
     along talweg polyline
     """
 
-    talweg_shapefile = params.talweg.filename(tileset=None)
+    if processes == 1:
 
-    values = list()
+        talweg_shapefile = params.talweg.filename(tileset=None)
+        values = list()
 
-    with fiona.open(talweg_shapefile) as fs:
-        with click.progressbar(fs) as iterator:
-            for feature in iterator:
+        with fiona.open(talweg_shapefile) as fs:
+            with click.progressbar(fs) as iterator:
+                for feature in iterator:
 
-                axis = feature['properties']['AXIS']
-                talweg = np.asarray(feature['geometry']['coordinates'])
-                axis_values = extract_talweg_data(axis, talweg, params)
-                values.append(axis_values)
+                    axis = feature['properties']['AXIS']
+                    talweg = np.asarray(feature['geometry']['coordinates'])
+                    axis_values = extract_talweg_data(axis, talweg, params)
+                    values.append(axis_values)
 
-    dataset = xr.concat(values, 'sample', 'all')
+        dataset = xr.concat(values, 'sample', 'all')
+
+    else:
+
+        dataset = talweg_elevation_mp(params, processes, **kwargs)
 
     # set_metadata(dataset, 'metrics_planform')
-
     return dataset
 
 def fit_swath_elevations(
-        data: xr.Dataset,
+        swath: xr.Dataset,
         axis: int,
         measure: float,
         bounds,
@@ -167,10 +207,10 @@ def fit_swath_elevations(
 
     # pour chaque swath/dgo (axis, measure)
 
-    swath = (
-        data.set_index(sample=('axis', 'measure'))
-        .sel(axis=axis)
-    )
+    # swath = (
+    #     data.set_index(sample=('axis', 'measure'))
+    #     .sel(axis=axis)
+    # )
 
     swath = swath.isel(measure=(swath.measure > measure - 300) &
         (swath.measure <= measure + 300))
@@ -184,6 +224,8 @@ def fit_swath_elevations(
     # fit_xy = lstsq(Axy, swath.z.values)
     # slope_xy = np.arctan(np.sqrt(fit_xy[0][0]**2 +  fit_xy[0][1])**2)
 
+    # 1. z = f(axis measure) => valley slope
+
     Am = np.column_stack([
         swath.measure.values,
         np.ones_like(swath.measure.values)
@@ -191,6 +233,11 @@ def fit_swath_elevations(
 
     fit_m = lstsq(Am, swath.z.values)
     slope_m, z0_m = fit_m[0]
+
+    # representative swath elevation z0
+    z0 = slope_m * measure + z0_m
+
+    # 2. z = f(talweg measure) => talweg slope
 
     As = np.column_stack([
         swath.talweg_measure.values,
@@ -259,10 +306,15 @@ def fit_swath_elevations(
     #         fill_value=ds.nodata)
     #     mask = mask & (nearest_axes == axis)
 
-    z0 = slope_m * measure + z0_m
-    height = dem - (slope_m * measures + z0_m)
-    # height[~mask] = -99999.0
-    height_median = np.median(height[mask])
+    if np.any(mask):
+
+        height = dem - (slope_m * measures + z0_m)
+        # height[~mask] = -99999.0
+        height_median = np.median(height[mask])
+
+    else:
+
+        height_median = np.nan
 
     return xr.Dataset(
         {
@@ -309,24 +361,91 @@ def fit_swath_elevations(
 
     # return height_density
 
-def FittedElevationProfile(data, swath_bounds, params: Parameters, **kwargs) -> xr.Dataset:
+def fit_axis(data, axis, swath_bounds, params: Parameters):
 
     values = list()
 
-    with click.progressbar(swath_bounds) as iterator:
-        for (axis, measure) in iterator:
+    for ax, measure in swath_bounds:
 
-            bounds = swath_bounds[axis, measure]
-            values.append(
-                fit_swath_elevations(
-                    data,
+        if ax != axis:
+            continue
+
+        bounds = swath_bounds[ax, measure]
+        value = fit_swath_elevations(
+            data,
+            axis,
+            measure,
+            bounds,
+            params)
+
+        values.append(value)
+
+    return xr.concat(values, 'swath', 'all')
+
+def fit_mp(data, swath_bounds, params: Parameters, processes: int = 6, **kwargs) -> xr.Dataset:
+
+    def length():
+
+        return len(np.unique(data.axis))
+
+    def arguments():
+
+        for axis in np.unique(data.axis):
+
+            # bounds = swath_bounds[axis, measure]
+            swath = (
+                data.set_index(sample=('axis', 'measure'))
+                .sel(axis=axis)
+            )
+
+            yield (
+                fit_axis,
+                swath,
+                axis,
+                swath_bounds,
+                params,
+                kwargs
+            )
+
+    with Pool(processes=processes) as pool:
+
+        pooled = pool.imap_unordered(starcall, arguments())
+
+        with click.progressbar(pooled, length=length()) as iterator:
+            values = list(iterator)
+
+    return xr.concat(values, 'swath', 'all')
+
+def FittedElevationProfile(data, swath_bounds, params: Parameters, processes: int = 6, **kwargs) -> xr.Dataset:
+
+    if processes == 1:
+
+        values = list()
+
+        with click.progressbar(swath_bounds) as iterator:
+            for (axis, measure) in iterator:
+
+                bounds = swath_bounds[axis, measure]
+                swath = (
+                    data.set_index(sample=('axis', 'measure'))
+                    .sel(axis=axis)
+                )
+
+                value = fit_swath_elevations(
+                    swath,
                     axis,
                     measure,
                     bounds,
                     params,
-                    **kwargs))
+                    **kwargs)
 
-    dataset = xr.concat(values, 'swath', 'all')
+                values.append(value)
+
+        dataset = xr.concat(values, 'swath', 'all')
+
+    else:
+
+        dataset = fit_mp(data, swath_bounds, params, processes, **kwargs)
 
     dataset['sinuosity'] = dataset.slope_valley / dataset.slope_talweg
     dataset.sinuosity[dataset.sinuosity < 1.0] = 1.0

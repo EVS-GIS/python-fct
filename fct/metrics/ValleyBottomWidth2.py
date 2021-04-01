@@ -2,6 +2,7 @@
 Valley bottom width metrics
 """
 
+from multiprocessing import Pool
 import numpy as np
 from scipy.stats import linregress
 
@@ -9,6 +10,7 @@ import click
 import xarray as xr
 
 # from ..config import config
+from ..cli import starcall
 from ..config import (
     # DatasetParameter,
     LiteralParameter
@@ -37,6 +39,13 @@ def swath_width(data, axis, measure, params: Parameters):
     Aggregate one swath data into width metrics
     """
 
+    # data = (
+    #     xr.open_dataset(source.filename())
+    #     .set_index(sample=('axis', 'measure', 'distance'))
+    #     .sel(axis=axis, measure=measure)
+    #     .load()
+    # )
+
     pixarea = params.resolution**2
     swath_length = params.swath_length
     distance_delta = params.distance_delta
@@ -59,25 +68,77 @@ def swath_width(data, axis, measure, params: Parameters):
         'side': ['left', 'right']
     })
 
-def ValleyBottomWidth(dataset: xr.Dataset, params: Parameters):
+def axis_swath_width(data, axis, params: Parameters):
+
+    values = list()
+
+    for measure in np.unique(data.measure):
+
+        swath_data = data.sel(measure=measure)
+        value = swath_width(swath_data, axis, measure, params)
+        values.append(value)
+
+    return xr.concat(values, 'swath', 'all')
+
+def ValleyBottomWidth(dataset: xr.Dataset, params: Parameters, processes: int = 1, **kwargs):
     """
     Aggregate elevation swath profiles into valley bottom width metrics
     """
 
-    def coordinates():
+    # dataset: xr.Dataset
+
+    if processes == 1:
+
+        def coordinates():
+
+            for ax in np.unique(dataset.axis):
+                for m in np.unique(dataset.sel(axis=ax).measure):
+                    yield ax, m
+
+        coords = list(coordinates())
+
+        with click.progressbar(coords) as iterator:
+
+            result = xr.concat([
+                swath_width(dataset.sel(axis=ax, measure=m), ax, m, params)
+                for ax, m in iterator
+            ], 'swath', 'all')
+
+        return result
+
+    # dataset = (
+    #     xr.open_dataset(source.filename())
+    #     .set_index(sample=('axis', 'measure', 'distance'))
+    # )
+
+    def length():
+
+        return sum(
+            1 for ax in np.unique(dataset.axis)
+        )
+
+    def arguments():
 
         for ax in np.unique(dataset.axis):
-            for m in np.unique(dataset.sel(axis=ax).measure):
-                yield ax, m
 
-    coords = list(coordinates())
+            axis_data = dataset.sel(axis=ax)
 
-    with click.progressbar(coords) as iterator:
+            yield (
+                axis_swath_width,
+                axis_data,
+                ax,
+                params,
+                kwargs
+            )
 
-        result = xr.concat([
-            swath_width(dataset.sel(axis=ax, measure=m), ax, m, params)
-            for ax, m in iterator
-        ], 'swath', 'all')
+    with Pool(processes=processes) as pool:
+
+        pooled = pool.imap_unordered(starcall, arguments())
+
+        with click.progressbar(pooled, length=length()) as iterator:
+            values = list(iterator)
+
+    result = xr.concat(values, 'swath', 'all')
 
     return result
 

@@ -28,8 +28,8 @@ def CorridorWidth(width_continuity: xr.Dataset, length_talweg: xr.Dataset) -> xr
 
     acw = (
         width.sel(label=['Water channel', 'Active channel'])
-        .sum('side')
-        .drop_vars('label')
+        .sum(('side', 'label'))
+        # .drop_vars('label')
         .rename(area='area_ac'))
 
     ncw = (

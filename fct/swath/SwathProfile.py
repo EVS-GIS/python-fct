@@ -25,6 +25,8 @@ from ..config import (
     LiteralParameter
 )
 
+from . SwathBounds import SwathBounds
+
 class Parameters:
     """
     Elevation swath profile extraction parameters
@@ -76,7 +78,7 @@ class Parameters:
             self.axis_distance = 'axis_distance'
             self.talweg_distance = 'nearest_distance'
             self.swaths = 'swaths_refaxis'
-            self.polygons = 'swaths_refaxis_polygons'
+            self.polygons = dict(key='swaths_refaxis_polygons', tiled=False)
             self.output = 'swath_elevation'
 
         else:
@@ -85,7 +87,7 @@ class Parameters:
             self.axis_distance = dict(key='ax_axis_distance', axis=axis)
             self.talweg_distance = dict(key='ax_nearest_distance', axis=axis)
             self.swaths = dict(key='ax_swaths_refaxis', axis=axis)
-            self.polygons = dict(key='ax_swaths_refaxis_polygons', axis=axis)
+            self.polygons = dict(key='ax_swaths_refaxis_polygons', axis=axis, tiled=False)
             self.output = dict(key='ax_swath_elevation', axis=axis)
 
         self.is_continuous = True
@@ -254,33 +256,33 @@ def SwathProfileUnit(
     # return dataset.set_index(sample=('axis', 'measure', 'distance'))
     return dataset
 
-def SwathBounds(params: Parameters, **kwargs):
+# def SwathBounds(params: Parameters, **kwargs):
 
-    shapefile = params.polygons.filename(tileset=None, **kwargs)
-    geometries = dict()
+#     shapefile = params.polygons.filename(tileset=None, **kwargs)
+#     geometries = dict()
 
-    with fiona.open(shapefile) as fs:
-        for feature in fs:
+#     with fiona.open(shapefile) as fs:
+#         for feature in fs:
 
-            if feature['properties']['VALUE'] == 2:
+#             if feature['properties']['VALUE'] == 2:
 
-                axis = feature['properties']['AXIS']
-                measure = feature['properties']['M']
-                geometry = asShape(feature['geometry'])
+#                 axis = feature['properties']['AXIS']
+#                 measure = feature['properties']['M']
+#                 geometry = asShape(feature['geometry'])
 
-                if (axis, measure) in geometries:
-                    geometries[axis, measure] = geometries[axis, measure].union(geometry)
-                else:
-                    geometries[axis, measure] = geometry
+#                 if (axis, measure) in geometries:
+#                     geometries[axis, measure] = geometries[axis, measure].union(geometry)
+#                 else:
+#                     geometries[axis, measure] = geometry
 
-    return {
-        (axis, measure): geometries[axis, measure].bounds
-        for axis, measure in geometries
-    }
+#     return {
+#         (axis, measure): geometries[axis, measure].bounds
+#         for axis, measure in geometries
+#     }
 
 def SwathProfile(params: Parameters, processes=1, **kwargs):
 
-    swath_bounds = SwathBounds(params, **kwargs)
+    swath_bounds = SwathBounds(params.polygons)
 
     # shapefile = params.polygons.filename(tileset=None)
     # geometries = dict()

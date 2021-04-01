@@ -229,11 +229,13 @@ def WriteDrainageToDisk(drainage: SwathDrainageDict, params: Parameters, **kwarg
         measure[k] = m
         values[k] = drainage[ax, m]
 
-    data = xr.Dataset({
-        'axis': (('swath',), axis),
-        'measure': (('swath',), measure),
-        'drainage_area': (('swath',), values),
-    })
+    data = xr.Dataset(
+        {
+            'drainage_area': (('swath',), values)
+        }, coords={
+            'axis': (('swath',), axis),
+            'measure': (('swath',), measure)
+        })
 
     set_metadata(data, 'metrics_drainage_area')
     output = params.output.filename(tileset=None, **kwargs)

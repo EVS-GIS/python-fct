@@ -92,7 +92,7 @@ class Parameters:
             # self.swaths_polygons = 'ax_swaths_refaxis_polygons'
             self.medialaxis = 'medialaxis'
             self.simplified = 'medialaxis_simplified'
-            self.vbw = dict(key='width_valley_bottom', tiled=False)
+            self.vbw = dict(key='width_valley_bottom_ma', tiled=False)
 
         else:
 
@@ -104,7 +104,7 @@ class Parameters:
             # self.swaths_polygons = 'ax_swaths_refaxis_polygons'
             self.medialaxis = dict(key='ax_medialaxis', axis=axis)
             self.simplified = dict(key='ax_medialaxis_simplified', axis=axis)
-            self.vbw = dict(key='metrics_width_valley_bottom', axis=axis, tiled=False)
+            self.vbw = dict(key='metrics_width_valley_bottom_ma', axis=axis, tiled=False)
 
         self.swath_length = 100.0
 
@@ -484,7 +484,7 @@ def SimplifyMedialAxis(params: Parameters, vbw: xr.Dataset = None):
 
         vbw = vbw.set_index(swath=('axis', 'measure'))
 
-    assert('width_valley_bottom' in vbw)
+    # assert('width_valley_bottom' in vbw)
 
     with fiona.open(params.medialaxis.filename()) as fs:
 
@@ -524,7 +524,7 @@ def SimplifyMedialAxis(params: Parameters, vbw: xr.Dataset = None):
                 .mean()
             )
 
-            widths = np.interp(measures, smoothed.measure, smoothed.width_valley_bottom)
+            widths = np.interp(measures, smoothed.measure, smoothed.width_valley_bottom_ma)
 
             # simplified = LineString(
             #     smooth_chaikin(

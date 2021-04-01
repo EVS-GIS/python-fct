@@ -27,6 +27,15 @@ metrics_drainage_area:
   subdir: AXES/AX%(axis)04d/METRICS
   filename: DRAINAGE_AREA.nc
 
+metrics_drainage_area_sw:
+  description: |
+    Upstream drainage area calculated from DEM
+  type: netcdf
+  group: metrics
+  status: temporary
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: DRAINAGE_AREA_SW.nc
+
 metrics_talweg:
   description: |
     Talweg related metrics by valley swath unit
@@ -111,16 +120,54 @@ metrics_talweg_length:
 
 metrics_planform_amplitude:
   description: |
-    Planform ampltiude
+    Planform amplitude (per swath interpolation)
   type: netcdf
   group: metrics
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
   filename: PLANFORM_AMPLITUDE.nc
 
+metrics_planform_amplitude_sw:
+  description: |
+    Planform amplitude (per swath interpolation)
+  type: netcdf
+  group: metrics
+  status: temporary
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: PLANFORM_AMPLITUDE_SW.nc
+
+metrics_planform_amplitude_raw:
+  description: |
+    Planform amplitude (measured along talweg)
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: PLANFORM_AMPLITUDE_RAW.nc
+
 metrics_width_valley_bottom:
   description: |
     Valley bottom width and swath areas
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: WIDTH_VALLEY_BOTTOM.nc
+
+metrics_width_valley_bottom_ma:
+  description: |
+    Valley bottom width,
+    calculated from medial axis
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: WIDTH_VALLEY_BOTTOM_MA.nc
+
+metrics_width_valley_bottom_sw:
+  description: |
+    Valley bottom width,
+    calculated from medial axis
   type: netcdf
   group: metrics
   status: final
@@ -180,3 +227,12 @@ metrics_watershed:
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
   filename: WATERSHED_%(subset)s.nc
+
+metrics_river_profile:
+  description: |
+    River profile metrics
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: RIVER_PROFILE.nc

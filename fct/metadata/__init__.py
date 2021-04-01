@@ -14,6 +14,7 @@ NetCDF Metadata Helper
 """
 
 import os
+from itertools import chain
 import time
 from datetime import datetime
 import yaml
@@ -54,15 +55,12 @@ def set_metadata(dataset, metafile):
         for attr, value in metadata['global'].items():
             dataset.attrs[attr] = value
 
-        for variable in metadata['coordinates']:
-            meta = metadata['coordinates'][variable]
-            for attr, value in meta.items():
-                dataset[variable].attrs[attr] = value
-
-        for variable in metadata['variables']:
-            meta = metadata['variables'][variable]
-            for attr, value in meta.items():
-                dataset[variable].attrs[attr] = value
+        for section in ('dims', 'coordinates', 'variables'):
+            for variable in metadata[section]:
+                meta = metadata[section][variable]
+                for attr, value in meta.items():
+                    if variable in dataset:
+                        dataset[variable].attrs[attr] = value
 
     else:
 

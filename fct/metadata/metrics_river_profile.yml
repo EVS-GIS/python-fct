@@ -1,0 +1,78 @@
+global:
+  description: |-
+    River profile synthetic metrics
+dims:
+  swath:
+    long_name: swath identifier
+coordinates:
+  axis:
+    long_name: stream identifier
+  measure:
+    long_name: position along reference axis
+    standard_name: linref_m_coordinate
+    units: m
+variables:
+  drainage_area:
+    long_name: drainage_area
+    description: upstream drainage/watershed area
+    units: km^2
+  elevation_talweg:
+    long_name: elevation_talweg
+    standard_name: surface_elevation
+    vertical_ref: IGN NGF
+    units: m
+  height_valley_median:
+    long_name: height_valley_median
+    description: median valley height above drainage/talweg
+    units: m
+  slope_talweg:
+    long_name: slope_talweg
+    description: talweg slope, caculated as z_talweg ~ location along talweg (talweg measure)
+    units: percent
+  slope_valley:
+    long_name: slope_valley
+    description: valley slope, caculated as z_talweg ~ reference/valley axis measure
+    units: percent
+  sinuosity:
+    long_name: sinuosity
+    description: slope_valley on slope_talweg ratio
+  length_talweg:
+    long_name: length_talweg
+    description: swath-intercepted talweg length
+    units: m
+  width_valley_bottom:
+    long_name: width_valley_bottom
+    description: valley bottom width
+    units: m
+  width_valley_bottom_ma:
+    long_name: width_valley_bottom_ma
+    description: valley bottom width measured from medial axis (aka. feature size)
+    units: m
+  area_valley_bottom:
+    long_name: area_valley_bottom
+    description: valley bottom area
+    units: m^2
+  width_water_channel:
+    long_name: width_water_channel
+    description: width of low flow water channel
+    units: m
+  width_active_channel:
+    long_name: width_active_channel
+    description: width of active channel (including water channel)
+    units: m
+  width_natural_corridor:
+    long_name: width_natural_corridor
+    description: width of connected natural/riparian corridor (not including active channel)
+    units: m
+  width_connected_corridor:
+    long_name: width_connected_corridor
+    description: width of connected corridor (including natural corridor)
+    units: m
+  amplitude:
+    long_name: amplitude
+    description: amplitude of planform shift from reference axis (geomorphologists' half amplitude)
+    units: m
+  omega:
+    long_name: omega
+    description: direction angle amplitude of planform
+    units: radian
