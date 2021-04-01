@@ -21,9 +21,13 @@ variables:
     standard_name: surface_elevation
     vertical_ref: IGN NGF
     units: m
-  height_valley_median:
-    long_name: height_valley_median
-    description: median valley height above drainage/talweg
+  height_median:
+    long_name: height_median
+    description: median valley bottom height above drainage/talweg
+    units: m
+  height_floodplain:
+    long_name: height_floodplain
+    description: median drainage/talweg height relative to floodplain 
     units: m
   slope_talweg:
     long_name: slope_talweg

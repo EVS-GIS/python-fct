@@ -183,3 +183,29 @@ valley_height:
     tileset: landcover
     template: VALLEY_HEIGHT_%(row)02d_%(col)02d
     extension: .tif
+
+poisson_samples:
+  description: |
+    Spatial samples raster
+  type: raster
+  group: corridor
+  status: final
+  subdir: NETWORK/TEMP
+  filename: SAMPLES.vrt
+  tiles:
+    tileset: landcover
+    template: SAMPLES_%(row)02d_%(col)02d
+    extension: .tif
+
+ax_poisson_samples:
+  description: |
+    Spatial samples raster
+  type: raster
+  group: corridor
+  status: final
+  subdir: AXES/AX%(axis)04d/TEMP
+  filename: SAMPLES.vrt
+  tiles:
+    tileset: landcover
+    template: SAMPLES_%(row)02d_%(col)02d
+    extension: .tif

@@ -78,7 +78,7 @@ class Parameters:
         else:
 
             self.talweg = dict(key='ax_talweg', axis=axis)
-            self.distance = dict(key='ax_nearest_distance', axis=axis)
+            self.nearest = dict(key='ax_nearest_drainage_axis', axis=axis)
             self.measure = dict(key='ax_axis_measure', axis=axis)
             self.valley_bottom = dict(key='ax_valley_bottom_final', axis=axis)
             self.output = dict(key='metrics_planform', axis=axis)
@@ -319,7 +319,7 @@ def fit_swath_elevations(
     return xr.Dataset(
         {
             'elevation_talweg': ('swath', np.array([z0], dtype='float32')),
-            'height_valley_median': ('swath', np.array([height_median], dtype='float32')),
+            'height_median': ('swath', np.array([height_median], dtype='float32')),
             'slope_talweg': ('swath', np.array([-slope_s], dtype='float32')),
             'slope_valley': ('swath', np.array([slope_m], dtype='float32'))
         }, coords={
@@ -418,30 +418,31 @@ def fit_mp(data, swath_bounds, params: Parameters, processes: int = 6, **kwargs)
 
 def FittedElevationProfile(data, swath_bounds, params: Parameters, processes: int = 6, **kwargs) -> xr.Dataset:
 
-    if processes == 1:
+    length = len(np.unique(data.axis))
 
-        values = list()
+    if length == 1 or processes == 1:
 
-        with click.progressbar(swath_bounds) as iterator:
-            for (axis, measure) in iterator:
+        def values():
 
-                bounds = swath_bounds[axis, measure]
-                swath = (
-                    data.set_index(sample=('axis', 'measure'))
-                    .sel(axis=axis)
-                )
+            with click.progressbar(swath_bounds) as iterator:
+                for (axis, measure) in iterator:
 
-                value = fit_swath_elevations(
-                    swath,
-                    axis,
-                    measure,
-                    bounds,
-                    params,
-                    **kwargs)
+                    bounds = swath_bounds[axis, measure]
+                    swath = (
+                        data.set_index(sample=('axis', 'measure'))
+                        .sel(axis=axis)
+                        .load()
+                    )
 
-                values.append(value)
+                    yield fit_swath_elevations(
+                        swath,
+                        axis,
+                        measure,
+                        bounds,
+                        params,
+                        **kwargs)
 
-        dataset = xr.concat(values, 'swath', 'all')
+        dataset = xr.concat(values(), 'swath', 'all')
 
     else:
 

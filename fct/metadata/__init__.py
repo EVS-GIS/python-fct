@@ -56,10 +56,17 @@ def set_metadata(dataset, metafile):
             dataset.attrs[attr] = value
 
         for section in ('dims', 'coordinates', 'variables'):
+
+            if section not in metadata:
+                continue
+
             for variable in metadata[section]:
+
                 meta = metadata[section][variable]
+
                 for attr, value in meta.items():
                     if variable in dataset:
+
                         dataset[variable].attrs[attr] = value
 
     else:

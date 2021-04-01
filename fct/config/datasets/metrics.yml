@@ -228,6 +228,15 @@ metrics_watershed:
   subdir: AXES/AX%(axis)04d/METRICS
   filename: WATERSHED_%(subset)s.nc
 
+metrics_floodplain_height:
+  description: |
+    River profile metrics
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: HEIGHT_FLOODPLAIN.nc
+
 metrics_river_profile:
   description: |
     River profile metrics

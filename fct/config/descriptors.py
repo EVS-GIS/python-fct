@@ -335,3 +335,27 @@ def test():
 
     return params
 
+class FileResource:
+
+    NETWORK_SUBDIR = 'NETWORK/METRICS'
+    value = DatasetParameter('destination file (netcdf)', type='output')
+
+    def __init__(self, key, axis=None):
+
+        if axis is None:
+
+            self.value = dict(
+                key=key,
+                tiled=False,
+                subdir=self.NETWORK_SUBDIR)
+
+        else:
+
+            self.value = dict(
+                key=key,
+                tiled=False,
+                axis=axis)
+
+    def filename(self):
+
+        return self.value.filename()
