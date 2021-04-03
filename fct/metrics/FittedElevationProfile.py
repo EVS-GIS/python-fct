@@ -119,7 +119,8 @@ def extract_talweg_data(axis, talweg, params: Parameters) -> xr.Dataset:
     with rio.open(params.dem.filename()) as ds:
 
         z = np.array(list(ds.sample(talweg_xy, 1)), dtype='float32')
-        z = z[:, 0]
+        # z = z[:, 0]
+        z = z.squeeze()
         valid = valid & (z != ds.nodata)
 
     return xr.Dataset(
@@ -319,9 +320,9 @@ def fit_swath_elevations(
     return xr.Dataset(
         {
             'elevation_talweg': ('swath', np.array([z0], dtype='float32')),
-            'height_median': ('swath', np.array([height_median], dtype='float32')),
+            'height_valley_bottom': ('swath', np.array([height_median], dtype='float32')),
             'slope_talweg': ('swath', np.array([-slope_s], dtype='float32')),
-            'slope_valley': ('swath', np.array([slope_m], dtype='float32'))
+            'slope_valley_bottom': ('swath', np.array([slope_m], dtype='float32'))
         }, coords={
             'axis': ('swath', np.array([axis], dtype='uint32')),
             'measure': ('swath', np.array([measure], dtype='float32'))

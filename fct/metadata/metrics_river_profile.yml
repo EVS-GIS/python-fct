@@ -3,80 +3,113 @@ global:
     River profile synthetic metrics
 dims:
   swath:
-    long_name: swath identifier
+    long_name: swath
+    short_name: sw
+    description: swath identifier
+    compress: axis measure
+    cf_role: profile_id
 coordinates:
   axis:
-    long_name: stream identifier
+    long_name: axis
+    description: stream identifier
+    short_name: ax
   measure:
-    long_name: position along reference axis
+    long_name: measure
+    description: position along reference axis
+    short_name: m
     standard_name: linref_m_coordinate
     units: m
+  side:
+    long_name: side of measurement, left or right
 variables:
   drainage_area:
     long_name: drainage_area
+    short_name: da
     description: upstream drainage/watershed area
     units: km^2
   elevation_talweg:
     long_name: elevation_talweg
-    standard_name: surface_elevation
-    vertical_ref: IGN NGF
+    short_name: ztw
+    description: fitted talweg elevation
+    vertical_ref: ign_ngf
     units: m
-  height_median:
-    long_name: height_median
+  elevation_valley_bottom:
+    long_name: elevation_valley_bottom
+    short_name: zvb
+    description: fitted floodplain/valley bottom elevation
+    vertical_ref: ign_ngf
+    units: m
+  height_valley_bottom:
+    long_name: height_valley_bottom
+    short_name: hvb
     description: median valley bottom height above drainage/talweg
     units: m
-  height_floodplain:
-    long_name: height_floodplain
+  height_talweg:
+    long_name: height_talweg
+    short_name: htw
     description: median drainage/talweg height relative to floodplain 
     units: m
   slope_talweg:
     long_name: slope_talweg
-    description: talweg slope, caculated as z_talweg ~ location along talweg (talweg measure)
+    short_name: stw
+    description: talweg slope, caculated as elevation_talweg ~ location along talweg (talweg measure)
     units: percent
-  slope_valley:
-    long_name: slope_valley
-    description: valley slope, caculated as z_talweg ~ reference/valley axis measure
+  slope_valley_bottom:
+    long_name: slope_valley_bottom
+    short_name: svb
+    description: valley slope, caculated as elevation_talweg ~ reference/valley axis measure
     units: percent
   sinuosity:
     long_name: sinuosity
-    description: slope_valley on slope_talweg ratio
+    short_name: sin
+    description: slope_valley_bottom on slope_talweg ratio
   length_talweg:
     long_name: length_talweg
+    short_name: ltw
     description: swath-intercepted talweg length
     units: m
   width_valley_bottom:
     long_name: width_valley_bottom
+    short_name: wvb
     description: valley bottom width
     units: m
   width_valley_bottom_ma:
     long_name: width_valley_bottom_ma
+    short_name: wvbma
     description: valley bottom width measured from medial axis (aka. feature size)
     units: m
   area_valley_bottom:
     long_name: area_valley_bottom
+    short_name: avb
     description: valley bottom area
     units: m^2
   width_water_channel:
     long_name: width_water_channel
+    short_name: wwc
     description: width of low flow water channel
     units: m
   width_active_channel:
     long_name: width_active_channel
+    short_name: wac
     description: width of active channel (including water channel)
     units: m
   width_natural_corridor:
     long_name: width_natural_corridor
+    short_name: wnc
     description: width of connected natural/riparian corridor (not including active channel)
     units: m
   width_connected_corridor:
     long_name: width_connected_corridor
+    short_name: wcc
     description: width of connected corridor (including natural corridor)
     units: m
   amplitude:
     long_name: amplitude
+    short_name: amp
     description: amplitude of planform shift from reference axis (geomorphologists' half amplitude)
     units: m
   omega:
     long_name: omega
+    short_name: omega
     description: direction angle amplitude of planform
     units: radian

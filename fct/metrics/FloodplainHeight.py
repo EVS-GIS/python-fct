@@ -8,6 +8,7 @@ from scipy.interpolate import interp1d
 from scipy.linalg import lstsq
 from sklearn.linear_model import HuberRegressor
 from sklearn.preprocessing import StandardScaler
+from sklearn.exceptions import ConvergenceWarning
 
 import click
 import fiona
@@ -180,18 +181,6 @@ def SwathFloodplainHeight(
         # profile = ds.profile.copy()
         # nodata = ds.nodata
 
-    with rio.open(params.samples.filename(**kwargs)) as ds:
-
-        window = as_window(bounds, ds.transform)
-        samples = ds.read(
-            1,
-            window=window,
-            boundless=True,
-            fill_value=ds.nodata)
-
-        mask = (samples == 1)
-        del samples
-
     with rio.open(params.measure.filename(**kwargs)) as ds:
 
         window = as_window(bounds, ds.transform)
@@ -201,10 +190,24 @@ def SwathFloodplainHeight(
             boundless=True,
             fill_value=ds.nodata)
 
-        mask = mask & (
+        mask = (
             (measures > measure - 100) &
             (measures <= measure + 100)
         )
+
+    if np.sum(mask) > 1000:
+
+        with rio.open(params.samples.filename(**kwargs)) as ds:
+
+            window = as_window(bounds, ds.transform)
+            samples = ds.read(
+                1,
+                window=window,
+                boundless=True,
+                fill_value=ds.nodata)
+
+            mask = mask & (samples == 1)
+            del samples
 
     with rio.open(params.valley_bottom.filename(**kwargs)) as ds:
 
@@ -244,8 +247,11 @@ def SwathFloodplainHeight(
 
             # height[mask] = dem[mask] - regressor.predict(measures[mask])
 
-            talweg = talweg.isel(measure=(talweg.measure > measure - 150) &
-                (talweg.measure <= measure + 150))
+            talweg = talweg.isel(
+                measure=(
+                    (talweg.measure > measure - 300) &
+                    (talweg.measure <= measure + 300)
+                ))
 
             # y = np.column_stack([
             #     talweg.measure.values,
@@ -254,11 +260,19 @@ def SwathFloodplainHeight(
 
             # ys = scaler.transform(y)
 
-            height = np.median(talweg.z - regressor.predict(talweg.measure.values.reshape(-1, 1)))
+            predicted = regressor.predict(talweg.measure.values.reshape(-1, 1))
+            height = np.median(talweg.z - predicted)
+            zfp = regressor.predict(np.array([measure]).reshape(-1, 1))
+
+        except ConvergenceWarning:
+
+            height = np.nan
+            zfp = np.array([np.nan])
 
         except ValueError:
 
             height = np.nan
+            zfp = np.array([np.nan])
 
         # regressor2 = HuberRegressor()
         # regressor2.fit(talweg.measure.values.reshape(-1, 1), talweg.z.values)
@@ -266,10 +280,12 @@ def SwathFloodplainHeight(
     else:
 
         height = 0.0
+        zfp = np.array([np.nan])
 
     return xr.Dataset(
         {
-            'height_floodplain': (('swath',), np.array([height], dtype='float32'))
+            'height_talweg': (('swath',), np.array([height], dtype='float32')),
+            'elevation_valley_bottom': (('swath',), np.float32(zfp)),
         }, coords={
             'axis': (('swath',), np.array([axis], dtype='uint32')),
             'measure': (('swath',), np.array([measure], dtype='float32'))
