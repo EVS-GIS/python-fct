@@ -105,16 +105,18 @@ def extract_talweg_data(axis, talweg, params: Parameters) -> xr.Dataset:
         talweg_measure = np.cumsum(np.linalg.norm(talweg_samples[1:] - talweg_samples[:-1], axis=1))
         talweg_measure = np.concatenate([np.zeros(1), talweg_measure])
 
-    # with rio.open(params.nearest.filename()) as ds:
+    with rio.open(params.nearest.filename()) as ds:
 
-    #     nearest = np.array(list(ds.sample(talweg_xy, 1)))
-    #     valid = (nearest == axis)
+        nearest = np.array(list(ds.sample(talweg_xy, 1)))
+        nearest = nearest.squeeze()
+        valid = (nearest == axis)
 
     with rio.open(params.measure.filename()) as ds:
 
         measure = np.array(list(ds.sample(talweg_xy, 1)), dtype='float32')
-        measure = measure[:, 0]
-        valid = (measure != ds.nodata)
+        # measure = measure[:, 0]
+        measure = measure.squeeze()
+        valid = valid & (measure != ds.nodata)
 
     with rio.open(params.dem.filename()) as ds:
 

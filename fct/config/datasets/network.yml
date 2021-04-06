@@ -113,6 +113,19 @@ nearest_height:
     template: NEAREST_HEIGHT_%(row)02d_%(col)02d
     extension: .tif
 
+height_above_valley_bottom:
+  description: |
+    Height above valley bottom mean elevation
+  type: raster
+  group: corridor
+  status: final
+  subdir: NETWORK/HEIGHT
+  filename: HEIGHT_VALLEY_BOTTOM.vrt
+  tiles:
+    tileset: landcover
+    template: HEIGHT_VALLEY_BOTTOM_%(row)02d_%(col)02d
+    extension: .tif
+
 nearest_drainage_axis:
   description: |
     Nearest drainage axis

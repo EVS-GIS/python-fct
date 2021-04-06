@@ -375,6 +375,19 @@ ax_valley_height_mask_c0:
     template: VALLEY_HEIGHT_MASK_C0_%(row)02d_%(col)02d
     extension: .tif
 
+ax_height_above_valley_bottom:
+  description: |
+    Height above valley bottom mean elevation
+  type: raster
+  group: corridor
+  status: final
+  subdir: AXES/AX%(axis)04d/HEIGHT
+  filename: HEIGHT_VALLEY_BOTTOM.vrt
+  tiles:
+    tileset: landcover
+    template: HEIGHT_VALLEY_BOTTOM_%(row)02d_%(col)02d
+    extension: .tif
+
 ax_corridor_mask:
   description: |
     Corridor mask from landcover continuity

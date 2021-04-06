@@ -311,30 +311,6 @@ class WorkflowContext():
 
         self.times.append((name, elapsed))
 
-def test():
-
-    class OperationParameter:
-        """
-        Example Operation input/output parameters definition
-        """
-
-        dem = DatasetParameter('input DEM')
-        out = DatasetParameter('output raster')
-        max_height = LiteralParameter('max height threshold')
-        
-        def __init__(self):
-            """
-            Default values
-            """
-
-            self.dem = 'dem'
-            self.out = 'ax_nearest_height'
-            self.max_height = 8.0
-
-    params = OperationParameter()
-
-    return params
-
 class FileResource:
 
     NETWORK_SUBDIR = 'NETWORK/METRICS'
@@ -359,3 +335,27 @@ class FileResource:
     def filename(self):
 
         return self.value.filename()
+
+def test():
+
+    class OperationParameter:
+        """
+        Example Operation input/output parameters definition
+        """
+
+        dem = DatasetParameter('input DEM')
+        out = DatasetParameter('output raster')
+        max_height = LiteralParameter('max height threshold')
+        
+        def __init__(self):
+            """
+            Default values
+            """
+
+            self.dem = 'dem'
+            self.out = 'ax_nearest_height'
+            self.max_height = 8.0
+
+    params = OperationParameter()
+
+    return params
