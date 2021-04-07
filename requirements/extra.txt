@@ -5,4 +5,9 @@ sklearn
 scikit-learn>=0.23
 pomegranate>=0.13
 mlinsights>=0.2.508
+geopandas
+ipython
+jedi==0.17.2
+sqlalchemy
+psycopg2
 

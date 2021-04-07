@@ -253,11 +253,13 @@ class Configuration():
 
         dst = self.dataset(name)
 
-        if self.workspace.outputdir:
+        outputdir = kwargs.get('outputdir', self.workspace.outputdir)
+
+        if outputdir:
 
             path1 = (
                 Path(self.workdir) /
-                self.workspace.outputdir /
+                outputdir /
                 dst.subdir(**kwargs) /
                 dst.filename(**kwargs)
             )
@@ -650,11 +652,13 @@ class Tileset():
         basename, extension = os.path.splitext(dst.filename(**kwargs))
         name = ''.join([basename, '_', self.tiledir, extension])
 
-        if self.parent.workspace.outputdir:
+        outputdir = kwargs.get('outputdir', self.parent.workspace.outputdir)
+
+        if outputdir:
 
             path1 = (
                 Path(self.parent.workspace.workdir) /
-                self.parent.workspace.outputdir /
+                outputdir /
                 dst.subdir(**kwargs) /
                 name
             )
@@ -697,11 +701,13 @@ class Tileset():
         dst = self.parent.dataset(dataset)
         filename = dst.tilename(row=row, col=col, **kwargs)
 
-        if self.parent.workspace.outputdir:
+        outputdir = kwargs.get('outputdir', self.parent.workspace.outputdir)
+
+        if outputdir:
 
             path1 = (
                 Path(self.parent.workspace.workdir) /
-                self.parent.workspace.outputdir /
+                outputdir /
                 dst.subdir(**kwargs) /
                 self.tiledir /
                 dst.basename /

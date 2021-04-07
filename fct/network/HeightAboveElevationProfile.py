@@ -45,7 +45,7 @@ class Parameters:
     dem = DatasetParameter('elevation raster (DEM)', type='input')
     elevation_profile = DatasetParameter('elevation profile (shapefile)', type='input')
     mask = DatasetParameter('height raster defining domain mask', type='input')
-    height = DatasetParameter('height raster (HAND)', type='output')
+    height = DatasetParameter('height above valley bottom', type='output')
     distance = DatasetParameter('distance to drainage pixels (raster)', type='output')
     nearest = DatasetParameter('nearest drainage axis (raster)', type='output')
 

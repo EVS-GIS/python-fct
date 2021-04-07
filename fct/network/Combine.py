@@ -42,6 +42,10 @@ class Parameters:
         'distance to reference pixels (raster)',
         type='input')
 
+    # height_vb = DatasetParameter(
+    #     'height above valley bottom',
+    #     type='input')
+
     def __init__(self, axis=None):
         """
         Default parameter values
@@ -55,6 +59,7 @@ class Parameters:
             self.axis_distance = 'axis_distance'
             self.axis_measure = 'axis_measure'
             self.talweg_distance = 'nearest_distance'
+            # self.height_vb = 'height_above_valley_bottom'
 
         else:
 
@@ -64,6 +69,21 @@ class Parameters:
             self.axis_distance = dict(key='ax_axis_distance', axis=axis)
             self.axis_measure = dict(key='ax_axis_measure', axis=axis)
             self.talweg_distance = dict(key='ax_nearest_distance', axis=axis)
+            # self.height_vb = dict(key='ax_height_above_valley_bottom', axis=axis)
+
+    @classmethod
+    def region(cls, outputdir):
+
+        params = cls()
+        params.tiles = dict(key='shortest_tiles', outputdir=outputdir)
+        params.valley_bottom = dict(key='valley_bottom_final', outputdir=outputdir)
+        params.nearest_axis = dict(key='nearest_drainage_axis', outputdir=outputdir)
+        params.axis_distance = dict(key='axis_distance', outputdir=outputdir)
+        params.axis_measure = dict(key='axis_measure', outputdir=outputdir)
+        params.talweg_distance = dict(key='nearest_distance', outputdir=outputdir)
+        # params.height_vb = dict(key='height_above_valley_bottom', outputdir=outputdir)
+
+        return params
 
     def select(self, dataset: str):
 
@@ -82,6 +102,9 @@ class Parameters:
         if dataset == 'talweg_distance':
             return self.talweg_distance
 
+        # if dataset == 'height_vb':
+        #     return self.height_vb
+
         raise ValueError(f'No such dataset: {dataset}')
 
     @staticmethod
@@ -93,6 +116,7 @@ class Parameters:
             'axis_distance',
             'axis_measure',
             'talweg_distance'
+            # 'height_vb'
         ]
 
 def CopyTiles(
