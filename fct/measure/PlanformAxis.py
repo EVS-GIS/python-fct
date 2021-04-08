@@ -720,11 +720,18 @@ def smooth_planform_axis(params: Parameters, **kwargs):
 
             for k, (axis, segments) in enumerate(iterator):
 
-                sequence = np.array(
-                    list(linemerge([
-                        LineString(segment) for segment in segments
-                    ]).coords)
-                )
+                try:
+
+                    sequence = np.array(
+                        list(linemerge([
+                            LineString(segment) for segment in segments
+                        ]).coords)
+                    )
+
+                except:
+
+                    print(axis)
+                    continue
 
                 # sequence = np.array([
                 #     p for p, weight in simplify(sequence)

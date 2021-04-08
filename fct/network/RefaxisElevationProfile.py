@@ -32,13 +32,15 @@ class Parameters:
 
         if axis is None:
 
-            self.river_profile = dict(key='metrics_river_profile', tiled=False, subdir='NETWORK/REF')
-            self.refaxis_points = dict(key='metrics_refaxis_points', tiled=False, subdir='NETWORK/REF')
+            # self.river_profile = dict(key='metrics_river_profile', tiled=False, subdir='NETWORK/METRICS')
+            self.river_profile = dict(key='metrics_floodplain_height', tiled=False, subdir='NETWORK/METRICS')
+            self.refaxis_points = dict(key='metrics_refaxis_points', tiled=False, subdir='NETWORK/METRICS')
             self.output = dict(key='elevation_profile_valley_bottom', tiled=False, subdir='NETWORK/REF')
 
         else:
 
-            self.river_profile = dict(key='metrics_river_profile', tiled=False, axis=axis)
+            # self.river_profile = dict(key='metrics_river_profile', tiled=False, axis=axis)
+            self.river_profile = dict(key='metrics_floodplain_height', tiled=False, axis=axis)
             self.refaxis_points = dict(key='metrics_refaxis_points', tiled=False, axis=axis)
             self.output = dict(key='elevation_profile_valley_bottom', tiled=False, axis=axis)
 
@@ -117,6 +119,8 @@ def RefaxisElevationProfile(params: Parameters):
 
             zvb_smooth = (
                 zvb.sortby('measure')
+                .rolling(measure=3, min_periods=1, center=True)
+                .median()
                 .rolling(measure=5, min_periods=1, center=True)
                 .mean())
 

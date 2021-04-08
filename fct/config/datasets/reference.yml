@@ -82,3 +82,21 @@ ax_medialaxis_simplified:
   status: final
   subdir: AXES/AX%(axis)04d/MEASURE
   filename: MEDIAL_AXIS_SIMPL.shp
+
+pk_talweg:
+  description: |
+    Locator points along talweg
+  type: linestring
+  group: reference
+  status: final
+  subdir: NETWORK/MEASURE
+  filename: PK_TALWEG.shp
+
+ax_pk_talweg:
+  description: |
+    Locator points along talweg
+  type: linestring
+  group: reference
+  status: final
+  subdir: AXES/AX%(axis)04d/MEASURE
+  filename: PK_TALWEG.shp

@@ -46,6 +46,15 @@ class Parameters:
             self.tiles = dict(key='ax_shortest_tiles', axis=axis)
             self.height = dict(key='ax_nearest_height', axis=axis)
 
+    @classmethod
+    def region(cls, outputdir):
+
+        params = cls()
+        params.tiles = dict(key='shortest_tiles', outputdir=outputdir)
+        params.height = dict(key='nearest_height', outputdir=outputdir)
+
+        return params
+
 def AggregateTile(
         row: int,
         col: int,
@@ -129,10 +138,11 @@ def AggregateHeightMap(
 
                 yield tuple(int(x) for x in line.split(','))
 
-        with open(tilefile2) as fp:
-            for line in fp:
+        if tilefile2.exists():
+            with open(tilefile2) as fp:
+                for line in fp:
 
-                yield tuple(int(x) for x in line.split(','))
+                    yield tuple(int(x) for x in line.split(','))
 
     tiles = set(get_tiles())
 

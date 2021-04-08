@@ -278,10 +278,11 @@ def Combine(
 
                 yield tuple(int(x) for x in line.split(','))
 
-        with open(tilefile2) as fp:
-            for line in fp:
+        if tilefile2.exists():
+            with open(tilefile2) as fp:
+                for line in fp:
 
-                yield tuple(int(x) for x in line.split(','))
+                    yield tuple(int(x) for x in line.split(','))
 
     tiles = set(get_tiles())
 

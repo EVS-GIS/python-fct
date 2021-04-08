@@ -451,7 +451,7 @@ def FittedElevationProfile(data, swath_bounds, params: Parameters, processes: in
 
         dataset = fit_mp(data, swath_bounds, params, processes, **kwargs)
 
-    dataset['sinuosity'] = dataset.slope_valley / dataset.slope_talweg
+    dataset['sinuosity'] = dataset.slope_valley_bottom / dataset.slope_talweg
     dataset.sinuosity[dataset.sinuosity < 1.0] = 1.0
     dataset.sinuosity[dataset.slope_talweg < 0.00005] = 1.0
 

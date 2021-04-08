@@ -52,17 +52,32 @@ def swath_width(data, axis, measure, params: Parameters):
     nlabels = len(data.label)
 
     density = data.profile.sum(axis=(1, 2))
-    reg = linregress(data.distance[density > 0], density[density > 0])
-    density_ref = reg.slope * data.distance + reg.intercept
+    nonzero = (density > 0)
 
-    area = data.profile.sum(axis=0) * pixarea
-    width1 = area / swath_length
-    width2 = np.sum(data.profile / density_ref, axis=0) * distance_delta
+    if np.any(nonzero):
+
+        reg = linregress(data.distance[nonzero], density[nonzero])
+        density_ref = reg.slope * data.distance + reg.intercept
+
+        area = data.profile.sum(axis=0) * pixarea
+        width1 = area / swath_length
+        width2 = np.sum(data.profile / density_ref, axis=0) * distance_delta
+
+        area = np.float32(area.values.reshape(1, nlabels, 2))
+        width1 = np.float32(width1.values.reshape(1, nlabels, 2))
+        width2 = np.float32(width2.values.reshape(1, nlabels, 2))
+
+
+    else:
+
+        area = np.zeros((1, nlabels, 2), dtype='float32')
+        width1 = np.zeros((1, nlabels, 2), dtype='float32')
+        width2 = np.zeros((1, nlabels, 2), dtype='float32')
 
     return xr.Dataset({
-        'area': (('swath', 'label', 'side'), np.float32(area.values.reshape(1, nlabels, 2))),
-        'width1': (('swath', 'label', 'side'), np.float32(width1.values.reshape(1, nlabels, 2))),
-        'width2': (('swath', 'label', 'side'), np.float32(width2.values.reshape(1, nlabels, 2))),
+        'area': (('swath', 'label', 'side'), area),
+        'width1': (('swath', 'label', 'side'), width1),
+        'width2': (('swath', 'label', 'side'), width2),
     }, coords={
         'axis': (('swath',), np.uint32([axis])),
         'measure': (('swath',), np.float32([measure])),

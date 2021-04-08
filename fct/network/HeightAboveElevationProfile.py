@@ -69,7 +69,7 @@ class Parameters:
             self.elevation_profile = dict(
                 key='elevation_profile_valley_bottom',
                 tiled=False,
-                subdir='NETWORK/METRICS')
+                subdir='NETWORK/REF')
             self.mask = 'shortest_height'
             self.height = 'height_above_valley_bottom'
             self.distance = 'off' # 'nearest_distance'
