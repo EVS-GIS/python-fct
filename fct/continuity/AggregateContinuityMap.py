@@ -46,7 +46,7 @@ class Parameters:
         else:
 
             self.tiles = dict(key='ax_shortest_tiles', axis=axis)
-            self.continuity = dict(key='ax_continuity', axis=axis)
+            self.continuity = dict(key='ax_continuity_remapped', axis=axis)
 
     @classmethod
     def region(cls, outputdir, variant='MAX'):

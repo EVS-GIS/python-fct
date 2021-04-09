@@ -17,7 +17,9 @@ class Parameters:
         Default parameters values
         """
 
-        self.axes = 'network-cartography-ready'
+        self.axes = dict(
+            key='network-cartography-ready',
+            tiled=False)
         self.length_min = 50e3 # 50 km
 
 def axis_list(params: Parameters = None):
@@ -40,7 +42,7 @@ def axis_list(params: Parameters = None):
 
         filtr = lambda f: True
 
-    with fiona.open(params.axes.filename(tileset=None)) as fs:
+    with fiona.open(params.axes.filename()) as fs:
 
         return [
             (
