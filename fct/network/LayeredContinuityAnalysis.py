@@ -175,11 +175,17 @@ def ContinuityTile(row, col, seeds, params, **kwargs):
         seed_value = seed_value[intile]
         seed_distance = seed_distance[intile]
 
+        recorded_value = out[pixels[:, 0], pixels[:, 1]]
         recorded_distance = distance[pixels[:, 0], pixels[:, 1]]
+
         shortest = (
             (recorded_distance == nearest_distance_nodata) |
             (recorded_distance == 0) |
-            (seed_distance < recorded_distance)
+            (seed_value < recorded_value) |
+            (
+                (seed_value == recorded_value) &
+                (seed_distance < recorded_distance)
+            )
         )
 
         pixels = pixels[shortest]
