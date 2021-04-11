@@ -6,7 +6,7 @@ from heapq import heappop, heappush, heapify
 from functools import total_ordering
 import rasterio as rio
 
-from .network.ValleyBottomFeatures import (
+from .corridor.ValleyBottomFeatures import (
     MASK_FLOOPLAIN_RELIEF,
     MASK_VALLEY_BOTTOM
 )

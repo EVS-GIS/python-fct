@@ -19,7 +19,7 @@ from ..config import (
     DatasetParameter,
     LiteralParameter
 )
-from ..network.ValleyBottomFeatures import MASK_EXTERIOR
+from ..corridor.ValleyBottomFeatures import MASK_EXTERIOR
 
 class Parameters:
     """

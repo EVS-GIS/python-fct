@@ -19,7 +19,6 @@ import click
 import rasterio as rio
 from ..config import DatasetParameter
 from ..cli import starcall
-from ..tileio import buildvrt
 
 class Parameters:
     """

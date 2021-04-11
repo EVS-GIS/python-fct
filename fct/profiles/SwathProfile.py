@@ -15,7 +15,7 @@ import rasterio as rio
 import fiona
 from shapely.geometry import asShape
 
-from ..network.SwathPolygons import measure_to_swath_identifier
+from ..measure.SwathPolygons import measure_to_swath_identifier
 from ..tileio import as_window
 from ..cli import starcall
 from ..metadata import set_metadata

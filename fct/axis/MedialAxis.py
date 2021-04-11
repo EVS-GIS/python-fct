@@ -21,7 +21,7 @@ from ..config import (
     # LiteralParameter,
     DatasetParameter
 )
-from ..network.ValleyBottomFeatures import (
+from ..corridor.ValleyBottomFeatures import (
     MASK_EXTERIOR,
     MASK_FLOOPLAIN_RELIEF,
     MASK_VALLEY_BOTTOM,

@@ -11,7 +11,7 @@ from shapely.geometry import LineString
 import xarray as xr
 
 from ..config import DatasetParameter
-from ..metrics.FittedElevationProfile import (
+from .TalwegElevationProfile import (
     Parameters as RefaxisParameters,
     TalwegElevation as RefaxisElevation
 )
@@ -51,7 +51,7 @@ def RefaxisSamplePoints(params: Parameters, axis: int = None):
     refaxis = RefaxisElevation(refaxis_params)
     refaxis.to_netcdf(params.refaxis_points.filename())
 
-def RefaxisElevationProfile(params: Parameters):
+def ValleyBottomElevationProfile(params: Parameters):
     """
     Project reference axis on valley bottom z profile
     """

@@ -1,5 +1,5 @@
 """
-Floodplain height above talweg/drainage
+Valley bottom height above talweg/drainage
 """
 
 from multiprocessing import Pool
@@ -18,11 +18,8 @@ import xarray as xr
 
 from ..cli import starcall
 from ..tileio import as_window
-from ..config import (
-    DatasetParameter,
-    LiteralParameter
-)
-from ..network.ValleyBottomFeatures import MASK_VALLEY_BOTTOM
+from ..config import DatasetParameter
+from ..corridor.ValleyBottomFeatures import MASK_VALLEY_BOTTOM
 from ..metadata import set_metadata
 from .. import speedup
 
@@ -55,14 +52,11 @@ class Parameters:
 
     samples = DatasetParameter(
         'spatial samples raster',
-        type='output')
+        type='input')
 
     output = DatasetParameter(
         'destination netcdf dataset',
         type='output')
-
-    sample_distance_min = LiteralParameter('minimum distance between spatial samples')
-    resolution = LiteralParameter('raster resolution (pixel size)')
 
     def __init__(self, axis=None):
         """
@@ -70,8 +64,6 @@ class Parameters:
         """
 
         self.dem = 'dem'
-        self.sample_distance_min = 20.0
-        self.resolution = 5.0
 
         if axis is None:
 
@@ -93,75 +85,7 @@ class Parameters:
             self.samples = dict(key='ax_poisson_samples', axis=axis)
             self.output = dict(key='metrics_planform', axis=axis)
 
-def PoissonSamplesTile(row: int, col: int, params: Parameters, **kwargs):
-
-    with rio.open(params.dem.tilename(row=row, col=col, **kwargs)) as ds:
-
-        height = ds.height
-        width = ds.width
-        profile = ds.profile.copy()
-
-        samples = np.int32(
-            np.round(
-                speedup.random_poisson(
-                    height,
-                    width,
-                    params.sample_distance_min / params.resolution
-                )
-            )
-        )
-
-        valid = (
-            (samples[:, 0] >= 0) &
-            (samples[:, 0] < height) &
-            (samples[:, 1] >= 0) &
-            (samples[:, 1] < width)
-        )
-
-        samples = samples[valid]
-
-        mask = np.zeros((height, width), dtype='uint8')
-        mask[samples[:, 0], samples[:, 1]] = 1
-
-    output = params.samples.tilename(row=row, col=col, **kwargs)
-    profile.update(dtype='uint8', nodata=255, compress='deflate')
-
-    with rio.open(output, 'w', **profile) as dst:
-        dst.write(mask, 1)
-
-def PoissonSamples(params: Parameters, processes: int = 1, **kwargs):
-
-    tilefile = params.tiles.filename(**kwargs)
-
-    def length():
-
-        with open(tilefile) as fp:
-            return sum(1 for line in fp)
-
-    def arguments():
-
-        with open(tilefile) as fp:
-            for line in fp:
-
-                row, col = tuple(int(x) for x in line.split(','))
-
-                yield (
-                    PoissonSamplesTile,
-                    row,
-                    col,
-                    params,
-                    kwargs
-                )
-
-    with Pool(processes=processes) as pool:
-
-        pooled = pool.imap_unordered(starcall, arguments())
-
-        with click.progressbar(pooled, length=length()) as iterator:
-            for _ in iterator:
-                pass
-
-def SwathFloodplainHeight(
+def SwathValleyBottomHeight(
         talweg: xr.Dataset,
         axis: int,
         measure: float,
@@ -231,7 +155,7 @@ def SwathFloodplainHeight(
     # height = np.full_like(dem, nodata)
 
     if np.any(mask1):
-    
+
         size = np.sum(mask1)
         z = dem[mask1]
         m = measures[mask1]
@@ -302,7 +226,7 @@ def axis_loop(talweg, axis, swath_bounds, params: Parameters):
 
             bounds = swath_bounds[ax, measure]
 
-            yield SwathFloodplainHeight(
+            yield SwathValleyBottomHeight(
                 talweg,
                 ax,
                 measure,
@@ -311,7 +235,7 @@ def axis_loop(talweg, axis, swath_bounds, params: Parameters):
 
     return xr.concat(values(), 'swath', 'all')
 
-def FloodplainHeight(swath_bounds, params: Parameters, processes: int = 1, **kwargs):
+def ValleyBottomHeight(swath_bounds, params: Parameters, processes: int = 1, **kwargs):
 
     data = (
         xr.open_dataset(params.talweg.filename())
@@ -330,7 +254,7 @@ def FloodplainHeight(swath_bounds, params: Parameters, processes: int = 1, **kwa
                     talweg = data.sel(axis=axis).load()
                     bounds = swath_bounds[axis, measure]
 
-                    yield SwathFloodplainHeight(
+                    yield SwathValleyBottomHeight(
                         talweg,
                         axis,
                         measure,

@@ -20,7 +20,7 @@ from ..config import (
     DatasetParameter,
     LiteralParameter
 )
-from ..network.ValleyBottomFeatures import MASK_VALLEY_BOTTOM
+from ..corridor.ValleyBottomFeatures import MASK_VALLEY_BOTTOM
 from ..metadata import set_metadata
 # from ..plotting.PlotCorridor import (
 #     SetupPlot,
@@ -419,7 +419,7 @@ def fit_mp(data, swath_bounds, params: Parameters, processes: int = 6, **kwargs)
 
     return xr.concat(values, 'swath', 'all')
 
-def FittedElevationProfile(data, swath_bounds, params: Parameters, processes: int = 6, **kwargs) -> xr.Dataset:
+def TalwegElevationProfile(data, swath_bounds, params: Parameters, processes: int = 6, **kwargs) -> xr.Dataset:
 
     length = len(np.unique(data.axis))
 

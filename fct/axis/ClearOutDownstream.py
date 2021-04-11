@@ -13,7 +13,7 @@ from ..config import (
 )
 from ..cli import starcall
 
-from ..network.ValleyBottomMask2 import (
+from ..corridor.ValleyBottomFeatures import (
     MASK_FLOOPLAIN_RELIEF,
     MASK_VALLEY_BOTTOM
 )

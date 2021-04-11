@@ -1,5 +1,8 @@
+"""
+Combine raster datasets
+"""
+
 from multiprocessing import Pool
-import numpy as np
 
 import click
 import rasterio as rio
@@ -7,7 +10,7 @@ import rasterio as rio
 from ..cli import starcall
 from ..config import DatasetParameter
 
-from .ValleyBottomFeatures import (
+from ..corridor.ValleyBottomFeatures import (
     MASK_EXTERIOR,
     MASK_FLOOPLAIN_RELIEF,
     MASK_VALLEY_BOTTOM,

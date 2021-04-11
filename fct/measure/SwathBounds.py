@@ -5,7 +5,7 @@ Swath bounds
 import click
 import fiona
 from shapely.geometry import asShape
-# from ..network.SwathPolygons import measure_to_swath_identifier
+# from ..corridor.SwathPolygons import measure_to_swath_identifier
 from ..config import DatasetParameter
 
 class Parameters:
