@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Fluvial Corridor Toolbox
 
