@@ -95,12 +95,6 @@ setup(
             fct=fct.cli.InfoCommand:cli
             fct-files=fct.cli.FileCommand:cli
             fct-tiles=fct.cli.TileCommand:cli
-            fct-drainage=fct.drainage.Command:cli
-            fct-corridor=fct.corridor.Command:cli
-            fct-swath=fct.swath.Command:cli
-            fct-network=fct.network.Command:cli
-            fct-metrics=fct.metrics.Command:cli
-            fct-plot=fct.plotting.Command:cli
     ''',
     classifiers=[
         'Development Status :: 4 - Beta',
