@@ -1,6 +1,5 @@
 VERSION.txt
-*.pyc
-*.pyo
+*.py[cod]
 *.c
 *.cpp
 *.o
@@ -11,6 +10,6 @@ VERSION.txt
 .doit.*
 python3
 build
-site
+/site
 __pycache__
 .DS_Store
