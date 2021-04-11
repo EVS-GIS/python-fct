@@ -29,8 +29,8 @@ from .. import transform as fct
 from .. import speedup
 from ..cli import starcall
 
-from .SwathDrainage import create_interpolate_drainage_fun
-from .ValleyBottomFeatures import (
+from ..corridor.SwathDrainage import create_interpolate_drainage_fun
+from ..corridor.ValleyBottomFeatures import (
     MASK_FLOOPLAIN_RELIEF,
     MASK_VALLEY_BOTTOM,
     MASK_HOLE

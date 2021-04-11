@@ -47,7 +47,12 @@ class Parameters:
 def RefaxisSamplePoints(params: Parameters, axis: int = None):
 
     refaxis_params = RefaxisParameters(axis=axis)
-    refaxis_params.talweg = 'refaxis'
+    
+    if axis is None:
+        refaxis_params.talweg = 'refaxis'
+    else:
+        refaxis_params.talweg = dict(key='ax_refaxis', axis=axis)
+    
     refaxis = RefaxisElevation(refaxis_params)
     refaxis.to_netcdf(params.refaxis_points.filename())
 

@@ -37,7 +37,7 @@ from ..config import (
 from ..config.descriptors import DatasetResolver
 from ..rasterize import rasterize_linestringz
 # from ..swath import nearest_value_and_distance
-from .Measurement import nearest_value_and_distance
+from ..measure.Measurement import nearest_value_and_distance
 from ..cli import starcall
 
 class Parameters:

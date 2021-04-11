@@ -65,7 +65,7 @@ class Parameters:
         self.infrastructures = True
         self.jitter = 0.4
 
-def WeightedContinuityAnalysisTile(
+def ContinuityAnalysisTile(
         row,
         col,
         params,
@@ -168,7 +168,7 @@ def WeightedContinuityAnalysisTile(
         with rio.open(output, 'w', **profile) as dst:
             dst.write(out[padding:-padding, padding:-padding], 1)
 
-def WeightedContinuityAnalysis(
+def ContinuityAnalysisWeighted(
         params,
         processes=1,
         **kwargs):
@@ -191,7 +191,7 @@ def WeightedContinuityAnalysis(
                 row, col = tuple(int(x) for x in line.split(','))
 
                 yield (
-                    WeightedContinuityAnalysisTile,
+                    ContinuityAnalysisTile,
                     row,
                     col,
                     params,

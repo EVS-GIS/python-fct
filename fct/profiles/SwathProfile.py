@@ -25,7 +25,7 @@ from ..config import (
     LiteralParameter
 )
 
-from . SwathBounds import SwathBounds
+from ..measure.SwathBounds import SwathBounds
 
 class Parameters:
     """

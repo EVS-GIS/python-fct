@@ -409,7 +409,7 @@ def ContinuityFirstIteration(params, processes, **kwargs):
 
     return g_spillover
 
-def LandcoverContinuityAnalysis(
+def ContinuityAnalysisMax(
         params,
         processes=1,
         maxiter=10,

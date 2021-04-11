@@ -33,7 +33,7 @@ from ..config import (
 )
 from ..rasterize import rasterize_linestringz
 # from ..swath import nearest_value_and_distance
-from .Measurement import nearest_value_and_distance
+from ..measure.Measurement import nearest_value_and_distance
 from ..cli import starcall
 
 class Parameters:
@@ -91,7 +91,7 @@ class Parameters:
         self.buffer_width = 0.0
         self.resolution = 5.0
 
-def HeightAboveElevationProfileTile(
+def HeightAboveReferenceTile(
         row: int,
         col: int,
         params: Parameters,
@@ -223,7 +223,7 @@ def HeightAboveElevationProfileTile(
             with rio.open(output_nearest, 'w', **profile) as dst:
                 dst.write(nearest, 1)
 
-def HeightAboveElevationProfile(
+def HeightAboveReference(
         params: Parameters,
         processes: int = 1,
         **kwargs):
@@ -245,7 +245,7 @@ def HeightAboveElevationProfile(
             for line in fp:
                 row, col = (int(x) for x in line.split(','))
                 yield (
-                    HeightAboveElevationProfileTile,
+                    HeightAboveReferenceTile,
                     row,
                     col,
                     params,
