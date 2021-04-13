@@ -156,14 +156,15 @@ metrics_planform_amplitude_raw:
 
 metrics_width_valley_bottom:
   description: |
-    Valley bottom width and swath areas
+    Valley bottom width,
+    calculated from medial axis
   type: netcdf
   group: metrics
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
   filename: WIDTH_VALLEY_BOTTOM.nc
 
-metrics_width_valley_bottom_ma:
+metrics_width_valley_bottom_tagged:
   description: |
     Valley bottom width,
     calculated from medial axis
@@ -171,17 +172,7 @@ metrics_width_valley_bottom_ma:
   group: metrics
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
-  filename: WIDTH_VALLEY_BOTTOM_MA.nc
-
-metrics_width_valley_bottom_sw:
-  description: |
-    Valley bottom width,
-    calculated from medial axis
-  type: netcdf
-  group: metrics
-  status: final
-  subdir: AXES/AX%(axis)04d/METRICS
-  filename: WIDTH_VALLEY_BOTTOM_SW.nc
+  filename: WIDTH_VALLEY_BOTTOM_%(tag)s.nc
 
 metrics_width_corridor:
   description: |
@@ -254,6 +245,15 @@ metrics_river_profile:
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
   filename: RIVER_PROFILE.nc
+
+metrics_river_profile_combined:
+  description: |
+    River profile metrics
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: RIVER_PROFILE_COMBINED.nc
 
 elevation_profile_valley_bottom:
   description: |

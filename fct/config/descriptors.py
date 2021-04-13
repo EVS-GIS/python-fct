@@ -237,8 +237,9 @@ class DatasetResolver():
 
 class WorkflowContext():
     """
-    A context manager that allows for specific execution configuration
-    and records execution details.
+    A context manager that manages workflow execution:
+    - allows specific execution settings
+    - records execution details.
     """
 
     # def __init__(self, configuration=None):
@@ -329,21 +330,24 @@ class FileResource:
     NETWORK_SUBDIR = 'NETWORK/METRICS'
     value = DatasetParameter('destination file (netcdf)', type='output')
 
-    def __init__(self, key, axis=None):
+    def __init__(self, key, axis=None, **kwargs):
 
         if axis is None:
 
-            self.value = dict(
-                key=key,
+            value = dict(key=key)
+            value.update(
                 tiled=False,
                 subdir=self.NETWORK_SUBDIR)
 
         else:
 
-            self.value = dict(
-                key=key,
+            value = dict(key=key)
+            value.update(
                 tiled=False,
                 axis=axis)
+
+        value.update(**kwargs)
+        self.value = value
 
     def filename(self):
 
