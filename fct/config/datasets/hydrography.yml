@@ -62,9 +62,8 @@ network-cartography-ordered:
 network-cartography-ready:
   description: |
     Stream network derived from cartography,
-    working selection, aggregated by axis, draped on DEM,
-    measured from outlet,
-    ready for processing with FCT
+    working selection, aggregated by axis,
+    measured from outlet
   type: linestring
   group: hydrography
   status: input
@@ -90,3 +89,63 @@ outlets-cartography:
   status: final
   subdir: GLOBAL/REFHYDRO
   filename: OUTLETS.shp
+
+river-network:
+  description: |
+    Stream network derived from cartography,
+    connected segments, not aggregated
+  type: linestring
+  group: hydrography
+  status: input
+  subdir: GLOBAL/REFHYDRO
+  filename: TRON_CDE_BDT.shp
+
+river-network-agg:
+  description: |
+    Stream network derived from cartography,
+    working selection, aggregated by axis,
+    measured from outlet
+  type: linestring
+  group: hydrography
+  status: input
+  subdir: GLOBAL/REFHYDRO
+  filename: REFERENTIEL_HYDRO.shp
+
+river-network-sources:
+  description: |
+    Stream network sources from cartography,
+    working selection
+  type: point
+  group: hydrography
+  status: final
+  subdir: GLOBAL/REFHYDRO
+  filename: SOURCES.shp
+
+river-network-outlets:
+  description: |
+    Stream network outlets from cartography,
+    working selection
+  type: point
+  group: hydrography
+  status: final
+  subdir: GLOBAL/REFHYDRO
+  filename: OUTLETS.shp
+
+river-network-gpkg:
+  description: |
+    Stream network derived from cartography
+  type: linestring
+  group: hydrography
+  status: input
+  subdir: GLOBAL/REFHYDRO
+  filename: REFERENTIEL_HYDRO.gpkg
+
+river-network-ordered:
+  description: |
+    Stream network derived from cartography,
+    with updated AXIS, HACK and LENAXIS fields
+  type: linestring
+  group: hydrography
+  status: input
+  subdir: GLOBAL/REFHYDRO
+  filename: REFERENTIEL_HYDRO_ORDERED.shp

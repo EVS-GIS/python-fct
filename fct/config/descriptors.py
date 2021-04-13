@@ -1,5 +1,6 @@
 # coding: utf-8
 
+import logging
 import time
 import click
 # from ..cli.Decorators import pretty_time_delta
@@ -247,8 +248,11 @@ class WorkflowContext():
     #     else:
     #         self.config = configuration
 
-    def __init__(self):
+    logger = logging.getLogger('workflow')
 
+    def __init__(self, name='unnamed'):
+
+        self.name = name
         self.times = list()
 
     def __enter__(self):
@@ -260,6 +264,9 @@ class WorkflowContext():
 
         config.set_workspace(self.saved_workspace)
         self.saved_workspace = None
+
+    def set_name(self, name):
+        self.name = name
 
     def set_workdir(self, workdir):
         """
@@ -304,12 +311,18 @@ class WorkflowContext():
 
         self.record_execution_time(name, elapsed)
 
-    def record_execution_time(self, name, elapsed):
+    def record_execution_time(self, operation, elapsed):
         """
         Record execution time for operation `name`
         """
 
-        self.times.append((name, elapsed))
+        self.times.append((operation, elapsed))
+        self.logger.info(
+            'flow: %s operation: %s time: %s seconds: %f',
+            self.name,
+            operation,
+            pretty_time_delta(elapsed),
+            elapsed)
 
 class FileResource:
 
