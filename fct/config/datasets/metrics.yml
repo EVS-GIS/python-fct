@@ -246,14 +246,14 @@ metrics_river_profile:
   subdir: AXES/AX%(axis)04d/METRICS
   filename: RIVER_PROFILE.nc
 
-metrics_river_profile_combined:
+metrics_river_profile_tagged:
   description: |
     River profile metrics
   type: netcdf
   group: metrics
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
-  filename: RIVER_PROFILE_COMBINED.nc
+  filename: RIVER_PROFILE_%(tag)s.nc
 
 elevation_profile_valley_bottom:
   description: |
