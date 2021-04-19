@@ -45,7 +45,7 @@ class Parameters:
     continuity = DatasetParameter('input continuity map', type='input')
     output = DatasetParameter('output (remapped) continuity map', type='output')
 
-    def __init__(self, axis=None):
+    def __init__(self, axis=None, tag='MAP'):
         """
         Default parameter values
         """
@@ -54,15 +54,15 @@ class Parameters:
 
             self.tiles = 'shortest_tiles'
             self.landcover = 'landcover_valley_bottom'
-            self.continuity = 'continuity'
-            self.output = 'continuity_remapped'
+            self.continuity = dict(key='continuity_tmp', tag=tag)
+            self.output = dict(key='continuity_tagged', tag=tag)
 
         else:
 
             self.tiles = dict(key='ax_shortest_tiles', axis=axis)
             self.landcover = dict(key='ax_landcover_valley_bottom', axis=axis)
-            self.continuity = dict(key='ax_continuity', axis=axis)
-            self.output = dict(key='ax_continuity_remapped', axis=axis)
+            self.continuity = dict(key='ax_continuity_tmp', tag=tag, axis=axis)
+            self.output = dict(key='ax_continuity_tagged', tag=tag, axis=axis)
 
 
 def RemapContinuityTile(row: int, col: int, params: Parameters, **kwargs):

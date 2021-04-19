@@ -161,7 +161,7 @@ swath_continuity:
   group: metrics
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
-  filename: SWATHS_CONTINUITY.nc
+  filename: SWATHS_CONTINUITY_%(tag)s.nc
 
 swath_valley_bottom:
   description: |

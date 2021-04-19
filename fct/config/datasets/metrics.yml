@@ -109,6 +109,15 @@ metrics_elevation_profile:
   subdir: AXES/AX%(axis)04d/METRICS
   filename: ELEVATION_PROFILE.nc
 
+metrics_gradient_index:
+  description: |
+    Elevation profile
+  type: netcdf
+  group: metrics
+  status: final
+  subdir: AXES/AX%(axis)04d/METRICS
+  filename: GRADIENT_INDEX.nc
+
 metrics_talweg_elevation:
   description: |
     Talweg elevation (projected on elevation profile)
@@ -217,7 +226,7 @@ metrics_width_continuity:
   group: metrics
   status: final
   subdir: AXES/AX%(axis)04d/METRICS
-  filename: WIDTH_CONTINUITY.nc
+  filename: WIDTH_CONTINUITY_%(tag)s.nc
 
 metrics_watershed:
   description: |

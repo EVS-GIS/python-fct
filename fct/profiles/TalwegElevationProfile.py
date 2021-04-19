@@ -208,12 +208,20 @@ def fit_swath_elevations(
         params: Parameters,
         **kwargs) -> xr.Dataset:
 
-    # pour chaque swath/dgo (axis, measure)
+    # calculate swath median elevation
 
-    # swath = (
-    #     data.set_index(sample=('axis', 'measure'))
-    #     .sel(axis=axis)
-    # )
+    swath = swath.isel(measure=(swath.measure > measure - 100) &
+        (swath.measure <= measure + 100))
+
+    if swath.z.size > 0:
+
+        zmed = np.median(swath.z.values)
+
+    else:
+
+        zmed = np.nan
+
+    # use a longer swath for slope regressions
 
     swath = swath.isel(measure=(swath.measure > measure - 300) &
         (swath.measure <= measure + 300))
@@ -322,6 +330,7 @@ def fit_swath_elevations(
     return xr.Dataset(
         {
             'elevation_talweg': ('swath', np.array([z0], dtype='float32')),
+            'elevation_talweg_med': ('swath', np.array([zmed], dtype='float32')),
             'height_valley_bottom': ('swath', np.array([height_median], dtype='float32')),
             'slope_talweg': ('swath', np.array([-slope_s], dtype='float32')),
             'slope_valley_bottom': ('swath', np.array([slope_m], dtype='float32'))

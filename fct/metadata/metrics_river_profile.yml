@@ -30,7 +30,13 @@ variables:
   elevation_talweg:
     long_name: elevation_talweg
     short_name: ztw
-    description: fitted talweg elevation
+    description: representative talweg elevation, calculated from regression model
+    vertical_ref: ign_ngf
+    units: m
+  elevation_talweg_med:
+    long_name: elevation_talweg_med
+    short_name: ztwm
+    description: median talweg elevation
     vertical_ref: ign_ngf
     units: m
   elevation_valley_bottom:
@@ -53,12 +59,12 @@ variables:
     long_name: slope_talweg
     short_name: stw
     description: talweg slope, caculated as elevation_talweg ~ location along talweg (talweg measure)
-    units: percent
+    units: '1'
   slope_valley_bottom:
     long_name: slope_valley_bottom
     short_name: svb
     description: valley slope, caculated as elevation_talweg ~ reference/valley axis measure
-    units: percent
+    units: '1'
   sinuosity:
     long_name: sinuosity
     short_name: sin
@@ -67,6 +73,26 @@ variables:
     long_name: length_talweg
     short_name: ltw
     description: swath-intercepted talweg length
+    units: m
+  distance_source_talweg:
+    long_name: distance_source_talweg
+    short_name: dstw
+    description: distance from source along talweg
+    units: m
+  distance_source_refaxis:
+    long_name: distance_source_refaxis
+    short_name: dsrf
+    description: distance from source along reference axis
+    units: m
+  gradient_height:
+    long_name: gradient_height
+    short_name: dh
+    description: height difference with upstream swath, using elevation_talweg_med
+    units: m
+  gradient_index:
+    long_name: gradient_index
+    short_name: gix
+    description: gradient index = gradient_height * distance_source_refaxis / swath_length
     units: m
   width_valley_bottom:
     long_name: width_valley_bottom

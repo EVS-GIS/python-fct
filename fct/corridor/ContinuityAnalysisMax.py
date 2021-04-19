@@ -47,7 +47,7 @@ class Parameters:
     landcover = DatasetParameter('landcover raster map', type='input')
     distance = DatasetParameter('distance to talweg', type='input')
 
-    output = DatasetParameter('continuity map', type='output')
+    output = DatasetParameter('continuity map of landcover classes', type='output')
     output_distance = DatasetParameter('distance to reference pixel', type='output')
     state = DatasetParameter('processing state raster', type='output')
 
@@ -58,7 +58,7 @@ class Parameters:
     infrastructures = LiteralParameter('consider transport infrastructures (landcover class = 8)')
     jitter = LiteralParameter('apply jitter on performing shortest path raster exploration')
 
-    def __init__(self, axis=None):
+    def __init__(self, axis=None, tag='MAX'):
         """
         Default parameter values
         """
@@ -68,18 +68,18 @@ class Parameters:
             self.tiles = 'shortest_tiles'
             self.landcover = 'landcover_valley_bottom'
             self.distance = 'nearest_distance'
-            self.output = 'continuity'
-            self.output_distance = 'continuity_distance'
-            self.state = 'continuity_state'
+            self.output = dict(key='continuity_tmp', tag=tag)
+            self.output_distance = dict(key='continuity_distance', tag=tag)
+            self.state = dict(key='continuity_state', tag=tag)
 
         else:
 
             self.tiles = dict(key='ax_shortest_tiles', axis=axis)
             self.landcover = dict(key='ax_landcover_valley_bottom', axis=axis)
             self.distance = dict(key='ax_nearest_distance', axis=axis)
-            self.output = dict(key='ax_continuity', axis=axis)
-            self.output_distance = dict(key='ax_continuity_distance', axis=axis)
-            self.state = dict(key='ax_continuity_state', axis=axis)
+            self.output = dict(key='ax_continuity_tmp', tag=tag, axis=axis)
+            self.output_distance = dict(key='ax_continuity_distance', tag=tag, axis=axis)
+            self.state = dict(key='ax_continuity_state', tag=tag, axis=axis)
 
         self.class_max = 0
         self.distance_min = 20

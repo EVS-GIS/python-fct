@@ -62,14 +62,14 @@ class Parameters:
             self.tiles = 'shortest_tiles'
             self.axis = 'nearest_drainage_axis' # 'axis_nearest'
             self.measure = 'axis_measure'
-            self.output = 'drainage_area'
+            self.output = dict(key='drainage_area', tiled=False)
 
         else:
 
             self.tiles = dict(key='ax_shortest_tiles', axis=axis)
             self.axis = dict(key='ax_nearest_drainage_axis', axis=axis)
             self.measure = dict(key='ax_axis_measure', axis=axis)
-            self.output = dict(key='metrics_drainage_area', axis=axis)
+            self.output = dict(key='metrics_drainage_area', axis=axis, tiled=False)
 
 def calculate_swaths(measure_raster: str, swath_length: float):
     """
@@ -238,7 +238,7 @@ def WriteDrainageToDisk(drainage: SwathDrainageDict, params: Parameters, **kwarg
         })
 
     set_metadata(data, 'metrics_drainage_area')
-    output = params.output.filename(tileset=None, **kwargs)
+    output = params.output.filename(**kwargs)
 
     data.to_netcdf(
         output,

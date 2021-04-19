@@ -48,16 +48,27 @@ class Parameters:
     infrastructures = LiteralParameter('consider transport infrastructures (landcover class = 8)')
     jitter = LiteralParameter('apply jitter on performing shortest path raster exploration')
 
-    def __init__(self):
+    def __init__(self, axis=None, tag='WEIGHTED'):
         """
         Default parameter values
         """
 
+        if axis is None:
+
+            self.tiles = 'shortest_tiles'
+            self.landcover = 'landcover_valley_bottom'
+            self.distance = 'nearest_distance'
+            self.output = dict(key='continuity_tagged', tag=tag)
+
+
+        else:
+
+            self.tiles = dict(key='ax_shortest_tiles', axis=axis)
+            self.landcover = dict(key='ax_landcover_valley_bottom', axis=axis)
+            self.distance = dict(key='ax_nearest_distance', axis=axis)
+            self.output = dict(key='ax_continuity_tagged', tag=tag, axis=axis)
+
         self.tileset = 'default'
-        self.tiles = 'shortest_tiles'
-        self.landcover = 'landcover_valley_bottom'
-        self.distance = 'nearest_distance'
-        self.output = 'continuity'
         self.class_max = 0
         self.distance_min = 100.0
         self.distance_max = 0
