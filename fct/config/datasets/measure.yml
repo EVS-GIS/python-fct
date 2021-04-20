@@ -92,3 +92,21 @@ ax_medialaxis_measure:
     tileset: landcover
     template: MEDIALAXIS_MEASURE_%(row)02d_%(col)02d
     extension: .tif
+
+talweg_segments:
+  description: |
+    Talweg segments
+  type: linestring
+  group: measure
+  status: final
+  subdir: NETWORK/CARTO
+  filename: TALWEG_SEGMENTS.shp
+
+talweg_segments:
+  description: |
+    Talweg segments
+  type: linestring
+  group: measure
+  status: final
+  subdir: AXES/AX%(axis)04d/CARTO
+  filename: TALWEG_SEGMENTS.shp
