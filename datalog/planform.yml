@@ -1,0 +1,74 @@
+coordinates:
+  'axis':
+    long_name: stream identifier
+    long_name_fr: identifiant de l'axe hydrographique
+    coords: ax
+  'measure':
+    long_name: position along reference axis
+    long_name_fr: |
+      position longitudinale
+      le long de l'axe hydrographique de référence
+    standard_name: linref_m_coordinate
+    coords: m
+    units: m
+  'statistic':
+    long_name: statistic (min, median, max)
+    long_name_fr: statistique (minimum, médiane, maximum)
+    coords: st
+variables:
+  'talweg_measure':
+    long_name: distance along talweg linestring, measured from upstream
+    long_name_fr: |
+      distance le long du talweg
+      mesurée à partir de la source
+    standard_name: linestring_m_coordinate
+    coords: (ax, m)
+    units: m
+  'talweg_elevation':
+    long_name_fr: altitude du talweg
+    coords: (ax, m), st
+    units: m
+  'talweg_height':
+    long_name_fr: |
+      hauteur du talweg par rapport
+      au plan moyen du fond de vallée 
+    coords: (ax, m), st
+    units: m
+  'talweg_shift':
+    long_name: signed distance to reference axis
+    long_name_fr: distance à l'axe de référence
+    coords: (ax, m)
+    units: m
+  'talweg_curvature':
+    long_name: angular direction change between two talweg segments
+    long_name_fr: |
+      variation de direction anglulaire entre deux segments
+      de l'axe du talweg
+    coords: (ax, m)
+    units: rad
+  'talweg_direction_angle':
+    long_name: curve direction angle phi(talweg_measure) with respect to reference axis
+    long_name_fr: |
+      direction angulaire (phi) du talweg
+      par rapport à l'axe de référence
+    coords: (ax, m)
+    units: rad
+  'omega':
+    long_name_fr: |
+      amplitude de la direction angulaire du talweg
+      (moyenne multi-échelle)
+    coords: (ax, m)
+    units: rad
+  'amplitude':
+    long_name_fr: |
+      amplitude du tracé en plan, calculée à partir de la variable 'talweg_shift'
+      (moyenne multi-échelle)
+    coords: (ax, m)
+    units: m
+  'wavelength':
+    long_name_fr: longueur d'onde du tracé en plan
+    coords: (ax, m)
+    units: m
+  'sinuosity':
+    long_name_fr: sinuosité du tracé en plan
+    coords: (ax, m)

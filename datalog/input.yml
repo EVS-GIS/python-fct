@@ -1,0 +1,33 @@
+coordinates:
+  'x':
+    long_name: projection x coordinate
+    coords: 'x'
+    units: m
+  'y':
+    long_name: projection y coordinate
+    coords: 'y'
+    units: m
+variables:
+  'z':
+    long_name: altitude
+    long_name_fr: altitude NGF
+    units: m
+    coords: y, x
+    datasource: |-
+      - IGN RGE Alti 5m
+      - IGN BD Alti 25 m
+  'landcover':
+    long_name: landcover class
+    long_name_fr: classe d'occupation du sol
+    coords: y, x
+    datasource: |-
+      - IGN BD Topo 2019
+      - Registre Parcellaire Graphique 2018
+      - CESBIO OCS 2018
+  'pop':
+    long_name: resident population
+    long_name_fr: population résidente
+    units: hab
+    coords: y, x
+    datasource: |-
+      - INSEE Filosofi 2015

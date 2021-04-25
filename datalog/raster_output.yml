@@ -1,0 +1,93 @@
+coordinates:
+  'x':
+    long_name: projection x coordinate
+    coords: 'x'
+    units: m
+  'y':
+    long_name: projection y coordinate
+    coords: 'y'
+    units: m
+variables:
+  'flow':
+    long_name: D8 flow direction
+    long_name_fr: plan de drainage D8
+    coords: y, x
+    category: basic
+  'drainage':
+    long_name: upstream drainage area
+    long_name_fr: surface drainée depuis l'amont
+    units: km²
+    coords: y, x
+    category: basic
+  'continuity':
+    long_name: landcover continuity class
+    long_name_fr: |
+      classe de continuité de l'occupation du sol
+      à partir du réseau hydrographique
+    coords: y, x
+    category: basic
+  'axis_nearest':
+    long_name: nearest reference axis
+    long_name_fr: identifiant de l'axe hydrographique le plus proche
+    coords: y, x
+    category: spatialref
+  'axis_measure':
+    long_name: location along reference axis
+    long_name_fr: |
+      position longitudinale
+      le long de l'axe hydrographique de référence
+    units: m
+    coords: y, x
+    category: spatialref
+  'axis_distance':
+    long_name: distance to reference axis
+    long_name_fr: distance à l'axe hydrographique de référence
+    units: m
+    coords: y, x
+    category: spatialref
+  'swath_unit':
+    long_name: swath unit identifier
+    long_name_fr: |
+      identifiant de l'unité longitudinale
+      (swath identifier)
+    comment: |
+      discretization of variable 'axis_measure',
+      par axis unique identifier
+    coords: y, x
+    category: spatialref
+  'height_flow':
+    long_name: height above nearest drainage following flow direction
+    long_name_fr: |
+      hauteur au dessus de l'axe de référence
+      en suivant le plan de drainage
+    units: m
+    coords: y, x
+    category: height
+  'height_shortest':
+    long_name: height above nearest drainage following shortest path
+    long_name_fr: |
+      hauteur au dessus de l'axe de référence
+      en suivant le chemin le plus court
+    units: m
+    coords: y, x
+    category: height
+  'height_drainage':
+    long_name: height above nearest drainage
+    long_name_fr: |
+      hauteur au dessus du point le plus proche
+      sur l'axe de référence
+    units: m
+    coords: y, x
+    category: height
+  'height_flooplain':
+    long_name: height above flooplain reference
+    long_name_fr: |
+      hauteur au dessus du plan moyen du fond de vallée
+    units: m
+    coords: y, x
+    category: height
+  'valley_bottom':
+    long_name: valley bottom delineation
+    long_name_fr: délimitation du fond de vallée
+    coords: y, x
+    category: height

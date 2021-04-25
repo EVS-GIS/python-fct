@@ -1,0 +1,147 @@
+coordinates:
+  'axis':
+    long_name: stream identifier
+    long_name_fr: identifiant de l'axe hydrographique
+    coords: ax
+  'measure':
+    long_name: position along reference axis
+    long_name_fr: |
+      position longitudinale
+      le long de l'axe hydrographique de référence
+    standard_name: linref_m_coordinate
+    coords: m
+    units: m
+  'height':
+    long_name: height above nearest drainage
+    long_name_fr: |
+      hauteur au dessus du point le plus proche
+      sur le réseau hydrographique
+    standard_name: height_above_nearest_drainage
+    coords: h
+    units: m
+  'landcover':
+    long_name: landcover class
+    long_name_fr: classe d'occupation du sol
+    coords: k
+  'continuity':
+    long_name: classe d'occupation du sol
+    long_name_fr: |
+      classe de continuité de l'occupation du sol
+      à partir du réseau hydrographique
+    coords: kc
+  'side':
+    long_name: side of talweg, left or right
+    long_name_fr: |
+      côté du talweg,
+      à gauche ou à droite en regardant dans le sens de l'écoulement
+    coords: side
+variables:
+  'swath_unit':
+    long_name: swath identifier
+    long_name_fr: |
+      identifiant de l'unité longitudinale
+      (swath identifier)
+    coords: (ax, m)
+  'drainage_area':
+    long_name: upstream drainage/watershed area
+    long_name_fr: surface drainée depuis l'amont
+    coords: (ax, m)
+    units: km²
+  'valley_bottom_area_h':
+    long_name: valley bottom area measured at height h above nearest drainage
+    long_name_fr: |
+      surface du fond de vallée mesurée à la hauteur h
+      au dessus du réseau hydrographique
+    coords: (ax, m), h
+    units: pixels
+  'valley_bottom_area_lr':
+    long_name: valley bottom area on each side of talweg
+    long_name_fr: |
+      surface du fond de vallée
+      de part et d'autre du talweg
+    coords: (ax, m), side
+    units: pixels
+  'floodplain_z0':
+    long_name: |-
+      ransac regression intercept elevation of floodplain elevation
+      in the direction of reference axis
+    long_name_fr: |
+      altitude z0 de l'équation du plan moyen du fond de vallée
+      z(m) = s × m + z0
+    coords: (ax, m)
+    units: m
+  'floodplain_slope':
+    long_name: |-
+      ransac regression slope of floodplain elevation
+      in the direction of reference axis
+    long_name_fr:
+      pente s du fond de vallée
+    coords: (ax, m)
+    units: percent
+  'talweg_length':
+    long_name: swath-intercepted talweg length
+    long_name_fr: longueur de talweg intercepté
+    standard_name: projection_linestring_length
+    coords: (ax, m)
+    units: m
+  'talweg_slope':
+    long_name: talweg slope
+    long_name_fr: pente du talweg
+    coords: (ax, m)
+    units: percent
+  'valley_bottom_width':
+    long_name: valley bottom width
+    long_name_fr: |
+      largeur du fond de vallée
+      mesurée sur le profil en travers
+    coords: (ax, m), side
+    units: m
+  'landcover_area':
+    long_name: swath area of landcover class k
+    long_name_fr: surface de la classe d'occupation du sol k
+    coords: (ax, m), k, side
+    units: m²
+  'landcover_width':
+    long_name: cross-corridor width of landcover class k
+    long_name_fr: |
+      largeur de la classe d'occupation du sol k
+      mesurée sur le profil en travers
+    coords: (ax, m), k, side
+    units: m
+  'continuity_area':
+    long_name: swath area of continuity class kc
+    long_name_fr: surface de la classe de continuité latérale kc
+    coords: (ax, m), kc, side
+    units: m²
+  'continuity_width':
+    long_name: cross-corridor width of continuity class kc
+    long_name_fr: |
+      largeur de la classe de continuité latérale kc
+      mesurée sur le profil en travers
+    coords: (ax, m), kc, side
+    units: m
+  'active_channel_width':
+    long_name: active channel width
+    long_name_fr: |
+      largeur de la bande active
+    coords: (ax, m)
+    units: m
+  'natural_corridor_width':
+    long_name: natural corridor width
+    long_name_fr: |
+      largeur du corridor naturel
+      mesurée à partir de la carte de continuité latérale
+    coords: (ax, m), side
+    units: m
+  'connected_corridor_width':
+    long_name: connected corridor width
+    long_name_fr: |
+      largeur de l'espace connecté au cours d'eau
+      mesurée à partir de la carte de continuité latérale
+    coords: (ax, m), side
+    units: m
+  'dm':
+    long_name_fr: |
+      intervalle de discrétisation longitudinale
+      (longueur des unités longitudinales)
+    units: m

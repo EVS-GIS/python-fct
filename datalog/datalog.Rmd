@@ -1,0 +1,239 @@
+---
+title: "Tableaux des données utilisées et produites"
+author: "Christophe ROUSSON"
+date: "26 janvier 2021"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(purrr)
+library(stringr)
+library(yaml)
+library(kableExtra)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=FALSE}
+data = read_yaml('input.yml')
+
+coordinates = pmap_dfr(
+  list(names(data$coordinates), data$coordinates),
+  ~ list(
+    name = .x,
+    coords = .y$coords,
+    units = .y$units,
+    description = .y$long_name,
+    datasource = ''))
+
+variables = pmap_dfr(
+  list(names(data$variables), data$variables),
+  ~ list(
+    name = .x,
+    coords = .y$coords,
+    units = .y$units,
+    description = .y$long_name_fr,
+    datasource = .y$datasource))
+
+dt = coordinates %>%
+  bind_rows(variables) %>%
+  # mutate(across(c('coords'), ~ replace(., !is.na(.), paste0('(', ., ')')))) %>%
+  mutate(across(c('units', 'coords'), ~ replace(., is.na(.), '')))
+
+dt %>% select(name, coords, units, description, datasource) %>%
+  kbl(caption = 'Données raster utilisées en entrée', escape = F, col.names = c('', 'coordonnées', 'unités', 'description', 'source de données')) %>%
+  kable_paper("striped", full_width = T) %>%
+  pack_rows('Coordonnées', 1, count(coordinates)$n) %>%
+  pack_rows('Variables', count(coordinates)$n + 1, count(dt)$n) %>%
+  kable_styling()
+```
+
+```{r echo=FALSE}
+data = read_yaml('raster_output.yml')
+
+coordinates = pmap_dfr(
+  list(names(data$coordinates), data$coordinates),
+  ~ list(
+    name = .x,
+    coords = .y$coords,
+    units = .y$units,
+    description = .y$long_name,
+    category = 'coords'))
+
+variables = pmap_dfr(
+  list(names(data$variables), data$variables),
+  ~ list(
+    name = .x,
+    coords = .y$coords,
+    units = .y$units,
+    description = .y$long_name_fr,
+    category = .y$category))
+
+dt = coordinates %>%
+  bind_rows(variables %>% filter(category == 'basic')) %>%
+  # mutate(across(c('coords'), ~ replace(., !is.na(.), paste0('(', ., ')')))) %>%
+  mutate(across(c('units', 'coords'), ~ replace(., is.na(.), '')))
+
+dt %>% select(name, coords, units, description) %>%
+  kbl(caption = 'Données raster produites - variables dérivées élémentaires', escape = F, col.names = c('', 'coordonnées', 'unités', 'description')) %>%
+  kable_paper("striped", full_width = T) %>%
+  pack_rows('Coordonnées', 1, count(coordinates)$n) %>%
+  pack_rows('Variables', count(coordinates)$n + 1, count(dt)$n) %>%
+  kable_styling()
+```
+
+```{r echo=FALSE}
+dt = coordinates %>%
+  bind_rows(variables %>% filter(category == 'height')) %>%
+  # mutate(across(c('coords'), ~ replace(., !is.na(.), paste0('(', ., ')')))) %>%
+  mutate(across(c('units', 'coords'), ~ replace(., is.na(.), '')))
+
+dt %>% select(name, coords, units, description) %>%
+  kbl(caption = 'Données raster produites - hauteurs', escape = F, col.names = c('', 'coordonnées', 'unités', 'description')) %>%
+  kable_paper("striped", full_width = T) %>%
+  pack_rows('Coordonnées', 1, count(coordinates)$n) %>%
+  pack_rows('Variables', count(coordinates)$n + 1, count(dt)$n) %>%
+  kable_styling()
+```
+```{r echo=FALSE}
+dt = coordinates %>%
+  bind_rows(variables %>% filter(category == 'spatialref')) %>%
+  # mutate(across(c('coords'), ~ replace(., !is.na(.), paste0('(', ., ')')))) %>%
+  mutate(across(c('units', 'coords'), ~ replace(., is.na(.), '')))
+
+dt %>% select(name, coords, units, description) %>%
+  kbl(caption = 'Données raster produites - système de référence spatiale', escape = F, col.names = c('', 'coordonnées', 'unités', 'description')) %>%
+  kable_paper("striped", full_width = T) %>%
+  pack_rows('Coordonnées', 1, count(coordinates)$n) %>%
+  pack_rows('Variables', count(coordinates)$n + 1, count(dt)$n) %>%
+  kable_styling()
+```
+
+```{r echo=FALSE}
+data = read_yaml('hypsometre.yml')
+
+coordinates = pmap_dfr(
+  list(names(data$coordinates), data$coordinates),
+  ~ list(
+    name = .x,
+    coords = .y$coords,
+    units = .y$units,
+    description = .y$long_name))
+
+variables = pmap_dfr(
+  list(names(data$variables), data$variables),
+  ~ list(
+    name = .x,
+    coords = .y$coords,
+    units = .y$units,
+    description = .y$long_name))
+
+dt = coordinates %>%
+  bind_rows(variables) %>%
+  # mutate(across(c('coords'), ~ replace(., !is.na(.), paste0('(', ., ')')))) %>%
+  mutate(across(c('units', 'coords'), ~ replace(., is.na(.), '')))
+
+dt %>% select(name, coords, units, description) %>%
+  kbl(caption = 'Hypsomètre par zone hydrographique et par classe d\'occupation du sol', col.names = c('', 'coordonnées', 'unités', 'description')) %>%
+  kable_paper("striped", full_width = T) %>%
+  pack_rows('Coordonnées', 1, count(coordinates)$n) %>%
+  pack_rows('Variables', count(coordinates)$n + 1, count(dt)$n) %>%
+  kable_styling()
+```
+```{r echo=FALSE}
+data = read_yaml('planform.yml')
+
+coordinates = pmap_dfr(
+  list(names(data$coordinates), data$coordinates),
+  ~ list(
+    name = .x,
+    coords = .y$coords,
+    units = .y$units,
+    description = .y$long_name_fr))
+
+variables = pmap_dfr(
+  list(names(data$variables), data$variables),
+  ~ list(
+    name = .x,
+    coords = .y$coords,
+    units = .y$units,
+    description = .y$long_name_fr))
+
+dt = coordinates %>%
+  bind_rows(variables) %>%
+  # mutate(across(c('coords'), ~ replace(., !is.na(.), paste0('(', ., ')')))) %>%
+  mutate(across(c('units', 'coords'), ~ replace(., is.na(.), '')))
+
+dt %>% select(name, coords, units, description) %>%
+  kbl(caption = 'Métriques du tracé en plan', col.names = c('', 'coordonnées', 'unités', 'description')) %>%
+  kable_paper("striped", full_width = T) %>%
+  pack_rows('Coordonnées', 1, count(coordinates)$n) %>%
+  pack_rows('Variables', count(coordinates)$n + 1, count(dt)$n) %>%
+  kable_styling()
+```
+
+```{r echo=FALSE}
+data = read_yaml('swath_profile.yml')
+
+coordinates = pmap_dfr(
+  list(names(data$coordinates), data$coordinates),
+  ~ list(
+    name = .x,
+    coords = .y$coords,
+    units = .y$units,
+    description = .y$long_name_fr))
+
+variables = pmap_dfr(
+  list(names(data$variables), data$variables),
+  ~ list(
+    name = .x,
+    coords = .y$coords,
+    units = .y$units,
+    description = .y$long_name_fr))
+
+dt = coordinates %>%
+  bind_rows(variables) %>%
+  # mutate(across(c('coords'), ~ replace(., !is.na(.), paste0('(', ., ')')))) %>%
+  mutate(across(c('units', 'coords'), ~ replace(., is.na(.), '')))
+
+dt %>% select(name, coords, units, description) %>%
+  kbl(caption = 'Métriques du profil en travers moyen', col.names = c('', 'coordonnées', 'unités', 'description')) %>%
+  kable_paper("striped", full_width = T) %>%
+  pack_rows('Coordonnées', 1, count(coordinates)$n) %>%
+  pack_rows('Variables', count(coordinates)$n + 1, count(dt)$n) %>%
+  kable_styling()
+```
+```{r echo=FALSE}
+data = read_yaml('long_profile.yml')
+
+coordinates = pmap_dfr(
+  list(names(data$coordinates), data$coordinates),
+  ~ list(
+    name = .x,
+    coords = .y$coords,
+    units = .y$units,
+    description = .y$long_name_fr))
+
+variables = pmap_dfr(
+  list(names(data$variables), data$variables),
+  ~ list(
+    name = .x,
+    coords = .y$coords,
+    units = .y$units,
+    description = .y$long_name_fr))
+
+dt = coordinates %>%
+  bind_rows(variables) %>%
+  # mutate(across(c('coords'), ~ replace(., !is.na(.), paste0('(', ., ')')))) %>%
+  mutate(across(c('units', 'coords'), ~ replace(., is.na(.), '')))
+
+dt %>% select(name, coords, units, description) %>%
+  kbl(caption = 'Métriques du profil longitudinal', col.names = c('', 'coordonnées', 'unités', 'description')) %>%
+  kable_paper("striped", full_width = T) %>%
+  pack_rows('Coordonnées', 1, count(coordinates)$n) %>%
+  pack_rows('Variables', count(coordinates)$n + 1, count(dt)$n) %>%
+  kable_styling()
+```
