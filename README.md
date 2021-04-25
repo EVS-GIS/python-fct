@@ -31,6 +31,10 @@ is visible online as an example of the output of the FCT.
 - Robust, reproducible and automated raster-based metrology
 - FAIR and open source platform
 
+## Documentation
+
+Documentation is available [here](https://tramebleue.github.io/fct-cli/)
+
 ## River Styles
 
 Based on the FCT extracted metrics,
@@ -71,10 +75,6 @@ See the full [list of metrics](https://tramebleue.github.io/fct-cli/docs/metrics
 ![Amplitude](docs/img/amplitude_drome.png)
 
 ![Sinuosity](docs/img/sinuosity_drome.png)
-
-## Documentation
-
-Documentation is available [here](https://tramebleue.github.io/fct-cli/)
 
 ## Acknowledgements
 
