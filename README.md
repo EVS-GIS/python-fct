@@ -108,4 +108,4 @@ Funding and support have been kindly provided by :
 
 ## License
 
-The Fluvial Corridor Toolbox is released under the [GNU Public License v3](./GPLv3.txt).
+The Fluvial Corridor Toolbox is released under the [GNU Public License v3](docs/GPLv3.txt).
