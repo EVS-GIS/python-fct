@@ -13,21 +13,26 @@ Clone source code from GitHub :
 git clone --recursive https://github.com/tramebleue/fct-cli
 ```
 
-(Recommended)
 Create and activate a python virtual environment.
-You can give it whatever name you want, we use `python3`.
-It will create a new `python3` (or whatever name you picked) directory :
+We recommend not to create the python virtual environment inside the `fct-cli` directory. For example, you can create a `pyenv` directory in your home directory to store all your python virtual environments.
+
+You can give your new virtual environment whatever name you want.
+For example, we use `fct`.
+
+It will create a new `fct` directory :
 
 ```
-python3 -m venv python3
-. python3/bin/activate
+mkdir pyenv
+cd pyenv
+python3 -m venv fct
+. fct/bin/activate
 ```
 
 From directory `fct-cli`,
 install required dependencis using `pip` :
 
 ```
-python -m pip install -r requirements.txt
+python -m pip install -r requirements/fct.txt
 ```
 
 Build extensions and install modules :
