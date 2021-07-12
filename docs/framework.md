@@ -1,8 +1,21 @@
 # Framework
 
+The FCT provides a lightweight framework to execute chains of algorithms, which we will refer to as *workflows*.
+
+```mermaid
+graph LR
+   i1(datasource1) --> o1
+   i2(datasource2) --> o3
+   o1[operation 1] --> o2
+   o2[operation 2] --> o3
+   o1 --> o3
+   o3[operation 3] --> o4
+   o2 --> o4
+   o4[operation 4] --> f(output)
+```
+
 ## Algorithm, Parameters and Operation
 
-The FCT provides a lightweight framework to execute chains of algorithms, which we will refer to as *workflows*.
 An *algorithm* is a simple function that processes a set of input and produces a set of output.
 
 ```mermaid
@@ -31,9 +44,9 @@ Datasources are input datasets that may reside anywhere outside the execution wo
 Datasources and datasets ultimately resolve to file names, and as such, they can represent anything that can be stored in a file. Algorithms are responsible for managing access to specific file formats.
 
 In order to encourage consistent implementation of algorithms,
-we define *`Parameters objects* and *operations* :
+we define `Parameters` and *operations* :
 
-- *`Parameters` objects* represent a set of named parameters
+- `Parameters` represent a set of named parameters
   specific to some algorithm
 
 - an *operation* is the realization of an algorithm,
@@ -52,6 +65,8 @@ erDiagram
     DatasetParameter ||..|| InputOutputDataset: resolves_to
     LiteralParameter ||..|| Value: resolves_to
 ```
+
+### Example
 
 As an example, we could define a new `FlowDirectionAlgorithm` along with its `Parameters` class as :
 
@@ -76,7 +91,7 @@ class Parameters():
         Default parameter values
         """
 
-        self.elevations = 'dem-drainage-resolved'
+        self.elevations = 'dem'
         self.flow = 'flow'
 
 def FlowDirectionAlgorithm(params: Parameters):
@@ -105,27 +120,3 @@ def flow_direction():
     # executes algorithm
     FlowDirectionAlgorithm(params)
 ```
-
-## Tileset
-
-[Tileset][fct.config.Configuration.Tileset]
-
-## Datasource and Dataset
-
-## Workflow
-
-```mermaid
-graph LR
-   i1(source1) --> o1
-   i2(source2) --> o3
-   o1[operation 1] --> o2
-   o2[operation 2] --> o3
-   o1 --> o3
-   o3[operation 3] --> o4
-   o2 --> o4
-   o4[operation 4] --> f(output)
-```
-
-## Configuration
-
-[Configuration][fct.config.Configuration.Configuration]
