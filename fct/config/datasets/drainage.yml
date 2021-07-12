@@ -232,6 +232,19 @@ acc:
     template: ACCUMULATION_%(row)02d_%(col)02d
     extension: .tif
 
+network-outlet-distance:
+  description: |
+    Distance to network outlet according to flow raster
+  type: raster
+  group: drainage
+  status: final
+  subdir: GLOBAL/DEM
+  filename: OUT_DISTANCE.vrt
+  tiles:
+    tileset: landcover
+    template: OUT_DISTANCE_%(row)02d_%(col)02d
+    extension: .tif
+
 outlets:
   description: |
     Tile outlets, grouped per target tile (row, col).
