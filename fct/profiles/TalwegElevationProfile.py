@@ -3,6 +3,7 @@ Planform signal,
 talweg shift with respect to given reference axis
 """
 
+import logging
 from multiprocessing import Pool
 import numpy as np
 from scipy.interpolate import interp1d
@@ -434,6 +435,8 @@ def TalwegElevationProfile(data, swath_bounds, params: Parameters, processes: in
 
     if length == 1 or processes == 1:
 
+        logger = logging.getLogger(__name__)
+
         def values():
 
             with click.progressbar(swath_bounds) as iterator:
@@ -446,13 +449,20 @@ def TalwegElevationProfile(data, swath_bounds, params: Parameters, processes: in
                         .load()
                     )
 
-                    yield fit_swath_elevations(
-                        swath,
-                        axis,
-                        measure,
-                        bounds,
-                        params,
-                        **kwargs)
+                    try:
+
+                        yield fit_swath_elevations(
+                            swath,
+                            axis,
+                            measure,
+                            bounds,
+                            params,
+                            **kwargs)
+
+                    except ValueError:
+
+                        logger.error('Error on swath (%d, %.1f)', axis, measure)
+                        continue
 
         dataset = xr.concat(values(), 'swath', 'all')
 

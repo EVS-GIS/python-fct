@@ -247,7 +247,7 @@ def InterpolateSwaths(data, reference, measures):
 
     dataset = list()
 
-    with click.progressbar(np.unique(data.axis)) as iterator:
+    with click.progressbar(np.unique(measures.axis)) as iterator:
         for axis in iterator:
 
             datax = data.sel(axis=axis).sortby('ref_measure')

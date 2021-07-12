@@ -1,5 +1,14 @@
 # Swaths construction
 
+swaths_exclusions:
+  description: |
+    List of excluded swaths (axis, measure)
+  type: raster
+  group: reference
+  status: input
+  subdir: GLOBAL/MEASURE
+  filename: SWATHS_EXCLUSIONS.txt
+
 ax_swaths_refaxis:
   description: |
     Valley bottom longitudinal units

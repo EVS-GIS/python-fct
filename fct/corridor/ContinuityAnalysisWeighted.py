@@ -58,7 +58,7 @@ class Parameters:
             self.tiles = 'shortest_tiles'
             self.landcover = 'landcover_valley_bottom'
             self.distance = 'nearest_distance'
-            self.output = dict(key='continuity_tagged', tag=tag)
+            self.output = dict(key='continuity_tmp', tag=tag)
 
 
         else:
@@ -66,7 +66,7 @@ class Parameters:
             self.tiles = dict(key='ax_shortest_tiles', axis=axis)
             self.landcover = dict(key='ax_landcover_valley_bottom', axis=axis)
             self.distance = dict(key='ax_nearest_distance', axis=axis)
-            self.output = dict(key='ax_continuity_tagged', tag=tag, axis=axis)
+            self.output = dict(key='ax_continuity_tmp', tag=tag, axis=axis)
 
         self.tileset = 'default'
         self.class_max = 0

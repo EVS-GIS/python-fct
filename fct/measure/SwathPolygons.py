@@ -38,6 +38,10 @@ from ..corridor.ValleyBottomFeatures import (
 
 logger = logging.getLogger(__name__)
 
+SWATH_INVALID = 1
+SWATH_VALID = 2
+SWATH_EXCLUDED = 3
+
 class Parameters:
     """
     Swath measurement parameters
@@ -61,6 +65,7 @@ class Parameters:
 
     swaths = DatasetParameter('swaths raster (discretized measures)', type='output')
     polygons = DatasetParameter('swaths polygons', type='output')
+    exclusions = DatasetParameter('list of excluded swaths', type='input')
     
     swath_length = LiteralParameter(
         'swath disaggregation distance in measure unit (eg. meters)')
@@ -79,6 +84,7 @@ class Parameters:
             self.valley_bottom = 'valley_bottom_final'
             self.swaths = 'swaths_refaxis'
             self.polygons = 'swaths_refaxis_polygons'
+            self.exclusions = dict(key='swaths_exclusions', tiled=False)
 
         else:
 
@@ -90,6 +96,7 @@ class Parameters:
             
             self.swaths = dict(key='ax_swaths_refaxis', axis=axis)
             self.polygons = dict(key='ax_swaths_refaxis_polygons', axis=axis)
+            self.exclusions = dict(key='swaths_exclusions', tiled=False)
 
         self.swath_length = 200.0
 
@@ -375,6 +382,21 @@ def VectorizeSwaths(swaths_infos, drainage, params, processes=1, **kwargs):
     crs = fiona.crs.from_epsg(2154)
     options = dict(driver='ESRI Shapefile', crs=crs, schema=schema)
 
+    exclusions = set()
+    excluded = set()
+
+    if params.exclusions.filename().exists():
+
+        with open(params.exclusions.filename()) as fp:
+
+            for line in fp:
+                if line:
+
+                    axis, measure = line.split(',')
+                    axis = int(axis)
+                    measure = float(measure)
+                    exclusions.add((axis, measure))
+
     with fiona.open(output, 'w', **options) as dst:
 
         with Pool(processes=processes) as pool:
@@ -387,6 +409,14 @@ def VectorizeSwaths(swaths_infos, drainage, params, processes=1, **kwargs):
                     drainage_area = interpolate_drainage(axis, measure)
 
                     for (polygon, value) in polygons:
+
+                        if (axis, measure) in exclusions:
+                            
+                            value = SWATH_EXCLUDED
+
+                            if (axis, measure) not in excluded:
+                                logger.warning('Excluding swath (%d, %.1f)', axis, measure)
+                                excluded.add((axis, measure))
 
                         geom = asShape(polygon)
                         exterior = Polygon(geom.exterior).buffer(0)

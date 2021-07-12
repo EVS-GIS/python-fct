@@ -4,6 +4,7 @@
 Elevation Swath Profile
 """
 
+import logging
 from multiprocessing import Pool
 from typing import Tuple
 
@@ -132,6 +133,8 @@ def SwathProfileUnit(
         params: Parameters,
         **kwargs) -> xr.Dataset:
 
+    logger = logging.getLogger(__name__)
+
     swath_length = params.swath_length
     swath = measure_to_swath_identifier(measure, swath_length)
 
@@ -165,7 +168,20 @@ def SwathProfileUnit(
         swaths = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
         # swaths_nodata = ds.nodata
         swaths = measure_to_swath_identifier(swaths, params.swath_length)
-        mask = (nearest == axis) & (swaths == swath) & (values != nodata)
+    
+    try:
+
+        assert(nearest.shape == values.shape)
+        assert(distance.shape == values.shape)
+        assert(talweg_distance.shape == values.shape)
+        assert(swaths.shape == values.shape)
+
+    except AssertionError:
+
+        logger.error('Window error on swath (%d, %f)', axis, measure)
+        return None
+
+    mask = (nearest == axis) & (swaths == swath) & (values != nodata)
 
     if np.sum(mask) == 0:
         return None

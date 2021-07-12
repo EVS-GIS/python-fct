@@ -92,7 +92,8 @@ class Parameters:
             # self.swaths_polygons = 'ax_swaths_refaxis_polygons'
             self.medialaxis = 'medialaxis'
             self.simplified = 'medialaxis_simplified'
-            self.vbw = dict(key='width_valley_bottom_ma', tiled=False)
+            # self.vbw = dict(key='width_valley_bottom_ma', tiled=False)
+            self.vbw = dict(key='metrics_width_valley_bottom_tagged', axis=None, tiled=False, tag='MA_TMP')
 
         else:
 
@@ -104,7 +105,7 @@ class Parameters:
             # self.swaths_polygons = 'ax_swaths_refaxis_polygons'
             self.medialaxis = dict(key='ax_medialaxis', axis=axis)
             self.simplified = dict(key='ax_medialaxis_simplified', axis=axis)
-            self.vbw = dict(key='metrics_width_valley_bottom_ma', axis=axis, tiled=False)
+            self.vbw = dict(key='metrics_width_valley_bottom_tagged', axis=axis, tiled=False, tag='MA_TMP')
 
         self.swath_length = 100.0
 
