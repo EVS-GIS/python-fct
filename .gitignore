@@ -13,3 +13,5 @@ build
 /site
 __pycache__
 .DS_Store
+tutorials/dem_to_dgo/outputs
+env
