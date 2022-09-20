@@ -225,7 +225,7 @@ def PadRaster(
                 with rio.open(other_raster) as ds2:
                     padded[0:padding, padding:-padding] = ds2.read(
                         1,
-                        window=Window(0, height-padding, width, padding))
+                        window=Window(0, ds2.height-padding, ds2.width, padding))
 
         else:
 
@@ -242,7 +242,7 @@ def PadRaster(
                 with rio.open(other_raster) as ds2:
                     padded[height+padding:, padding:-padding] = ds2.read(
                         1,
-                        window=Window(0, 0, width, padding))
+                        window=Window(0, 0, ds2.width, padding))
 
         else:
 
@@ -259,7 +259,7 @@ def PadRaster(
                 with rio.open(other_raster) as ds2:
                     padded[padding:-padding, 0:padding] = ds2.read(
                         1,
-                        window=Window(width-padding, 0, padding, height))
+                        window=Window(ds2.width-padding, 0, padding, ds2.height))
 
         else:
 
@@ -276,7 +276,7 @@ def PadRaster(
                 with rio.open(other_raster) as ds2:
                     padded[padding:-padding, width+padding:] = ds2.read(
                         1,
-                        window=Window(0, 0, padding, height))
+                        window=Window(0, 0, padding, ds2.height))
 
         else:
 
@@ -293,7 +293,7 @@ def PadRaster(
                 with rio.open(other_raster) as ds2:
                     padded[0:padding, 0:padding] = ds2.read(
                         1,
-                        window=Window(width-padding, height-padding, padding, padding))
+                        window=Window(ds2.width-padding, ds2.height-padding, padding, padding))
 
         else:
 
@@ -310,7 +310,7 @@ def PadRaster(
                 with rio.open(other_raster) as ds2:
                     padded[height+padding:, 0:padding] = ds2.read(
                         1,
-                        window=Window(width-padding, 0, padding, padding))
+                        window=Window(ds2.width-padding, 0, padding, padding))
 
         else:
 
@@ -327,7 +327,7 @@ def PadRaster(
                 with rio.open(other_raster) as ds2:
                     padded[0:padding, width+padding:] = ds2.read(
                         1,
-                        window=Window(0, height-padding, padding, padding))
+                        window=Window(0, ds2.height-padding, padding, padding))
 
         else:
 

@@ -22,10 +22,10 @@ from ..config import config
 from ..tileio import as_window
 from ..cli import starcall
 
-def ExtractTile(datasource, dataset, tile, overwrite=False):
+def ExtractTile(datasource, dataset, tile, tileset, overwrite=False):
 
-    raster = config.datasource(datasource).filename
-    output = config.tileset(tile.tileset).tilename(dataset, row=tile.row, col=tile.col)
+    raster = datasource
+    output = tileset.tilename(dataset, row=tile.row, col=tile.col)
 
     if os.path.exists(output) and not overwrite:
         return
@@ -53,8 +53,8 @@ def DatasourceToTiles(datasource, tileset, dataset, processes=1, **kwargs):
     arguments = list()
 
     for tile in config.tileset(tileset).tileindex.values():
-        arguments.append((ExtractTile, datasource, dataset, tile, kwargs))
-
+        arguments.append((ExtractTile, config.datasource(datasource).filename, dataset, tile, config.tileset(tileset), kwargs))
+    
     with Pool(processes=processes) as pool:
 
         pooled = pool.imap_unordered(starcall, arguments)

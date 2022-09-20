@@ -224,7 +224,7 @@ class DatasetResolver():
         """
         Resolves to a specific tilename based on `kwargs` arguments
         """
-
+        global config
         if self.none:
             return None
 

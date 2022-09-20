@@ -12,7 +12,7 @@ from base64 import urlsafe_b64encode
 import yaml
 import click
 
-from shapely.geometry import asShape
+from shapely.geometry import shape
 import fiona
 
 Tile = namedtuple('Tile', ('gid', 'row', 'col', 'x0', 'y0', 'bounds', 'tileset'))
@@ -601,7 +601,7 @@ class Tileset():
                 for feature in fs:
                     props = feature['properties']
                     values = [props[k] for k in ('GID', 'ROW', 'COL', 'X0', 'Y0')]
-                    values.append(asShape(feature['geometry']).bounds)
+                    values.append(shape(feature['geometry']).bounds)
                     values.append(self.name)
                     tile = Tile(*values)
                     index[(tile.row, tile.col)] = tile
@@ -628,7 +628,7 @@ class Tileset():
 
                 props = feature['properties']
                 values = [props[k] for k in ('GID', 'ROW', 'COL', 'X0', 'Y0')]
-                values.append(asShape(feature['geometry']).bounds)
+                values.append(shape(feature['geometry']).bounds)
                 values.append(self.name)
                 yield Tile(*values)
 
@@ -789,6 +789,10 @@ class FileParser():
             if section == 'Workspace':
                 for key, value in parser.items(section):
                     setattr(workspace, '_' + key, value)
+                    
+                    if key=='srs':
+                        workspace.set_srs(value)
+                        
             elif section == 'DataSources':
                 for key, value in parser.items(section):
                     if value in datasources:

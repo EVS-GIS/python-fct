@@ -240,7 +240,6 @@ def MeanFilter(
     Smooth elevations by applying a mean filter
     on a square window of size `size`
     """
-
     from scipy.ndimage import uniform_filter as ndfilter
 
     # tile_index = tileindex()
