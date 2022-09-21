@@ -142,7 +142,9 @@ def AggregateStreams(params):
 
     with fiona.open(output, 'w', **options) as dst:
         with click.progressbar(tileset.tiles(), length=len(tileset)) as iterator:
-            for row, col in iterator:
+            for tile in iterator:
+                row = tile.row
+                col = tile.col
                 
                 network_tile = params.drainage_network.tilename(row=row, col=col)
                 # config.tileset().tilename('dem-drainage-network', row=row, col=col)

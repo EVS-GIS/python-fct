@@ -92,7 +92,7 @@ def LabelWatersheds(
     elevation_raster = params.elevations.tilename(row=row, col=col)
     # config.tileset().tilename(dataset, row=row, col=col)
     # outputs = config.fileset(['prefilled', 'labels', 'graph'], row=row, col=col)
-    output_filled = params.output.tilename(row=row, col=col)
+    output_filled = params.filled.tilename(row=row, col=col)
     # config.tileset().tilename('dem-filled', row=row, col=col)
     output_labels = params.labels.tilename(row=row, col=col)
     # config.tileset().tilename('dem-watershed-labels', row=row, col=col)
