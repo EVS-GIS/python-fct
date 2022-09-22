@@ -93,7 +93,7 @@ def Confluences(axis: int, params: Parameters = None):
 # }
 
 # import fiona.crs
-# crs = fiona.crs.from_epsg(2154)
+# crs = fiona.crs.from_epsg(config.srid)
 # options = dict(driver='ESRI Shapefile', crs=crs, schema=schema)
 
 # with fiona.open(output, 'w', **options) as fst:

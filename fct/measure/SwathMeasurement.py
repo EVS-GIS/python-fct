@@ -645,7 +645,7 @@ def VectorizeSwathPolygons(params, processes=1, **kwargs):
             ('M', 'float:10.2')
         ]
     }
-    crs = fiona.crs.from_epsg(2154)
+    crs = fiona.crs.from_epsg(config.srid)
     options = dict(driver='ESRI Shapefile', crs=crs, schema=schema)
 
     with fiona.open(output, 'w', **options) as dst:

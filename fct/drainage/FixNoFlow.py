@@ -17,6 +17,7 @@ import numpy as np
 import click
 import rasterio as rio
 import fiona
+import fiona.crs
 
 from .. import transform as fct
 from .. import speedup
@@ -149,7 +150,7 @@ def NoFlowPixels(row, col, params):
             ('COL', 'int:4')
         ]
     }
-    crs = fiona.crs.from_epsg(2154)
+    crs = fiona.crs.from_epsg(config.srid)
     options = dict(driver=driver, crs=crs, schema=schema)
 
     with rio.open(flow_raster) as ds:
@@ -196,14 +197,17 @@ def AggregateNoFlowPixels(params):
             ('COL', 'int')
         ]
     }
-    crs = fiona.crs.from_epsg(2154)
+    crs = fiona.crs.from_epsg(config.srid)
     options = dict(driver=driver, crs=crs, schema=schema)
 
     gid = itertools.count(1)
 
     with fiona.open(output, 'w', **options) as dst:
         with click.progressbar(tileset.tiles(), length=len(tileset)) as iterator:
-            for row, col in iterator:
+            for tile in iterator:
+                row = tile.row
+                col = tile.col
+                
                 with fiona.open(config.tileset().tilename('noflow', row=row, col=col)) as fs:
                     for feature in fs:
                         feature['properties']['GID'] = next(gid)

@@ -181,8 +181,8 @@ def ValleyBottomMaskTile(axis, row, col, params, **kwargs):
 
         mask = np.float32(
             ~(
-                (hand < -params.max_slope * params.dist_resolution * distance)
-                & (params.dist_resolution * distance > params.min_distance)
+                (hand < -params.max_slope * params.distance_resolution * distance)
+                & (params.distance_resolution * distance > params.min_distance)
                 | (hand > params.max_height)
             )
         )

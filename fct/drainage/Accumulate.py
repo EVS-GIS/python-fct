@@ -84,7 +84,7 @@ def TileOutlets(row, col, params, verbose=False):
 
     tile_index = tileindex()
 
-    crs = fiona.crs.from_epsg(2154)
+    crs = fiona.crs.from_epsg(config.srid)
     driver = 'GeoJSON'
     schema = {
         'geometry': 'Point',
@@ -228,7 +228,7 @@ def AggregateOutlets(params):
 
     tile_index = tileindex()
 
-    crs = fiona.crs.from_epsg(2154)
+    crs = fiona.crs.from_epsg(config.srid)
     driver = 'ESRI Shapefile'
     schema = {
         'geometry': 'Point',
@@ -392,7 +392,7 @@ def InletAreasTile(row, col, gid, params, keys, areas):
     attributed with the total upstream drained area.
     """
 
-    crs = fiona.crs.from_epsg(2154)
+    crs = fiona.crs.from_epsg(config.srid)
     driver = 'ESRI Shapefile'
     schema = {
         'geometry': 'Point',

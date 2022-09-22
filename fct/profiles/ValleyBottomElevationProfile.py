@@ -79,7 +79,7 @@ def ValleyBottomElevationProfile(params: Parameters):
         """
 
         driver = 'ESRI Shapefile'
-        crs = fiona.crs.from_epsg(2154)
+        crs = fiona.crs.from_epsg(config.srid)
         schema = {
             'geometry': '3D LineString',
             'properties': [

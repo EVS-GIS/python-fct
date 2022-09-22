@@ -164,7 +164,7 @@ def SwathAxes(axis, processes=1):
     output = config.filename('ax_swath_axes', axis=axis)
 
     driver = 'ESRI Shapefile'
-    crs = fiona.crs.from_epsg(2154)
+    crs = fiona.crs.from_epsg(config.srid)
     schema = {
         'geometry': 'LineString',
         'properties': [

@@ -379,7 +379,7 @@ def VectorizeSwaths(swaths_infos, drainage, params, processes=1, **kwargs):
             ('DRAINAGE', 'float:10.3')
         ]
     }
-    crs = fiona.crs.from_epsg(2154)
+    crs = fiona.crs.from_epsg(config.srid)
     options = dict(driver='ESRI Shapefile', crs=crs, schema=schema)
 
     exclusions = set()

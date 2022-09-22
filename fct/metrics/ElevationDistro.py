@@ -285,7 +285,7 @@ def WriteDistroToShapefile(data: xr.Dataset, filename: str):
             ('slope', 'float:3.3'),
             ('vbot', 'int:1')
         ]}
-    crs = fiona.crs.from_epsg(2154)
+    crs = fiona.crs.from_epsg(config.srid)
     driver = 'ESRI Shapefile'
     options = dict(
         driver=driver,

@@ -89,7 +89,7 @@ def StreamToFeatureTile(row, col, params):
             ('COL', 'int:4')
         ]
     }
-    crs = fiona.crs.from_epsg(2154)
+    crs = fiona.crs.from_epsg(config.srid)
     options = dict(driver=driver, crs=crs, schema=schema)
 
     with rio.open(flow_raster) as ds:
@@ -135,7 +135,7 @@ def AggregateStreams(params):
             ('COL', 'int:4')
         ]
     }
-    crs = fiona.crs.from_epsg(2154)
+    crs = fiona.crs.from_epsg(config.srid)
     options = dict(driver=driver, crs=crs, schema=schema)
 
     gid = itertools.count(1)

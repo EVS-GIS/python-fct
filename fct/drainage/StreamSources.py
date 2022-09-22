@@ -146,7 +146,7 @@ def TileInletSources(tile, keys, areas):
         row=row,
         col=col)
 
-    crs = fiona.crs.from_epsg(2154)
+    crs = fiona.crs.from_epsg(config.srid)
     driver = 'ESRI Shapefile'
     schema = {
         'geometry': 'Point',
@@ -233,7 +233,7 @@ def StreamToFeatureFromSources(row, col, min_drainage):
             ('COL', 'int:4')
         ]
     }
-    crs = fiona.crs.from_epsg(2154)
+    crs = fiona.crs.from_epsg(config.srid)
     options = dict(driver=driver, crs=crs, schema=schema)
 
     with rio.open(flow_raster) as ds:
@@ -300,7 +300,7 @@ def AggregateStreamsFromSources():
             ('COL', 'int:4')
         ]
     }
-    crs = fiona.crs.from_epsg(2154)
+    crs = fiona.crs.from_epsg(config.srid)
     options = dict(driver=driver, crs=crs, schema=schema)
 
     gid = itertools.count(1)
@@ -343,7 +343,7 @@ def NoFlowPixels(row, col, min_drainage):
             ('COL', 'int:4')
         ]
     }
-    crs = fiona.crs.from_epsg(2154)
+    crs = fiona.crs.from_epsg(config.srid)
     options = dict(driver=driver, crs=crs, schema=schema)
 
     with rio.open(flow_raster) as ds:
@@ -408,7 +408,7 @@ def AggregateNoFlowPixels():
             ('COL', 'int')
         ]
     }
-    crs = fiona.crs.from_epsg(2154)
+    crs = fiona.crs.from_epsg(config.srid)
     options = dict(driver=driver, crs=crs, schema=schema)
 
     gid = itertools.count(1)

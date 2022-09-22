@@ -69,7 +69,7 @@ def TileExtendedBoundingBox(row, col, padding=20):
     template = config.tileset().filename('dem', row=row, col=col)
     output = os.path.join(workdir(), 'TILEBOXES.shp')
 
-    crs = fiona.crs.from_epsg(2154)
+    crs = fiona.crs.from_epsg(config.srid)
     driver = 'ESRI Shapefile'
     schema = {
         'geometry': 'Polygon',

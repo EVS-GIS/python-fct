@@ -240,7 +240,7 @@ def ElevationContour(breaks, processes=1, **kwargs):
     output = '/media/crousson/Backup/PRODUCTION/HYPSOMETRY/RMC_CONTOURS.shp'
 
     driver = 'ESRI Shapefile'
-    crs = fiona.crs.from_epsg(2154)
+    crs = fiona.crs.from_epsg(config.srid)
     schema = {
         'geometry': 'Polygon',
         'properties': [
