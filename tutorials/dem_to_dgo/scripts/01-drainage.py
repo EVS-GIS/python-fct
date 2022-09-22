@@ -1,8 +1,6 @@
-from fct.drainage import PrepareDEM, DepressionFill, BorderFlats, FlowDirection, StreamNetwork, Accumulate
-
-
 # If you have two different scales DEM, you can fill the precise one with the less precise
 # First step when you have only one DEM : Smoothing
+from fct.drainage import PrepareDEM
 PrepareDEM.config.from_file('./tutorials/dem_to_dgo/config.ini')
 params = PrepareDEM.SmoothingParameters()
 params.windows=25
@@ -10,6 +8,7 @@ for tile in PrepareDEM.config.tileset().tiles():
     PrepareDEM.MeanFilter(row=tile.row, col=tile.col, params=params)
 
 # Fill sinks
+from fct.drainage import DepressionFill
 DepressionFill.config.from_file('./tutorials/dem_to_dgo/config.ini')
 params = DepressionFill.Parameters()
 params.elevations = 'smoothed'
@@ -23,6 +22,7 @@ for tile in DepressionFill.config.tileset().tiles():
     DepressionFill.DispatchWatershedMinimumZ(row=tile.row, col=tile.col, params=params)
 
 # Resolve flats
+from fct.drainage import BorderFlats
 BorderFlats.config.from_file('./tutorials/dem_to_dgo/config.ini')
 params = BorderFlats.Parameters()
 for tile in BorderFlats.config.tileset().tiles():
@@ -36,28 +36,53 @@ for tile in BorderFlats.config.tileset().tiles():
 #FlatMap.DepressionDepthMap ?
 
 # Flow direction
+from fct.drainage import FlowDirection
 FlowDirection.config.from_file('./tutorials/dem_to_dgo/config.ini')
 params = FlowDirection.Parameters()
 params.exterior = 'off'
 for tile in FlowDirection.config.tileset().tiles():
     FlowDirection.FlowDirectionTile(row=tile.row, col=tile.col, params=params, overwrite=True)
 
-#TODO: Check if this part is facultative
-# Flow tiles outlets
+# Build VRT for flow direction tiles: fct-tiles -c tutorials/dem_to_dgo/config.ini buildvrt 10k dem-drainage-resolved
+
+# Flow tiles inlets/outlets graph
+from fct.drainage import Accumulate
 Accumulate.config.from_file('./tutorials/dem_to_dgo/config.ini')
 params = Accumulate.Parameters()
 params.elevations = 'dem-drainage-resolved'
+
 for tile in Accumulate.config.tileset().tiles():
     Accumulate.TileOutlets(row=tile.row, col=tile.col, params=params)
 
 Accumulate.AggregateOutlets(params)
 
+# Resolve inlets/outlets graph
+Accumulate.InletAreas(params=params)
+
 # Flow accumulation
 for tile in Accumulate.config.tileset().tiles():
     Accumulate.FlowAccumulationTile(row=tile.row, col=tile.col, params=params, overwrite=True) 
+
+##################################
+# Fix NoFlow pixels
+from fct.drainage import FixNoFlow
+FixNoFlow.config.from_file('./tutorials/dem_to_dgo/config.ini')
+params = FixNoFlow.Parameters()
+for tile in FixNoFlow.config.tileset().tiles():
+    FixNoFlow.NoFlowPixels(row=tile.row, col=tile.col, params=params)
     
+FixNoFlow.AggregateNoFlowPixels(params)
+
+FixNoFlow.FixNoFlow()
+##################################
+
+
+
+
+
+# Next steps facultative if you have already a stream network compatible with your DEM
 # Stream Network
-#TODO: This part return an empty shapefile, check what appends
+from fct.drainage import StreamNetwork
 StreamNetwork.config.from_file('./tutorials/dem_to_dgo/config.ini')
 params = StreamNetwork.Parameters()
 
@@ -69,7 +94,38 @@ StreamNetwork.AggregateStreams(params)
 # Label and fix NoFlow if needed
 # Stream network from DEM
 
-# End of facultative
-
 # Beginning of the by-axis processing
 
+
+
+
+
+
+
+
+
+
+# Multiprocessing example
+from multiprocessing import Pool
+import click
+
+def starcall(args):
+    """
+    Invoke first arg function with all other arguments.
+    """
+
+    fun = args[0]
+    return fun(*args[1:-1], **args[-1])
+
+tile_index = [(tile.row, tile.col) for tile in Accumulate.config.tileset().tiles()]
+
+kwargs = {'params': params}
+arguments = ([Accumulate.TileOutlets, row, col, kwargs] for row, col in tile_index)
+
+with Pool(processes=8) as pool:
+
+    pooled = pool.imap_unordered(starcall, arguments)
+
+    with click.progressbar(pooled, length=len(tile_index)) as bar:
+        for _ in bar:
+            pass
