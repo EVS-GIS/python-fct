@@ -11,6 +11,7 @@ Fix Flow Direction for No-Flow pixels
 ***************************************************************************
 """
 
+import os
 import itertools
 import numpy as np
 
@@ -99,6 +100,9 @@ def DrainageRasterTile(row, col, params):
 
     min_drainage = params.min_drainage
 
+    if not os.path.isfile(stream_features):
+        return 
+    
     with rio.open(acc_raster) as ds:
 
         acc = ds.read(1)

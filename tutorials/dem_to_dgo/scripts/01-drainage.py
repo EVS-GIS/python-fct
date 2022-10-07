@@ -63,48 +63,84 @@ Accumulate.InletAreas(params=params)
 for tile in Accumulate.config.tileset().tiles():
     Accumulate.FlowAccumulationTile(row=tile.row, col=tile.col, params=params, overwrite=True) 
 
+################
+# Stream Network from sources
+from fct.drainage import StreamSources
+StreamSources.config.from_file('./tutorials/dem_to_dgo/config.ini')
+
+StreamSources.InletSources()
+
+for tile in StreamSources.config.tileset().tiles():
+    StreamSources.StreamToFeatureFromSources(row=tile.row, col=tile.col, min_drainage=500)
+
+StreamSources.AggregateStreamsFromSources()
+
+# Find NoFlow pixels
+for tile in StreamSources.config.tileset().tiles():
+    StreamSources.NoFlowPixels(row=tile.row, col=tile.col, min_drainage=500)
+    
+StreamSources.AggregateNoFlowPixels()
+
+################
+# Stream Network from DEM
+# from fct.drainage import StreamNetwork
+# StreamNetwork.config.from_file('./tutorials/dem_to_dgo/config.ini')
+# params = StreamNetwork.Parameters()
+
+# for tile in StreamNetwork.config.tileset().tiles():
+#     StreamNetwork.StreamToFeatureTile(row=tile.row, col=tile.col, params=params)
+
+# StreamNetwork.AggregateStreams(params)
+
 ##################################
-# Fix NoFlow pixels
+# Fix NoFlow pixels (needs a second tileset)
+# Build VRT for flow and acc rasters
+# fct-tiles -c ./tutorials/dem_to_dgo/config.ini buildvrt 10k flow
+# fct-tiles -c ./tutorials/dem_to_dgo/config.ini buildvrt 10k acc
+
 from fct.drainage import FixNoFlow
 FixNoFlow.config.from_file('./tutorials/dem_to_dgo/config.ini')
 params = FixNoFlow.Parameters()
+
+for tile in FixNoFlow.config.tileset().tiles():
+    FixNoFlow.DrainageRasterTile(row=tile.row, col=tile.col, params=params)
+    
+# Build VRT 
+# fct-tiles -c ./tutorials/dem_to_dgo/config.ini buildvrt 10k drainage-raster-from-sources
+
+##############################
+# Re-run all the beggining with the second tileset by modifing the default tileset in the config.ini file
+##############################
+
+
 for tile in FixNoFlow.config.tileset().tiles():
     FixNoFlow.NoFlowPixels(row=tile.row, col=tile.col, params=params)
     
 FixNoFlow.AggregateNoFlowPixels(params)
 
-FixNoFlow.FixNoFlow()
-##################################
+import fiona
+with fiona.open(params.noflow.filename(), 'r') as src:
+    
+    options = dict(driver=src.driver, crs=src.crs, schema=src.schema)
+    
+    with fiona.open(params.fixed.filename(), 'w', **options) as dst:
+            for f in src:
 
+                x, y = f['geometry']['coordinates']
 
+                try:
 
+                    tox, toy = FixNoFlow.FixNoFlow(x, y, '10k', '10kbis', params, fix=True)
+                    f['geometry']['coordinates'] = [tox, toy]
+                    dst.write(f)
 
+                except ValueError as error:
 
-# Next steps facultative if you have already a stream network compatible with your DEM
-# Stream Network
-from fct.drainage import StreamNetwork
-StreamNetwork.config.from_file('./tutorials/dem_to_dgo/config.ini')
-params = StreamNetwork.Parameters()
-
-for tile in StreamNetwork.config.tileset().tiles():
-    StreamNetwork.StreamToFeatureTile(row=tile.row, col=tile.col, params=params)
-
-StreamNetwork.AggregateStreams(params)
-
-# Label and fix NoFlow if needed
-# Stream network from DEM
-
-# Beginning of the by-axis processing
-
-
-
-
-
-
-
-
-
-
+                    print(f['properties']['GID'], error)
+                    continue
+        
+        
+################
 # Multiprocessing example
 from multiprocessing import Pool
 import click
