@@ -1,3 +1,9 @@
+# fct-tiles -c ./tutorials/dem_to_dgo/config.ini extract bdalti 10k dem
+# fct-tiles -c ./tutorials/dem_to_dgo/config.ini extract bdalti 10kbis dem
+
+# fct-tiles -c ./tutorials/dem_to_dgo/config.ini buildvrt 10k dem
+# fct-tiles -c ./tutorials/dem_to_dgo/config.ini buildvrt 10kbis dem
+
 # If you have two different scales DEM, you can fill the precise one with the less precise
 # First step when you have only one DEM : Smoothing
 from fct.drainage import PrepareDEM
@@ -118,6 +124,10 @@ for tile in FixNoFlow.config.tileset().tiles():
     
 FixNoFlow.AggregateNoFlowPixels(params)
 
+from fct.drainage import FixNoFlow
+FixNoFlow.config.from_file('./tutorials/dem_to_dgo/config.ini')
+params = FixNoFlow.Parameters()
+
 import fiona
 with fiona.open(params.noflow.filename(), 'r') as src:
     
@@ -139,7 +149,16 @@ with fiona.open(params.noflow.filename(), 'r') as src:
                     print(f['properties']['GID'], error)
                     continue
         
-        
+################
+# Restart the process from flow accumulation and skip FixNoFlow part
+################
+
+# Run identify Network Nodes with the QGIS Toolbox on RHTS_10K_NOATTR.shp and save the result in outputs/RHTS_Network.gpkg
+
+from fct.drainage import JoinNetworkAttributes
+JoinNetworkAttributes.JoinNetworkAttributes('./tutorials/dem_to_dgo/inputs/sources.gpkg', './tutorials/dem_to_dgo/outputs/RHTS_Network.gpkg', './tutorials/dem_to_dgo/outputs/RHTS.shp')
+JoinNetworkAttributes.AggregateByAxis('./tutorials/dem_to_dgo/outputs/RHTS.shp', './tutorials/dem_to_dgo/outputs/GLOBAL/MEASURE/REFAXIS.shp')
+
 ################
 # Multiprocessing example
 from multiprocessing import Pool
