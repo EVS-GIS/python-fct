@@ -22,6 +22,7 @@ from ..cli import starcall
 from ..metadata import set_metadata
 
 from ..config import (
+    config,
     DatasetParameter,
     LiteralParameter
 )

@@ -12,6 +12,7 @@ import xarray as xr
 # from ..config import config
 from ..cli import starcall
 from ..config import (
+    config,
     # DatasetParameter,
     LiteralParameter
 )

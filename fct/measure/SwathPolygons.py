@@ -19,6 +19,7 @@ import fiona.crs
 from shapely.geometry import asShape, Polygon
 
 from ..config import (
+    config,
     LiteralParameter,
     DatasetParameter
 )

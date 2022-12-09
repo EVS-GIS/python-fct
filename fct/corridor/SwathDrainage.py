@@ -17,6 +17,7 @@ import rasterio as rio
 
 from ..cli import starcall
 from ..config import (
+    config,
     DatasetParameter,
     LiteralParameter
 )

@@ -25,6 +25,7 @@ import rasterio as rio
 import fiona
 
 from ..config import (
+    config,
     LiteralParameter,
     DatasetParameter
 )

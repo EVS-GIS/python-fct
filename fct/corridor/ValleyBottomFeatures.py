@@ -16,6 +16,7 @@ import rasterio as rio
 from rasterio import features
 
 from ..config import (
+    config,
     DatasetParameter,
     LiteralParameter
 )
