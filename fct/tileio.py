@@ -6,6 +6,7 @@ import os
 import math
 import subprocess
 from typing import Union
+from glob import glob
 
 import numpy as np
 import rasterio as rio
@@ -379,14 +380,18 @@ def buildvrt(tileset: str, dataset: Union[str, DatasetResolver], suffix:bool = T
     prefix, extension = os.path.splitext(output)
 
     if suffix:
-        output = ''.join([prefix, '_', tiledir, extension])
+        output = os.path.join(workdir, ''.join([prefix, '_', tiledir, extension]))
 
     searchpath = os.path.join(workdir, tiledir, prefix)
-    tiles = [os.path.join(tiledir, prefix, t) for t in os.listdir(searchpath)]
+    tiles = glob(os.path.join(searchpath, f'{prefix}_*.tif'))
     
-    command = ['gdalbuildvrt', '-a_srs', f'EPSG:{config.srid}', '-overwrite', output, *tiles]
+    command = ['gdalbuildvrt', 
+               '-a_srs', f'EPSG:{config.srid}', 
+               '-overwrite', 
+               output, 
+               *tiles]
     
-    subprocess.call(command, cwd=workdir)
+    subprocess.call(command)
 
 def translate(dataset, driver='gtiff', suffix=None, **kwargs):
     """
