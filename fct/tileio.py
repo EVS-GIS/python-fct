@@ -381,15 +381,12 @@ def buildvrt(tileset: str, dataset: Union[str, DatasetResolver], suffix:bool = T
     if suffix:
         output = ''.join([prefix, '_', tiledir, extension])
 
-    command = 'cd %(workdir)s ; find %(tiledir)s -name "%(prefix)s_*.tif" | xargs gdalbuildvrt -a_srs %(srs)s %(output)s'
-    command = command % dict(
-        workdir=workdir,
-        tiledir=tiledir,
-        prefix=prefix,
-        srs='EPSG:%d' % config.srid,
-        output=output)
-
-    subprocess.run(['/bin/bash', '-c', command], check=True)
+    searchpath = os.path.join(workdir, tiledir, prefix)
+    tiles = [os.path.join(tiledir, prefix, t) for t in os.listdir(searchpath)]
+    
+    command = ['gdalbuildvrt', '-a_srs', f'EPSG:{config.srid}', '-overwrite', output, *tiles]
+    
+    subprocess.call(command, cwd=workdir)
 
 def translate(dataset, driver='gtiff', suffix=None, **kwargs):
     """
