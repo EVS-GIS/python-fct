@@ -9,7 +9,7 @@
 from fct.drainage import PrepareDEM
 PrepareDEM.config.from_file('./tutorials/dem_to_dgo/config.ini')
 params = PrepareDEM.SmoothingParameters()
-params.windows=25
+params.window=25
 for tile in PrepareDEM.config.tileset().tiles():
     PrepareDEM.MeanFilter(row=tile.row, col=tile.col, params=params)
 
