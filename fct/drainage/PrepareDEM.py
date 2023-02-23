@@ -267,4 +267,4 @@ def MeanFilter(
         profile = ds.profile.copy()
 
         with rio.open(output, 'w', **profile) as dst:
-            dst.write(data, 1)
+            dst.write(out, 1)

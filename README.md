@@ -87,7 +87,7 @@ See the full [list of metrics](https://tramebleue.github.io/fct-cli/docs/metrics
 # go to the working folder you want to download the FCT
 cd Path/to/my/folder
 # copy python-fct repository with git
-git clone https://github.com/EVS-GIS/python-fct.git
+git clone --recursive https://github.com/EVS-GIS/python-fct.git
 # !! you also need to manually copy terrain submodule content in terrain folder, download terrain zip in github !!
 # go to python-fct new directory
 cd python-fct
