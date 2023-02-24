@@ -49,7 +49,7 @@ params.exterior = 'off'
 for tile in FlowDirection.config.tileset().tiles():
     FlowDirection.FlowDirectionTile(row=tile.row, col=tile.col, params=params, overwrite=True)
 
-# Build VRT for flow direction tiles: fct-tiles -c tutorials/dem_to_dgo/config.ini buildvrt 10k dem-drainage-resolved
+# Build VRT for flow direction tiles: fct-tiles -c tutorials/dem_to_dgo/config.ini buildvrt 10k flow
 
 # Flow tiles inlets/outlets graph
 from fct.drainage import Accumulate
