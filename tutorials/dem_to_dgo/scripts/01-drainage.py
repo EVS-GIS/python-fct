@@ -9,7 +9,7 @@
 from fct.drainage import PrepareDEM
 PrepareDEM.config.from_file('./tutorials/dem_to_dgo/config.ini')
 params = PrepareDEM.SmoothingParameters()
-params.window=25
+params.window=2
 for tile in PrepareDEM.config.tileset().tiles():
     PrepareDEM.MeanFilter(row=tile.row, col=tile.col, params=params)
 
@@ -87,17 +87,6 @@ for tile in StreamSources.config.tileset().tiles():
     
 StreamSources.AggregateNoFlowPixels()
 
-################
-# Stream Network from DEM
-# from fct.drainage import StreamNetwork
-# StreamNetwork.config.from_file('./tutorials/dem_to_dgo/config.ini')
-# params = StreamNetwork.Parameters()
-
-# for tile in StreamNetwork.config.tileset().tiles():
-#     StreamNetwork.StreamToFeatureTile(row=tile.row, col=tile.col, params=params)
-
-# StreamNetwork.AggregateStreams(params)
-
 ##################################
 # Fix NoFlow pixels (needs a second tileset)
 # Build VRT for flow and acc rasters
@@ -117,7 +106,6 @@ for tile in FixNoFlow.config.tileset().tiles():
 ##############################
 # Re-run all the beggining with the second tileset by modifing the default tileset in the config.ini file
 ##############################
-
 
 for tile in FixNoFlow.config.tileset().tiles():
     FixNoFlow.NoFlowPixels(row=tile.row, col=tile.col, params=params)
@@ -148,16 +136,36 @@ with fiona.open(params.noflow.filename(), 'r') as src:
 
                     print(f['properties']['GID'], error)
                     continue
-        
+
+# Flow accumulation
+for tile in Accumulate.config.tileset().tiles():
+    Accumulate.FlowAccumulationTile(row=tile.row, col=tile.col, params=params, overwrite=True) 
+
 ################
-# Restart the process from flow accumulation and skip FixNoFlow part
-################
+# Stream Network from sources
+from fct.drainage import StreamSources
+StreamSources.config.from_file('./tutorials/dem_to_dgo/config.ini')
+
+StreamSources.InletSources()
+
+for tile in StreamSources.config.tileset().tiles():
+    StreamSources.StreamToFeatureFromSources(row=tile.row, col=tile.col, min_drainage=500)
+
+StreamSources.AggregateStreamsFromSources()
 
 # Run identify Network Nodes with the QGIS Toolbox on RHTS_10K_NOATTR.shp and save the result in outputs/RHTS_Network.gpkg
+
+# TODO: Fix longest path finding
 
 from fct.drainage import JoinNetworkAttributes
 JoinNetworkAttributes.JoinNetworkAttributes('./tutorials/dem_to_dgo/inputs/sources.gpkg', './tutorials/dem_to_dgo/outputs/RHTS_Network.gpkg', './tutorials/dem_to_dgo/outputs/RHTS.shp')
 JoinNetworkAttributes.AggregateByAxis('./tutorials/dem_to_dgo/outputs/RHTS.shp', './tutorials/dem_to_dgo/outputs/GLOBAL/MEASURE/REFAXIS.shp')
+
+
+
+
+
+
 
 ################
 # Multiprocessing example

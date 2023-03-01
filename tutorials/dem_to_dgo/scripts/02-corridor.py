@@ -1,11 +1,6 @@
 # Copy the Hydrographic Reference to outputs/GLOBAL/REFHYDRO
 # cp ./tutorials/dem_to_dgo/inputs/REFERENTIEL_HYDRO.* ./tutorials/dem_to_dgo/outputs/GLOBAL/REFHYDRO/
 
-# Setup axis directory structure
-# from fct.axis import SetupAxes
-# SetupAxes.config.from_file('./tutorials/dem_to_dgo/config.ini')
-# SetupAxes.SetupAxes()
-
 # Shortest Height
 from fct.height import ShortestHeight
 ShortestHeight.config.from_file('./tutorials/dem_to_dgo/config.ini')
@@ -19,15 +14,6 @@ HeightAboveNearestDrainage.config.from_file('./tutorials/dem_to_dgo/config.ini')
 params = HeightAboveNearestDrainage.Parameters()
 
 HeightAboveNearestDrainage.HeightAboveNearestDrainage(params)
-
-# Valley mask for each axis
-# from fct.corridor import ValleyBottomMask
-# ValleyBottomMask.config.from_file('./tutorials/dem_to_dgo/config.ini')
-# params = ValleyBottomMask.Parameters()
-# params.output = 'ax_valley_bottom_mask'
-
-# for axis in ValleyBottomMask.config.axes('refaxis'):
-#     ValleyBottomMask.ValleyBottomMask(axis=axis, params=params)
 
 # Disaggregate along refaxis
 from fct.measure import SwathMeasurement
