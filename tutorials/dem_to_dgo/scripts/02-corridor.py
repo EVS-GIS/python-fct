@@ -1,5 +1,5 @@
 # Copy the Hydrographic Reference to outputs/GLOBAL/REFHYDRO
-# cp ./tutorials/dem_to_dgo/inputs/REFERENTIEL_HYDRO.* ./tutorials/dem_to_dgo/outputs/GLOBAL/REFHYDRO/
+# cp ./tutorials/dem_to_dgo/inputs/REFERENTIEL_HYDRO.* ./tutorials/dem_to_dgo/outputs/GLOBAL/INPUT/
 
 # Shortest Height
 from fct.height import ShortestHeight
@@ -15,12 +15,13 @@ params = HeightAboveNearestDrainage.Parameters()
 
 HeightAboveNearestDrainage.HeightAboveNearestDrainage(params)
 
-# Disaggregate along refaxis
+# Disaggregate along referentiel hydro
 from fct.measure import SwathMeasurement
 SwathMeasurement.config.from_file('./tutorials/dem_to_dgo/config.ini')
 params = SwathMeasurement.Parameters()
+params.reference = 'stream-network-cartography-in'
 
-swaths = SwathMeasurement.DisaggregateIntoSwaths(params)
+swaths = SwathMeasurement.DisaggregateIntoSwaths(params, processes=4)
 
 # Swath drainage
 from fct.corridor import SwathDrainage

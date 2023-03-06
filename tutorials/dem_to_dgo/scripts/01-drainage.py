@@ -137,6 +137,20 @@ with fiona.open(params.noflow.filename(), 'r') as src:
                     print(f['properties']['GID'], error)
                     continue
 
+# Flow tiles inlets/outlets graph
+from fct.drainage import Accumulate
+Accumulate.config.from_file('./tutorials/dem_to_dgo/config.ini')
+params = Accumulate.Parameters()
+
+
+# for tile in Accumulate.config.tileset().tiles():
+#     Accumulate.TileOutlets(row=tile.row, col=tile.col, params=params)
+
+# Accumulate.AggregateOutlets(params)
+
+# # Resolve inlets/outlets graph
+# Accumulate.InletAreas(params=params)
+
 # Flow accumulation
 for tile in Accumulate.config.tileset().tiles():
     Accumulate.FlowAccumulationTile(row=tile.row, col=tile.col, params=params, overwrite=True) 
