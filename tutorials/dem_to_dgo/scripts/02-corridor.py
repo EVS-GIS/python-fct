@@ -52,14 +52,6 @@ ValleyBottomFinal.TrueValleyBottom(params)
 # fct-tiles -c ./tutorials/dem_to_dgo/config.ini buildvrt 10k axis_measure
 # fct-tiles -c ./tutorials/dem_to_dgo/config.ini buildvrt 10k axis_distance
 
-# Vectorize Refaxis Swaths
-from fct.measure import SwathPolygons
-SwathPolygons.config.from_file('./tutorials/dem_to_dgo/config.ini')
-params = SwathPolygons.Parameters()
-
-swaths = SwathPolygons.Swaths(params)
-SwathPolygons.VectorizeSwaths(swaths, swath_drainage, params)
-
 # Calculate medial axes
 from fct.corridor import MedialAxis2
 MedialAxis2.config.from_file('./tutorials/dem_to_dgo/config.ini')
@@ -67,40 +59,29 @@ params = MedialAxis2.Parameters()
 
 medial_axis = MedialAxis2.MedialAxis(params)
 
-# from fct.corridor import MedialAxis
-# MedialAxis.config.from_file('./tutorials/dem_to_dgo/config.ini')
-# params = MedialAxis.Parameters()
+# Disaggregate along medial axes
+from fct.measure import SwathMeasurement
+SwathMeasurement.config.from_file('./tutorials/dem_to_dgo/config.ini')
+params = SwathMeasurement.Parameters()
+params.reference = 'medialaxis'
 
-# MedialAxis.MedialAxis(params)
+swaths = SwathMeasurement.DisaggregateIntoSwaths(params, processes=4)
 
 # SwathProfile
 from fct.profiles import SwathProfile
 SwathProfile.config.from_file('./tutorials/dem_to_dgo/config.ini')
 params = SwathProfile.Parameters()
 
-swath_profiles = SwathProfile.SwathProfile(params)
+swath_profiles = SwathProfile.SwathProfile(params, processes=4)
+swath_profiles.to_netcdf('./tutorials/dem_to_dgo/outputs/NETWORK/METRICS/SWATHS_ELEVATION.nc')
 
-
-
-
-
-
-
-# ValleyBottom Width
+# ValleyBottomWidth
 from fct.metrics import ValleyBottomWidth2
 ValleyBottomWidth2.config.from_file('./tutorials/dem_to_dgo/config.ini')
 params = ValleyBottomWidth2.Parameters()
 
-swath_profiles = swath_profiles.set_index(swath=('axis', 'measure'))
-ValleyBottomWidth2.ValleyBottomWidth(swath_profiles, params)
-
-
-# from fct.axis import MedialAxis
-# MedialAxis.config.from_file('./tutorials/dem_to_dgo/config.ini')
-# params = MedialAxis.Parameters()
-
-# for axis in MedialAxis.config.axes('refaxis'):
-#     MedialAxis.MedialAxis(axis=axis, params=params)
+vbw = ValleyBottomWidth2.ValleyBottomWidth(swath_profiles.set_index(sample=('axis', 'measure', 'distance')), params, processes=4)
+vbw.to_netcdf('./tutorials/dem_to_dgo/outputs/NETWORK/METRICS/WIDTH_VALLEY_BOTTOM.nc')
 
 
 
@@ -108,24 +89,12 @@ ValleyBottomWidth2.ValleyBottomWidth(swath_profiles, params)
 
 
 
+# Simplify medial axes
+from fct.corridor import MedialAxis2
+MedialAxis2.config.from_file('./tutorials/dem_to_dgo/config.ini')
+params = MedialAxis2.Parameters()
 
-
-
-
-
-
-
-
-
-# Disaggregate along medial axes
-
-from fct.measure import SwathMeasurement
-SwathMeasurement.config.from_file('./tutorials/dem_to_dgo/config.ini')
-params = SwathMeasurement.Parameters()
-
-params.reference = 'medialaxis'
-
-swaths = SwathMeasurement.DisaggregateIntoSwaths(params)
+medial_axis = MedialAxis2.SimplifyMedialAxis(params)
 
 
 
@@ -136,7 +105,11 @@ swaths = SwathMeasurement.DisaggregateIntoSwaths(params)
 
 
 
+from fct.profiles import ValleyBottomElevationProfile
 
+params = ValleyBottomElevationProfile.Parameters()
+
+ValleyBottomElevationProfile.ValleyBottomElevationProfile(params)
 
 
 
@@ -169,3 +142,23 @@ SwathPolygons.Swaths(params)
 
 for axis in SwathMeasurement.config.axes('refaxis'):
     SwathMeasurement.WriteSwathsBounds(params, swaths, axis=axis)
+
+
+
+
+
+# from fct.measure import Measurement2
+# Measurement2.config.from_file('./tutorials/dem_to_dgo/config.ini')
+# params = Measurement2.Parameters()
+
+# Measurement2.MeasureNetwork(params)
+
+
+
+# Vectorize Refaxis Swaths
+from fct.measure import SwathPolygons
+SwathPolygons.config.from_file('./tutorials/dem_to_dgo/config.ini')
+params = SwathPolygons.Parameters()
+
+swaths = SwathPolygons.Swaths(params)
+SwathPolygons.VectorizeSwaths(swaths, swath_drainage, params)
