@@ -222,7 +222,12 @@ def DisaggregateTileIntoSwaths(row, col, params, **kwargs):
     #         row=row,
     #         col=col)
 
-    refaxis_shapefile = params.reference.filename(tileset=None)
+    if params.reference.name == 'stream-network-cartography-in':
+        tileset=None
+    else:
+        tileset='default'
+        
+    refaxis_shapefile = params.reference.filename(tileset=tileset)
     # config.filename(params.ax_reference)
     mask_raster = params.mask.tilename(row=row, col=col)
     # _tilename(params.ax_mask)
