@@ -74,7 +74,7 @@ for tile in Accumulate.config.tileset().tiles():
 from fct.drainage import StreamSources
 StreamSources.config.from_file('./tutorials/dem_to_dgo/config.ini')
 
-StreamSources.InletSources()
+StreamSources.InletSources(params)
 
 for tile in StreamSources.config.tileset().tiles():
     StreamSources.StreamToFeatureFromSources(row=tile.row, col=tile.col, min_drainage=500)
