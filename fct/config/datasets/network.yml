@@ -321,6 +321,21 @@ swaths_medialaxis_polygons:
     template: SWATHS_MEDIALAXIS_%(row)02d_%(col)02d
     extension: .shp
 
+swaths_medialaxis_polygons_simplified:
+  description: |
+    Valley bottom (floodplain) longitudinal units,
+    based on valley medial axis,
+    simplified and smoothed for display
+  type: polygon
+  group: reference
+  status: final
+  subdir: NETWORK/MEASURE
+  filename: SWATHS_MEDIALAXIS_SIMPL.shp
+  tiles:
+    tileset: landcover
+    template: SWATHS_MEDIALAXIS_SIMPL_%(row)02d_%(col)02d
+    extension: .shp
+
 drainage_area:
   description: |
     Upstream drainage area calculated from DEM

@@ -115,4 +115,9 @@ params.polygons = 'swaths_medialaxis_polygons'
 swaths = SwathPolygons.Swaths(params, processes=4)
 SwathPolygons.VectorizeSwaths(swaths, swath_drainage, params, processes=4)
 
-#TODO: SimplifySwathsPolygons to get a clean vectorial output
+# SimplifySwathsPolygons to get a clean vectorial output
+from fct.measure import SimplifySwathPolygons2
+SimplifySwathPolygons2.config.from_file('./tutorials/dem_to_dgo/config.ini')
+params = SimplifySwathPolygons2.Parameters()
+
+SimplifySwathPolygons2.SimplifySwathPolygons(params)
