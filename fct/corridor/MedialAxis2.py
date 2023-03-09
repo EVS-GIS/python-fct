@@ -20,7 +20,7 @@ import xarray as xr
 from shapely.geometry import (
     LineString,
     MultiLineString,
-    asShape
+    shape
 )
 from shapely.ops import linemerge
 
@@ -459,16 +459,16 @@ def SimplifyMedialAxis(params: Parameters, vbw: xr.Dataset = None):
         if width > 2000:
             return weight > 1000000
 
-        if width > 1500:
+        elif width > 1500:
             return weight > 500000
 
-        if width > 1000:
+        elif width > 1000:
             return weight > 100000
 
-        if width > 500:
+        elif width > 500:
             return weight > 25000
 
-        if width > 200:
+        elif width > 200:
             return weight > 10000
 
         return weight > 2500
@@ -507,7 +507,7 @@ def SimplifyMedialAxis(params: Parameters, vbw: xr.Dataset = None):
         for feature in fs:
 
             axis = feature['properties']['AXIS']
-            medialaxis = asShape(feature['geometry'])
+            medialaxis = shape(feature['geometry'])
 
             coords = np.array(medialaxis.coords)
             _, weights = zip(*simplify(coords))
@@ -525,7 +525,7 @@ def SimplifyMedialAxis(params: Parameters, vbw: xr.Dataset = None):
                 .mean()
             )
 
-            widths = np.interp(measures, smoothed.measure, smoothed.width_valley_bottom_ma)
+            widths = np.interp(measures, smoothed.measure, smoothed.values)
 
             # simplified = LineString(
             #     smooth_chaikin(
@@ -541,7 +541,7 @@ def SimplifyMedialAxis(params: Parameters, vbw: xr.Dataset = None):
                 if filtr(weight, width)
             ])
 
-            print(len(simplified.coords))
+            # print(len(simplified.coords))
             sink.send((axis, simplified))
 
     sink.close()

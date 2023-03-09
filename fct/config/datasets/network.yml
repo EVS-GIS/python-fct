@@ -284,6 +284,43 @@ swaths_refaxis_polygons:
     template: SWATHS_REFAXIS_%(row)02d_%(col)02d
     extension: .shp
 
+swaths_medialaxis:
+  description: |
+    Valley bottom longitudinal units
+    (raster intermediate result)
+  type: raster
+  group: reference
+  status: temporary
+  subdir: NETWORK/MEASURE
+  filename: SWATHS_MEDIALAXIS.vrt
+  tiles:
+    tileset: landcover
+    template: SWATHS_MEDIALAXIS_%(row)02d_%(col)02d
+    extension: .tif
+
+swaths_medialaxis_bounds:
+  description: |
+    coordinate and bounds of valley bottom
+    spatial units (after disaggregation)
+  type: netcdf
+  group: reference
+  status: temporary
+  subdir: NETWORK/MEASURE
+  filename: SWATHS_MEDIALAXIS_BOUNDS.nc
+
+swaths_medialaxis_polygons:
+  description: |
+    Valley bottom longitudinal units
+  type: polygon
+  group: reference
+  status: final
+  subdir: NETWORK/MEASURE
+  filename: SWATHS_MEDIALAXIS.shp
+  tiles:
+    tileset: landcover
+    template: SWATHS_MEDIALAXIS_%(row)02d_%(col)02d
+    extension: .shp
+
 drainage_area:
   description: |
     Upstream drainage area calculated from DEM

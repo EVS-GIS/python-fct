@@ -16,7 +16,7 @@ import rasterio as rio
 from rasterio import features
 import fiona
 import fiona.crs
-from shapely.geometry import asShape, Polygon
+from shapely.geometry import shape, Polygon
 
 from ..config import (
     config,
@@ -419,7 +419,7 @@ def VectorizeSwaths(swaths_infos, drainage, params, processes=1, **kwargs):
                                 logger.warning('Excluding swath (%d, %.1f)', axis, measure)
                                 excluded.add((axis, measure))
 
-                        geom = asShape(polygon)
+                        geom = shape(polygon)
                         exterior = Polygon(geom.exterior).buffer(0)
 
                         feature = {

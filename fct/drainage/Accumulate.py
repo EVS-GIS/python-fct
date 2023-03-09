@@ -336,7 +336,12 @@ def CreateOutletsGraph(params, exterior='exterior-inlets'):
                             # connect exterior->inlet
 
                             i, j = dem.index(*feature['geometry']['coordinates'])
-                            area = feature['properties']['AREAKM2'] / 25e-6
+                            
+                            pixelSizeX = ds.profile['transform'][0]
+                            pixelSizeY =-ds.profile['transform'][4]
+                            coeff = (pixelSizeX*pixelSizeY)*1e-6
+                            
+                            area = feature['properties']['AREAKM2'] / coeff
                             graph[(-2, i-1, j-1)] = (tile, i, j, area)
                             indegree[(tile, i, j)] += 1
 
@@ -454,8 +459,16 @@ def InletAreas(params):
 
     graph, indegree = CreateOutletsGraph(params)
 
+    # Check a random tile just to get pixels x and y size
+    flow_raster = params.flow.tilename(row=tiles.get(1).row, col=tiles.get(1).col)
+    with rio.open(flow_raster) as ds:
+        pixelSizeX = ds.profile['transform'][0]
+        pixelSizeY =-ds.profile['transform'][4]
+        
+    coeff = (pixelSizeX*pixelSizeY)*1e-6
+    
     click.secho('Accumulate areas', fg='cyan')
-    areas, res = speedup.graph_acc(graph)
+    areas, res = speedup.graph_acc(graph, coeff)
 
     keys = sorted(graph.keys() | indegree.keys(), key=itemgetter(0))
     groups = itertools.groupby(keys, key=itemgetter(0))
@@ -487,7 +500,13 @@ def FlowAccumulationTile(row, col, params, overwrite):
     with rio.open(flow_raster) as ds:
 
         flow = ds.read(1)
-        out = np.full_like(flow, 25e-6, dtype='float32')
+        
+        pixelSizeX = ds.profile['transform'][0]
+        pixelSizeY =-ds.profile['transform'][4]
+        
+        coeff = (pixelSizeX*pixelSizeY)*1e-6
+
+        out = np.full_like(flow, coeff, dtype='float32')
         height, width = flow.shape
 
         if os.path.exists(inlet_shapefile):

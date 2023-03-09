@@ -4,7 +4,7 @@ Swath bounds
 
 import click
 import fiona
-from shapely.geometry import asShape
+from shapely.geometry import shape
 # from ..corridor.SwathPolygons import measure_to_swath_identifier
 from ..config import DatasetParameter
 
@@ -46,7 +46,7 @@ def SwathBounds(source=None, axis=None, **kwargs):
 
                     axis = feature['properties']['AXIS']
                     measure = feature['properties']['M']
-                    geometry = asShape(feature['geometry'])
+                    geometry = shape(feature['geometry'])
 
                     if (axis, measure) in geometries:
                         geometries[axis, measure] = geometries[axis, measure].union(geometry)

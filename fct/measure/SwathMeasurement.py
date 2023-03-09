@@ -30,7 +30,7 @@ import rasterio as rio
 from rasterio import features
 import fiona
 import fiona.crs
-from shapely.geometry import asShape, Polygon
+from shapely.geometry import shape, Polygon
 
 from ..config import (
     config,
@@ -273,7 +273,7 @@ def DisaggregateTileIntoSwaths(row, col, params, **kwargs):
 
                 axis = feature['properties']['AXIS']
                 m0 = feature['properties'].get('M0', 0.0)
-                length = asShape(feature['geometry']).length
+                length = shape(feature['geometry']).length
 
                 if m0 < mmin:
                     mmin = m0
@@ -663,7 +663,7 @@ def VectorizeSwathPolygons(params, processes=1, **kwargs):
                 for axis, gid, measure, polygons in iterator:
                     for (polygon, value) in polygons:
 
-                        geom = asShape(polygon)
+                        geom = shape(polygon)
                         exterior = Polygon(geom.exterior).buffer(0)
 
                         feature = {

@@ -178,7 +178,7 @@ def TileInletSources(tile, keys, areas):
     dem.close()
 
 
-def InletSources():
+def InletSources(params):
     """
     Accumulate areas across tiles
     and output per tile inlet shapefiles
@@ -189,9 +189,17 @@ def InletSources():
     tiles = {tile.gid: tile for tile in tile_index.values()}
 
     graph, indegree = CreateSourcesGraph()
+    
+    # Check a random tile just to get pixels x and y size
+    flow_raster = params.flow.tilename(row=tiles.get(1).row, col=tiles.get(1).col)
+    with rio.open(flow_raster) as ds:
+        pixelSizeX = ds.profile['transform'][0]
+        pixelSizeY =-ds.profile['transform'][4]
+        
+    coeff = (pixelSizeX*pixelSizeY)*1e-6
 
     click.secho('Accumulate areas', fg='cyan')
-    areas, res = speedup.graph_acc(graph)
+    areas, res = speedup.graph_acc(graph, coeff)
 
     keys = sorted(graph.keys() | indegree.keys(), key=itemgetter(0))
     groups = itertools.groupby(keys, key=itemgetter(0))
