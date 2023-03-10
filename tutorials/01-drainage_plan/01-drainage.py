@@ -1,78 +1,90 @@
-# fct-tiles -c ./tutorials/dem_to_dgo/config.ini extract bdalti 10k dem
-# fct-tiles -c ./tutorials/dem_to_dgo/config.ini extract bdalti 10kbis dem
+# fct-tiles -c ./config.ini extract bdalti 10k dem
+# fct-tiles -c ./config.ini extract bdalti 10kbis dem
 
-# fct-tiles -c ./tutorials/dem_to_dgo/config.ini buildvrt 10k dem
-# fct-tiles -c ./tutorials/dem_to_dgo/config.ini buildvrt 10kbis dem
+# fct-tiles -c ./config.ini buildvrt 10k dem
+# fct-tiles -c ./config.ini buildvrt 10kbis dem
 
 # If you have two different scales DEM, you can fill the precise one with the less precise
 # First step when you have only one DEM : Smoothing
 from fct.drainage import PrepareDEM
-PrepareDEM.config.from_file('./tutorials/dem_to_dgo/config.ini')
+PrepareDEM.config.from_file('./config.ini')
 params = PrepareDEM.SmoothingParameters()
 params.window=2
-for tile in PrepareDEM.config.tileset().tiles():
-    PrepareDEM.MeanFilter(row=tile.row, col=tile.col, params=params)
+PrepareDEM.MeanFilter2(params, overwrite=True, processes=4)
+PrepareDEM.MeanFilter2(params, overwrite=True, processes=4, tileset='10kbis')
 
 # Fill sinks
 from fct.drainage import DepressionFill
-DepressionFill.config.from_file('./tutorials/dem_to_dgo/config.ini')
+DepressionFill.config.from_file('./config.ini')
 params = DepressionFill.Parameters()
 params.elevations = 'smoothed'
 params.exterior_data = 0.0
-for tile in DepressionFill.config.tileset().tiles():
-    DepressionFill.LabelWatersheds(row=tile.row, col=tile.col, params=params, overwrite=True)
-    
+DepressionFill.LabelWatersheds2(params, overwrite=True, processes=4)
+DepressionFill.LabelWatersheds2(params, overwrite=True, processes=4, tileset='10kbis')
+
 DepressionFill.ResolveWatershedSpillover(params, overwrite=True)
+DepressionFill.ResolveWatershedSpillover(params, overwrite=True, tileset='10kbis')
 
-for tile in DepressionFill.config.tileset().tiles():
-    DepressionFill.DispatchWatershedMinimumZ(row=tile.row, col=tile.col, params=params)
-
+DepressionFill.DispatchWatershedMinimumZ2(params, overwrite=True, processes=4)
+DepressionFill.DispatchWatershedMinimumZ2(params, overwrite=True, processes=4, tileset='10kbis')
+ 
 # Resolve flats
 from fct.drainage import BorderFlats
-BorderFlats.config.from_file('./tutorials/dem_to_dgo/config.ini')
+BorderFlats.config.from_file('./config.ini')
 params = BorderFlats.Parameters()
-for tile in BorderFlats.config.tileset().tiles():
-    BorderFlats.LabelBorderFlats(row=tile.row, col=tile.col, params=params)
+BorderFlats.LabelBorderFlats2(params=params, processes=4) 
+BorderFlats.LabelBorderFlats2(params=params, processes=4, tileset='10kbis') 
     
 BorderFlats.ResolveFlatSpillover(params=params)
+BorderFlats.ResolveFlatSpillover(params=params, tileset='10kbis')
 
-for tile in BorderFlats.config.tileset().tiles():
-    BorderFlats.DispatchFlatMinimumZ(row=tile.row, col=tile.col, params=params, overwrite=True)
+BorderFlats.DispatchFlatMinimumZ2(params=params, overwrite=True, processes=4)
+BorderFlats.DispatchFlatMinimumZ2(params=params, overwrite=True, processes=4, tileset='10kbis') #TODO check lot of errors here
     
 #FlatMap.DepressionDepthMap ?
 
 # Flow direction
 from fct.drainage import FlowDirection
-FlowDirection.config.from_file('./tutorials/dem_to_dgo/config.ini')
+FlowDirection.config.from_file('./config.ini')
 params = FlowDirection.Parameters()
 params.exterior = 'off'
-for tile in FlowDirection.config.tileset().tiles():
-    FlowDirection.FlowDirectionTile(row=tile.row, col=tile.col, params=params, overwrite=True)
+FlowDirection.FlowDirection(params=params, overwrite=True, processes=4)
+FlowDirection.FlowDirection(params=params, overwrite=True, processes=4, tileset='10kbis')
 
 # Build VRT for flow direction tiles: fct-tiles -c tutorials/dem_to_dgo/config.ini buildvrt 10k flow
 
 # Flow tiles inlets/outlets graph
 from fct.drainage import Accumulate
-Accumulate.config.from_file('./tutorials/dem_to_dgo/config.ini')
+Accumulate.config.from_file('./config.ini')
 params = Accumulate.Parameters()
 params.elevations = 'dem-drainage-resolved'
 
-for tile in Accumulate.config.tileset().tiles():
-    Accumulate.TileOutlets(row=tile.row, col=tile.col, params=params)
+Accumulate.Outlets(params=params, processes=4)
+Accumulate.Outlets(params=params, processes=4, tileset='10kbis')
 
 Accumulate.AggregateOutlets(params)
+Accumulate.AggregateOutlets(params, tileset='10kbis')
 
 # Resolve inlets/outlets graph
 Accumulate.InletAreas(params=params)
+Accumulate.InletAreas(params=params, tileset='10kbis')
 
 # Flow accumulation
-for tile in Accumulate.config.tileset().tiles():
-    Accumulate.FlowAccumulationTile(row=tile.row, col=tile.col, params=params, overwrite=True) 
+Accumulate.FlowAccumulation(params=params, overwrite=True, processes=4) 
+Accumulate.FlowAccumulation(params=params, overwrite=True, processes=4, tileset='10kbis')
+
+
+
+
+
+
+
+
 
 ################
 # Stream Network from sources
 from fct.drainage import StreamSources
-StreamSources.config.from_file('./tutorials/dem_to_dgo/config.ini')
+StreamSources.config.from_file('./config.ini')
 
 StreamSources.InletSources(params)
 
@@ -90,18 +102,18 @@ StreamSources.AggregateNoFlowPixels()
 ##################################
 # Fix NoFlow pixels (needs a second tileset)
 # Build VRT for flow and acc rasters
-# fct-tiles -c ./tutorials/dem_to_dgo/config.ini buildvrt 10k flow
-# fct-tiles -c ./tutorials/dem_to_dgo/config.ini buildvrt 10k acc
+# fct-tiles -c ./config.ini buildvrt 10k flow
+# fct-tiles -c ./config.ini buildvrt 10k acc
 
 from fct.drainage import FixNoFlow
-FixNoFlow.config.from_file('./tutorials/dem_to_dgo/config.ini')
+FixNoFlow.config.from_file('./config.ini')
 params = FixNoFlow.Parameters()
 
 for tile in FixNoFlow.config.tileset().tiles():
     FixNoFlow.DrainageRasterTile(row=tile.row, col=tile.col, params=params)
     
 # Build VRT 
-# fct-tiles -c ./tutorials/dem_to_dgo/config.ini buildvrt 10k drainage-raster-from-sources
+# fct-tiles -c ./config.ini buildvrt 10k drainage-raster-from-sources
 
 ##############################
 # Re-run all the beggining with the second tileset by modifing the default tileset in the config.ini file
@@ -113,7 +125,7 @@ for tile in FixNoFlow.config.tileset().tiles():
 FixNoFlow.AggregateNoFlowPixels(params)
 
 from fct.drainage import FixNoFlow
-FixNoFlow.config.from_file('./tutorials/dem_to_dgo/config.ini')
+FixNoFlow.config.from_file('./config.ini')
 params = FixNoFlow.Parameters()
 
 import fiona
@@ -139,7 +151,7 @@ with fiona.open(params.noflow.filename(), 'r') as src:
 
 # Flow tiles inlets/outlets graph
 from fct.drainage import Accumulate
-Accumulate.config.from_file('./tutorials/dem_to_dgo/config.ini')
+Accumulate.config.from_file('./config.ini')
 params = Accumulate.Parameters()
 
 
@@ -158,7 +170,7 @@ for tile in Accumulate.config.tileset().tiles():
 ################
 # Stream Network from sources
 from fct.drainage import StreamSources
-StreamSources.config.from_file('./tutorials/dem_to_dgo/config.ini')
+StreamSources.config.from_file('./config.ini')
 
 StreamSources.InletSources()
 
@@ -172,8 +184,8 @@ StreamSources.AggregateStreamsFromSources()
 # TODO: Fix longest path finding
 
 from fct.drainage import JoinNetworkAttributes
-JoinNetworkAttributes.JoinNetworkAttributes('./tutorials/dem_to_dgo/inputs/sources.gpkg', './tutorials/dem_to_dgo/outputs/RHTS_Network.gpkg', './tutorials/dem_to_dgo/outputs/RHTS.shp')
-JoinNetworkAttributes.AggregateByAxis('./tutorials/dem_to_dgo/outputs/RHTS.shp', './tutorials/dem_to_dgo/outputs/GLOBAL/MEASURE/REFAXIS.shp')
+JoinNetworkAttributes.JoinNetworkAttributes('./inputs/sources.gpkg', './outputs/RHTS_Network.gpkg', './outputs/RHTS.shp')
+JoinNetworkAttributes.AggregateByAxis('./outputs/RHTS.shp', './outputs/GLOBAL/MEASURE/REFAXIS.shp')
 
 
 

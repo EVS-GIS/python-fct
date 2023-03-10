@@ -22,6 +22,9 @@ from ..config import (
 from .. import terrain_analysis as ta
 from ..tileio import PadRaster
 
+from multiprocessing import Pool
+from ..cli import starcall
+
 def tileindex():
     """
     Return default tileindex
@@ -119,6 +122,7 @@ def FlowDirectionTile(
         col: int,
         params: Parameters,
         overwrite: bool = True,
+        tileset: str = 'default',
         **kwargs: Any) -> None:
     """
     Resolve flats drainage direction and
@@ -145,7 +149,7 @@ def FlowDirectionTile(
     """
 
     # elevation_raster = config.tileset().filename('filled', row=row, col=col)
-    output = params.flow.tilename(row=row, col=col, **kwargs)
+    output = params.flow.tilename(row=row, col=col, tileset=tileset, **kwargs)
     # config.tileset().tilename('flow', row=row, col=col)
 
     if os.path.exists(output) and not overwrite:
@@ -155,7 +159,7 @@ def FlowDirectionTile(
     # with rio.open(elevation_raster) as ds:
 
     # padded = PadRaster(row, col, 'filled')
-    padded, profile = PadRaster(row, col, params.elevations.name)
+    padded, profile = PadRaster(row, col, params.elevations.name, tileset=tileset)
     transform = profile['transform']
     nodata = profile['nodata']
 
@@ -237,3 +241,35 @@ def FlowDirectionTile(
 
     with rio.open(output, 'w', **profile) as dst:
         dst.write(flow, 1)
+
+
+def FlowDirection(
+        params: Parameters,
+        overwrite: bool = True,
+        tileset: str = 'default',
+        processes: int = 1,
+        **kwargs: Any) -> None:
+    
+    def arguments():
+
+        for tile in config.tileset(tileset).tiles():
+            row = tile.row
+            col = tile.col
+            yield (
+                FlowDirectionTile,
+                row,
+                col,
+                params,
+                tileset,
+                kwargs
+            )
+
+    arguments = list(arguments())
+
+    with Pool(processes=processes) as pool:
+
+        pooled = pool.imap_unordered(starcall, arguments)
+
+        with click.progressbar(pooled, length=len(arguments)) as iterator:
+            for _ in iterator:
+                pass

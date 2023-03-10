@@ -34,6 +34,8 @@ Séquence :
 import os
 import numpy as np
 
+from multiprocessing import Pool
+
 import click
 import rasterio as rio
 from rasterio.features import rasterize
@@ -47,8 +49,9 @@ from ..config import (
     LiteralParameter
 )
 from ..tileio import ReadRasterTile
-
-
+from ..cli import starcall_nokwargs
+    
+    
 def workdir():
     """
     Return default working directory
@@ -235,7 +238,8 @@ class SmoothingParameters():
 def MeanFilter(
         row, col,
         params,
-        overwrite=True):
+        overwrite=True,
+        tileset='default'):
     """
     Smooth elevations by applying a mean filter
     on a square window of size `size`
@@ -247,7 +251,7 @@ def MeanFilter(
     # if (row, col) not in tile_index:
     #     return
 
-    output = params.output.tilename(row=row, col=col)
+    output = params.output.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename('smoothed', row=row, col=col)
     window = params.window
 
@@ -255,7 +259,7 @@ def MeanFilter(
         click.secho('Output already exists: %s' % output, fg='yellow')
         return
 
-    elevation_raster = params.elevations.tilename(row=row, col=col)
+    elevation_raster = params.elevations.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename('dem', row=row, col=col)
 
     with rio.open(elevation_raster) as ds:
@@ -268,3 +272,33 @@ def MeanFilter(
 
         with rio.open(output, 'w', **profile) as dst:
             dst.write(out, 1)
+
+def MeanFilter2(
+        params,
+        overwrite=True,
+        tileset='default',
+        processes=1):
+    
+    def arguments():
+
+        for tile in config.tileset(tileset).tiles():
+            row = tile.row
+            col = tile.col
+            yield (
+                MeanFilter,
+                row,
+                col,
+                params,
+                overwrite,
+                tileset
+            )
+
+    arguments = list(arguments())
+
+    with Pool(processes=processes) as pool:
+
+        pooled = pool.imap_unordered(starcall_nokwargs, arguments)
+
+        with click.progressbar(pooled, length=len(arguments)) as iterator:
+            for _ in iterator:
+                pass

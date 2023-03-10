@@ -12,13 +12,13 @@ def workdir():
     """
     return config.workdir
 
-def tileindex():
+def tileindex(tileset='default'):
     """
     Return default tileindex
     """
-    return config.tileset().tileindex
+    return config.tileset(tileset).tileindex
 
-def WatershedUnitAreas(dataset='labels', coeff=25e-6):
+def WatershedUnitAreas(dataset='labels', coeff=25e-6, tileset='default'):
     """
     Calculate the size in km2 for each unit watershed (tile, label)
 
@@ -29,14 +29,14 @@ def WatershedUnitAreas(dataset='labels', coeff=25e-6):
         pixel count to km2 conversion coefficient
     """
 
-    tile_index = tileindex()
+    tile_index = tileindex(tileset)
     areas = defaultdict(lambda: 0)
 
     with click.progressbar(tile_index) as progress:
         for row, col in progress:
 
             tile = tile_index[row, col].gid
-            label_raster = config.tileset().tilename(dataset, row=row, col=col)
+            label_raster = config.tileset(tileset).tilename(dataset, row=row, col=col, tileset=tileset)
 
             with rio.open(label_raster) as ds:
         

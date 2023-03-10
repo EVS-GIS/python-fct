@@ -39,11 +39,14 @@ from ..config import (
     DatasourceParameter
 )
 
-def tileindex():
+from multiprocessing import Pool
+from ..cli import starcall_nokwargs
+
+def tileindex(tileset='default'):
     """
     Return default tileindex
     """
-    return config.tileset().tileindex
+    return config.tileset(tileset).tileindex
 
 class Parameters():
     """
@@ -76,13 +79,13 @@ class Parameters():
         self.inlet_areas = 'inlet-areas'
         self.acc = 'acc'
 
-def TileOutlets(row, col, params, verbose=False):
+def TileOutlets(row, col, params, verbose=False, tileset='default'):
     """
     Find tile outlets,
     ie. pixels connecting to anoter tile according to flow direction.
     """
 
-    tile_index = tileindex()
+    tile_index = tileindex(tileset)
 
     crs = fiona.crs.from_epsg(config.srid)
     driver = 'GeoJSON'
@@ -102,7 +105,7 @@ def TileOutlets(row, col, params, verbose=False):
 
     # read_tile_index()
 
-    flow_raster = params.flow.tilename(row=row, col=col)
+    flow_raster = params.flow.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename('flow', row=row, col=col)
 
     gid = tile_index[(row, col)].gid
@@ -185,7 +188,7 @@ def TileOutlets(row, col, params, verbose=False):
                 continue
 
             target = tile_index[(trow, tcol)].gid
-            output = params.outlets.tilename(row=trow, col=tcol, gid=gid)
+            output = params.outlets.tilename(row=trow, col=tcol, gid=gid, tileset=tileset)
             # config.tileset().tilename('outlets', row=trow, col=tcol, gid=gid)
 
             # if os.path.exists(output):
@@ -219,14 +222,15 @@ def TileOutlets(row, col, params, verbose=False):
         click.secho('Tile (%02d, %02d) Coverage = %.1f %%' % (row, col, (cum_area / (height*width) * 100)), fg='green')
 
     return cum_area
-
-def AggregateOutlets(params):
+    
+    
+def AggregateOutlets(params, tileset='default'):
     """
     Aggregate ROW_COL_INLETS_ORIGIN.geojson files
     into one ROW_COL_INLETS.shp shapefile
     """
 
-    tile_index = tileindex()
+    tile_index = tileindex(tileset)
 
     crs = fiona.crs.from_epsg(config.srid)
     driver = 'ESRI Shapefile'
@@ -245,12 +249,12 @@ def AggregateOutlets(params):
     with click.progressbar(tile_index) as progress:
         for row, col in progress:
 
-            output = params.inlets.tilename(row=row, col=col)
+            output = params.inlets.tilename(row=row, col=col, tileset=tileset)
             # config.tileset().tilename('inlets', row=row, col=col)
 
             with fiona.open(output, 'w', **options) as dst:
 
-                pattern = str(params.outlets_pattern.tilename(row=row, col=col))
+                pattern = str(params.outlets_pattern.tilename(row=row, col=col, tileset=tileset))
                 # config.tileset().tilename(
                 #     'outlets-glob',
                 #     row=row,
@@ -391,7 +395,7 @@ def CreateOutletsGraph(params, exterior='exterior-inlets'):
     # return areas
 
 
-def InletAreasTile(row, col, gid, params, keys, areas):
+def InletAreasTile(row, col, gid, params, keys, areas, tileset='default'):
     """
     Output inlet points,
     attributed with the total upstream drained area.
@@ -409,7 +413,7 @@ def InletAreasTile(row, col, gid, params, keys, areas):
     options = dict(driver=driver, crs=crs, schema=schema)
 
     # provide world/pixel geotransform
-    dem_file = params.elevations.filename()
+    dem_file = params.elevations.filename(tileset=tileset)
     # config.tileset().filename('dem')
     dem = rio.open(dem_file)
 
@@ -418,11 +422,11 @@ def InletAreasTile(row, col, gid, params, keys, areas):
     for key in keys:
         cum_areas[key[1:]] += areas.get(key[1:], 0)
 
-    inlet_shapefile = params.inlets.tilename(row=row, col=col)
+    inlet_shapefile = params.inlets.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename('inlets', row=row, col=col)
     emitted = set()
 
-    output = params.inlet_areas.tilename(row=row, col=col)
+    output = params.inlet_areas.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename('inlet-areas', row=row, col=col)
 
     with fiona.open(output, 'w', **options) as dst:
@@ -447,20 +451,20 @@ def InletAreasTile(row, col, gid, params, keys, areas):
 
     dem.close()
 
-def InletAreas(params):
+def InletAreas(params, tileset='default'):
     """
     Accumulate areas across tiles
     and output per tile inlet shapefiles
     with contributing area flowing into tile.
     """
 
-    tile_index = tileindex()
+    tile_index = tileindex(tileset)
     tiles = {tile.gid: tile for tile in tile_index.values()}
 
     graph, indegree = CreateOutletsGraph(params)
 
     # Check a random tile just to get pixels x and y size
-    flow_raster = params.flow.tilename(row=tiles.get(1).row, col=tiles.get(1).col)
+    flow_raster = params.flow.tilename(row=tiles.get(1).row, col=tiles.get(1).col, tileset=tileset)
     with rio.open(flow_raster) as ds:
         pixelSizeX = ds.profile['transform'][0]
         pixelSizeY =-ds.profile['transform'][4]
@@ -479,18 +483,18 @@ def InletAreas(params):
 
             if tile_gid in tiles:
                 tile = tiles[tile_gid]
-                InletAreasTile(tile.row, tile.col, tile.gid, params, keys, areas)
+                InletAreasTile(tile.row, tile.col, tile.gid, params, keys, areas, tileset)
 
-def FlowAccumulationTile(row, col, params, overwrite):
+def FlowAccumulationTile(row, col, params, overwrite, tileset):
     """
     Calculate D8 flow direction tile
     """
 
-    flow_raster = params.flow.tilename(row=row, col=col)
+    flow_raster = params.flow.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename('flow', row=row, col=col)
-    inlet_shapefile = params.inlet_areas.tilename(row=row, col=col)
+    inlet_shapefile = params.inlet_areas.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename('inlet-areas', row=row, col=col)
-    output = params.acc.tilename(row=row, col=col)
+    output = params.acc.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename('acc', row=row, col=col)
 
     if os.path.exists(output) and not overwrite:
@@ -539,3 +543,57 @@ def FlowAccumulationTile(row, col, params, overwrite):
 
         with rio.open(output, 'w', **profile) as dst:
             dst.write(out, 1)
+
+
+def Outlets(params, verbose=False, tileset='default', processes=1):
+    
+    def arguments():
+
+        for tile in config.tileset(tileset).tiles():
+            row = tile.row
+            col = tile.col
+            yield (
+                TileOutlets,
+                row,
+                col,
+                params,
+                verbose,
+                tileset
+            )
+
+    arguments = list(arguments())
+
+    with Pool(processes=processes) as pool:
+
+        pooled = pool.imap_unordered(starcall_nokwargs, arguments)
+
+        with click.progressbar(pooled, length=len(arguments)) as iterator:
+            for _ in iterator:
+                pass
+            
+
+def FlowAccumulation(params, overwrite, tileset='default', processes=1):
+    
+    def arguments():
+
+        for tile in config.tileset(tileset).tiles():
+            row = tile.row
+            col = tile.col
+            yield (
+                FlowAccumulationTile,
+                row,
+                col,
+                params,
+                overwrite,
+                tileset
+            )
+
+    arguments = list(arguments())
+
+    with Pool(processes=processes) as pool:
+
+        pooled = pool.imap_unordered(starcall_nokwargs, arguments)
+
+        with click.progressbar(pooled, length=len(arguments)) as iterator:
+            for _ in iterator:
+                pass

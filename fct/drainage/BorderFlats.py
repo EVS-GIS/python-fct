@@ -21,17 +21,20 @@ from .Areas import (
     WatershedCumulativeAreas
 )
 
+from multiprocessing import Pool
+from ..cli import starcall
+
 def workdir():
     """
     Return default working directory
     """
     return config.workdir
 
-def tileindex():
+def tileindex(tileset='default'):
     """
     Return default tileindex
     """
-    return config.tileset().tileindex
+    return config.tileset(tileset).tileindex
 
 class Parameters():
     """
@@ -57,18 +60,18 @@ class Parameters():
         self.flat_spillover = 'dem-flat-spillover'
         self.output = 'dem-drainage-resolved'
 
-def LabelBorderFlats(row, col, params, **kwargs):
+def LabelBorderFlats(row, col, params, tileset='default', **kwargs):
     """
     DOCME
     """
 
     # elevation_raster = filename('filled', row=row, col=col)
-    label_raster = params.labels.tilename(row=row, col=col)
+    label_raster = params.labels.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename('dem-watershed-labels', row=row, col=col)
 
     # with rio.open(elevation_raster) as ds:
 
-    elevations, profile = PadRaster(row, col, dataset=params.resolved.name)
+    elevations, profile = PadRaster(row, col, dataset=params.resolved.name, tileset=tileset)
     nodata = profile['nodata']
     flow = ta.flowdir(elevations, nodata)
     flat_labels = speedup.borderflat_labels(flow, elevations)
@@ -91,13 +94,13 @@ def LabelBorderFlats(row, col, params, **kwargs):
         labels = labels[1:-1, 1:-1]
 
         profile = ds.profile.copy()
-        output = params.flat_labels.tilename(row=row, col=col)
+        output = params.flat_labels.tilename(row=row, col=col, tileset=tileset)
         # config.tileset().tilename('dem-flat-labels', row=row, col=col)
         
         with rio.open(output, 'w', **profile) as dst:
             dst.write(labels, 1)
 
-        output = params.flat_graph.tilename(row=row, col=col)
+        output = params.flat_graph.tilename(row=row, col=col, tileset=tileset)
         # config.tileset().tilename('dem-flat-graph', row=row, col=col)
 
         np.savez(
@@ -115,8 +118,36 @@ def LabelBorderFlats(row, col, params, **kwargs):
             flatindex=flatindex,
             graph=np.array(list(graph.items()), dtype=object)
         )
+        
 
-def ConnectTiles(row, col, params, **kwargs):
+def LabelBorderFlats2(params, tileset='default', processes=1, **kwargs):
+    
+    def arguments():
+
+        for tile in config.tileset(tileset).tiles():
+            row = tile.row
+            col = tile.col
+            yield (
+                LabelBorderFlats,
+                row,
+                col,
+                params,
+                tileset,
+                kwargs
+            )
+
+    arguments = list(arguments())
+
+    with Pool(processes=processes) as pool:
+
+        pooled = pool.imap_unordered(starcall, arguments)
+
+        with click.progressbar(pooled, length=len(arguments)) as iterator:
+            for _ in iterator:
+                pass
+            
+
+def ConnectTiles(row, col, params, tileset='default', **kwargs):
     """
     DOCME
     """
@@ -126,7 +157,7 @@ def ConnectTiles(row, col, params, **kwargs):
     BOTTOM = 2
     LEFT = 3
 
-    tile_index = tileindex()
+    tile_index = tileindex(tileset)
     tile = tile_index[row, col]
     exterior = (-1, 1)
 
@@ -230,12 +261,12 @@ def ConnectTiles(row, col, params, **kwargs):
 
     return graph
 
-def BuildFlatSpilloverGraph(params):
+def BuildFlatSpilloverGraph(params, tileset='default'):
     """
     DOCME
     """
 
-    tile_index = tileindex()
+    tile_index = tileindex(tileset)
     graph = dict()
 
     with click.progressbar(tile_index) as iterator:
@@ -410,50 +441,61 @@ def EnsureEpsilonGradient(directed, ulinks, areas, epsilon=.0005):
 
     return resolved
 
-def ResolveFlatSpillover(params, epsilon=0.0005):
+def ResolveFlatSpillover(params, epsilon=0.0005, tileset='default'):
     """
     DOCME
     """
-
+    
+    # Check a random tile just to get pixels x and y size
+    tile_index = tileindex(tileset)
+    tiles = {tile.gid: tile for tile in tile_index.values()}
+    
+    flow_raster = params.resolved.tilename(row=tiles.get(1).row, col=tiles.get(1).col, tileset=tileset)
+    with rio.open(flow_raster) as ds:
+        pixelSizeX = ds.profile['transform'][0]
+        pixelSizeY =-ds.profile['transform'][4]
+        
+    coeff = (pixelSizeX*pixelSizeY)*1e-6
+    
     click.secho('Build Spillover Graph', fg='cyan')
-    graph = BuildFlatSpilloverGraph(params)
+    graph = BuildFlatSpilloverGraph(params, tileset=tileset)
     click.secho('Resolve Minimum Z', fg='cyan')
     directed, ulinks = ResolveMinimumZ(graph, epsilon=epsilon)
     click.secho('Calculate Watershed Areas', fg='cyan')
-    unitareas = WatershedUnitAreas(params.flat_labels.name)
+    unitareas = WatershedUnitAreas(params.flat_labels.name, coeff=coeff, tileset=tileset)
     areas = WatershedCumulativeAreas(directed, unitareas)
     click.secho('Ensure epsilon Gradient : %f m' % epsilon, fg='cyan')
     resolved = EnsureEpsilonGradient(directed, ulinks, areas, epsilon=epsilon)
 
-    output = params.flat_spillover.filename()
+    output = params.flat_spillover.filename(tileset=tileset)
     # config.tileset().filename('dem-flat-spillover')
     minz = [watershed + (resolved[watershed][1],) for watershed in resolved]
     np.savez(output, minz=np.array(minz))
 
     click.secho('Saved to : %s' % output, fg='green')
 
-def DispatchFlatMinimumZ(row, col, params, overwrite, **kwargs):
+def DispatchFlatMinimumZ(row, col, params, overwrite, tileset='default', **kwargs):
     """
     Ajuste l'altitude des dépressions en bordure de tuile,
     et calcule la carte des dépressions
     (différentiel d'altitude avec le point de débordement)
     """
 
-    tile_index = tileindex()
+    tile_index = tileindex(tileset)
     tile = tile_index[row, col]
 
-    filled_raster = params.resolved.tilename(row=row, col=col)
+    filled_raster = params.resolved.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename('dem-filled-resolved', row=row, col=col)
-    label_raster = params.flat_labels.tilename(row=row, col=col)
+    label_raster = params.flat_labels.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename('dem-flat-labels', row=row, col=col)
-    output = params.output.tilename(row=row, col=col)
+    output = params.output.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename('dem-drainage-resolved', row=row, col=col)
 
     if os.path.exists(output) and not overwrite:
         click.secho('Output already exists: %s' % output, fg='yellow')
         return
 
-    minz_file = params.flat_spillover.filename()
+    minz_file = params.flat_spillover.filename(tileset=tileset)
     # config.tileset().filename('dem-flat-spillover')
     minimum_z = np.load(minz_file)['minz']
 
@@ -500,3 +542,31 @@ def DispatchFlatMinimumZ(row, col, params, overwrite, **kwargs):
 
         with rio.open(output, 'w', **profile) as dst:
             dst.write(filled, 1)
+
+
+def DispatchFlatMinimumZ2(params, overwrite=False, tileset='default', processes=1, **kwargs):
+    
+    def arguments():
+
+        for tile in config.tileset(tileset).tiles():
+            row = tile.row
+            col = tile.col
+            yield (
+                DispatchFlatMinimumZ,
+                row,
+                col,
+                params,
+                overwrite,
+                tileset,
+                kwargs
+            )
+
+    arguments = list(arguments())
+
+    with Pool(processes=processes) as pool:
+
+        pooled = pool.imap_unordered(starcall, arguments)
+
+        with click.progressbar(pooled, length=len(arguments)) as iterator:
+            for _ in iterator:
+                pass

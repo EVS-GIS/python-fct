@@ -32,11 +32,14 @@ from .. import terrain_analysis as ta
 from .. import speedup
 from .Burn import BurnTile
 
-def tileindex():
+from multiprocessing import Pool
+from ..cli import starcall_nokwargs
+
+def tileindex(tileset='default'):
     """
     Return default tileindex
     """
-    return config.tileset().tileindex
+    return config.tileset(tileset).tileindex
 
 def silent(msg):
     pass
@@ -77,26 +80,27 @@ def LabelWatersheds(
         row, col,
         params,
         overwrite=True,
-        verbose=False):
+        verbose=False,
+        tileset='default'):
     """
     Identifie et numérote les bassins versants
     et les zones continues de même altitude,
     avec remplissage des creux
     """
 
-    tile_index = tileindex()
+    tile_index = tileindex(tileset)
 
     if (row, col) not in tile_index:
         return
 
-    elevation_raster = params.elevations.tilename(row=row, col=col)
+    elevation_raster = params.elevations.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename(dataset, row=row, col=col)
     # outputs = config.fileset(['prefilled', 'labels', 'graph'], row=row, col=col)
-    output_filled = params.filled.tilename(row=row, col=col)
+    output_filled = params.filled.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename('dem-filled', row=row, col=col)
-    output_labels = params.labels.tilename(row=row, col=col)
+    output_labels = params.labels.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename('dem-watershed-labels', row=row, col=col)
-    output_graph = params.graph.tilename(row=row, col=col)
+    output_graph = params.graph.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename('dem-watershed-graph', row=row, col=col)
 
     offset = params.offset
@@ -172,6 +176,40 @@ def LabelWatersheds(
         graph=np.array(list(graph.items()), dtype=object)
     )
 
+
+def LabelWatersheds2(
+        params,
+        overwrite=True,
+        verbose=False,
+        tileset='default',
+        processes=1):
+    
+    def arguments():
+
+        for tile in config.tileset(tileset).tiles():
+            row = tile.row
+            col = tile.col
+            yield (
+                LabelWatersheds,
+                row,
+                col,
+                params,
+                overwrite,
+                verbose,
+                tileset
+            )
+
+    arguments = list(arguments())
+
+    with Pool(processes=processes) as pool:
+
+        pooled = pool.imap_unordered(starcall_nokwargs, arguments)
+
+        with click.progressbar(pooled, length=len(arguments)) as iterator:
+            for _ in iterator:
+                pass
+            
+            
 def ResolveMinimumZ(graph, nodata, epsilon=0.002):
     """
     Walk over spillover graph from minimum z to maximum z,
@@ -223,20 +261,20 @@ def ResolveMinimumZ(graph, nodata, epsilon=0.002):
     # return minimum_z, flats
     return directed
 
-def ResolveWatershedSpillover(params, overwrite):
+def ResolveWatershedSpillover(params, overwrite, tileset='default'):
     """
     Calcule le graph de débordement
     entre les différentes tuiles
     """
 
-    output = params.spillover.filename()
+    output = params.spillover.filename(tileset=tileset)
     # config.tileset().filename('dem-watershed-spillover')
 
     if os.path.exists(output) and not overwrite:
         click.secho('Output already exists: %s' % output, fg='yellow')
         return
 
-    tile_index = tileindex()
+    tile_index = tileindex(tileset)
 
     click.secho('Build spillover graph', fg='cyan')
 
@@ -244,7 +282,7 @@ def ResolveWatershedSpillover(params, overwrite):
     nodata = -99999.0
 
     def tiledatafn(row, col):
-        return params.graph.tilename(row=row, col=col)
+        return params.graph.tilename(row=row, col=col, tileset=tileset)
         # return config.tileset().tilename('dem-watershed-graph', row=row, col=col)
 
     with click.progressbar(tile_index) as progress:
@@ -318,28 +356,26 @@ def ResolveWatershedSpillover(params, overwrite):
     # flats = [(t, w) for t, w in flats]
     # np.savez(os.path.join(workdir, 'FLATS.npz'), flats=np.asarray(flats))
 
-def DispatchWatershedMinimumZ(row, col, params, **kwargs):
+def DispatchWatershedMinimumZ(row, col, params, overwrite=False, tileset='default'):
     """
     Ajuste l'altitude des dépressions en bordure de tuile,
     (différentiel d'altitude avec le point de débordement)
     """
 
-    overwrite = kwargs.get('overwrite', False)
-
-    tile_index = tileindex()
+    tile_index = tileindex(tileset)
     tile = tile_index[row, col]
 
-    minz_file = params.spillover.filename()
+    minz_file = params.spillover.filename(tileset=tileset)
     # config.tileset().filename('dem-watershed-spillover')
     minimum_z = np.load(minz_file)['minz']
 
     index = {int(w): z for t, w, z in minimum_z if int(t) == tile.gid}
 
-    filled_raster = params.filled.tilename(row=row, col=col)
+    filled_raster = params.filled.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename('dem-filled', row=row, col=col)
-    label_raster = params.labels.tilename(row=row, col=col)
+    label_raster = params.labels.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename('dem-watershed-labels', row=row, col=col)
-    output = params.resolved.tilename(row=row, col=col)
+    output = params.resolved.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename('dem-filled-resolved', row=row, col=col)
 
     def info(msg):
@@ -411,3 +447,30 @@ def DispatchWatershedMinimumZ(row, col, params, **kwargs):
 
         with rio.open(output, 'w', **profile) as dst:
             dst.write(filled, 1)
+
+
+def DispatchWatershedMinimumZ2(params, overwrite=False, tileset='default', processes=1):
+    
+    def arguments():
+
+        for tile in config.tileset(tileset).tiles():
+            row = tile.row
+            col = tile.col
+            yield (
+                DispatchWatershedMinimumZ,
+                row,
+                col,
+                params,
+                overwrite,
+                tileset
+            )
+
+    arguments = list(arguments())
+
+    with Pool(processes=processes) as pool:
+
+        pooled = pool.imap_unordered(starcall_nokwargs, arguments)
+
+        with click.progressbar(pooled, length=len(arguments)) as iterator:
+            for _ in iterator:
+                pass

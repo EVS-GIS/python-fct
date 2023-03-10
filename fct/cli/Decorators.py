@@ -194,6 +194,14 @@ def starcall(args):
     fun = args[0]
     return fun(*args[1:-1], **args[-1])
 
+def starcall_nokwargs(args):
+    """
+    Invoke first arg function with all other arguments.
+    """
+
+    fun = args[0]
+    return fun(*args[1:])
+
 def parallel(group, tilefun, name=None):
     """
     Define a new command within `group` as a Multiprocessing wrapper.

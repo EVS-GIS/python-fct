@@ -76,30 +76,40 @@ See the full [list of metrics](https://tramebleue.github.io/fct-cli/docs/metrics
 
 ![Sinuosity](docs/img/sinuosity_drome.png)
 
-## Installation
+## Quick start
 
 - Windows
-  - Install python 3.8 with environment PATH
+  - Install python >= 3.8 with environment PATH
   - Install Git for windows
   - Open a command prompt
   
 ```bash
 # go to the working folder you want to download the FCT
 cd Path/to/my/folder
+
 # copy python-fct repository with git
 git clone --recursive https://github.com/EVS-GIS/python-fct.git
+
 # go to python-fct new directory
 cd python-fct
+
 # create a new virtual environnement in python 3.8
 python3.8 -m venv env --prompt python-fct
+
 # activate your new environment
 .\env\Scripts\activate
+
 # update pip
 python -m pip install -U pip
+
 # install numpy and cython modules
 pip install numpy cython
+
 # install all the requirements in setup.py
 python -m pip install -e .
+
+# if you want to use the jupyter notebook tutorials, install jupyterlab
+python -m pip install jupyterlab
 ```
 ## Acknowledgements
 
