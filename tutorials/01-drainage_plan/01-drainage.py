@@ -10,8 +10,8 @@ from fct.drainage import PrepareDEM
 PrepareDEM.config.from_file('./config.ini')
 params = PrepareDEM.SmoothingParameters()
 params.window=2
-PrepareDEM.MeanFilter2(params, overwrite=True, processes=4)
-PrepareDEM.MeanFilter2(params, overwrite=True, processes=4, tileset='10kbis')
+PrepareDEM.MeanFilter(params, overwrite=True, processes=4)
+PrepareDEM.MeanFilter(params, overwrite=True, processes=4, tileset='10kbis')
 
 # Fill sinks
 from fct.drainage import DepressionFill
@@ -19,27 +19,27 @@ DepressionFill.config.from_file('./config.ini')
 params = DepressionFill.Parameters()
 params.elevations = 'smoothed'
 params.exterior_data = 0.0
-DepressionFill.LabelWatersheds2(params, overwrite=True, processes=4)
-DepressionFill.LabelWatersheds2(params, overwrite=True, processes=4, tileset='10kbis')
+DepressionFill.LabelWatersheds(params, overwrite=True, processes=4)
+DepressionFill.LabelWatersheds(params, overwrite=True, processes=4, tileset='10kbis')
 
 DepressionFill.ResolveWatershedSpillover(params, overwrite=True)
 DepressionFill.ResolveWatershedSpillover(params, overwrite=True, tileset='10kbis')
 
-DepressionFill.DispatchWatershedMinimumZ2(params, overwrite=True, processes=4)
-DepressionFill.DispatchWatershedMinimumZ2(params, overwrite=True, processes=4, tileset='10kbis')
+DepressionFill.DispatchWatershedMinimumZ(params, overwrite=True, processes=4)
+DepressionFill.DispatchWatershedMinimumZ(params, overwrite=True, processes=4, tileset='10kbis')
  
 # Resolve flats
 from fct.drainage import BorderFlats
 BorderFlats.config.from_file('./config.ini')
 params = BorderFlats.Parameters()
-BorderFlats.LabelBorderFlats2(params=params, processes=4) 
-BorderFlats.LabelBorderFlats2(params=params, processes=4, tileset='10kbis') 
+BorderFlats.LabelBorderFlats(params=params, processes=4) 
+BorderFlats.LabelBorderFlats(params=params, processes=4, tileset='10kbis') 
     
 BorderFlats.ResolveFlatSpillover(params=params)
 BorderFlats.ResolveFlatSpillover(params=params, tileset='10kbis')
 
-BorderFlats.DispatchFlatMinimumZ2(params=params, overwrite=True, processes=4)
-BorderFlats.DispatchFlatMinimumZ2(params=params, overwrite=True, processes=4, tileset='10kbis') #TODO check lot of errors here
+BorderFlats.DispatchFlatMinimumZ(params=params, overwrite=True, processes=4)
+BorderFlats.DispatchFlatMinimumZ(params=params, overwrite=True, processes=4, tileset='10kbis') #TODO check lot of errors here
     
 #FlatMap.DepressionDepthMap ?
 

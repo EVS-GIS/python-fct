@@ -60,7 +60,7 @@ class Parameters():
         self.flat_spillover = 'dem-flat-spillover'
         self.output = 'dem-drainage-resolved'
 
-def LabelBorderFlats(row, col, params, tileset='default', **kwargs):
+def LabelBorderFlatsTile(row, col, params, tileset='default', **kwargs):
     """
     DOCME
     """
@@ -120,7 +120,7 @@ def LabelBorderFlats(row, col, params, tileset='default', **kwargs):
         )
         
 
-def LabelBorderFlats2(params, tileset='default', processes=1, **kwargs):
+def LabelBorderFlats(params, tileset='default', processes=1, **kwargs):
     
     def arguments():
 
@@ -128,7 +128,7 @@ def LabelBorderFlats2(params, tileset='default', processes=1, **kwargs):
             row = tile.row
             col = tile.col
             yield (
-                LabelBorderFlats,
+                LabelBorderFlatsTile,
                 row,
                 col,
                 params,
@@ -474,7 +474,7 @@ def ResolveFlatSpillover(params, epsilon=0.0005, tileset='default'):
 
     click.secho('Saved to : %s' % output, fg='green')
 
-def DispatchFlatMinimumZ(row, col, params, overwrite, tileset='default', **kwargs):
+def DispatchFlatMinimumZTile(row, col, params, overwrite, tileset='default', **kwargs):
     """
     Ajuste l'altitude des dépressions en bordure de tuile,
     et calcule la carte des dépressions
@@ -544,7 +544,7 @@ def DispatchFlatMinimumZ(row, col, params, overwrite, tileset='default', **kwarg
             dst.write(filled, 1)
 
 
-def DispatchFlatMinimumZ2(params, overwrite=False, tileset='default', processes=1, **kwargs):
+def DispatchFlatMinimumZ(params, overwrite=False, tileset='default', processes=1, **kwargs):
     
     def arguments():
 
@@ -552,7 +552,7 @@ def DispatchFlatMinimumZ2(params, overwrite=False, tileset='default', processes=
             row = tile.row
             col = tile.col
             yield (
-                DispatchFlatMinimumZ,
+                DispatchFlatMinimumZTile,
                 row,
                 col,
                 params,

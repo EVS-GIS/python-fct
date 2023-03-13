@@ -235,7 +235,7 @@ class SmoothingParameters():
         self.output = 'smoothed'
         self.window = 5
 
-def MeanFilter(
+def MeanFilterTile(
         row, col,
         params,
         overwrite=True,
@@ -273,7 +273,7 @@ def MeanFilter(
         with rio.open(output, 'w', **profile) as dst:
             dst.write(out, 1)
 
-def MeanFilter2(
+def MeanFilter(
         params,
         overwrite=True,
         tileset='default',
@@ -285,7 +285,7 @@ def MeanFilter2(
             row = tile.row
             col = tile.col
             yield (
-                MeanFilter,
+                MeanFilterTile,
                 row,
                 col,
                 params,

@@ -76,7 +76,7 @@ class Parameters():
         self.offset = -1.0
         self.exterior_data = 9000.0
 
-def LabelWatersheds(
+def LabelWatershedsTile(
         row, col,
         params,
         overwrite=True,
@@ -177,7 +177,7 @@ def LabelWatersheds(
     )
 
 
-def LabelWatersheds2(
+def LabelWatersheds(
         params,
         overwrite=True,
         verbose=False,
@@ -190,7 +190,7 @@ def LabelWatersheds2(
             row = tile.row
             col = tile.col
             yield (
-                LabelWatersheds,
+                LabelWatershedsTile,
                 row,
                 col,
                 params,
@@ -356,7 +356,7 @@ def ResolveWatershedSpillover(params, overwrite, tileset='default'):
     # flats = [(t, w) for t, w in flats]
     # np.savez(os.path.join(workdir, 'FLATS.npz'), flats=np.asarray(flats))
 
-def DispatchWatershedMinimumZ(row, col, params, overwrite=False, tileset='default'):
+def DispatchWatershedMinimumZTile(row, col, params, overwrite=False, tileset='default'):
     """
     Ajuste l'altitude des dépressions en bordure de tuile,
     (différentiel d'altitude avec le point de débordement)
@@ -449,7 +449,7 @@ def DispatchWatershedMinimumZ(row, col, params, overwrite=False, tileset='defaul
             dst.write(filled, 1)
 
 
-def DispatchWatershedMinimumZ2(params, overwrite=False, tileset='default', processes=1):
+def DispatchWatershedMinimumZ(params, overwrite=False, tileset='default', processes=1):
     
     def arguments():
 
@@ -457,7 +457,7 @@ def DispatchWatershedMinimumZ2(params, overwrite=False, tileset='default', proce
             row = tile.row
             col = tile.col
             yield (
-                DispatchWatershedMinimumZ,
+                DispatchWatershedMinimumZTile,
                 row,
                 col,
                 params,
