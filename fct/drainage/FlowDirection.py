@@ -260,6 +260,7 @@ def FlowDirection(
                 row,
                 col,
                 params,
+                overwrite,
                 tileset,
                 kwargs
             )

@@ -266,13 +266,13 @@ def AggregateOutlets(params, tileset='default'):
                         for feature in fs:
                             dst.write(feature)
 
-def CreateOutletsGraph(params, exterior='exterior-inlets'):
+def CreateOutletsGraph(params, exterior='exterior-inlets', tileset='default'):
     """
     DOCME
     """
 
-    tile_index = tileindex()
-    elevation_raster = params.elevations.filename()
+    tile_index = tileindex(tileset)
+    elevation_raster = params.elevations.filename(tileset=tileset)
     # config.tileset().filename('dem')
 
     click.secho('Build outlets graph', fg='cyan')
@@ -287,9 +287,9 @@ def CreateOutletsGraph(params, exterior='exterior-inlets'):
         for row, col in progress:
 
             tile = tile_index[(row, col)].gid
-            inlet_shapefile = params.inlets.tilename(row=row, col=col)
+            inlet_shapefile = params.inlets.tilename(row=row, col=col, tileset=tileset)
             # config.tileset().tilename('inlets', row=row, col=col)
-            flow_raster = params.flow.tilename(row=row, col=col)
+            flow_raster = params.flow.tilename(row=row, col=col, tileset=tileset)
             # config.tileset().tilename('flow', row=row, col=col)
 
             with rio.open(flow_raster) as ds:
@@ -327,7 +327,7 @@ def CreateOutletsGraph(params, exterior='exterior-inlets'):
                 # if exterior_flow and os.path.exists(exterior_flow):
                 if not params.exterior_flow.none:
 
-                    exterior_flow = params.exterior_flow.filename()
+                    exterior_flow = params.exterior_flow.filename(tileset)
 
                     with fiona.open(exterior_flow) as fs:
                         for feature in fs:
@@ -461,7 +461,7 @@ def InletAreas(params, tileset='default'):
     tile_index = tileindex(tileset)
     tiles = {tile.gid: tile for tile in tile_index.values()}
 
-    graph, indegree = CreateOutletsGraph(params)
+    graph, indegree = CreateOutletsGraph(params, tileset=tileset)
 
     # Check a random tile just to get pixels x and y size
     flow_raster = params.flow.tilename(row=tiles.get(1).row, col=tiles.get(1).col, tileset=tileset)

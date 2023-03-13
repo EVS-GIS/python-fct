@@ -30,6 +30,9 @@ from ..config import (
     LiteralParameter
 )
 
+from multiprocessing import Pool
+from ..cli import starcall_nokwargs
+
 class Parameters():
     """
     Resolve no-flow pixels parameters
@@ -75,24 +78,24 @@ class Parameters():
         self.fixed = 'noflow-targets-from-sources'
         self.min_drainage = 5.0
 
-def DrainageRasterTile(row, col, params):
+def DrainageRasterTile(row, col, params, tileset='default'):
     """
     Rasterize back drainage network
     """
 
-    acc_raster = params.acc.tilename(row=row, col=col)
+    acc_raster = params.acc.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename(
     #     'acc',
     #     row=row,
     #     col=col)
 
-    stream_features = params.drainage_network.tilename(row=row, col=col)
+    stream_features = params.drainage_network.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename(
     #     'streams-from-sources',
     #     row=row,
     #     col=col)
 
-    output = params.drainage_raster.tilename(row=row, col=col)
+    output = params.drainage_raster.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename(
     #     'drainage-raster-from-sources',
     #     row=row,
@@ -134,7 +137,7 @@ def DrainageRasterTile(row, col, params):
     with rio.open(output, 'w', **profile) as dst:
         dst.write(streams, 1)
 
-def NoFlowPixels(row, col, params):
+def NoFlowPixelsTile(row, col, params):
 
     flow_raster = params.flow.tilename(row=row, col=col)
     # config.tileset().tilename('flow', row=row, col=col)
@@ -490,3 +493,53 @@ def test(params, tileset1='10k', tileset2='10kbis', fix=False):
 
                         print(f['properties']['GID'], error)
                         continue
+
+
+def DrainageRaster(params, tileset='default', processes=1):
+    
+    def arguments():
+
+        for tile in config.tileset(tileset).tiles():
+            row = tile.row
+            col = tile.col
+            yield (
+                DrainageRasterTile,
+                row,
+                col,
+                params,
+                tileset
+            )
+
+    arguments = list(arguments())
+
+    with Pool(processes=processes) as pool:
+
+        pooled = pool.imap_unordered(starcall_nokwargs, arguments)
+
+        with click.progressbar(pooled, length=len(arguments)) as iterator:
+            for _ in iterator:
+                pass
+            
+def NoFlowPixels(params, tileset='default', processes=1):
+    
+    def arguments():
+
+        for tile in config.tileset(tileset).tiles():
+            row = tile.row
+            col = tile.col
+            yield (
+                NoFlowPixelsTile,
+                row,
+                col,
+                params
+            )
+
+    arguments = list(arguments())
+
+    with Pool(processes=processes) as pool:
+
+        pooled = pool.imap_unordered(starcall_nokwargs, arguments)
+
+        with click.progressbar(pooled, length=len(arguments)) as iterator:
+            for _ in iterator:
+                pass

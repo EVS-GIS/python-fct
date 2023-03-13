@@ -163,7 +163,7 @@ def ConnectTiles(row, col, params, tileset='default', **kwargs):
 
     def read_data(i, j):
         return np.load(
-            params.flat_graph.tilename(row=i, col=j),
+            params.flat_graph.tilename(row=i, col=j, tileset=tileset),
             # config.tileset().tilename("dem-flat-graph", row=i, col=j),
             allow_pickle=True)
 
@@ -271,7 +271,7 @@ def BuildFlatSpilloverGraph(params, tileset='default'):
 
     with click.progressbar(tile_index) as iterator:
         for row, col in iterator:
-            tile_graph = ConnectTiles(row, col, params)
+            tile_graph = ConnectTiles(row, col, params, tileset=tileset)
             graph.update({k: tile_graph[k] for k in tile_graph.keys() - graph.keys()})
             graph.update({k: min(graph[k], tile_graph[k]) for k in graph.keys() & tile_graph.keys()})
 
