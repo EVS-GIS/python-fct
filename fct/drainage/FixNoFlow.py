@@ -137,13 +137,13 @@ def DrainageRasterTile(row, col, params, tileset='default'):
     with rio.open(output, 'w', **profile) as dst:
         dst.write(streams, 1)
 
-def NoFlowPixelsTile(row, col, params):
+def NoFlowPixelsTile(row, col, params, tileset='default'):
 
-    flow_raster = params.flow.tilename(row=row, col=col)
+    flow_raster = params.flow.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename('flow', row=row, col=col)
-    acc_raster = params.acc.tilename(row=row, col=col)
+    acc_raster = params.acc.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename('acc', row=row, col=col)
-    output = params.noflow.tilename(row=row, col=col)
+    output = params.noflow.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename('noflow', row=row, col=col)
 
     min_drainage = params.min_drainage
@@ -185,14 +185,14 @@ def NoFlowPixelsTile(row, col, params):
                         'properties': {'GID': current, 'ROW': row, 'COL': col}
                     })
 
-def AggregateNoFlowPixels(params):
+def AggregateNoFlowPixels(params, tileset='default'):
     """
     Aggregate No Flow Shapefiles
     """
 
     # tile_index = tileindex()
-    tileset = config.tileset()
-    output = params.noflow.filename()
+    tile_index = config.tileset(tileset)
+    output = params.noflow.filename(tileset=tileset)
     # config.tileset().filename('noflow')
 
     driver = 'ESRI Shapefile'
@@ -210,12 +210,12 @@ def AggregateNoFlowPixels(params):
     gid = itertools.count(1)
 
     with fiona.open(output, 'w', **options) as dst:
-        with click.progressbar(tileset.tiles(), length=len(tileset)) as iterator:
+        with click.progressbar(tile_index.tiles(), length=len(tile_index)) as iterator:
             for tile in iterator:
                 row = tile.row
                 col = tile.col
                 
-                with fiona.open(config.tileset().tilename('noflow', row=row, col=col)) as fs:
+                with fiona.open(config.tileset(tileset).tilename('noflow', row=row, col=col)) as fs:
                     for feature in fs:
                         feature['properties']['GID'] = next(gid)
                         dst.write(feature)
@@ -223,7 +223,7 @@ def AggregateNoFlowPixels(params):
     count = next(gid) - 1
     click.secho('Found %d not-flowing stream nodes' % count, fg='cyan')
 
-def FixNoFlow(x0, y0, tileset1, tileset2, params, fix=False):
+def FixNoFlowPoint(x0, y0, tileset1, tileset2, params, fix=False):
     """
     DOCME
     """
@@ -454,7 +454,7 @@ def FixNoFlow(x0, y0, tileset1, tileset2, params, fix=False):
 
     return ds.xy(i, j)
 
-def test(params, tileset1='10k', tileset2='10kbis', fix=False):
+def FixNoFlow(params, tileset1='10k', tileset2='10kbis', fix=False):
     """
     TODO finalize
     DOCME
@@ -466,7 +466,6 @@ def test(params, tileset1='10k', tileset2='10kbis', fix=False):
     # noflow = config.tileset(tileset1).filename('noflow')
     # targets = config.tileset(tileset1).filename('noflow-targets')
 
-    config.default()
     noflow = params.noflow.filename(tileset=tileset1)
     # config.tileset(tileset1).filename('noflow-from-sources')
     targets = params.fixed.filename(tileset=tileset1)
@@ -485,7 +484,7 @@ def test(params, tileset1='10k', tileset2='10kbis', fix=False):
 
                     try:
 
-                        tox, toy = FixNoFlow(x, y, tileset1, tileset2, params, fix=fix)
+                        tox, toy = FixNoFlowPoint(x, y, tileset1, tileset2, params, fix=fix)
                         f['geometry']['coordinates'] = [tox, toy]
                         dst.write(f)
 
@@ -531,7 +530,8 @@ def NoFlowPixels(params, tileset='default', processes=1):
                 NoFlowPixelsTile,
                 row,
                 col,
-                params
+                params,
+                tileset
             )
 
     arguments = list(arguments())

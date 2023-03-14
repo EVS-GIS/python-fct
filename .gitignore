@@ -13,6 +13,7 @@ build
 /site
 __pycache__
 .DS_Store
-tutorials/outputs
+tutorials/outputs/*
+!tutorials/outputs/project.rs.xml
 env
 *.ipynb_checkpoints

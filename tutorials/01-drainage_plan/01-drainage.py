@@ -19,15 +19,14 @@ fct-tiles -c ./config.ini buildvrt 10kbis dem
 # If you have two different scales DEM, you can fill the precise one with the less precise
 # First step when you have only one DEM : Smoothing
 from fct.drainage import PrepareDEM
-PrepareDEM.config.from_file('./config.ini')
 params = PrepareDEM.SmoothingParameters()
 params.window=2
-PrepareDEM.MeanFilter(params, overwrite=True, processes=4)
+
+PrepareDEM.MeanFilter(params, overwrite=True, processes=4, tileset='10k')
 PrepareDEM.MeanFilter(params, overwrite=True, processes=4, tileset='10kbis')
 
 # Fill sinks
 from fct.drainage import DepressionFill
-DepressionFill.config.from_file('./config.ini')
 params = DepressionFill.Parameters()
 params.elevations = 'smoothed'
 params.exterior_data = 0.0
@@ -42,7 +41,6 @@ DepressionFill.DispatchWatershedMinimumZ(params, overwrite=True, processes=4, ti
  
 # Resolve flats
 from fct.drainage import BorderFlats
-BorderFlats.config.from_file('./config.ini')
 params = BorderFlats.Parameters()
 BorderFlats.LabelBorderFlats(params=params, processes=4) 
 BorderFlats.LabelBorderFlats(params=params, processes=4, tileset='10kbis') 
@@ -57,7 +55,6 @@ BorderFlats.DispatchFlatMinimumZ(params=params, overwrite=True, processes=4, til
 
 # Flow direction
 from fct.drainage import FlowDirection
-FlowDirection.config.from_file('./config.ini')
 params = FlowDirection.Parameters()
 params.exterior = 'off'
 FlowDirection.FlowDirection(params=params, overwrite=True, processes=4)
@@ -70,7 +67,6 @@ fct-tiles -c ./config.ini buildvrt 10kbis flow
 
 # Flow tiles inlets/outlets graph
 from fct.drainage import Accumulate
-Accumulate.config.from_file('./config.ini')
 params = Accumulate.Parameters()
 params.elevations = 'dem-drainage-resolved'
 
@@ -100,7 +96,6 @@ fct-tiles -c ./config.ini buildvrt 10kbis acc
 
 # Stream Network from sources
 from fct.drainage import StreamSources
-StreamSources.config.from_file('./config.ini')
 
 StreamSources.InletSources(params)
 StreamSources.InletSources(params, tileset='10kbis')
@@ -120,7 +115,6 @@ StreamSources.AggregateNoFlowPixels(tileset='10kbis')
 
 # Fix NoFlow pixels ok 10k tileset witk 10kbis tileset
 from fct.drainage import FixNoFlow
-FixNoFlow.config.from_file('./config.ini')
 params = FixNoFlow.Parameters()
 
 FixNoFlow.DrainageRaster(params=params, processes=4)
@@ -131,70 +125,32 @@ fct-tiles -c ./config.ini buildvrt 10k drainage-raster-from-sources
 fct-tiles -c ./config.ini buildvrt 10kbis drainage-raster-from-sources
 '''
 
-
-
-
-
-
-
 FixNoFlow.NoFlowPixels(params=params, processes=4)
+FixNoFlow.NoFlowPixels(params=params, processes=4, tileset='10kbis')
 
 FixNoFlow.AggregateNoFlowPixels(params)
+FixNoFlow.AggregateNoFlowPixels(params, tileset='10kbis')
 
-from fct.drainage import FixNoFlow
-FixNoFlow.config.from_file('./config.ini')
-params = FixNoFlow.Parameters()
+FixNoFlow.FixNoFlow(params, tileset1='default', tileset2='10kbis', fix=True)
 
-import fiona
-with fiona.open(params.noflow.filename(), 'r') as src:
-    
-    options = dict(driver=src.driver, crs=src.crs, schema=src.schema)
-    
-    with fiona.open(params.fixed.filename(), 'w', **options) as dst:
-            for f in src:
-
-                x, y = f['geometry']['coordinates']
-
-                try:
-
-                    tox, toy = FixNoFlow.FixNoFlow(x, y, '10k', '10kbis', params, fix=True)
-                    f['geometry']['coordinates'] = [tox, toy]
-                    dst.write(f)
-
-                except ValueError as error:
-
-                    print(f['properties']['GID'], error)
-                    continue
-
-# Flow tiles inlets/outlets graph
+# Remake FlowAccumulation with NoFlow pixels fixed
 from fct.drainage import Accumulate
-Accumulate.config.from_file('./config.ini')
 params = Accumulate.Parameters()
 
+Accumulate.FlowAccumulation(params=params, overwrite=True, processes=4) 
+Accumulate.FlowAccumulation(params=params, overwrite=True, processes=4, tileset='10kbis')
 
-# for tile in Accumulate.config.tileset().tiles():
-#     Accumulate.TileOutlets(row=tile.row, col=tile.col, params=params)
-
-# Accumulate.AggregateOutlets(params)
-
-# # Resolve inlets/outlets graph
-# Accumulate.InletAreas(params=params)
-
-# Flow accumulation
-for tile in Accumulate.config.tileset().tiles():
-    Accumulate.FlowAccumulationTile(row=tile.row, col=tile.col, params=params, overwrite=True) 
-
-################
-# Stream Network from sources
+# Remake stream Network from sources with NoFlow pixels fixed
 from fct.drainage import StreamSources
-StreamSources.config.from_file('./config.ini')
 
-StreamSources.InletSources()
+StreamSources.InletSources(params)
+StreamSources.InletSources(params, tileset='10kbis')
 
-for tile in StreamSources.config.tileset().tiles():
-    StreamSources.StreamToFeatureFromSources(row=tile.row, col=tile.col, min_drainage=500)
+StreamSources.StreamToFeatureFromSources(min_drainage=500, processes=4)
+StreamSources.StreamToFeatureFromSources(min_drainage=500, processes=4, tileset='10kbis')
 
 StreamSources.AggregateStreamsFromSources()
+StreamSources.AggregateStreamsFromSources(tileset='10kbis')
 
 # Run identify Network Nodes with the QGIS Toolbox on RHTS_10K_NOATTR.shp and save the result in outputs/RHTS_Network.gpkg
 

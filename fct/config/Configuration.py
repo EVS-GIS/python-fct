@@ -140,6 +140,8 @@ class Configuration():
         self._datasets = dict()
         self._touched = set()
         self._workspace = Workspace()
+        
+        self.auto()
 
     def auto(self):
         """

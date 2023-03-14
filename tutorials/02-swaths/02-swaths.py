@@ -3,21 +3,18 @@
 
 # Shortest Height
 from fct.height import ShortestHeight
-ShortestHeight.config.from_file('./tutorials/dem_to_dgo/config.ini')
 params = ShortestHeight.Parameters()
 
 ShortestHeight.ShortestHeight(params, processes=4)
 
 # Height above nearest drainage
 from fct.height import HeightAboveNearestDrainage
-HeightAboveNearestDrainage.config.from_file('./tutorials/dem_to_dgo/config.ini')
 params = HeightAboveNearestDrainage.Parameters()
 
 HeightAboveNearestDrainage.HeightAboveNearestDrainage(params, processes=4)
 
 # Disaggregate along referentiel hydro
 from fct.measure import SwathMeasurement
-SwathMeasurement.config.from_file('./tutorials/dem_to_dgo/config.ini')
 params = SwathMeasurement.Parameters()
 params.reference = 'stream-network-cartography-in'
 params.mdelta = 200.0
@@ -26,14 +23,12 @@ swaths = SwathMeasurement.DisaggregateIntoSwaths(params, processes=4)
 
 # Swath drainage
 from fct.corridor import SwathDrainage
-SwathDrainage.config.from_file('./tutorials/dem_to_dgo/config.ini')
 params = SwathDrainage.Parameters()
 
 swath_drainage = SwathDrainage.SwathDrainage(params, processes=4)
 
 # Vectorize Refaxis Swaths
 from fct.measure import SwathPolygons
-SwathPolygons.config.from_file('./tutorials/dem_to_dgo/config.ini')
 params = SwathPolygons.Parameters()
 
 swaths = SwathPolygons.Swaths(params, processes=4)
@@ -41,7 +36,6 @@ SwathPolygons.VectorizeSwaths(swaths, swath_drainage, params, processes=4)
 
 # Valley bottom features
 from fct.corridor import ValleyBottomFeatures
-ValleyBottomFeatures.config.from_file('./tutorials/dem_to_dgo/config.ini')
 params = ValleyBottomFeatures.Parameters()
 params.height_max = 20.0
 
@@ -61,7 +55,6 @@ ValleyBottomFeatures.ClassifyValleyBottomFeatures(params, swath_drainage, proces
 
 # Connected Valley bottom
 from fct.corridor import ValleyBottomFinal
-ValleyBottomFinal.config.from_file('./tutorials/dem_to_dgo/config.ini')
 params = ValleyBottomFinal.Parameters()
 
 ValleyBottomFinal.ConnectedValleyBottom(params, processes=4)
@@ -76,7 +69,6 @@ ValleyBottomFinal.TrueValleyBottom(params, processes=4)
 
 # Calculate medial axes
 from fct.corridor import MedialAxis2
-MedialAxis2.config.from_file('./tutorials/dem_to_dgo/config.ini')
 params = MedialAxis2.Parameters()
 
 medial_axis = MedialAxis2.MedialAxis(params)
@@ -85,7 +77,6 @@ MedialAxis2.SimplifyMedialAxis(params, medial_axis)
 # Disaggregate along medial axes
 # TODO: create separate outputs for medialaxis
 from fct.measure import SwathMeasurement
-SwathMeasurement.config.from_file('./tutorials/dem_to_dgo/config.ini')
 params = SwathMeasurement.Parameters()
 params.reference = 'medialaxis_simplified'
 params.output_distance = 'axis_distance'
@@ -100,14 +91,12 @@ swaths = SwathMeasurement.DisaggregateIntoSwaths(params, processes=4)
 
 # Swath drainage
 from fct.corridor import SwathDrainage
-SwathDrainage.config.from_file('./tutorials/dem_to_dgo/config.ini')
 params = SwathDrainage.Parameters()
 
 swath_drainage = SwathDrainage.SwathDrainage(params, processes=4)
 
 # Vectorize Medialaxis Swaths
 from fct.measure import SwathPolygons
-SwathPolygons.config.from_file('./tutorials/dem_to_dgo/config.ini')
 params = SwathPolygons.Parameters()
 params.swaths = 'swaths_medialaxis'
 params.polygons = 'swaths_medialaxis_polygons'
@@ -117,7 +106,6 @@ SwathPolygons.VectorizeSwaths(swaths, swath_drainage, params, processes=4)
 
 # SimplifySwathsPolygons to get a clean vectorial output
 from fct.measure import SimplifySwathPolygons2
-SimplifySwathPolygons2.config.from_file('./tutorials/dem_to_dgo/config.ini')
 params = SimplifySwathPolygons2.Parameters()
 
 SimplifySwathPolygons2.SimplifySwathPolygons(params)
