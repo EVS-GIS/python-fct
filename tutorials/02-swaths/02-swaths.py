@@ -1,17 +1,20 @@
 # Copy the Hydrographic Reference to outputs/GLOBAL/REFHYDRO
-# cp ./tutorials/dem_to_dgo/inputs/REFERENTIEL_HYDRO.* ./tutorials/dem_to_dgo/outputs/GLOBAL/INPUT/
+'''bash
+cp ../01-drainage_plan/inputs/REFERENTIEL_HYDRO.* ../outputs/GLOBAL/INPUT/
+'''
 
 # Shortest Height
 from fct.height import ShortestHeight
 params = ShortestHeight.Parameters()
+params.reference = 'stream-network-cartography-in'
 
-ShortestHeight.ShortestHeight(params, processes=4)
+ShortestHeight.ShortestHeight(params, processes=8)
 
 # Height above nearest drainage
 from fct.height import HeightAboveNearestDrainage
 params = HeightAboveNearestDrainage.Parameters()
 
-HeightAboveNearestDrainage.HeightAboveNearestDrainage(params, processes=4)
+HeightAboveNearestDrainage.HeightAboveNearestDrainage(params, processes=8)
 
 # Disaggregate along referentiel hydro
 from fct.measure import SwathMeasurement
@@ -19,20 +22,20 @@ params = SwathMeasurement.Parameters()
 params.reference = 'stream-network-cartography-in'
 params.mdelta = 200.0
 
-swaths = SwathMeasurement.DisaggregateIntoSwaths(params, processes=4)
+swaths = SwathMeasurement.DisaggregateIntoSwaths(params, processes=8)
 
 # Swath drainage
 from fct.corridor import SwathDrainage
 params = SwathDrainage.Parameters()
 
-swath_drainage = SwathDrainage.SwathDrainage(params, processes=4)
+swath_drainage = SwathDrainage.SwathDrainage(params, processes=8)
 
 # Vectorize Refaxis Swaths
 from fct.measure import SwathPolygons
 params = SwathPolygons.Parameters()
 
-swaths = SwathPolygons.Swaths(params, processes=4)
-SwathPolygons.VectorizeSwaths(swaths, swath_drainage, params, processes=4)
+swaths = SwathPolygons.Swaths(params, processes=8)
+SwathPolygons.VectorizeSwaths(swaths, swath_drainage, params, processes=8)
 
 # Valley bottom features
 from fct.corridor import ValleyBottomFeatures
@@ -51,14 +54,14 @@ params.thresholds = [
     ValleyBottomFeatures.ValleyBottomThreshold(45000, 20.0, 7500.0, 10.5, 2.0)
 ]
 
-ValleyBottomFeatures.ClassifyValleyBottomFeatures(params, swath_drainage, processes=4)
+ValleyBottomFeatures.ClassifyValleyBottomFeatures(params, swath_drainage, processes=8)
 
 # Connected Valley bottom
 from fct.corridor import ValleyBottomFinal
 params = ValleyBottomFinal.Parameters()
 
-ValleyBottomFinal.ConnectedValleyBottom(params, processes=4)
-ValleyBottomFinal.TrueValleyBottom(params, processes=4)
+ValleyBottomFinal.ConnectedValleyBottom(params, processes=8)
+ValleyBottomFinal.TrueValleyBottom(params, processes=8)
 
 # fct-tiles -c ./tutorials/dem_to_dgo/config.ini buildvrt 10k nearest_distance
 # fct-tiles -c ./tutorials/dem_to_dgo/config.ini buildvrt 10k swaths_refaxis
