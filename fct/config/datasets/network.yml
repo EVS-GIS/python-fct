@@ -354,3 +354,21 @@ width_valley_bottom_ma:
   status: final
   subdir: NETWORK/METRICS
   filename: WIDTH_VALLEY_BOTTOM_MA.nc
+
+network-nodes:
+  description: |
+    Stream network nodes
+  type: point
+  group: network
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: NETWORK_NODES.shp
+
+network-identified:
+  description: |
+    Stream network with identified nodes
+  type: linestring
+  group: network
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: NETWORK_IDENTIFIED.shp
