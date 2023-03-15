@@ -345,7 +345,7 @@ def FixNoFlowPoint(x0, y0, tileset1, tileset2, params, fix=False):
 
         def write_tile(row, col):
 
-            flow_raster1 = params.flow.tilename(row=row, col=col)
+            flow_raster1 = params.flow.tilename(row=row, col=col, tileset=tileset1)
             # config.tileset().tilename('flow', row=row, col=col)
 
             with rio.open(flow_raster1, 'w', **profile) as dst:
