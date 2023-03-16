@@ -8,13 +8,13 @@ Goals of step 01-drainage :
 
 # Prepare the DEM tiles and VRT
 
-'''bash
-fct-tiles extract bdalti 10k dem
-fct-tiles extract bdalti 10kbis dem
+from fct.cli import Tiles
+Tiles.DatasourceToTiles('bdalti', '10k', 'dem', processes=8)
+Tiles.DatasourceToTiles('bdalti', '10kbis', 'dem', processes=8)
 
-fct-tiles buildvrt 10k dem
-fct-tiles buildvrt 10kbis dem
-'''
+from fct.tileio import buildvrt
+buildvrt('10k', 'dem')
+buildvrt('10kbis', 'dem')
 
 # If you have two different scales DEM, you can fill the precise one with the less precise
 # First step when you have only one DEM : Smoothing
@@ -60,13 +60,11 @@ params.exterior = 'off'
 FlowDirection.FlowDirection(params=params, overwrite=True, processes=8)
 FlowDirection.FlowDirection(params=params, overwrite=True, processes=8, tileset='10kbis')
 
-'''bash
-fct-tiles buildvrt 10k flow
-fct-tiles buildvrt 10kbis flow
-
-fct-tiles buildvrt 10k dem-drainage-resolved
-fct-tiles buildvrt 10kbis dem-drainage-resolved
-'''
+from fct.tileio import buildvrt
+buildvrt('10k', 'flow')
+buildvrt('10kbis', 'flow')
+buildvrt('10k', 'dem-drainage-resolved')
+buildvrt('10kbis', 'dem-drainage-resolved')
 
 # Flow tiles inlets/outlets graph
 from fct.drainage import Accumulate
@@ -87,10 +85,9 @@ Accumulate.InletAreas(params=params, tileset='10kbis')
 Accumulate.FlowAccumulation(params=params, overwrite=True, processes=8) 
 Accumulate.FlowAccumulation(params=params, overwrite=True, processes=8, tileset='10kbis')
 
-'''bash
-fct-tiles buildvrt 10k acc
-fct-tiles buildvrt 10kbis acc
-'''
+from fct.tileio import buildvrt
+buildvrt('10k', 'acc')
+buildvrt('10kbis', 'acc')
 
 # Stream Network from sources
 from fct.drainage import StreamSources
@@ -120,11 +117,10 @@ params.fixed = 'noflow-targets'
 
 FixNoFlow.DrainageRaster(params=params, processes=8)
 FixNoFlow.DrainageRaster(params=params, processes=8, tileset='10kbis')
-    
-'''bash
-fct-tiles buildvrt 10k drainage-raster-from-sources
-fct-tiles buildvrt 10kbis drainage-raster-from-sources
-'''
+   
+from fct.tileio import buildvrt 
+buildvrt('10k', 'drainage-raster-from-sources')
+buildvrt('10kbis', 'drainage-raster-from-sources')
 
 FixNoFlow.NoFlowPixels(params=params, processes=8)
 FixNoFlow.NoFlowPixels(params=params, processes=8, tileset='10kbis')
