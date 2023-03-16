@@ -1,14 +1,17 @@
 # Copy the Hydrographic Reference to outputs/GLOBAL/REFHYDRO
-'''bash
-cp ../01-drainage_plan/inputs/REFERENTIEL_HYDRO.* ../outputs/GLOBAL/INPUT/
-'''
+
+import glob, shutil
+for f in glob.glob('../inputs/REFERENTIEL_HYDRO.*'):
+    shutil.copy(f, '../outputs/GLOBAL/REFHYDRO/')
 
 # Shortest Height
 from fct.height import ShortestHeight
 params = ShortestHeight.Parameters()
-params.reference = 'stream-network-cartography-in'
 
 ShortestHeight.ShortestHeight(params, processes=8)
+
+from fct.tileio import buildvrt
+buildvrt('10k', 'shortest_height')
 
 # Height above nearest drainage
 from fct.height import HeightAboveNearestDrainage
@@ -16,26 +19,28 @@ params = HeightAboveNearestDrainage.Parameters()
 
 HeightAboveNearestDrainage.HeightAboveNearestDrainage(params, processes=8)
 
-# Disaggregate along referentiel hydro
+from fct.tileio import buildvrt
+buildvrt('10k', 'nearest_height')
+buildvrt('10k', 'nearest_distance')
+buildvrt('10k', 'nearest_drainage_axis')
+
+# Disaggregate along refaxis
 from fct.measure import SwathMeasurement
 params = SwathMeasurement.Parameters()
-params.reference = 'stream-network-cartography-in'
 params.mdelta = 200.0
 
 swaths = SwathMeasurement.DisaggregateIntoSwaths(params, processes=8)
+
+from fct.tileio import buildvrt
+buildvrt('10k', 'axis_measure')
+buildvrt('10k', 'axis_distance')
+buildvrt('10k', 'swaths_refaxis')
 
 # Swath drainage
 from fct.corridor import SwathDrainage
 params = SwathDrainage.Parameters()
 
 swath_drainage = SwathDrainage.SwathDrainage(params, processes=8)
-
-# Vectorize Refaxis Swaths
-from fct.measure import SwathPolygons
-params = SwathPolygons.Parameters()
-
-swaths = SwathPolygons.Swaths(params, processes=8)
-SwathPolygons.VectorizeSwaths(swaths, swath_drainage, params, processes=8)
 
 # Valley bottom features
 from fct.corridor import ValleyBottomFeatures
@@ -63,12 +68,15 @@ params = ValleyBottomFinal.Parameters()
 ValleyBottomFinal.ConnectedValleyBottom(params, processes=8)
 ValleyBottomFinal.TrueValleyBottom(params, processes=8)
 
-# fct-tiles -c ./tutorials/dem_to_dgo/config.ini buildvrt 10k nearest_distance
-# fct-tiles -c ./tutorials/dem_to_dgo/config.ini buildvrt 10k swaths_refaxis
-# fct-tiles -c ./tutorials/dem_to_dgo/config.ini buildvrt 10k valley_bottom_final
-# fct-tiles -c ./tutorials/dem_to_dgo/config.ini buildvrt 10k nearest_drainage_axis
-# fct-tiles -c ./tutorials/dem_to_dgo/config.ini buildvrt 10k axis_measure
-# fct-tiles -c ./tutorials/dem_to_dgo/config.ini buildvrt 10k axis_distance
+from fct.tileio import buildvrt
+buildvrt('10k', 'valley_bottom_final')
+
+# Vectorize Refaxis Swaths
+from fct.measure import SwathPolygons
+params = SwathPolygons.Parameters()
+
+swaths = SwathPolygons.Swaths(params, processes=8)
+SwathPolygons.VectorizeSwaths(swaths, swath_drainage, params, processes=8)
 
 # Calculate medial axes
 from fct.corridor import MedialAxis2
@@ -90,13 +98,16 @@ params.output_swaths_shapefile = 'swaths_medialaxis_polygons'
 params.output_swaths_bounds = 'swaths_medialaxis_bounds'
 params.mdelta = 200.0
 
-swaths = SwathMeasurement.DisaggregateIntoSwaths(params, processes=4)
+swaths = SwathMeasurement.DisaggregateIntoSwaths(params, processes=8)
+
+from fct.tileio import buildvrt
+buildvrt('10k', 'swaths_medialaxis')
 
 # Swath drainage
 from fct.corridor import SwathDrainage
 params = SwathDrainage.Parameters()
 
-swath_drainage = SwathDrainage.SwathDrainage(params, processes=4)
+swath_drainage = SwathDrainage.SwathDrainage(params, processes=8)
 
 # Vectorize Medialaxis Swaths
 from fct.measure import SwathPolygons
@@ -104,8 +115,8 @@ params = SwathPolygons.Parameters()
 params.swaths = 'swaths_medialaxis'
 params.polygons = 'swaths_medialaxis_polygons'
 
-swaths = SwathPolygons.Swaths(params, processes=4)
-SwathPolygons.VectorizeSwaths(swaths, swath_drainage, params, processes=4)
+swaths = SwathPolygons.Swaths(params, processes=8)
+SwathPolygons.VectorizeSwaths(swaths, swath_drainage, params, processes=8)
 
 # SimplifySwathsPolygons to get a clean vectorial output
 from fct.measure import SimplifySwathPolygons2
