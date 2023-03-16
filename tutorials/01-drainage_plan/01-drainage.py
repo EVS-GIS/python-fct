@@ -20,7 +20,7 @@ buildvrt('10kbis', 'dem')
 # First step when you have only one DEM : Smoothing
 from fct.drainage import PrepareDEM
 params = PrepareDEM.SmoothingParameters()
-params.window=2
+params.window=3
 
 PrepareDEM.MeanFilter(params, overwrite=True, processes=8, tileset='10k')
 PrepareDEM.MeanFilter(params, overwrite=True, processes=8, tileset='10kbis')
@@ -29,7 +29,6 @@ PrepareDEM.MeanFilter(params, overwrite=True, processes=8, tileset='10kbis')
 from fct.drainage import DepressionFill
 params = DepressionFill.Parameters()
 params.elevations = 'smoothed'
-# params.exterior_data = 0.0
 DepressionFill.LabelWatersheds(params, overwrite=True, processes=8)
 DepressionFill.LabelWatersheds(params, overwrite=True, processes=8, tileset='10kbis')
 
@@ -51,7 +50,7 @@ BorderFlats.ResolveFlatSpillover(params=params, tileset='10kbis')
 BorderFlats.DispatchFlatMinimumZ(params=params, overwrite=True, processes=8)
 BorderFlats.DispatchFlatMinimumZ(params=params, overwrite=True, processes=8, tileset='10kbis')
     
-#FlatMap.DepressionDepthMap
+# FlatMap.DepressionDepthMap is useful if you want to check which flat areas have been resolved
 
 # Flow direction
 from fct.drainage import FlowDirection
@@ -101,13 +100,6 @@ StreamSources.StreamToFeatureFromSources(min_drainage=500, processes=8, tileset=
 StreamSources.AggregateStreamsFromSources()
 StreamSources.AggregateStreamsFromSources(tileset='10kbis')
 
-# Find NoFlow pixels from sources
-# StreamSources.NoFlowPixels(min_drainage=500, processes=8)
-# StreamSources.NoFlowPixels(min_drainage=500, processes=8, tileset='10kbis')
-    
-# StreamSources.AggregateNoFlowPixels()
-# StreamSources.AggregateNoFlowPixels(tileset='10kbis')
-
 # Find NoFlow pixels from RHTS
 from fct.drainage import FixNoFlow
 params = FixNoFlow.Parameters()
@@ -129,48 +121,35 @@ FixNoFlow.AggregateNoFlowPixels(params)
 FixNoFlow.AggregateNoFlowPixels(params, tileset='10kbis')
 
 # Fix NoFlow (create TARGETS shapefile and fix Flow Direction data)
-FixNoFlow.FixNoFlow(params, tileset1='10k', tileset2='10kbis', fix=False)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+FixNoFlow.FixNoFlow(params, tileset1='10k', tileset2='10kbis', fix=True)
 
 # Remake FlowAccumulation with NoFlow pixels fixed
 from fct.drainage import Accumulate
 params = Accumulate.Parameters()
+params.elevations = 'dem-drainage-resolved'
 
+Accumulate.Outlets(params=params, processes=8)
+Accumulate.AggregateOutlets(params)
+Accumulate.InletAreas(params=params)
 Accumulate.FlowAccumulation(params=params, overwrite=True, processes=8) 
-Accumulate.FlowAccumulation(params=params, overwrite=True, processes=8, tileset='10kbis')
-
-
 
 # Remake stream Network from sources with NoFlow pixels fixed
 from fct.drainage import StreamSources
 
 StreamSources.InletSources(params)
-StreamSources.InletSources(params, tileset='10kbis')
-
 StreamSources.StreamToFeatureFromSources(min_drainage=500, processes=8)
-StreamSources.StreamToFeatureFromSources(min_drainage=500, processes=8, tileset='10kbis')
-
 StreamSources.AggregateStreamsFromSources()
-StreamSources.AggregateStreamsFromSources(tileset='10kbis')
 
-# Run identify Network Nodes with the QGIS Toolbox on RHTS_10K_NOATTR.shp and save the result in outputs/RHTS_Network.gpkg
+# Identify network nodes
+from fct.drainage import IdentifyNetworkNodes
+params = IdentifyNetworkNodes.Parameters()
 
-# TODO: Fix longest path finding
+IdentifyNetworkNodes.IdentifyNetworkNodes(params)
+
+#2 TODO: Fix longest path finding 
+# TODO: Update JoinNetworkAttributes
 
 from fct.drainage import JoinNetworkAttributes
-JoinNetworkAttributes.JoinNetworkAttributes('./inputs/sources.gpkg', './outputs/RHTS_Network.gpkg', './outputs/RHTS.shp')
-JoinNetworkAttributes.AggregateByAxis('./outputs/RHTS.shp', './outputs/GLOBAL/MEASURE/REFAXIS.shp')
+JoinNetworkAttributes.JoinNetworkAttributes('../inputs/sources.gpkg', '../outputs/GLOBAL/DEM/NETWORK_IDENTIFIED_10K.shp', '../outputs/GLOBAL/DEM/RHTS.shp')
+JoinNetworkAttributes.UpdateLengthOrder('../outputs/GLOBAL/DEM/RHTS.shp', '../outputs/GLOBAL/DEM/RHTS.shp')
+JoinNetworkAttributes.AggregateByAxis('../outputs/GLOBAL/DEM/RHTS.shp', '../outputs/GLOBAL/MEASURE/REFAXIS.shp')
