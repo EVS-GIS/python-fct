@@ -30,9 +30,11 @@ params = SwathMeasurement.Parameters()
 params.mdelta = 200.0
 
 swaths = SwathMeasurement.DisaggregateIntoSwaths(params, processes=8)
+swaths_bounds = SwathMeasurement.WriteSwathsBounds(params, attrs=swaths)
 
 from fct.tileio import buildvrt
 buildvrt('10k', 'axis_measure')
+buildvrt('10k', 'axis_nearest')
 buildvrt('10k', 'axis_distance')
 buildvrt('10k', 'swaths_refaxis')
 
@@ -86,19 +88,19 @@ medial_axis = MedialAxis2.MedialAxis(params)
 MedialAxis2.SimplifyMedialAxis(params, medial_axis)
 
 # Disaggregate along medial axes
-# TODO: create separate outputs for medialaxis
 from fct.measure import SwathMeasurement
 params = SwathMeasurement.Parameters()
 params.reference = 'medialaxis_simplified'
-params.output_distance = 'axis_distance'
-params.output_measure = 'axis_measure'
-params.output_nearest = 'axis_nearest'
+params.output_distance = 'medialaxis_distance'
+params.output_measure = 'medialaxis_measure'
+params.output_nearest = 'medialaxis_nearest'
 params.output_swaths_raster = 'swaths_medialaxis'
 params.output_swaths_shapefile = 'swaths_medialaxis_polygons'
 params.output_swaths_bounds = 'swaths_medialaxis_bounds'
 params.mdelta = 200.0
 
 swaths = SwathMeasurement.DisaggregateIntoSwaths(params, processes=8)
+swaths_bounds = SwathMeasurement.WriteSwathsBounds(params, attrs=swaths)
 
 from fct.tileio import buildvrt
 buildvrt('10k', 'swaths_medialaxis')
