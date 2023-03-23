@@ -79,7 +79,7 @@ See the full [list of metrics](https://tramebleue.github.io/fct-cli/docs/metrics
 ## Quick start
 
 - Windows
-  - Install python >= 3.8 with environment PATH
+  - Install python >= 3.8 and < 3.11 with environment PATH
   - Install Git for windows
   - Open a command prompt
   
@@ -111,6 +111,7 @@ python -m pip install numpy cython
 # install all the requirements in setup.py
 python -m pip install -e .
 ```
+
 ## Acknowledgements
 
 The toolbox is developed within the programme
