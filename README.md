@@ -102,14 +102,14 @@ python3.8 -m venv env --prompt python-fct
 # update pip
 python -m pip install -U pip
 
+# if you want to use the jupyter notebook tutorials, install jupyterlab
+python -m pip install jupyterlab
+
 # install numpy and cython modules
-pip install numpy cython
+python -m pip install numpy cython
 
 # install all the requirements in setup.py
 python -m pip install -e .
-
-# if you want to use the jupyter notebook tutorials, install jupyterlab
-python -m pip install jupyterlab
 ```
 ## Acknowledgements
 
