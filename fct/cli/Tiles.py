@@ -117,11 +117,10 @@ def RetileDatasource(datasource, tileset, processes=1, **kwargs):
 
 def CreateTileset(datasource: str = 'bdalti', 
                   resolution: float = 10000.0, 
-                  tileset1: str = '../inputs/10k_tileset.gpkg',
-                  tileset2: str = '../inputs/10kbis_tileset.gpkg',):
+                  tileset1: str = '../outputs/10k_tileset.gpkg',
+                  tileset2: str = '../outputs/10kbis_tileset.gpkg'):
     """
     Create two shifted tilesets with a specified resolution, using a datasource defined in config.ini as a reference layer
-    TODO: Check output tile size
     """
 
     schema = { 
@@ -142,9 +141,13 @@ def CreateTileset(datasource: str = 'bdalti',
     
     # Tileset 1
     
-    nx = int((maxx - minx)/resolution)
-    ny = int((maxy - miny)/resolution)
-    gx, gy = np.linspace(minx,maxx,nx), np.linspace(miny,maxy,ny)
+    minx -= resolution/2
+    miny -= resolution/2
+    
+    maxx += resolution/2
+    maxy += resolution/2
+    
+    gx, gy = np.arange(minx, maxx, resolution), np.arange(miny, maxy, resolution)
 
     gid = 1
     with fiona.open(tileset1, 'w', **options) as dst:   
@@ -159,7 +162,7 @@ def CreateTileset(datasource: str = 'bdalti',
                             },
                            'properties': {
                                'GID': gid,
-                               'ROW': j+1,
+                               'ROW': len(gy)-j-1,
                                'COL': i+1,
                                'Y0': gy[j+1],
                                'X0': gx[i]
@@ -171,14 +174,15 @@ def CreateTileset(datasource: str = 'bdalti',
     
     # Tileset 2 (shifted)
     
-    minx = minx - (resolution/2)
-    miny = miny - (resolution/2)
-    maxx = maxx + (resolution/2)
-    maxy = maxy + (resolution/2)
+    minx -= (resolution/2)
+    miny -= (resolution/2)
+    maxx += (resolution/2)
+    maxy += (resolution/2)
     
-    nx = int((maxx - minx)/resolution)
-    ny = int((maxy - miny)/resolution)
-    gx, gy = np.linspace(minx,maxx,nx), np.linspace(miny,maxy,ny)
+    # nx = int((maxx - minx) // resolution) + 1 
+    # ny = int((maxy - miny) // resolution) + 1
+    
+    gx, gy = np.arange(minx, maxx, resolution), np.arange(miny, maxy, resolution)
 
     gid = 1
     with fiona.open(tileset2, 'w', **options) as dst:   
@@ -193,7 +197,7 @@ def CreateTileset(datasource: str = 'bdalti',
                             },
                            'properties': {
                                'GID': gid,
-                               'ROW': j+1,
+                               'ROW': len(gy)-j-1,
                                'COL': i+1,
                                'Y0': gy[j+1],
                                'X0': gx[i]

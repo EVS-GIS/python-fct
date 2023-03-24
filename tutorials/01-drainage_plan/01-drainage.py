@@ -6,6 +6,11 @@ Goals of step 01-drainage :
     - 
 '''
 
+# Create your tileset
+
+from fct.cli import Tiles
+Tiles.CreateTileset('bdalti', 10000.0)
+
 # Prepare the DEM tiles and VRT
 
 from fct.cli import Tiles
@@ -148,6 +153,9 @@ IdentifyNetworkNodes.IdentifyNetworkNodes(params)
 
 #2 TODO: Fix longest path finding 
 # TODO: Update JoinNetworkAttributes
+import os
+if not os.path.isdir('../outputs/GLOBAL/MEASURE'):
+    os.mkdir('../outputs/GLOBAL/MEASURE')
 
 from fct.drainage import JoinNetworkAttributes
 JoinNetworkAttributes.JoinNetworkAttributes('../inputs/sources.gpkg', '../outputs/GLOBAL/DEM/NETWORK_IDENTIFIED_10K.shp', '../outputs/GLOBAL/DEM/RHTS.shp')
