@@ -18,6 +18,11 @@ from multiprocessing import Pool
 import click
 
 import rasterio as rio
+import numpy as np
+import fiona
+import fiona.crs
+
+from shapely.geometry import Polygon
 from ..config import config
 from ..tileio import as_window
 from ..cli import starcall
@@ -108,3 +113,92 @@ def RetileDatasource(datasource, tileset, processes=1, **kwargs):
         with click.progressbar(pooled, length=len(arguments)) as iterator:
             for _ in iterator:
                 pass
+
+
+def CreateTileset(datasource: str = 'bdalti', 
+                  resolution: float = 10000.0, 
+                  tileset1: str = '../inputs/10k_tileset.gpkg',
+                  tileset2: str = '../inputs/10kbis_tileset.gpkg',):
+    """
+    Create two shifted tilesets with a specified resolution, using a datasource defined in config.ini as a reference layer
+    TODO: Check output tile size
+    """
+
+    schema = { 
+        'geometry': 'Polygon', 
+        'properties': {'GID': 'int',
+                       'ROW': 'int',
+                       'COL': 'int',
+                       'X0': 'float',
+                       'Y0': 'float'} }
+    
+    options = dict(
+        driver='GPKG',
+        schema=schema,
+        crs=fiona.crs.from_epsg(config.srid))
+    
+    with rio.open(config.datasource(datasource).filename) as src:
+        minx, miny, maxx, maxy = src.bounds
+    
+    # Tileset 1
+    
+    nx = int((maxx - minx)/resolution)
+    ny = int((maxy - miny)/resolution)
+    gx, gy = np.linspace(minx,maxx,nx), np.linspace(miny,maxy,ny)
+
+    gid = 1
+    with fiona.open(tileset1, 'w', **options) as dst:   
+        for i in range(len(gx)-1):
+            for j in range(len(gy)-1):
+                
+                coordinates = [(gx[i],gy[j]),(gx[i],gy[j+1]),(gx[i+1],gy[j+1]),(gx[i+1],gy[j])]
+                
+                feature = {'geometry': {
+                            'type':'Polygon',
+                            'coordinates': [coordinates] 
+                            },
+                           'properties': {
+                               'GID': gid,
+                               'ROW': j+1,
+                               'COL': i+1,
+                               'Y0': gy[j+1],
+                               'X0': gx[i]
+                           }
+                    }
+                
+                dst.write(feature)
+                gid+=1
+    
+    # Tileset 2 (shifted)
+    
+    minx = minx - (resolution/2)
+    miny = miny - (resolution/2)
+    maxx = maxx + (resolution/2)
+    maxy = maxy + (resolution/2)
+    
+    nx = int((maxx - minx)/resolution)
+    ny = int((maxy - miny)/resolution)
+    gx, gy = np.linspace(minx,maxx,nx), np.linspace(miny,maxy,ny)
+
+    gid = 1
+    with fiona.open(tileset2, 'w', **options) as dst:   
+        for i in range(len(gx)-1):
+            for j in range(len(gy)-1):
+                
+                coordinates = [(gx[i],gy[j]),(gx[i],gy[j+1]),(gx[i+1],gy[j+1]),(gx[i+1],gy[j])]
+                
+                feature = {'geometry': {
+                            'type':'Polygon',
+                            'coordinates': [coordinates] 
+                            },
+                           'properties': {
+                               'GID': gid,
+                               'ROW': j+1,
+                               'COL': i+1,
+                               'Y0': gy[j+1],
+                               'X0': gx[i]
+                           }
+                    }
+                
+                dst.write(feature)
+                gid+=1

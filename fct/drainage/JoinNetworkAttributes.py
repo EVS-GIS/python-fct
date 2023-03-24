@@ -20,7 +20,7 @@ from heapq import heappop, heapify
 import click
 import fiona
 import fiona.crs
-from shapely.geometry import asShape
+from shapely.geometry import shape
 from shapely.ops import linemerge
 
 from ..config import config
@@ -292,7 +292,7 @@ def UpdateLengthOrder(
                 a = properties['NODEA']
                 b = properties['NODEB']
 
-                geometry = asShape(feature['geometry'])
+                geometry = shape(feature['geometry'])
                 lengths[axis] += geometry.length
 
                 graph[a] = (b, axis)
@@ -425,7 +425,7 @@ def AggregateByAxis(network_shapefile, output):
                     properties = feature['properties']
 
                     geometry = linemerge([
-                        asShape(fs.get(fid)['geometry'])
+                        shape(fs.get(fid)['geometry'])
                         for fid in segments[axis]
                     ])
 
@@ -434,5 +434,5 @@ def AggregateByAxis(network_shapefile, output):
                     properties.update({'NODEB': b})
 
                     feature['geometry'] = geometry.__geo_interface__
-
+                    
                     dst.write(feature)

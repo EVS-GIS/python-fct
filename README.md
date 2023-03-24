@@ -79,7 +79,7 @@ See the full [list of metrics](https://tramebleue.github.io/fct-cli/docs/metrics
 ## Quick start
 
 - Windows
-  - Install python >= 3.8 with environment PATH
+  - Install python >= 3.8 and < 3.11 with environment PATH
   - Install Git for windows
   - Open a command prompt
   
@@ -102,15 +102,16 @@ python3.8 -m venv env --prompt python-fct
 # update pip
 python -m pip install -U pip
 
+# if you want to use the jupyter notebook tutorials, install jupyterlab
+python -m pip install jupyterlab
+
 # install numpy and cython modules
-pip install numpy cython
+python -m pip install numpy cython
 
 # install all the requirements in setup.py
 python -m pip install -e .
-
-# if you want to use the jupyter notebook tutorials, install jupyterlab
-python -m pip install jupyterlab
 ```
+
 ## Acknowledgements
 
 The toolbox is developed within the programme
