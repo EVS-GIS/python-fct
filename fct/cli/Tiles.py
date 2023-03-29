@@ -12,12 +12,16 @@ DOCME
 *                                                                         *
 ***************************************************************************
 """
-
+    
 import os
 from multiprocessing import Pool
 import click
 
 import rasterio as rio
+import numpy as np
+import fiona
+import fiona.crs
+
 from ..config import config
 from ..tileio import as_window
 from ..cli import starcall
@@ -108,3 +112,109 @@ def RetileDatasource(datasource, tileset, processes=1, **kwargs):
         with click.progressbar(pooled, length=len(arguments)) as iterator:
             for _ in iterator:
                 pass
+
+
+def CreateTileset(datasource: str = 'bdalti', 
+                  resolution: float = 10000.0, 
+                  tileset1: str = '../outputs/10k_tileset.gpkg',
+                  tileset2: str = '../outputs/10kbis_tileset.gpkg'):
+    """
+    Creates two tilesets in GeoPackage format (.gpkg) with rectangular polygons that tile the bounding box of 
+    the given datasource according to a resolution parameter. The first tileset contains polygons that are 
+    aligned with the bounding box, whereas the second tileset contains polygons that are shifted by half the 
+    resolution in both the x and y directions.
+
+    :param datasource: str, default='bdalti'
+        The name of the datasource as specified in the application's configuration file.
+    :param resolution: float, default=10000.0
+        The width and height of the rectangular polygons in the tilesets.
+    :param tileset1: str, default='../inputs/10k_tileset.gpkg'
+        The filename of the first tileset to create.
+    :param tileset2: str, default='../inputs/10kbis_tileset.gpkg'
+        The filename of the second tileset to create.
+    :return: None
+    """
+
+    schema = { 
+        'geometry': 'Polygon', 
+        'properties': {'GID': 'int',
+                       'ROW': 'int',
+                       'COL': 'int',
+                       'X0': 'float',
+                       'Y0': 'float'} }
+    
+    options = dict(
+        driver='GPKG',
+        schema=schema,
+        crs=fiona.crs.from_epsg(config.srid))
+    
+    with rio.open(config.datasource(datasource).filename) as src:
+        minx, miny, maxx, maxy = src.bounds
+    
+    # Tileset 1
+    
+    minx -= resolution/2
+    miny -= resolution/2
+    
+    maxx += resolution/2
+    maxy += resolution/2
+    
+    gx, gy = np.arange(minx, maxx, resolution), np.arange(miny, maxy, resolution)
+
+    gid = 1
+    with fiona.open(tileset1, 'w', **options) as dst:   
+        for i in range(len(gx)-1):
+            for j in range(len(gy)-1):
+                
+                coordinates = [(gx[i],gy[j]),(gx[i],gy[j+1]),(gx[i+1],gy[j+1]),(gx[i+1],gy[j])]
+                
+                feature = {'geometry': {
+                            'type':'Polygon',
+                            'coordinates': [coordinates] 
+                            },
+                           'properties': {
+                               'GID': gid,
+                               'ROW': len(gy)-j-1,
+                               'COL': i+1,
+                               'Y0': gy[j+1],
+                               'X0': gx[i]
+                           }
+                    }
+                
+                dst.write(feature)
+                gid+=1
+    
+    # Tileset 2 (shifted)
+    
+    minx -= (resolution/2)
+    miny -= (resolution/2)
+    maxx += (resolution/2)
+    maxy += (resolution/2)
+    
+    # nx = int((maxx - minx) // resolution) + 1 
+    # ny = int((maxy - miny) // resolution) + 1
+    
+    gx, gy = np.arange(minx, maxx, resolution), np.arange(miny, maxy, resolution)
+
+    gid = 1
+    with fiona.open(tileset2, 'w', **options) as dst:   
+        for i in range(len(gx)-1):
+            for j in range(len(gy)-1):
+                
+                coordinates = [(gx[i],gy[j]),(gx[i],gy[j+1]),(gx[i+1],gy[j+1]),(gx[i+1],gy[j])]
+                
+                feature = {'geometry': {
+                            'type':'Polygon',
+                            'coordinates': [coordinates] 
+                            },
+                           'properties': {
+                               'GID': gid,
+                               'ROW': len(gy)-j-1,
+                               'COL': i+1,
+                               'Y0': gy[j+1],
+                               'X0': gx[i]
+                           }
+                    }
+                
+                dst.write(feature)
+                gid+=1

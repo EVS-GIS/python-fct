@@ -221,6 +221,19 @@ axis_distance:
     template: AXIS_DISTANCE_%(row)02d_%(col)02d
     extension: .tif
 
+medialaxis_distance:
+  description: |
+    Distance to medial axis
+  type: raster
+  group: metrology
+  status: temporary
+  subdir: NETWORK/MEASURE
+  filename: MEDIALAXIS_DISTANCE.vrt
+  tiles:
+    tileset: landcover
+    template: MEDIALAXIS_DISTANCE_%(row)02d_%(col)02d
+    extension: .tif
+
 axis_measure:
   description: |
     Location (measure) along reference axis
@@ -234,6 +247,19 @@ axis_measure:
     template: AXIS_MEASURE_%(row)02d_%(col)02d
     extension: .tif
 
+medialaxis_measure:
+  description: |
+    Location (measure) along medial axis
+  type: raster
+  group: spatial reference
+  status: temporary
+  subdir: NETWORK/MEASURE
+  filename: MEDIALAXIS_MEASURE.vrt
+  tiles:
+    tileset: landcover
+    template: MEDIALAXIS_MEASURE_%(row)02d_%(col)02d
+    extension: .tif
+
 axis_nearest:
   description: |
     Nearest reference axis
@@ -245,6 +271,19 @@ axis_nearest:
   tiles:
     tileset: landcover
     template: AXIS_NEAREST_%(row)02d_%(col)02d
+    extension: .tif
+
+medialaxis_nearest:
+  description: |
+    Nearest medial axis
+  type: raster
+  group: spatial reference
+  status: temporary
+  subdir: NETWORK/MEASURE
+  filename: MEDIALAXIS_NEAREST.vrt
+  tiles:
+    tileset: landcover
+    template: MEDIALAXIS_NEAREST_%(row)02d_%(col)02d
     extension: .tif
 
 swaths_refaxis:

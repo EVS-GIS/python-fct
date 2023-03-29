@@ -520,8 +520,8 @@ def WriteSwathsBounds(params, attrs, **kwargs):
 
     set_metadata(dataset, 'swath_bounds')
 
-    dataset.attrs['geographic_object'] = params.ax_mask
-    dataset.attrs['reference_axis'] = params.ax_reference
+    dataset.attrs['geographic_object'] = params.mask.name
+    dataset.attrs['reference_axis'] = params.reference.name
 
     output = params.output_swaths_bounds.filename(tileset=None) # config.filename(params.output_swaths_bounds)
 
