@@ -146,8 +146,7 @@ params = IdentifyNetworkNodes.Parameters()
 
 IdentifyNetworkNodes.IdentifyNetworkNodes(params)
 
-#2 TODO: Fix longest path finding 
-# TODO: Update JoinNetworkAttributes
+#7 TODO: Update JoinNetworkAttributes
 
 from fct.drainage import JoinNetworkAttributes
 JoinNetworkAttributes.JoinNetworkAttributes('../inputs/sources.gpkg', '../outputs/GLOBAL/DEM/NETWORK_IDENTIFIED_10K.shp', '../outputs/GLOBAL/DEM/RHTS.shp')

@@ -12,7 +12,7 @@ DOCME
 *                                                                         *
 ***************************************************************************
 """
-
+    
 import os
 from multiprocessing import Pool
 import click
@@ -22,7 +22,6 @@ import numpy as np
 import fiona
 import fiona.crs
 
-from shapely.geometry import Polygon
 from ..config import config
 from ..tileio import as_window
 from ..cli import starcall
@@ -120,8 +119,20 @@ def CreateTileset(datasource: str = 'bdalti',
                   tileset1: str = '../inputs/10k_tileset.gpkg',
                   tileset2: str = '../inputs/10kbis_tileset.gpkg',):
     """
-    Create two shifted tilesets with a specified resolution, using a datasource defined in config.ini as a reference layer
-    TODO: Check output tile size
+    Creates two tilesets in GeoPackage format (.gpkg) with rectangular polygons that tile the bounding box of 
+    the given datasource according to a resolution parameter. The first tileset contains polygons that are 
+    aligned with the bounding box, whereas the second tileset contains polygons that are shifted by half the 
+    resolution in both the x and y directions.
+
+    :param datasource: str, default='bdalti'
+        The name of the datasource as specified in the application's configuration file.
+    :param resolution: float, default=10000.0
+        The width and height of the rectangular polygons in the tilesets.
+    :param tileset1: str, default='../inputs/10k_tileset.gpkg'
+        The filename of the first tileset to create.
+    :param tileset2: str, default='../inputs/10kbis_tileset.gpkg'
+        The filename of the second tileset to create.
+    :return: None
     """
 
     schema = { 

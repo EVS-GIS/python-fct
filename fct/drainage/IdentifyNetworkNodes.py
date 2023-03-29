@@ -32,9 +32,28 @@ class Parameters:
         self.output = 'network-identified'
         self.nodes = 'network-nodes'
         
-
+        
 def IdentifyNetworkNodes(params, tileset='default'):
+    """
+    Identifies network nodes by finding the endpoints of lines in a given network dataset and 
+    quantizing their coordinates. The nodes are output as a separate dataset and their 
+    attributes are added to the input network dataset. 
     
+    Parameters
+    ----------
+    params : Parameters
+        Input parameters.
+    tileset : str, optional
+        The tileset to use for the input and output datasets. Default is 'default'.
+        
+    Returns
+    -------
+    None
+    
+    Raises
+    ------
+    None
+    """
     # Step 1
     click.secho('Get lines endpoints', fg='yellow')
     coordinates = list()
