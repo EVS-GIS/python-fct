@@ -165,7 +165,7 @@ def SwathValleyBottomHeight(
 
         try:
 
-            regressor = HuberRegressor()
+            regressor = HuberRegressor(max_iter=200)
             # regressor.fit(xs[:, 0].reshape(-1, 1), xs[:, 1])
             regressor.fit(m.reshape(size, 1), z.reshape(size))
 
@@ -230,7 +230,7 @@ def axis_loop(talweg, axis, swath_bounds, params: Parameters):
                 talweg,
                 ax,
                 measure,
-                bounds,
+                bounds[1],
                 params)
 
     return xr.concat(values(), 'swath', 'all')
@@ -258,7 +258,7 @@ def ValleyBottomHeight(swath_bounds, params: Parameters, processes: int = 1, **k
                         talweg,
                         axis,
                         measure,
-                        bounds,
+                        bounds[1],
                         params)
 
         return xr.concat(values(), 'swath', 'all')

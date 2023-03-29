@@ -28,7 +28,7 @@ from shapely.geometry import asShape
 
 from .. import transform as fct
 from ..rasterize import rasterize_linestring
-from ..config import config
+from ..config import config, DatasetParameter, LiteralParameter
 from ..metadata import set_metadata
 
 def InterpolateMissingValues(measures, values, kind='slinear'):
@@ -49,7 +49,35 @@ def InterpolateMissingValues(measures, values, kind='slinear'):
 
     return missing
 
-def TalwegMetrics(axis):
+
+class Parameters:
+    """
+    Talweg metrics parameters
+    """
+
+    dem = DatasetParameter('Input DEM')
+    talweg = DatasetParameter('Input talweg')
+    swath_bounds = DatasetParameter('Input swath bounds')
+    swath_raster = DatasetParameter('Input swath raster')
+    axis_measure = DatasetParameter('Input axis measure raster')
+    swath_elevation = DatasetParameter('Input swath elevation NetCDF')
+    
+    metrics_talweg = DatasetParameter('Output talweg metrics NetCDF', type='output')
+
+    def __init__(self):
+        """
+        Default parameter values
+        """
+        self.dem = 'dem'
+        self.talweg = 'medialaxis'
+        self.swath_bounds = 'swaths_medialaxis_bounds'
+        self.swath_raster = 'swaths_medialaxis'
+        self.axis_measure = 'axis_measure'
+        self.swath_elevation = 'swath_elevation_npz'
+        self.metrics_talweg = 'metrics_talweg'
+
+
+def TalwegMetrics(params):
     """
     Calculate median talweg height relative to valley floor
 
@@ -65,17 +93,17 @@ def TalwegMetrics(axis):
     @output metrics_talweg: metrics_talweg
     """
 
-    elevation_raster = config.tileset().filename('dem')
-    talweg_shapefile = config.filename('ax_talweg', axis=axis)
-    swath_bounds = config.filename('ax_swaths_refaxis_bounds', axis=axis)
-    swath_raster = config.tileset().filename('ax_swaths_refaxis', axis=axis)
-    measure_raster = config.tileset().filename('ax_axis_measure', axis=axis)
+    elevation_raster = params.dem.filename()
+    talweg_shapefile = params.talweg.filename()
+    swath_bounds = params.swath_bounds.filename(tileset=None)
+    swath_raster = params.swath_raster.filename()
+    measure_raster = params.axis_measure.filename()
 
     # swath => z0, slope
 
     defs = xr.open_dataset(swath_bounds)
     defs.load()
-    defs = defs.sortby('measure')
+    defs = defs.sortby('axis', 'measure')
 
     estimates = dict()
 

@@ -415,7 +415,7 @@ def AggregateByAxis(network_shapefile, output):
                 node = next_node
 
             return node
-
+        
         with fiona.open(output, 'w', **options) as dst:
             with click.progressbar(sources) as iterator:
                 for source in iterator:
@@ -433,6 +433,6 @@ def AggregateByAxis(network_shapefile, output):
                     b = get_nodeb(a, axis)
                     properties.update({'NODEB': b})
 
-                    feature['geometry'] = geometry.__geo_interface__
+                    feature['geometry']['coordinates'] = list(geometry.coords)
                     
                     dst.write(feature)
