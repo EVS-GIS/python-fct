@@ -13,7 +13,7 @@ Traitements de création du référentiel des exutoires QGIS (dans le geopackage
 - Couche "limite_terre_mer"
   - Extraction de la couche
 - Couche "plan_d_eau"
-  - Sélection manuelle et extraction de la couche de lacs et lagunes méditerranéenne
+  - Sélection manuelle et extraction de lacs et lagunes méditerranéenne issus de la couche plan_d_eau
   - Polygones vers polylignes, couche "plan_d_eau_ligne"
 - Couche bassin_versant_topographique
   - Fusion des polygones de la couche 
