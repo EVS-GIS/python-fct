@@ -25,18 +25,9 @@ Traitements de création du référentiel des exutoires QGIS (dans le geopackage
   - Edition, calculatrice de champ, mise à jour du champ "fid", @row_number
   - buffer 50m
 
-
-
-- Sélection manuelle et extraction des bassins versants dont l'exutoire est la frontière de la couche bassin_versant_topographique avec l'aide de la couche troncon_hydrographique
-
-- Edition, séparation des entités pour avoir les frontières extérieures, suppression des limites maritimes.
-- Modifier les noeuds des limites de frontières avec la limite_terre_mer pour connecter les deux limites
-- Sélection des 
-
+- create_exutoire.py pour créer les différentes couches exutoire à partir de la limite terre mer, les plans d'eau sélectionnés et les frontières ajustées aux limites terre mer.
 
 # Création du référentiel hydrographique de la France métropolitaine
-
-
 
 Le référentiel hydrographique vise à être réseau des cours d'eau français, coulant et topologiquement juste. On doit pouvoir retrouver l'ensemble des affluents d'un fleuve en remontant le sens de l'écoulement vers l'amont. 
 
@@ -48,14 +39,14 @@ Depuis la couche troncon_hydrographique de la BD TOPO:
   - Des confluences non connectées ou des cours d'eau trop loin des exutoire mais sans troncons existant pour compléter les connexions. Il faut alors modifier la géométrie d'un tronçon pour permettre la liaison ou l'extension du cours d'eau. Il s'agit alors de sélectionner le tronçon à modifier, l'enregister dans une couche de modification puis modifier cette nouvelle entité dans cette même couche. La couche de modification est troncon_hydrographique_cours_d_eau_modif_geom
   - Des sens d'écoulement sont erronnés et doivent être inversé. Les tronçons concernés sont sélectionnés puis enregistrés depuis troncon_hydrographique_cours_d_eau_corr_dir_ecoulement.
   - Les deux configuration peuvent parfois être présentes, il faut donc ajouter un tronçon puis inverser le sens d'écoulement. La couche de modification est troncon_hydrographique_conn_corr_dir_ecoulement.
-- IdentifyNetworkNodes
+- IdentifyNetworkNodes de la FCT QGIS
 - sélection spatiale depuis le buffer de la couche exutoire
-- SelectConnectedReaches avec option upstream pour sélectionner tout les tronçons amont depuis l'aval
+- SelectConnectedReaches de la FCT QGIS avec option upstream/downstream pour sélectionner tous les tronçons amont et aval connectés
+- export des tronçons sélectionnées
+- vérification des doublons
+- A FAIRE! découper les tronçons avec l'emprise du MNT utilisé pour la FCT
 
-- ajustement du réseau hydrographique : troncon_hydrographique_connexion
-  - suppression des doublons
-  - ajout au troncon_hydrographique sans NULL et Vide
-
+SELECTION DE PAR ORDRE DE STRAHLER ??
 Couche troncons_hydrographiques:
 - cpx_toponyme_de_cours_d_eau NOT NULL
 - IdentifyNetworkNodes, sélection de l'exutoire puis de tous les troncons amonts
