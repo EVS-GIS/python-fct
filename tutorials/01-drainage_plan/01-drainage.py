@@ -25,7 +25,7 @@ buildvrt('10kbis', 'dem')
 # First step when you have only one DEM : Smoothing
 from fct.drainage import PrepareDEM
 params = PrepareDEM.SmoothingParameters()
-params.window=3
+params.window=5
 
 PrepareDEM.MeanFilter(params, overwrite=True, processes=8, tileset='10k')
 PrepareDEM.MeanFilter(params, overwrite=True, processes=8, tileset='10kbis')
@@ -56,6 +56,12 @@ BorderFlats.DispatchFlatMinimumZ(params=params, overwrite=True, processes=8)
 BorderFlats.DispatchFlatMinimumZ(params=params, overwrite=True, processes=8, tileset='10kbis')
     
 # FlatMap.DepressionDepthMap is useful if you want to check which flat areas have been resolved
+
+# create buffer around hydro network
+from fct.drainage import Burn
+params = Burn.Parameters()
+
+Burn.HydroBuffer(params=params)
 
 # Flow direction
 from fct.drainage import FlowDirection

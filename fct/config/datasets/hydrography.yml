@@ -20,6 +20,15 @@ stream-network-cartography-in:
 #   subdir: GLOBAL/REFHYDRO
 #   filename: REFERENTIEL_HYDRO.shp
 
+stream-network-cartography-buffered:
+  description: |
+    Stream network derived from cartography buffered 
+  type: polygon
+  group: hydrography
+  status: input
+  subdir: GLOBAL/REFHYDRO
+  filename: REFERENTIEL_HYDRO_BUF.shp
+
 stream-network-cartography-backup:
   description: |
     Stream network derived from cartography
