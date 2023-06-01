@@ -469,3 +469,16 @@ ax_watershed:
     tileset: landcover
     template: WATERSHED_%(row)02d_%(col)02d
     extension: .shp
+
+burned_dem:
+  description: |
+    Burned DEM
+  type: raster
+  group: drainage
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: BURNED.vrt
+  tiles:
+    tileset: landcover
+    template: BURNED_%(row)02d_%(col)02d
+    extension: .tif

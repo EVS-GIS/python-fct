@@ -25,9 +25,26 @@ stream-network-cartography-buffered:
     Stream network derived from cartography buffered 
   type: polygon
   group: hydrography
-  status: input
+  status: temporary
   subdir: GLOBAL/REFHYDRO
-  filename: REFERENTIEL_HYDRO_BUF.shp
+  filename: REFERENTIEL_HYDRO_BUF.gpkg
+  tiles:
+    tileset: landcover
+    template: HYDRO_BUFF_%(row)02d_%(col)02d
+    extension: .gpkg
+
+stream-network-cartography-buffered-tiled:
+  description: |
+    Stream network derived from cartography buffered tiled
+  type: polygon
+  group: hydrography
+  status: temporary
+  subdir: GLOBAL/REFHYDRO
+  filename: REFERENTIEL_HYDRO_BUF_TILED.gpkg
+  tiles:
+    tileset: landcover
+    template: HYDRO_BUFF_%(row)02d_%(col)02d
+    extension: .gpkg
 
 stream-network-cartography-backup:
   description: |
