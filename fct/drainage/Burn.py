@@ -90,11 +90,6 @@ def HydroBuffer(params):
                 
                 # Extract buffer value from attribute field
                 buffer_value = properties['buffer']
-
-                if geometry.geom_type == 'Polygon':
-                    # Generate buffer geometry for polygon
-                    print(geometry.geom_type)
-                    print (properties)
                 
                 # Generate buffer geometry
                 buffer_geometry = geometry.buffer(buffer_value)
@@ -109,7 +104,7 @@ def HydroBuffer(params):
                 # Write buffered feature to output shapefile
                 output.write(buffered_feature)
 
-def HydroBufferTile(row, col, params, overwrite=True, tileset='default'):
+def ClipBufferTile(row, col, params, overwrite=True, tileset='default'):
     elevations = params.elevations.tilename(row=row, col=col, tileset=tileset)
     hydro_network_buffered = params.hydro_network_buffer.filename(tileset=None)
     hydro_network_buffer_tiled = params.hydro_network_buffer.tilename(row=row, col=col, tileset=tileset)
@@ -121,17 +116,36 @@ def HydroBufferTile(row, col, params, overwrite=True, tileset='default'):
         with fiona.open(hydro_network_buffered) as source:
 
             options = dict(
-                driver=source.driver,
-                schema=source.schema,
-                crs=source.crs)
+            driver=source.driver,
+            schema=source.schema,
+            crs=source.crs) 
+
+            ## write raster mask
+            # schema = {
+            #     'geometry': 'Polygon',
+            #     'properties': {},
+            # }
+            # crs=source.crs
+            
+            # with fiona.open('C:/Users/lmanie01/Documents/Gitlab/python-fct/tutorials/outputs/GLOBAL/REFHYDRO/10K/HYDRO_BUFF/02_01_buff.shp', 'w', 'ESRI Shapefile', schema, crs=crs) as tile:
+            #     tile_geom = {
+            #                 'type': 'Feature',
+            #                 'properties': {},
+            #                 'geometry': mapping(shape(geoms[0][0]))
+            #             }
+            #     tile.write(tile_geom)
 
             with fiona.open(hydro_network_buffer_tiled, 'w', **options) as dst:
                 for feature in source:
                     buff_geom = shape(feature['geometry'])
+                    # print('buff geom', feature)
+                    # print(buff_geom)
                     
                     # Clip each LineString individually
-                    clipped_geometries = [buff_geom.intersection(shape(sub_geom[0])) for sub_geom in geoms]
-
+                    clipped_geometries = [buff_geom.intersection(shape(geoms[0][0]))]
+                    # print('clipped geom')
+                    # print(clipped_geometries)
+                    
                     for item in clipped_geometries:
                         clipped_geom = {
                             'type': 'Feature',
@@ -141,6 +155,39 @@ def HydroBufferTile(row, col, params, overwrite=True, tileset='default'):
                     
                     # Write buffered feature to output vector
                     dst.write(clipped_geom)
+
+def ClipBuffer(
+        params,
+        overwrite=True,
+        tileset='default',
+        processes=1):
+    
+    def arguments():
+
+        for tile in config.tileset(tileset).tiles():
+            row = tile.row
+            col = tile.col
+            yield (
+                ClipBufferTile,
+                row,
+                col,
+                params,
+                overwrite,
+                tileset
+            )
+
+    arguments = list(arguments())
+
+    with Pool(processes=processes) as pool:
+
+        pooled = pool.imap_unordered(starcall_nokwargs, arguments)
+
+        with click.progressbar(pooled, length=len(arguments)) as iterator:
+            for _ in iterator:
+                pass
+
+
+
 
 # def HydroBufferTile(row, col, params, overwrite=True, tileset='default'):
 #     hydro_network = params.hydro_network.filename()

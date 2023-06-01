@@ -65,7 +65,11 @@ Burn.HydroBuffer(params=params)
 
 from fct.drainage import Burn
 params = Burn.Parameters()
-Burn.HydroBufferTile(params=params, overwrite=True)
+Burn.ClipBuffer(params=params, overwrite=True)
+
+from fct.drainage import Burn
+params = Burn.Parameters()
+Burn.ClipBufferTile(2, 1, params=params, overwrite=True)
 
 from fct.drainage import Burn
 params = Burn.Parameters()
