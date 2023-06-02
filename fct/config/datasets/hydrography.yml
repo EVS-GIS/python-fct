@@ -28,10 +28,6 @@ stream-network-cartography-buffered:
   status: temporary
   subdir: GLOBAL/REFHYDRO
   filename: REFERENTIEL_HYDRO_BUF.gpkg
-  tiles:
-    tileset: landcover
-    template: HYDRO_BUFF_%(row)02d_%(col)02d
-    extension: .gpkg
 
 stream-network-cartography-buffered-tiled:
   description: |

@@ -115,9 +115,7 @@ def RetileDatasource(datasource, tileset, processes=1, **kwargs):
 
 
 def CreateTileset(datasource: str = 'bdalti', 
-                  resolution: float = 10000.0, 
-                  tileset1: str = '../outputs/10k_tileset.gpkg',
-                  tileset2: str = '../outputs/10kbis_tileset.gpkg'):
+                  resolution: float = 10000.0):
     """
     Creates two tilesets in GeoPackage format (.gpkg) with rectangular polygons that tile the bounding box of 
     the given datasource according to a resolution parameter. The first tileset contains polygons that are 
@@ -142,6 +140,9 @@ def CreateTileset(datasource: str = 'bdalti',
                        'COL': 'int',
                        'X0': 'float',
                        'Y0': 'float'} }
+    
+    tileset1 = os.path.normpath(os.path.join(config.workdir, config.dataset('10k-tileset').subdir(tileset=None), config.dataset('10k-tileset').filename(tileset=None)))
+    tileset2 = os.path.normpath(os.path.join(config.workdir, config.dataset('10kbis-tileset').subdir(tileset=None), config.dataset('10kbis-tileset').filename(tileset=None)))
     
     options = dict(
         driver='GPKG',

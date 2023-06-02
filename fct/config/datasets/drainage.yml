@@ -482,3 +482,21 @@ burned_dem:
     tileset: landcover
     template: BURNED_%(row)02d_%(col)02d
     extension: .tif
+
+10k-tileset:
+  description: |
+    tileset reference 10km square
+  type: polygon
+  group: drainage
+  status: input
+  subdir: GLOBAL/DEM
+  filename: 10k_tileset.gpkg
+
+10kbis-tileset:
+  description: |
+    staggered tileset reference 10km square
+  type: polygon
+  group: drainage
+  status: input
+  subdir: GLOBAL/DEM
+  filename: 10kbis_tileset.gpkg

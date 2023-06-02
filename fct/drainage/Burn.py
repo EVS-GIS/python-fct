@@ -56,6 +56,7 @@ class Parameters:
     hydro_network_buffer_tiled = DatasetParameter('reference hydrologic network buffered by field clipped by tiles', type='input')
     elevations = DatasetParameter('filled-resolved elevation raster (DEM)', type='input')
     burned_dem = DatasetParameter('burned elevation raster (DEM)', type='output')
+    tileset = DatasetParameter('10k default tileset', type='input')
 
     def __init__(self, axis=None):
         """
@@ -66,13 +67,26 @@ class Parameters:
         self.hydro_network_buffer_tiled = 'stream-network-cartography-buffered-tiled'
         self.elevations = 'dem-drainage-resolved'
         self.burned_dem = 'burned_dem'
+        self.tileset = '10k-tileset'
 
 def HydroBuffer(params):
+    """
+    Creates a buffered shapefile from a hydro network shapefile.
+
+    Parameters:
+    - params (object): An object containing the parameters for buffering.
+        - hydro_network (str): The filename of the hydro network shapefile.
+        - hydro_network_buffer (str): The filename for the buffered output shapefile.
+
+    Returns:
+    - None
+
+    """
     hydro_network = params.hydro_network.filename()
     hydro_network_buffered = params.hydro_network_buffer.filename(tileset=None)
 
     with fiona.open(hydro_network, 'r') as source:
-        # Create output shapefile schema
+        # Create output schema
         schema = source.schema.copy()
         schema['properties']['buffer'] = 'float'
         schema['geometry'] = 'Polygon'
@@ -81,80 +95,85 @@ def HydroBuffer(params):
             driver=source.driver,
             schema=schema,
             crs=source.crs)
-        
-        # Create output shapefile
+
+        # Create output vector
         with fiona.open(hydro_network_buffered, 'w', **options) as output:
             for feature in source:
                 properties = feature['properties']
                 geometry = shape(feature['geometry'])
-                
+
                 # Extract buffer value from attribute field
                 buffer_value = properties['buffer']
-                
+
                 # Generate buffer geometry
                 buffer_geometry = geometry.buffer(buffer_value)
-                
+
                 # Create buffered feature
                 buffered_feature = {
                     'type': 'Feature',
                     'properties': properties,
                     'geometry': mapping(buffer_geometry)
                 }
-                
-                # Write buffered feature to output shapefile
+
+                # Write buffered feature to output
                 output.write(buffered_feature)
 
 def ClipBufferTile(row, col, params, overwrite=True, tileset='default'):
-    elevations = params.elevations.tilename(row=row, col=col, tileset=tileset)
+    """
+    Clips hydro network buffer tiles based on a specified row and column,
+    and saves the clipped tiles to a tiled hydro network buffer file.
+
+    Parameters:
+    - row (int): The row number of the tile to clip.
+    - col (int): The column number of the tile to clip.
+    - params (object): parameters.
+    - overwrite (bool): Optional. Specifies whether to overwrite existing tiled buffer files. Default is True.
+    - tileset (str): Optional. The name of the tileset to use. Default is 'default'.
+
+    Returns:
+    None
+    """
+
+    # Get file paths
     hydro_network_buffered = params.hydro_network_buffer.filename(tileset=None)
-    hydro_network_buffer_tiled = params.hydro_network_buffer.tilename(row=row, col=col, tileset=tileset)
+    hydro_network_buffer_tiled = params.hydro_network_buffer_tiled.tilename(row=row, col=col, tileset=tileset)
+    tileset_file = params.tileset.filename(tileset=None)
 
-    with rio.open(elevations) as raster:
-        valid_data = raster.read_masks(1)
-        geoms = list(features.shapes(valid_data, transform=raster.transform))
+    # Open the tileset file
+    with fiona.open(tileset_file) as tileset_data:
+        for tile in tileset_data:
+            geom_tile = shape(tile['geometry'])
+            properties_tile = tile['properties']
 
-        with fiona.open(hydro_network_buffered) as source:
+            if properties_tile['ROW'] == row and properties_tile['COL'] == col:
+                # Tile found, perform clipping
 
-            options = dict(
-            driver=source.driver,
-            schema=source.schema,
-            crs=source.crs) 
-
-            ## write raster mask
-            # schema = {
-            #     'geometry': 'Polygon',
-            #     'properties': {},
-            # }
-            # crs=source.crs
-            
-            # with fiona.open('C:/Users/lmanie01/Documents/Gitlab/python-fct/tutorials/outputs/GLOBAL/REFHYDRO/10K/HYDRO_BUFF/02_01_buff.shp', 'w', 'ESRI Shapefile', schema, crs=crs) as tile:
-            #     tile_geom = {
-            #                 'type': 'Feature',
-            #                 'properties': {},
-            #                 'geometry': mapping(shape(geoms[0][0]))
-            #             }
-            #     tile.write(tile_geom)
-
-            with fiona.open(hydro_network_buffer_tiled, 'w', **options) as dst:
-                for feature in source:
-                    buff_geom = shape(feature['geometry'])
-                    # print('buff geom', feature)
-                    # print(buff_geom)
+                # Open the hydro network buffer file
+                with fiona.open(hydro_network_buffered) as hydro:
+                    options = dict(
+                        driver=hydro.driver,
+                        schema=hydro.schema,
+                        crs=hydro.crs)
                     
-                    # Clip each LineString individually
-                    clipped_geometries = [buff_geom.intersection(shape(geoms[0][0]))]
-                    # print('clipped geom')
-                    # print(clipped_geometries)
-                    
-                    for item in clipped_geometries:
-                        clipped_geom = {
-                            'type': 'Feature',
-                            'properties': feature['properties'],
-                            'geometry': mapping(item)
-                        }
-                    
-                    # Write buffered feature to output vector
-                    dst.write(clipped_geom)
+                    # Open the tiled hydro network buffer file for writing
+                    with fiona.open(hydro_network_buffer_tiled, 'w', **options) as dst:
+                        for feature in hydro:
+                            hydro_geom = shape(feature['geometry'])
+                            hydro_properties = feature['properties']
+
+                            # Perform intersection to clip the geometry
+                            clipped_geometries = [hydro_geom.intersection(geom_tile)]
+
+                            # Create a new feature with the clipped geometry
+                            clipped_geom = {
+                                'type': 'Feature',
+                                'properties': feature['properties'],
+                                'geometry': mapping(clipped_geometries[0])
+                            }
+                        
+                            # Write the clipped feature to the tiled buffer file
+                            dst.write(clipped_geom)
+
 
 def ClipBuffer(
         params,
@@ -186,119 +205,6 @@ def ClipBuffer(
             for _ in iterator:
                 pass
 
-
-
-
-# def HydroBufferTile(row, col, params, overwrite=True, tileset='default'):
-#     hydro_network = params.hydro_network.filename()
-#     hydro_network_buffered = params.hydro_network_buffer.tilename(row=row, col=col, tileset=tileset)
-#     elevations = params.elevations.tilename(row=row, col=col, tileset=tileset)
-
-#     # Load the raster mask
-#     with rio.open(elevations) as raster:
-#         nodata_value = raster.nodata
-#         # mask = raster.read_masks(1)
-#         # Calculate the out_shape based on the bounds
-#         # out_shape = (raster.height, raster.width)
-#         print([feature['geometry'] for feature in fiona.open(hydro_network)])
-#         maskhydro, _ = mask(raster, shapes=[feature['geometry'] for feature in fiona.open(hydro_network)], invert=True)
-
-#         with fiona.open(hydro_network) as source:
-#             options = dict(
-#                 driver=source.driver,
-#                 schema=source.schema,
-#                 crs=source.crs)
-            
-#         #     features = [shape(f['geometry']) for f in source]
-
-#         #     data_mask = geometry_mask(features, out_shape, raster.transform, invert=True)
-
-#             # Convert the data mask to a rasterio mask
-#             # mask = rio.features.geometry_mask([data_mask], out_shape=out_shape, transform=raster.transform)
-
-#             # Appliquer le masque nodata à la géométrie
-#             # masked_geom = data_mask & mask.astype(bool)
-
-#             with fiona.open(hydro_network_buffered, 'w', **options) as output:
-#                 for feature in source:
-#                     geom = shape(feature['geometry'])
-
-#                     # Découper les linestrings en utilisant le masque
-#                     if maskhydro.any() and maskhydro.shape == raster.shape and maskhydro.intersects(geom):
-#                         intersected = maskhydro.intersection(geom)
-#                         if intersected.geom_type == 'LineString':
-#                             intersected = [intersected]
-
-#                         # Écrire les nouvelles géométries découpées dans le fichier shapefile de sortie
-#                         output.write({
-#                             'geometry': mapping(intersected),
-#                             'properties': feature['properties']
-#                         })
-
-    # with fiona.open(hydro_network, 'r') as source:
-    #     polyline_features = list(source)
-    #     options = dict(
-    #         driver=source.driver,
-    #         schema=source.schema,
-    #         crs=source.crs)
-    
-    
-
-    # with fiona.open(hydro_network_buffered, 'w', **options) as dst:
-    #     for feature in polyline_features:
-    #         properties = feature['properties']
-    #         geometry = shape(feature['geometry'])
-
-    #         transformed_geometry = rio.transform.xy(raster_transform, *geometry.coords.xy)
-    #         clipped, _ = mask(raster_data, [transformed_geometry], nodata=raster_nodata, crop=True)
-    #         clipped = clipped[0]
-    #         clipped[clipped != 0] = raster_nodata
-
-    #         clipped_feature = {
-    #             'type': 'Feature',
-    #             'properties': properties,
-    #             'geometry': clipped
-    #         }
-
-    #         dst.write(clipped_feature)
-
-    # with fiona.open(hydro_network, 'r') as source:
-    #     # Create output shapefile schema
-    #     schema = source.schema.copy()
-    #     schema['properties']['buffer'] = 'float'
-    #     schema['geometry'] = 'Polygon'
-
-    #     options = dict(
-    #         driver=source.driver,
-    #         schema=schema,
-    #         crs=source.crs)
-        
-    #     # Create output shapefile
-    #     with fiona.open(hydro_network_buffered, 'w', **options) as output:
-    #         for feature in source:
-    #             properties = feature['properties']
-    #             geometry = shape(feature['geometry'])
-                
-    #             # Extract buffer value from attribute field
-    #             buffer_value = properties['buffer']
-
-    #             if geometry.geom_type == 'Polygon':
-    #                 # Generate buffer geometry for polygon
-    #                 print(geometry.geom_type)
-    #                 print (properties)
-                
-    #             # Generate buffer geometry
-    #             buffer_geometry = geometry.buffer(buffer_value)
-                
-    #             # Create buffered feature
-    #             buffered_feature = {
-    #                 'type': 'Feature',
-    #                 'properties': properties,
-    #                 'geometry': mapping(buffer_geometry)
-    #             }
-                
-    #             # Write buffered feature to output shapefile
-    #             output.write(buffered_feature)
 
 def BurnTileBuffer(row, col, params, burn_delta=0.0, overwrite=True, tileset='default'):
     """
