@@ -23,22 +23,15 @@ from ..cli import starcall_nokwargs
 
 import rasterio as rio
 from rasterio.features import geometry_mask
-from rasterio.mask import mask
-from rasterio import features
 import fiona
 from shapely.geometry import (
-    asShape,
-    box,
     shape,
     MultiPolygon,
     mapping
 )
 
-from shapely.ops import unary_union
-
 from ..config import (
     config,
-    LiteralParameter,
     DatasetParameter,
     DatasourceParameter
 )
