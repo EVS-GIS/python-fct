@@ -255,6 +255,9 @@ def BurnTileBuffer(row, col, params, burn_delta=5, overwrite=True, tileset='defa
             click.secho('Output already exists: %s' % burned, fg='yellow')
             return
 
+    if os.path.exists(hydro_network_buffer_tiled) == False:
+            return
+    
     # Open the hydro network buffer tiled file
     with fiona.open(hydro_network_buffer_tiled) as hydro_buff:
         # Get the polygon geometries
