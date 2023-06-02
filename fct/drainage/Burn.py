@@ -68,6 +68,30 @@ class Parameters:
         self.hydrography_strahler_fieldbuf = 'hydrography-strahler-fieldbuf'
 
 
+def find_head_lines(lines):
+    head_idx = []
+
+    num_lines = len(lines)
+    for i in range(num_lines):
+        line = lines[i]
+        first_point = line[0]
+
+        has_upstream = False
+
+        for j in range(num_lines):
+            if j == i:
+                continue
+            line = lines[j]
+            last_point = line[len(line)-1]
+
+            if first_point == last_point:
+                has_upstream = True
+
+        if not has_upstream:
+            head_idx.append(i)
+
+    return head_idx
+
 # https://here.isnew.info/strahler-stream-order-in-python.html
 def strahler_order(params):
     hydro_network = params.hydro_network.filename()
@@ -96,7 +120,25 @@ def strahler_order(params):
             for feature in source:
                 # Create a new feature with the new field
                 new_properties = feature['properties']
-                new_properties[field_name] = None  # Set the new field value to None or any other initial value
+                new_properties[field_name] = 0  # Set the new field value to None or any other initial value
+
+                geom = shape(feature['geometry'])
+                line = geom.coords
+                # print(line)
+                lines.append(line)
+                # print ('lines coord')
+                # print(lines)
+
+                head_idx = find_head_lines(lines)
+                print (head_idx)
+
+                for idx in head_idx:
+                    curr_idx = idx
+                    curr_feat = next(iter(source[curr_idx:curr_idx+1]))
+                    print(curr_idx, curr_feat)
+                    curr_ord = 1
+                    curr_feat['properties'][field_name] = curr_ord # head line always 1
+                    print(curr_feat['properties'][field_name])
                 
                 # Create the new feature and write it to the destination shapefile
                 new_feature = {
