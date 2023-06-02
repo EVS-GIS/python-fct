@@ -73,6 +73,13 @@ Burn.BurnBuffer(params=params, burn_delta = 5, overwrite=True, processes=8)
 Burn.BurnBuffer(params=params, burn_delta = 5, overwrite=True, processes=8, tileset='10kbis')
 
 
+from fct.drainage import Burn
+params = Burn.Parameters()
+Burn.strahler_order(params)
+
+
+
+
 # Flow direction
 from fct.drainage import FlowDirection
 params = FlowDirection.Parameters()

@@ -171,3 +171,12 @@ river-network-ordered:
   status: input
   subdir: GLOBAL/REFHYDRO
   filename: REFERENTIEL_HYDRO_ORDERED.shp
+
+hydrography-strahler-fieldbuf:
+  description: |
+    reference stream network with strahler order and buffer field to compute buffer before burn DEM
+  type: linestring
+  group: hydrography
+  status: input
+  subdir: GLOBAL/REFHYDRO
+  filename: REFERENTIEL_HYDRO_STRAHLER_FIELDBUF.gpkg

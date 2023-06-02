@@ -52,6 +52,7 @@ class Parameters:
     burned_dem = DatasetParameter('burned elevation raster (DEM)', type='output')
     tileset_10k = DatasetParameter('10k default tileset', type='input')
     tileset_10kbis = DatasetParameter('10k bis tileset', type='input')
+    hydrography_strahler_fieldbuf = DatasetParameter('reference stream network with strahler order and buffer field to compute buffer before burn DEM', type='input')
 
     def __init__(self, axis=None):
         """
@@ -64,6 +65,56 @@ class Parameters:
         self.burned_dem = 'burned_dem'
         self.tileset_10k = '10k-tileset'
         self.tileset_10kbis = '10kbis-tileset'
+        self.hydrography_strahler_fieldbuf = 'hydrography-strahler-fieldbuf'
+
+
+# https://here.isnew.info/strahler-stream-order-in-python.html
+def strahler_order(params):
+    hydro_network = params.hydro_network.filename()
+    hydrography_strahler_fieldbuf = params.hydrography_strahler_fieldbuf.filename(tileset=None)
+    print(hydrography_strahler_fieldbuf)
+
+    with fiona.open(hydro_network, 'r') as source:
+
+        schema = source.schema.copy()
+
+        hydro_all_geoms = [feature['geometry'] for feature in source]
+        num_features = len(hydro_all_geoms)
+        print(num_features)
+
+        lines = []
+
+        field_name = "Strahler_test"
+        new_field_type = 'int'
+
+        # Add the new field to the schema
+        schema['properties'][field_name] = new_field_type
+
+        # Create a new shapefile with the updated schema
+        with fiona.open(hydrography_strahler_fieldbuf, 'w', driver=source.driver, crs=source.crs, schema=schema) as dst:
+            # Copy the features from the source shapefile to the destination shapefile
+            for feature in source:
+                # Create a new feature with the new field
+                new_properties = feature['properties']
+                new_properties[field_name] = None  # Set the new field value to None or any other initial value
+                
+                # Create the new feature and write it to the destination shapefile
+                new_feature = {
+                    'geometry': feature['geometry'],
+                    'properties': new_properties
+                }
+                dst.write(new_feature)
+
+        # for i in range(num_features):
+        # feat = lyr.GetFeature(i)
+        # feat.SetField(field_name, 0)
+        # lyr.SetFeature(feat)
+        # geom = feat.geometry()
+        # line = geom.GetPoints()
+        # lines.append(line)
+
+
+
 
 def HydroBuffer(params):
     """
