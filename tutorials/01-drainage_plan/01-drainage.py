@@ -57,15 +57,23 @@ BorderFlats.DispatchFlatMinimumZ(params=params, overwrite=True, processes=8, til
     
 # FlatMap.DepressionDepthMap is useful if you want to check which flat areas have been resolved
 
-# create buffer around hydro network
+# Burn DEM resolved with buffered hydro network
+# get parameters
 from fct.drainage import Burn
 params = Burn.Parameters()
 
+# create buffer around hydro network 
 Burn.HydroBuffer(params=params)
+# clip hydro buffer with tileset
+Burn.ClipBuffer(params=params, overwrite=True, processes=8)
+Burn.ClipBuffer(params=params, overwrite=True, processes=8, tileset='10kbis')
 
 from fct.drainage import Burn
 params = Burn.Parameters()
-Burn.ClipBuffer(params=params, overwrite=True, processes=8)
+Burn.BurnBuffer(params=params, burn_delta = 5, overwrite=True, processes=8)
+Burn.BurnBuffer(params=params, burn_delta = 5, overwrite=True, processes=8, tileset='10kbis')
+
+Burn.BurnTileBuffer(1, 1, params=params, burn_delta=1000, overwrite=True)
 
 from fct.drainage import Burn
 params = Burn.Parameters()
