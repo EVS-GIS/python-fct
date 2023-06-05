@@ -79,7 +79,6 @@ Burn.strahler_order(params)
 
 
 
-
 # Flow direction
 from fct.drainage import FlowDirection
 params = FlowDirection.Parameters()

@@ -180,3 +180,12 @@ hydrography-strahler-fieldbuf:
   status: input
   subdir: GLOBAL/REFHYDRO
   filename: REFERENTIEL_HYDRO_STRAHLER_FIELDBUF.gpkg
+
+hydrography-strahler-fieldbuf-complete:
+  description: |
+    reference stream network with strahler order and buffer field completed to compute buffer before burn DEM
+  type: linestring
+  group: hydrography
+  status: input
+  subdir: GLOBAL/REFHYDRO
+  filename: REFERENTIEL_HYDRO_STRAHLER_FIELDBUF_COMPLETE.gpkg

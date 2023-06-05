@@ -53,6 +53,7 @@ class Parameters:
     tileset_10k = DatasetParameter('10k default tileset', type='input')
     tileset_10kbis = DatasetParameter('10k bis tileset', type='input')
     hydrography_strahler_fieldbuf = DatasetParameter('reference stream network with strahler order and buffer field to compute buffer before burn DEM', type='input')
+    hydrography_strahler_fieldbuf_complete = DatasetParameter('reference stream network with strahler order and buffer field completed to compute buffer before burn DEM', type='input')
 
     def __init__(self, axis=None):
         """
@@ -66,6 +67,7 @@ class Parameters:
         self.tileset_10k = '10k-tileset'
         self.tileset_10kbis = '10kbis-tileset'
         self.hydrography_strahler_fieldbuf = 'hydrography-strahler-fieldbuf'
+        self.hydrography_strahler_fieldbuf_complete = 'hydrography-strahler-fieldbuf-complete'
 
 
 def find_head_lines(lines):
@@ -151,41 +153,40 @@ def find_sibling_line(curr_idx, lines):
 
     return sibling_idx
 
-# https://here.isnew.info/strahler-stream-order-in-python.html
+
+# source code https://here.isnew.info/strahler-stream-order-in-python.html
 def strahler_order(params):
     hydro_network = params.hydro_network.filename()
     hydrography_strahler_fieldbuf = params.hydrography_strahler_fieldbuf.filename(tileset=None)
+    hydrography_strahler_fieldbuf_complete = params.hydrography_strahler_fieldbuf_complete.filename(tileset=None)
 
+    # load network
     with fiona.open(hydro_network, 'r') as source:
 
         schema = source.schema.copy()
-
-        hydro_all_geoms = [feature['geometry'] for feature in source]
-        num_features = len(hydro_all_geoms)
-
         lines = []
-
-        field_name = "Strahler_test"
-        new_field_type = 'int'
+        strahler_field_name = "strahler"
+        strahler_field_type = 'int'
+        buffer_field_name = 'buffer'
+        buffer_field_type = 'float'
 
         # Add the new field to the schema
-        schema['properties'][field_name] = new_field_type
+        schema['properties'][strahler_field_name] = strahler_field_type
+        schema['properties'][buffer_field_name] = buffer_field_type
 
-        # Create a new shapefile with the updated schema
+        # Create a new dataset with the updated schema
         with fiona.open(hydrography_strahler_fieldbuf, 'w', driver=source.driver, crs=source.crs, schema=schema) as dst:
-            
             # Copy the features from the source shapefile to the destination shapefile
             for feature in source:
                 # Create a new feature with the new field
                 new_properties = feature['properties']
-                new_properties[field_name] = 0  # Set the new field value to None or any other initial value
+                new_properties[strahler_field_name] = 0  # Set the strahler field value to 0
+                new_properties[buffer_field_name] = 0 # Set the buffer field value to 0
 
                 geom = shape(feature['geometry'])
+                # copy line coordinates to find head line
                 line = geom.coords
-                # print(line)
                 lines.append(line)
-                # print ('lines coord')
-                # print(lines)
         
                 # Create the new feature and write it to the destination shapefile
                 new_feature = {
@@ -193,61 +194,66 @@ def strahler_order(params):
                     'properties': new_properties
                 }
                 dst.write(new_feature)
-            print('hydrography_strahler_fieldbuf created')
 
+        # save head lines index
         head_idx = find_head_lines(lines)
-        print (head_idx)
 
-        with fiona.open(hydrography_strahler_fieldbuf, 'r+') as modif:
-            for idx in head_idx:
-                curr_idx = idx
-                curr_feat = next(iter(modif[curr_idx:curr_idx+1]))
-                curr_ord = 1
-                curr_feat['properties'][field_name] = curr_ord # head line always 1)
-                modif.write(curr_feat, curr_idx=curr_idx)
-                print(curr_feat['properties'][field_name])
-                # modif.write(curr_feat, feature_index=feature_index)
-            for feat in modif:
-                print(feat['properties']['GID'], feat['properties'][field_name])
+    # read dataset with the updated schema
+    with fiona.open(hydrography_strahler_fieldbuf, 'r') as source_buff:
+        options = dict(
+            driver=source_buff.driver,
+            schema=source_buff.schema,
+            crs=source_buff.crs)
+        
+        # copy feature to save modification before saving
+        source_buff_copy = [feature for feature in source_buff]
 
-                # while True:
-                #     next_idx = find_next_line(curr_idx, lines)
-                #     # print(next_idx)
-                #     if not next_idx:
-                #         break
-                #     next_feat = next(iter(modif[next_idx:next_idx+1]))
-                #     # print (next_feat)
-                #     # prop = next_feat['properties']
-                #     # print(prop[field_name])
-                #     next_ord = next_feat['properties'][field_name]
-                #     # print (next_ord)
-                #     sibl_idx = find_sibling_line(curr_idx, lines)
-                #     if sibl_idx is not None:
-                #         sibl_feat = next(iter(modif[sibl_idx:sibl_idx+1]))
-                #         sibl_ord = sibl_feat['properties'][field_name]
-                #         print(sibl_idx, sibl_ord, curr_ord, )
-                #         if sibl_ord:
-                #             if sibl_ord > curr_ord:
-                #                 break
-                #             elif sibl_ord < curr_ord:
-                #                 if next_ord == curr_ord:
-                #                     break
-                #             else:
-                #                 curr_ord += 1
-                #     next_feat['properties'][field_name] = curr_ord
+        # iterate through head lines
+        for idx in head_idx:
+            curr_idx = idx
+            curr_ord = 1
+            # head lines order = 1
+            source_buff_copy[curr_idx]['properties'][strahler_field_name] = curr_ord
+            # go downstream from each head lines
+            while True:
+                # find next line downstream
+                next_idx = find_next_line(curr_idx, lines)
+                # stop iteration if no next line
+                if not next_idx:
+                    break
+                # copy next line feature and order
+                next_feat = source_buff_copy[next_idx]
+                next_ord = next_feat['properties'][strahler_field_name]
+                # find sibling line
+                sibl_idx = find_sibling_line(curr_idx, lines)
+                # if sibling line exist
+                if sibl_idx is not None:
+                    # copy sibling line feature and order
+                    sibl_feat = source_buff_copy[sibl_idx]
+                    sibl_ord = sibl_feat['properties'][strahler_field_name]
+                    # determinate order base on sibling, next and current line
+                    if sibl_ord > curr_ord:
+                        break
+                    elif sibl_ord < curr_ord:
+                        if next_ord == curr_ord:
+                            break
+                    else:
+                        curr_ord += 1
+                # update order in feature copy dict
+                source_buff_copy[next_idx]['properties'][strahler_field_name] = curr_ord
+                # go further downstream
+                curr_idx = next_idx
 
-                #     curr_idx = next_idx
-                    
-                    # print(next_feat['properties']['GID'])
-                    # print(next_feat['geometry'])
-                    # print(next_feat['properties'][field_name])
+        # write final features from updated features copy
+        with fiona.open(hydrography_strahler_fieldbuf_complete, 'w', **options) as modif:
+            for feature in source_buff_copy:
+                modified_feature = {
+                        'type': 'Feature',
+                        'properties': feature['properties'],
+                        'geometry': feature['geometry'],
+                    }
 
-                    # Create the new feature and write it to the destination shapefile
-                    # strahler_feature = {
-                    #     'geometry': next_feat['geometry'],
-                    #     'properties': next_feat['properties']
-                    # }
-                    # dst.write(strahler_feature)
+                modif.write(modified_feature)
 
 def HydroBuffer(params):
     """
