@@ -70,100 +70,103 @@ class Parameters:
         self.hydrography_strahler_fieldbuf_complete = 'hydrography-strahler-fieldbuf-complete'
 
 
-def find_head_lines(lines):
-    head_idx = []
-
-    num_lines = len(lines)
-    for i in range(num_lines):
-        line = lines[i]
-        first_point = line[0]
-
-        has_upstream = False
-
-        for j in range(num_lines):
-            if j == i:
-                continue
-            line = lines[j]
-            last_point = line[len(line)-1]
-
-            if first_point == last_point:
-                has_upstream = True
-
-        if not has_upstream:
-            head_idx.append(i)
-
-    return head_idx
-
-def find_prev_lines(curr_idx, lines):
-    prev_idx = []
-
-    num_lines = len(lines)
-
-    line = lines[curr_idx]
-    first_point = line[0]
-
-    for i in range(num_lines):
-        if i == curr_idx:
-            continue
-        line = lines[i]
-        last_point = line[len(line)-1]
-
-        if first_point == last_point:
-            prev_idx.append(i)
-
-    return prev_idx
-
-def find_next_line(curr_idx, lines):
-    num_lines = len(lines)
-
-    line = lines[curr_idx]
-    last_point = line[len(line)-1]
-
-    next_idx = None
-
-    for i in range(num_lines):
-        if i == curr_idx:
-            continue
-        line = lines[i]
-        first_point = line[0]
-
-        if last_point == first_point:
-            next_idx = i
-            break
-
-    return next_idx
-
-def find_sibling_line(curr_idx, lines):
-    num_lines = len(lines)
-
-    line = lines[curr_idx]
-    last_point = line[len(line)-1]
-
-    sibling_idx = None
-
-    for i in range(num_lines):
-        if i == curr_idx:
-            continue
-        line = lines[i]
-        last_point2 = line[len(line)-1]
-
-        if last_point == last_point2:
-            sibling_idx = i
-            break
-
-    return sibling_idx
 
 
 # source code https://here.isnew.info/strahler-stream-order-in-python.html
-def strahler_order(params):
+def prepare_strahler_and_buffer(params):
+    """
+    Prepare hydrologic network before burn : 
+        - calculate Strahler stream order
+        - calculate buffer used to burn DEM based on Strahler order (order 1 = 5m, 2 = 10, 3 = 20 ...)
+
+    Parameters:
+    - params (object): An object containing the parameters for buffering.
+        - hydro_network (str): The filename of the hydro network.
+        - hydrography_strahler_fieldbuf (str): The filename for hydro network pepared.
+
+    Returns:
+    - None
+
+    """
+    # file path definition
     hydro_network = params.hydro_network.filename()
     hydrography_strahler_fieldbuf = params.hydrography_strahler_fieldbuf.filename(tileset=None)
-    hydrography_strahler_fieldbuf_complete = params.hydrography_strahler_fieldbuf_complete.filename(tileset=None)
 
-    # load network
+    # function to find head line in network (top upstream)
+    def find_head_lines(lines):
+        head_idx = []
+
+        num_lines = len(lines)
+        for i in range(num_lines):
+            line = lines[i]
+            first_point = line[0]
+
+            has_upstream = False
+
+            for j in range(num_lines):
+                if j == i:
+                    continue
+                line = lines[j]
+                last_point = line[len(line)-1]
+
+                if first_point == last_point:
+                    has_upstream = True
+
+            if not has_upstream:
+                head_idx.append(i)
+
+        return head_idx
+
+    # function to find next line downstream
+    def find_next_line(curr_idx, lines):
+        num_lines = len(lines)
+
+        line = lines[curr_idx]
+        last_point = line[len(line)-1]
+
+        next_idx = None
+
+        for i in range(num_lines):
+            if i == curr_idx:
+                continue
+            line = lines[i]
+            first_point = line[0]
+
+            if last_point == first_point:
+                next_idx = i
+                break
+
+        return next_idx
+
+    # function to find sibling line (confluence line)
+    def find_sibling_line(curr_idx, lines):
+        num_lines = len(lines)
+
+        line = lines[curr_idx]
+        last_point = line[len(line)-1]
+
+        sibling_idx = None
+
+        for i in range(num_lines):
+            if i == curr_idx:
+                continue
+            line = lines[i]
+            last_point2 = line[len(line)-1]
+
+            if last_point == last_point2:
+                sibling_idx = i
+                break
+
+        return sibling_idx
+
+    # reak reference network
     with fiona.open(hydro_network, 'r') as source:
 
         schema = source.schema.copy()
+        driver=source.driver
+        crs=source.crs
+
+        # define new fields
         lines = []
         strahler_field_name = "strahler"
         strahler_field_type = 'int'
@@ -174,41 +177,22 @@ def strahler_order(params):
         schema['properties'][strahler_field_name] = strahler_field_type
         schema['properties'][buffer_field_name] = buffer_field_type
 
-        # Create a new dataset with the updated schema
-        with fiona.open(hydrography_strahler_fieldbuf, 'w', driver=source.driver, crs=source.crs, schema=schema) as dst:
-            # Copy the features from the source shapefile to the destination shapefile
-            for feature in source:
+        source_buff_copy = []
+        for feature in source:
                 # Create a new feature with the new field
                 new_properties = feature['properties']
                 new_properties[strahler_field_name] = 0  # Set the strahler field value to 0
                 new_properties[buffer_field_name] = 0 # Set the buffer field value to 0
-
                 geom = shape(feature['geometry'])
                 # copy line coordinates to find head line
                 line = geom.coords
                 lines.append(line)
-        
-                # Create the new feature and write it to the destination shapefile
-                new_feature = {
-                    'geometry': feature['geometry'],
-                    'properties': new_properties
-                }
-                dst.write(new_feature)
+                # copy features in new list to update the data before write all
+                source_buff_copy.append(feature)
 
         # save head lines index
         head_idx = find_head_lines(lines)
 
-    # read dataset with the updated schema
-    with fiona.open(hydrography_strahler_fieldbuf, 'r') as source_buff:
-        options = dict(
-            driver=source_buff.driver,
-            schema=source_buff.schema,
-            crs=source_buff.crs)
-        
-        # copy feature to save modification before saving
-        source_buff_copy = [feature for feature in source_buff]
-
-        # iterate through head lines
         for idx in head_idx:
             curr_idx = idx
             curr_ord = 1
@@ -244,16 +228,18 @@ def strahler_order(params):
                 # go further downstream
                 curr_idx = next_idx
 
-        # write final features from updated features copy
-        with fiona.open(hydrography_strahler_fieldbuf_complete, 'w', **options) as modif:
-            for feature in source_buff_copy:
-                modified_feature = {
-                        'type': 'Feature',
-                        'properties': feature['properties'],
-                        'geometry': feature['geometry'],
-                    }
+            # write final features from updated features copy
+            with fiona.open(hydrography_strahler_fieldbuf, 'w', driver=driver, crs=crs, schema=schema) as modif:
+                for feature in source_buff_copy:
+                    # calculate buffer based on strahler order
+                    feature['properties'][buffer_field_name] = 5 * (2 ** (feature['properties'][strahler_field_name]-1))
+                    modified_feature = {
+                            'type': 'Feature',
+                            'properties': feature['properties'],
+                            'geometry': feature['geometry'],
+                        }
 
-                modif.write(modified_feature)
+                    modif.write(modified_feature)
 
 def HydroBuffer(params):
     """
@@ -261,20 +247,19 @@ def HydroBuffer(params):
 
     Parameters:
     - params (object): An object containing the parameters for buffering.
-        - hydro_network (str): The filename of the hydro network shapefile.
-        - hydro_network_buffer (str): The filename for the buffered output shapefile.
+        - hydro_network (str): The filename of the hydro network.
+        - hydro_network_buffer (str): The filename for the buffered output.
 
     Returns:
     - None
 
     """
-    hydro_network = params.hydro_network.filename()
+    hydrography_strahler_fieldbuf = params.hydrography_strahler_fieldbuf.filename()
     hydro_network_buffered = params.hydro_network_buffer.filename(tileset=None)
 
-    with fiona.open(hydro_network, 'r') as source:
+    with fiona.open(hydrography_strahler_fieldbuf, 'r') as source:
         # Create output schema
         schema = source.schema.copy()
-        schema['properties']['buffer'] = 'float'
         schema['geometry'] = 'Polygon'
 
         options = dict(

@@ -62,6 +62,9 @@ BorderFlats.DispatchFlatMinimumZ(params=params, overwrite=True, processes=8, til
 from fct.drainage import Burn
 params = Burn.Parameters()
 
+# network preparation with strahler order and buffer based on strahler
+Burn.prepare_strahler_and_buffer(params)
+
 # create buffer around hydro network 
 Burn.HydroBuffer(params=params)
 # clip hydro buffer with tileset
@@ -76,8 +79,6 @@ Burn.BurnBuffer(params=params, burn_delta = 5, overwrite=True, processes=8, tile
 from fct.drainage import Burn
 params = Burn.Parameters()
 Burn.strahler_order(params)
-
-
 
 # Flow direction
 from fct.drainage import FlowDirection
