@@ -1,8 +1,7 @@
 # coding: utf-8
 
 """
-DEM Burning
-Match mapped stream network and DEM by adjusting stream's elevation
+Hydrologic network preparation and stream sources creation
 
 ***************************************************************************
 *                                                                         *
@@ -36,11 +35,11 @@ from ..config import config
 
 class Parameters:
     """
-    Burns DEM from hydrologic network parameters
+    Prepare hydrologic network
     """
     hydro_network = DatasourceParameter('reference hydrologic network')
-    hydrography_strahler_fieldbuf = DatasetParameter('reference stream network with strahler order and buffer field to compute buffer before burn DEM', type='input')
-    sources = DatasetParameter('Stream sources from the reference hydrologic network', type='input')
+    hydrography_strahler_fieldbuf = DatasetParameter('reference stream network with Strahler order and buffer field to compute buffer before burn DEM', type='input')
+    sources = DatasetParameter('stream sources from the reference hydrologic network', type='input')
 
     def __init__(self, axis=None):
         """
@@ -228,12 +227,12 @@ def PrepareStrahlerAndBuffer(params, buffer_factor=5, overwrite=True):
 
 def CreateSources(params, overwrite=True):
     """
-    Create sources from reference hydrologic network : 
+    Create stream sources from reference hydrologic network : 
 
     Parameters:
     - params (object): An object containing the parameters for buffering.
         - hydrography_strahler_fieldbuf (str): The filename for hydro network pepared.
-        - sources (str) : sources filename path output.
+        - sources (str) : stream sources filename path output.
     - overwrite (bool): Optional. Specifies whether to overwrite existing tiled buffer files. Default is True.
 
     Returns:

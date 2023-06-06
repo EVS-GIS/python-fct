@@ -65,7 +65,7 @@ class Parameters:
         self.tileset_10kbis = '10kbis-tileset'
         
 
-def HydroBuffer(params):
+def HydroBuffer(params, overwrite=True):
     """
     Creates a buffer from a hydro network.
 
@@ -73,6 +73,7 @@ def HydroBuffer(params):
     - params (object): An object containing the parameters for buffering.
         - hydro_network (str): The filename of the hydro network.
         - hydro_network_buffer (str): The filename for the buffered output.
+    - overwrite (bool): Optional. Specifies whether to overwrite existing tiled buffer files. Default is True.
 
     Returns:
     - None
@@ -81,6 +82,11 @@ def HydroBuffer(params):
     # paths to files
     hydrography_strahler_fieldbuf = params.hydrography_strahler_fieldbuf.filename()
     hydro_network_buffered = params.hydro_network_buffer.filename(tileset=None)
+
+    # check overwrite
+    if os.path.exists(hydro_network_buffered) and not overwrite:
+        click.secho('Output already exists: %s' % hydro_network_buffered, fg='yellow')
+        return
 
     with fiona.open(hydrography_strahler_fieldbuf, 'r') as source:
         # Create output schema
