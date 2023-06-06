@@ -52,8 +52,7 @@ def CreateSourcesGraph(tileset='default'):
 
     tile_index = tileindex(tileset)
     dem_rasterfile = config.tileset(tileset).filename('dem')
-    sources = config.datasource('sources').filename
-    # sources = config.filename('sources-cartography') # filename ok
+    sources = config.dataset('river-network-sources').filename
 
     click.secho('Build sources graph', fg='cyan')
 
