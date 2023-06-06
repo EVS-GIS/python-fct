@@ -470,7 +470,7 @@ ax_watershed:
     template: WATERSHED_%(row)02d_%(col)02d
     extension: .shp
 
-burned_dem:
+burned-dem:
   description: |
     Burned DEM
   type: raster

@@ -60,7 +60,7 @@ class Parameters:
         self.hydro_network_buffer = 'stream-network-cartography-buffered'
         self.hydro_network_buffer_tiled = 'stream-network-cartography-buffered-tiled'
         self.elevations = 'dem-drainage-resolved'
-        self.burned_dem = 'burned_dem'
+        self.burned_dem = 'burned-dem'
         self.tileset_10k = '10k-tileset'
         self.tileset_10kbis = '10kbis-tileset'
         

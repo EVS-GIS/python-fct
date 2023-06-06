@@ -56,7 +56,7 @@ class Parameters():
     # exterior = DatasourceParameter('exterior flow')
     exterior_flow = DatasourceParameter('exterior flow')
 
-    elevations = DatasetParameter('filled-resolved elevation raster (DEM)', type='input')
+    elevations = DatasetParameter('input DEM', type='input')
     flow = DatasetParameter('flow direction raster', type='input')
 
     outlets = DatasetParameter('tile outlets (point) shapefile', type='output')

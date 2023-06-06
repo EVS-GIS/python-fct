@@ -42,7 +42,7 @@ class Parameters():
             default = 0.0
 
         elevations:
-            filled-resolved elevation raster (DEM)
+            filled-resolved and burned elevation raster (DEM)
 
         flow:
             flow direction raster
@@ -50,7 +50,7 @@ class Parameters():
 
     exterior = DatasourceParameter('exterior domain')
 
-    elevations = DatasetParameter('filled-resolved elevation raster (DEM)', type='input')
+    elevations = DatasetParameter('filled-resolved and burned elevation raster (DEM)', type='input')
     flow = DatasetParameter('flow direction raster', type='output')
     
     def __init__(self):
@@ -59,7 +59,7 @@ class Parameters():
         """
 
         self.exterior = 'exterior-domain'
-        self.elevations = 'dem-drainage-resolved'
+        self.elevations = 'burned-dem'
         self.flow = 'flow'
 
 def WallFlats(padded: np.ndarray, nodata: Any) -> int:
