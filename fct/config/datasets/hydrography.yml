@@ -141,7 +141,7 @@ river-network-sources:
   group: hydrography
   status: final
   subdir: GLOBAL/REFHYDRO
-  filename: SOURCES.shp
+  filename: SOURCES.gpkg
 
 river-network-outlets:
   description: |

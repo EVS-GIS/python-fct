@@ -44,206 +44,30 @@ class Parameters:
     """
     Burns DEM from hydrologic network parameters
     """
-    hydro_network = DatasourceParameter('reference hydrologic network shapefile')
-
+    hydrography_strahler_fieldbuf = DatasetParameter('reference stream network with strahler order and buffer field to compute buffer before burn DEM', type='input')
     hydro_network_buffer = DatasetParameter('reference hydrologic network buffered by field', type='input')
     hydro_network_buffer_tiled = DatasetParameter('reference hydrologic network buffered by field clipped by tiles', type='input')
     elevations = DatasetParameter('filled-resolved elevation raster (DEM)', type='input')
     burned_dem = DatasetParameter('burned elevation raster (DEM)', type='output')
     tileset_10k = DatasetParameter('10k default tileset', type='input')
     tileset_10kbis = DatasetParameter('10k bis tileset', type='input')
-    hydrography_strahler_fieldbuf = DatasetParameter('reference stream network with strahler order and buffer field to compute buffer before burn DEM', type='input')
-    hydrography_strahler_fieldbuf_complete = DatasetParameter('reference stream network with strahler order and buffer field completed to compute buffer before burn DEM', type='input')
 
     def __init__(self, axis=None):
         """
         Default parameter values
         """
-        self.hydro_network = 'hydrography'
+        self.hydrography_strahler_fieldbuf = 'hydrography-strahler-fieldbuf'
         self.hydro_network_buffer = 'stream-network-cartography-buffered'
         self.hydro_network_buffer_tiled = 'stream-network-cartography-buffered-tiled'
         self.elevations = 'dem-drainage-resolved'
         self.burned_dem = 'burned_dem'
         self.tileset_10k = '10k-tileset'
         self.tileset_10kbis = '10kbis-tileset'
-        self.hydrography_strahler_fieldbuf = 'hydrography-strahler-fieldbuf'
-        self.hydrography_strahler_fieldbuf_complete = 'hydrography-strahler-fieldbuf-complete'
-
-
-
-
-# source code https://here.isnew.info/strahler-stream-order-in-python.html
-def prepare_strahler_and_buffer(params):
-    """
-    Prepare hydrologic network before burn : 
-        - calculate Strahler stream order
-        - calculate buffer used to burn DEM based on Strahler order (order 1 = 5m, 2 = 10, 3 = 20 ...)
-
-    Parameters:
-    - params (object): An object containing the parameters for buffering.
-        - hydro_network (str): The filename of the hydro network.
-        - hydrography_strahler_fieldbuf (str): The filename for hydro network pepared.
-
-    Returns:
-    - None
-
-    """
-    # file path definition
-    hydro_network = params.hydro_network.filename()
-    hydrography_strahler_fieldbuf = params.hydrography_strahler_fieldbuf.filename(tileset=None)
-
-    # function to find head line in network (top upstream)
-    def find_head_lines(lines):
-        head_idx = []
-
-        num_lines = len(lines)
-        for i in range(num_lines):
-            line = lines[i]
-            first_point = line[0]
-
-            has_upstream = False
-
-            for j in range(num_lines):
-                if j == i:
-                    continue
-                line = lines[j]
-                last_point = line[len(line)-1]
-
-                if first_point == last_point:
-                    has_upstream = True
-
-            if not has_upstream:
-                head_idx.append(i)
-
-        return head_idx
-
-    # function to find next line downstream
-    def find_next_line(curr_idx, lines):
-        num_lines = len(lines)
-
-        line = lines[curr_idx]
-        last_point = line[len(line)-1]
-
-        next_idx = None
-
-        for i in range(num_lines):
-            if i == curr_idx:
-                continue
-            line = lines[i]
-            first_point = line[0]
-
-            if last_point == first_point:
-                next_idx = i
-                break
-
-        return next_idx
-
-    # function to find sibling line (confluence line)
-    def find_sibling_line(curr_idx, lines):
-        num_lines = len(lines)
-
-        line = lines[curr_idx]
-        last_point = line[len(line)-1]
-
-        sibling_idx = None
-
-        for i in range(num_lines):
-            if i == curr_idx:
-                continue
-            line = lines[i]
-            last_point2 = line[len(line)-1]
-
-            if last_point == last_point2:
-                sibling_idx = i
-                break
-
-        return sibling_idx
-
-    # reak reference network
-    with fiona.open(hydro_network, 'r') as source:
-
-        schema = source.schema.copy()
-        driver=source.driver
-        crs=source.crs
-
-        # define new fields
-        lines = []
-        strahler_field_name = "strahler"
-        strahler_field_type = 'int'
-        buffer_field_name = 'buffer'
-        buffer_field_type = 'float'
-
-        # Add the new field to the schema
-        schema['properties'][strahler_field_name] = strahler_field_type
-        schema['properties'][buffer_field_name] = buffer_field_type
-
-        source_buff_copy = []
-        for feature in source:
-                # Create a new feature with the new field
-                new_properties = feature['properties']
-                new_properties[strahler_field_name] = 0  # Set the strahler field value to 0
-                new_properties[buffer_field_name] = 0 # Set the buffer field value to 0
-                geom = shape(feature['geometry'])
-                # copy line coordinates to find head line
-                line = geom.coords
-                lines.append(line)
-                # copy features in new list to update the data before write all
-                source_buff_copy.append(feature)
-
-        # save head lines index
-        head_idx = find_head_lines(lines)
-
-        for idx in head_idx:
-            curr_idx = idx
-            curr_ord = 1
-            # head lines order = 1
-            source_buff_copy[curr_idx]['properties'][strahler_field_name] = curr_ord
-            # go downstream from each head lines
-            while True:
-                # find next line downstream
-                next_idx = find_next_line(curr_idx, lines)
-                # stop iteration if no next line
-                if not next_idx:
-                    break
-                # copy next line feature and order
-                next_feat = source_buff_copy[next_idx]
-                next_ord = next_feat['properties'][strahler_field_name]
-                # find sibling line
-                sibl_idx = find_sibling_line(curr_idx, lines)
-                # if sibling line exist
-                if sibl_idx is not None:
-                    # copy sibling line feature and order
-                    sibl_feat = source_buff_copy[sibl_idx]
-                    sibl_ord = sibl_feat['properties'][strahler_field_name]
-                    # determinate order base on sibling, next and current line
-                    if sibl_ord > curr_ord:
-                        break
-                    elif sibl_ord < curr_ord:
-                        if next_ord == curr_ord:
-                            break
-                    else:
-                        curr_ord += 1
-                # update order in feature copy dict
-                source_buff_copy[next_idx]['properties'][strahler_field_name] = curr_ord
-                # go further downstream
-                curr_idx = next_idx
-
-            # write final features from updated features copy
-            with fiona.open(hydrography_strahler_fieldbuf, 'w', driver=driver, crs=crs, schema=schema) as modif:
-                for feature in source_buff_copy:
-                    # calculate buffer based on strahler order
-                    feature['properties'][buffer_field_name] = 5 * (2 ** (feature['properties'][strahler_field_name]-1))
-                    modified_feature = {
-                            'type': 'Feature',
-                            'properties': feature['properties'],
-                            'geometry': feature['geometry'],
-                        }
-
-                    modif.write(modified_feature)
+        
 
 def HydroBuffer(params):
     """
-    Creates a buffered shapefile from a hydro network shapefile.
+    Creates a buffer from a hydro network.
 
     Parameters:
     - params (object): An object containing the parameters for buffering.
@@ -254,6 +78,7 @@ def HydroBuffer(params):
     - None
 
     """
+    # paths to files
     hydrography_strahler_fieldbuf = params.hydrography_strahler_fieldbuf.filename()
     hydro_network_buffered = params.hydro_network_buffer.filename(tileset=None)
 
@@ -308,6 +133,7 @@ def ClipBufferTile(row, col, params, overwrite=True, tileset='default'):
     # Get file paths
     hydro_network_buffered = params.hydro_network_buffer.filename(tileset=None)
     hydro_network_buffer_tiled = params.hydro_network_buffer_tiled.tilename(row=row, col=col, tileset=tileset)
+    # change path with tileset params
     if tileset == 'default' or tileset == '10k':
         tileset_file = params.tileset_10k.filename(tileset=None)
     elif tileset == '10kbis' : 
@@ -315,9 +141,10 @@ def ClipBufferTile(row, col, params, overwrite=True, tileset='default'):
     else :
         None
 
+    # check overwrite
     if os.path.exists(hydro_network_buffer_tiled) and not overwrite:
-            click.secho('Output already exists: %s' % hydro_network_buffer_tiled, fg='yellow')
-            return
+        click.secho('Output already exists: %s' % hydro_network_buffer_tiled, fg='yellow')
+        return
 
     # Open the tileset file
     with fiona.open(tileset_file) as tileset_data:
