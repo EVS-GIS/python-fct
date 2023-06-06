@@ -20,6 +20,28 @@ stream-network-cartography-in:
 #   subdir: GLOBAL/REFHYDRO
 #   filename: REFERENTIEL_HYDRO.shp
 
+stream-network-cartography-buffered:
+  description: |
+    Stream network derived from cartography buffered 
+  type: polygon
+  group: hydrography
+  status: temporary
+  subdir: GLOBAL/REFHYDRO
+  filename: REFERENTIEL_HYDRO_BUF.gpkg
+
+stream-network-cartography-buffered-tiled:
+  description: |
+    Stream network derived from cartography buffered tiled
+  type: polygon
+  group: hydrography
+  status: temporary
+  subdir: GLOBAL/REFHYDRO
+  filename: REFERENTIEL_HYDRO_BUF_TILED.gpkg
+  tiles:
+    tileset: landcover
+    template: HYDRO_BUFF_%(row)02d_%(col)02d
+    extension: .gpkg
+
 stream-network-cartography-backup:
   description: |
     Stream network derived from cartography
@@ -149,3 +171,21 @@ river-network-ordered:
   status: input
   subdir: GLOBAL/REFHYDRO
   filename: REFERENTIEL_HYDRO_ORDERED.shp
+
+hydrography-strahler-fieldbuf:
+  description: |
+    reference stream network with strahler order and buffer field to compute buffer before burn DEM
+  type: linestring
+  group: hydrography
+  status: input
+  subdir: GLOBAL/REFHYDRO
+  filename: REFERENTIEL_HYDRO_STRAHLER_FIELDBUF.gpkg
+
+hydrography-strahler-fieldbuf-complete:
+  description: |
+    reference stream network with strahler order and buffer field completed to compute buffer before burn DEM
+  type: linestring
+  group: hydrography
+  status: input
+  subdir: GLOBAL/REFHYDRO
+  filename: REFERENTIEL_HYDRO_STRAHLER_FIELDBUF_COMPLETE.gpkg

@@ -102,6 +102,9 @@ python3.8 -m venv env --prompt python-fct
 # update pip
 python -m pip install -U pip
 
+# upgrade setuptools and wheel
+python -m pip install wheel setuptools pip --upgrade
+
 # if you want to use the jupyter notebook tutorials, install jupyterlab
 python -m pip install jupyterlab
 

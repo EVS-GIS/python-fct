@@ -9,13 +9,13 @@ Goals of step 01-drainage :
 # Create your tileset
 
 from fct.cli import Tiles
-Tiles.CreateTileset('bdalti', 10000.0)
+Tiles.CreateTileset('rgealti', 10000.0)
 
 # Prepare the DEM tiles and VRT
 
 from fct.cli import Tiles
-Tiles.DatasourceToTiles('bdalti', '10k', 'dem', processes=8)
-Tiles.DatasourceToTiles('bdalti', '10kbis', 'dem', processes=8)
+Tiles.DatasourceToTiles('rgealti', '10k', 'dem', processes=8)
+Tiles.DatasourceToTiles('rgealti', '10kbis', 'dem', processes=8)
 
 from fct.tileio import buildvrt
 buildvrt('10k', 'dem')
@@ -25,7 +25,7 @@ buildvrt('10kbis', 'dem')
 # First step when you have only one DEM : Smoothing
 from fct.drainage import PrepareDEM
 params = PrepareDEM.SmoothingParameters()
-params.window=3
+params.window=5
 
 PrepareDEM.MeanFilter(params, overwrite=True, processes=8, tileset='10k')
 PrepareDEM.MeanFilter(params, overwrite=True, processes=8, tileset='10kbis')
@@ -56,6 +56,29 @@ BorderFlats.DispatchFlatMinimumZ(params=params, overwrite=True, processes=8)
 BorderFlats.DispatchFlatMinimumZ(params=params, overwrite=True, processes=8, tileset='10kbis')
     
 # FlatMap.DepressionDepthMap is useful if you want to check which flat areas have been resolved
+
+# Burn DEM resolved with buffered hydro network
+# get parameters
+from fct.drainage import Burn
+params = Burn.Parameters()
+
+# network preparation with strahler order and buffer based on strahler
+Burn.prepare_strahler_and_buffer(params)
+
+# create buffer around hydro network 
+Burn.HydroBuffer(params=params)
+# clip hydro buffer with tileset
+Burn.ClipBuffer(params=params, overwrite=True, processes=8)
+Burn.ClipBuffer(params=params, overwrite=True, processes=8, tileset='10kbis')
+
+# Burn resolved DEM
+Burn.BurnBuffer(params=params, burn_delta = 5, overwrite=True, processes=8)
+Burn.BurnBuffer(params=params, burn_delta = 5, overwrite=True, processes=8, tileset='10kbis')
+
+
+from fct.drainage import Burn
+params = Burn.Parameters()
+Burn.strahler_order(params)
 
 # Flow direction
 from fct.drainage import FlowDirection
