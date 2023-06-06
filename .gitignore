@@ -14,8 +14,7 @@ build
 __pycache__
 .DS_Store
 tutorials/outputs/*
-tutorials/inputs/DEM_5m.tif
-tutorials/inputs/DEM_1m.tif
+tutorials/inputs/*
 !tutorials/outputs/project.rs.xml
 env
 *.ipynb_checkpoints
