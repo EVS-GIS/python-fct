@@ -200,17 +200,29 @@ def ClipBufferTile(row, col, params, overwrite=True, tileset='default'):
                                     # Perform intersection to clip the geometry
                                     clipped_geometries = hydro_geom.intersection(geom_tile)
 
-                                    # check if clipped_geometries not empty
-                                    # if clipped_geometries:
-                                    # Create a new feature with the clipped geometry
-                                    clipped_geom = {
-                                        'type': 'Feature',
-                                        'properties': hydro_properties,
-                                        'geometry': mapping(clipped_geometries)
-                                    }
-                                
-                                    # Write the clipped feature to the tiled buffer file
-                                    dst.write(clipped_geom)
+                                    if clipped_geometries.geom_type == 'MultiPolygon':
+                                        # Iterate over the individual polygons in the MultiPolygon
+                                        for polygon in clipped_geometries:
+                                            # Create buffered feature for each polygon
+                                            clipped_feature = {
+                                                'type': 'Feature',
+                                                'properties': hydro_properties,
+                                                'geometry': mapping(polygon)
+                                            }
+                                            # Write buffered feature to output
+                                            dst.write(clipped_feature)
+                                    else:
+                                        # check if clipped_geometries not empty
+                                        # if clipped_geometries:
+                                        # Create a new feature with the clipped geometry
+                                        clipped_feature = {
+                                            'type': 'Feature',
+                                            'properties': hydro_properties,
+                                            'geometry': mapping(clipped_geometries)
+                                        }
+                                    
+                                        # Write the clipped feature to the tiled buffer file
+                                        dst.write(clipped_feature)
 
 
 def ClipBuffer(
