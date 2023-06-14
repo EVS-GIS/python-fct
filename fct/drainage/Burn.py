@@ -46,7 +46,6 @@ class Parameters:
     """
     hydrography_strahler_fieldbuf = DatasetParameter('reference stream network with strahler order and buffer field to compute buffer before burn DEM', type='input')
     hydro_network_buffer = DatasetParameter('reference hydrologic network buffered by field', type='input')
-    hydro_network_buffer_tiled = DatasetParameter('reference hydrologic network buffered by field clipped by tiles', type='input')
     elevations = DatasetParameter('filled-resolved elevation raster (DEM)', type='input')
     burned_dem = DatasetParameter('burned elevation raster (DEM)', type='output')
     tileset_10k = DatasetParameter('10k default tileset', type='input')
@@ -58,7 +57,6 @@ class Parameters:
         """
         self.hydrography_strahler_fieldbuf = 'hydrography-strahler-fieldbuf'
         self.hydro_network_buffer = 'stream-network-cartography-buffered'
-        self.hydro_network_buffer_tiled = 'stream-network-cartography-buffered-tiled'
         self.elevations = 'dem-drainage-resolved'
         self.burned_dem = 'burned-dem'
         self.tileset_10k = '10k-tileset'
@@ -133,7 +131,7 @@ def HydroBuffer(params, overwrite=True):
                     # Write buffered feature to output
                     output.write(buffered_feature)
 
-def ClipBufferTile(row, col, params, overwrite=True, tileset='default'):
+def BurnTileBuffer(row, col, params, burn_delta=5, overwrite=True, tileset='default'):
     """
     Clips hydro network buffer tiles based on a specified row and column,
     and saves the clipped tiles to a tiled hydro network buffer file.
@@ -150,8 +148,9 @@ def ClipBufferTile(row, col, params, overwrite=True, tileset='default'):
     """
 
     # Get file paths
+    elevations = params.elevations.tilename(row=row, col=col, tileset=tileset)
     hydro_network_buffered = params.hydro_network_buffer.filename(tileset=None)
-    hydro_network_buffer_tiled = params.hydro_network_buffer_tiled.tilename(row=row, col=col, tileset=tileset)
+    burned = params.burned_dem.tilename(row=row, col=col, tileset=tileset)
     # change path with tileset params
     if tileset == 'default' or tileset == '10k':
         tileset_file = params.tileset_10k.filename(tileset=None)
@@ -161,8 +160,8 @@ def ClipBufferTile(row, col, params, overwrite=True, tileset='default'):
         None
 
     # check overwrite
-    if os.path.exists(hydro_network_buffer_tiled) and not overwrite:
-        click.secho('Output already exists: %s' % hydro_network_buffer_tiled, fg='yellow')
+    if os.path.exists(burned) and not overwrite:
+        click.secho('Output already exists: %s' % burned, fg='yellow')
         return
 
     # Open the tileset file
@@ -189,125 +188,56 @@ def ClipBufferTile(row, col, params, overwrite=True, tileset='default'):
                                 schema=hydro.schema,
                                 crs=hydro.crs)
                             
-                            # Open the tiled hydro network buffer file for writing
-                            with fiona.open(hydro_network_buffer_tiled, 'w', **options) as dst:
-                                for feature in hydro:
-                                    hydro_geom = shape(feature['geometry'])
-                                    hydro_properties = feature['properties']
+                            clipped_geometries = []
 
-                                # Check if hydro_geom intersects with geom_tile
-                                # if not hydro_geom.is_empty and hydro_geom.intersects(geom_tile):
-                                    # Perform intersection to clip the geometry
-                                    clipped_geometries = hydro_geom.intersection(geom_tile)
+                            for feature in hydro:
+                                hydro_geom = shape(feature['geometry'])
+                                hydro_properties = feature['properties']
+                                # Perform intersection to clip the geometry
+                                clipped = hydro_geom.intersection(geom_tile)
 
-                                    if clipped_geometries.geom_type == 'MultiPolygon':
-                                        # Iterate over the individual polygons in the MultiPolygon
-                                        for polygon in clipped_geometries:
-                                            # Create buffered feature for each polygon
-                                            clipped_feature = {
-                                                'type': 'Feature',
-                                                'properties': hydro_properties,
-                                                'geometry': mapping(polygon)
-                                            }
-                                            # Write buffered feature to output
-                                            dst.write(clipped_feature)
-                                    else:
-                                        # check if clipped_geometries not empty
-                                        # if clipped_geometries:
-                                        # Create a new feature with the clipped geometry
-                                        clipped_feature = {
-                                            'type': 'Feature',
-                                            'properties': hydro_properties,
-                                            'geometry': mapping(clipped_geometries)
-                                        }
-                                    
-                                        # Write the clipped feature to the tiled buffer file
-                                        dst.write(clipped_feature)
+                                # Check if the intersection result is a MultiPolygon
+                                if clipped.geom_type == 'MultiPolygon':
+                                    clipped_geometries.extend(clipped)
 
+                                else:
+                                    # If the intersection result is a single Polygon, convert it to MultiPolygon
+                                    clipped_geometries.append(clipped)
+                            
+                            # Create a MultiPolygon geometry from the clipped geometries
+                            multi_clipped_geometries = MultiPolygon(clipped_geometries)
+                            
+                            # copy dem with burn
+                            # Open the elevation file
+                            with rio.open(elevations) as dem:
+                                # Create a mask for the polygons
+                                mask = geometry_mask(multi_clipped_geometries, out_shape=dem.shape, transform=dem.transform, invert=True)
 
-def ClipBuffer(
-        params,
-        overwrite=True,
-        tileset='default',
-        processes=1):
-    
-    def arguments():
+                                # Read the DEM data
+                                dem_data = dem.read(1)
 
-        for tile in config.tileset(tileset).tiles():
-            row = tile.row
-            col = tile.col
-            yield (
-                ClipBufferTile,
-                row,
-                col,
-                params,
-                overwrite,
-                tileset
-            )
+                                # Create a new raster with the modified values
+                                with rio.open(burned, 'w', **dem.meta) as output:
+                                    # Apply the reduction amount to the intersecting cells
+                                    burn_data = dem_data.copy()
+                                    burn_data[mask] -= burn_delta
 
-    arguments = list(arguments())
+                                    # Write the modified DEM data to the output raster
+                                    output.write(burn_data, 1)
+                        # copy input dem
+                        else:
+                            # Open the elevation file
+                            with rio.open(elevations) as dem:
+                                # Read the DEM data
+                                dem_data = dem.read(1)
 
-    with Pool(processes=processes) as pool:
+                                # Create a new raster with the modified values
+                                with rio.open(burned, 'w', **dem.meta) as output:
+                                    # Apply the reduction amount to the intersecting cells
+                                    burn_data = dem_data.copy()
 
-        pooled = pool.imap_unordered(starcall_nokwargs, arguments)
-
-        with click.progressbar(pooled, length=len(arguments)) as iterator:
-            for _ in iterator:
-                pass
-
-
-def BurnTileBuffer(row, col, params, burn_delta=5, overwrite=True, tileset='default'):
-    """
-    Burns hydro network buffer onto the elevation tile.
-
-    Parameters:
-    - row (int): The row number of the tile.
-    - col (int): The column number of the tile.
-    - params (object): necessary parameters.
-    - burn_delta (float): Optional. The reduction amount to apply to the intersecting cells. Default is 5.
-    - overwrite (bool): Optional. Specifies whether to overwrite existing burned DEM files. Default is True.
-    - tileset (str): Optional. The name of the tileset to use. Default is 'default'.
-
-    Returns:
-    None
-    """
-
-    # Get file paths
-    elevations = params.elevations.tilename(row=row, col=col, tileset=tileset)
-    hydro_network_buffer_tiled = params.hydro_network_buffer_tiled.tilename(row=row, col=col, tileset=tileset)
-    burned = params.burned_dem.tilename(row=row, col=col, tileset=tileset)
-
-    if os.path.exists(burned) and not overwrite:
-            click.secho('Output already exists: %s' % burned, fg='yellow')
-            return
-
-    if os.path.exists(hydro_network_buffer_tiled) == False:
-            return
-    
-    # Open the hydro network buffer tiled file
-    with fiona.open(hydro_network_buffer_tiled) as hydro_buff:
-        # Get the polygon geometries
-        hydro_geoms = [feature['geometry'] for feature in hydro_buff]
-
-        # Merge the polygons into a single geometry
-        hydro_merge = MultiPolygon([shape(poly) for poly in hydro_geoms])
-
-        # Open the elevation file
-        with rio.open(elevations) as dem:
-            # Create a mask for the polygons
-            mask = geometry_mask(hydro_merge, out_shape=dem.shape, transform=dem.transform, invert=True)
-
-            # Read the DEM data
-            dem_data = dem.read(1)
-
-            # Create a new raster with the modified values
-            with rio.open(burned, 'w', **dem.meta) as output:
-                # Apply the reduction amount to the intersecting cells
-                burn_data = dem_data.copy()
-                burn_data[mask] -= burn_delta
-
-                # Write the modified DEM data to the output raster
-                output.write(burn_data, 1)
+                                    # Write the modified DEM data to the output raster
+                                    output.write(burn_data, 1)
 
 
 def BurnBuffer(
@@ -323,7 +253,7 @@ def BurnBuffer(
             row = tile.row
             col = tile.col
             yield (
-                BurnTileBuffer,
+                ClipBufferTile,
                 row,
                 col,
                 params,
@@ -341,7 +271,6 @@ def BurnBuffer(
         with click.progressbar(pooled, length=len(arguments)) as iterator:
             for _ in iterator:
                 pass
-
 
 def DispatchHydrographyToTiles():
 
