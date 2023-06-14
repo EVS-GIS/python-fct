@@ -80,7 +80,7 @@ def HydroBuffer(params, overwrite=True):
 
     """
     # paths to files
-    hydrography_strahler_fieldbuf = params.hydrography_strahler_fieldbuf.filename()
+    hydrography_strahler_fieldbuf = params.hydrography_strahler_fieldbuf.filename(tileset=None)
     hydro_network_buffered = params.hydro_network_buffer.filename(tileset=None)
 
     # check overwrite
@@ -104,21 +104,34 @@ def HydroBuffer(params, overwrite=True):
                 properties = feature['properties']
                 geometry = shape(feature['geometry'])
 
-                # Extract buffer value from attribute field
-                buffer_value = properties['buffer']
+                # Check if feature is a MultiPolygon
+                if geometry.geom_type == 'MultiPolygon':
+                    # Iterate over the individual polygons in the MultiPolygon
+                    for polygon in geometry:
+                        # Create buffered feature for each polygon
+                        buffered_feature = {
+                            'type': 'Feature',
+                            'properties': properties,
+                            'geometry': mapping(polygon)
+                        }
+                        # Write buffered feature to output
+                        output.write(buffered_feature)
+                else:
+                    # Extract buffer value from attribute field
+                    buffer_value = properties['buffer']
 
-                # Generate buffer geometry
-                buffer_geometry = geometry.buffer(buffer_value)
+                    # Generate buffer geometry
+                    buffer_geometry = geometry.buffer(buffer_value)
 
-                # Create buffered feature
-                buffered_feature = {
-                    'type': 'Feature',
-                    'properties': properties,
-                    'geometry': mapping(buffer_geometry)
-                }
+                    # Create buffered feature
+                    buffered_feature = {
+                        'type': 'Feature',
+                        'properties': properties,
+                        'geometry': mapping(buffer_geometry)
+                    }
 
-                # Write buffered feature to output
-                output.write(buffered_feature)
+                    # Write buffered feature to output
+                    output.write(buffered_feature)
 
 def ClipBufferTile(row, col, params, overwrite=True, tileset='default'):
     """
