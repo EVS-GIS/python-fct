@@ -68,7 +68,7 @@ def PrepareStrahlerAndBuffer(params, buffer_factor=5, overwrite=True):
 
     """
     # file path definition
-    hydro_network = params.hydro_network.filename(tileset=None)
+    hydro_network = params.hydro_network.filename()
     hydrography_strahler_fieldbuf = params.hydrography_strahler_fieldbuf.filename(tileset=None)
 
     # check overwrite

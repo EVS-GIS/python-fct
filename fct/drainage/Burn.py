@@ -253,7 +253,7 @@ def BurnBuffer(
             row = tile.row
             col = tile.col
             yield (
-                ClipBufferTile,
+                BurnTileBuffer,
                 row,
                 col,
                 params,
