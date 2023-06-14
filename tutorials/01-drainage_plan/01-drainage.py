@@ -9,13 +9,13 @@ Goals of step 01-drainage :
 # Create your tileset
 
 from fct.cli import Tiles
-Tiles.CreateTileset('rgealti', 10000.0)
+Tiles.CreateTileset('bdalti', 10000.0)
 
 # Prepare the DEM tiles and VRT
 
 from fct.cli import Tiles
-Tiles.DatasourceToTiles('rgealti', '10k', 'dem', processes=8)
-Tiles.DatasourceToTiles('rgealti', '10kbis', 'dem', processes=8)
+Tiles.DatasourceToTiles('bdalti', '10k', 'dem', processes=8)
+Tiles.DatasourceToTiles('bdalti', '10kbis', 'dem', processes=8)
 
 from fct.tileio import buildvrt
 buildvrt('10k', 'dem')
