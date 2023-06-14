@@ -18,3 +18,4 @@ tutorials/inputs/*
 !tutorials/outputs/project.rs.xml
 env
 *.ipynb_checkpoints
+/tutorials/config_calliope.ini
