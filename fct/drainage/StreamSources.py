@@ -39,20 +39,52 @@ from ..config import config
 from multiprocessing import Pool
 from ..cli import starcall_nokwargs
 
+from ..config import (
+    config,
+    DatasetParameter,
+    DatasourceParameter
+)
+
+class Parameters:
+    """
+    Prepare hydrologic network
+    """
+    sources = DatasetParameter('stream sources from the reference hydrologic network', type='input')
+    elevations = DatasetParameter('DEM', type='input')
+    flow = DatasetParameter('flow direction raster', type='input')
+    acc = DatasetParameter('accumulation raster (drainage area)', type='input')
+    streamsources = DatasetParameter('streams from sources', type='output')
+    inlets = DatasetParameter('tile inlets (point) shapefile', type='input')
+    inletsource = DatasetParameter('tile inlets source', type='input')
+    noflowsources = DatasetParameter('no-flow from sources', type='output')
+
+    def __init__(self, axis=None):
+        """
+        Default parameter values
+        """
+        self.sources = 'river-network-sources'
+        self.elevations = 'dem'
+        self.flow = 'flow'
+        self.acc = 'acc'
+        self.streamsources = 'streams-from-sources'
+        self.inlets = 'inlets'
+        self.inletsource = 'inlet-sources'
+        self.noflowsources = 'noflow-from-sources'
+
 def tileindex(tileset='default'):
     """
     Return default tileindex
     """
     return config.tileset(tileset).tileindex
 
-def CreateSourcesGraph(tileset='default'):
+def CreateSourcesGraph(params, tileset='default'):
     """
     DOCME
     """
 
     tile_index = tileindex(tileset)
-    dem_rasterfile = config.tileset(tileset).filename('dem')
-    sources = config.dataset('river-network-sources').filename
+    dem_rasterfile = params.elevations.filename(tileset=tileset)
+    sources = params.sources.filename(tileset=None)
 
     click.secho('Build sources graph', fg='cyan')
 
@@ -65,8 +97,8 @@ def CreateSourcesGraph(tileset='default'):
         for row, col in progress:
 
             tile = tile_index[(row, col)].gid
-            inlet_shapefile = config.tileset(tileset).tilename('inlets', row=row, col=col)
-            flow_raster = config.tileset(tileset).tilename('flow', row=row, col=col)
+            inlet_shapefile = params.inlets.tilename(row=row, col=col, tileset=tileset)
+            flow_raster = params.flow.tilename(row=row, col=col, tileset=tileset)
 
             with rio.open(flow_raster) as ds:
 
@@ -133,7 +165,7 @@ def CreateSourcesGraph(tileset='default'):
 
     return graph, indegree
 
-def TileInletSources(tile, keys, areas, tileset='default'):
+def TileInletSources(params, tile, keys, areas, tileset='default'):
     """
     Output inlet points,
     attributed with the total upstream drained area.
@@ -142,11 +174,8 @@ def TileInletSources(tile, keys, areas, tileset='default'):
     row = tile.row
     col = tile.col
     gid = tile.gid
-
-    output = config.tileset(tileset).tilename(
-        'inlet-sources',
-        row=row,
-        col=col)
+    
+    output = params.inletsource.tilename(row=row, col=col, tileset=tileset)
 
     crs = fiona.crs.from_epsg(config.srid)
     driver = 'ESRI Shapefile'
@@ -190,7 +219,7 @@ def InletSources(params, tileset='default'):
     tile_index = tileindex(tileset)
     tiles = {tile.gid: tile for tile in tile_index.values()}
 
-    graph, indegree = CreateSourcesGraph(tileset=tileset)
+    graph, indegree = CreateSourcesGraph(params, tileset=tileset)
     
     # Check a random tile just to get pixels x and y size
     flow_raster = params.flow.tilename(row=tiles.get(1).row, col=tiles.get(1).col, tileset=tileset)
@@ -212,9 +241,9 @@ def InletSources(params, tileset='default'):
 
             if tile_gid in tiles:
                 tile = tiles[tile_gid]
-                TileInletSources(tile, keys, areas, tileset)
+                TileInletSources(params, tile, keys, areas, tileset)
 
-def StreamToFeatureFromSourcesTile(row, col, min_drainage, tileset='default'):
+def StreamToFeatureFromSourcesTile(params, row, col, min_drainage, tileset='default'):
     """
     DOCME
     """
@@ -222,10 +251,10 @@ def StreamToFeatureFromSourcesTile(row, col, min_drainage, tileset='default'):
     ci = [ -1, -1,  0,  1,  1,  1,  0, -1 ]
     cj = [  0,  1,  1,  1,  0, -1, -1, -1 ]
 
-    flow_raster = config.tileset(tileset).tilename('flow', row=row, col=col)
-    acc_raster = config.tileset(tileset).tilename('acc', row=row, col=col)
-    sources = config.tileset(tileset).tilename('inlet-sources', row=row, col=col)
-    output = config.tileset(tileset).tilename('streams-from-sources', row=row, col=col)
+    flow_raster = params.flow.tilename(row=row, col=col, tileset=tileset)
+    acc_raster = params.acc.tilename(row=row, col=col, tileset=tileset)
+    sources = params.inletsource.tilename(row=row, col=col, tileset=tileset)
+    output = params.streamsources.tilename(row=row, col=col, tileset=tileset)
 
     if not os.path.exists(sources):
         click.secho(
@@ -292,13 +321,13 @@ def StreamToFeatureFromSourcesTile(row, col, min_drainage, tileset='default'):
                     }
                 })
 
-def AggregateStreamsFromSources(tileset='default'):
+def AggregateStreamsFromSources(params, tileset='default'):
     """
     Aggregate Streams Shapefile
     """
 
     tile_index = tileindex(tileset)
-    output = config.tileset(tileset).filename('streams-from-sources')
+    output = params.streamsources.filename(tileset=None)
 
     driver = 'ESRI Shapefile'
     schema = {
@@ -320,10 +349,7 @@ def AggregateStreamsFromSources(tileset='default'):
 
             for row, col in progress:
 
-                shapefile = config.tileset(tileset).tilename(
-                    'streams-from-sources',
-                    row=row,
-                    col=col)
+                shapefile = output = params.streamsources.tilename(row=row, col=col, tileset=tileset)
 
                 if os.path.exists(shapefile):
                     with fiona.open(shapefile) as fs:
@@ -331,12 +357,12 @@ def AggregateStreamsFromSources(tileset='default'):
                             feature['properties']['GID'] = next(gid)
                             dst.write(feature)
 
-def NoFlowPixelsTile(row, col, min_drainage, tileset='default'):
+def NoFlowPixelsTile(params, row, col, min_drainage, tileset='default'):
 
-    flow_raster = config.tileset(tileset).tilename('flow', row=row, col=col)
-    acc_raster = config.tileset(tileset).tilename('acc', row=row, col=col)
-    stream_features = config.tileset(tileset).tilename('streams-from-sources', row=row, col=col)
-    output = config.tileset(tileset).tilename('noflow-from-sources', row=row, col=col)
+    flow_raster = params.flow.tilename(row=row, col=col, tileset=tileset)
+    acc_raster = params.acc.tilename(row=row, col=col, tileset=tileset)
+    stream_features = params.streamsources.tilename(row=row, col=col, tileset=tileset)
+    output = params.noflowsources.tilename(row=row, col=col, tileset=tileset)
 
     if not os.path.exists(stream_features):
         click.secho(
@@ -401,13 +427,13 @@ def NoFlowPixelsTile(row, col, min_drainage, tileset='default'):
                         'properties': {'GID': current, 'ROW': row, 'COL': col}
                     })
 
-def AggregateNoFlowPixels(tileset='default'):
+def AggregateNoFlowPixels(params, tileset='default'):
     """
     Aggregate No Flow Shapefiles
     """
 
     tile_index = tileindex(tileset)
-    output = config.tileset(tileset).filename('noflow-from-sources')
+    output = params.noflowsources.filename(tileset=None)
 
     driver = 'ESRI Shapefile'
     schema = {
@@ -427,7 +453,7 @@ def AggregateNoFlowPixels(tileset='default'):
         with click.progressbar(tile_index) as progress:
             for row, col in progress:
 
-                filename = config.tileset(tileset).tilename('noflow-from-sources', row=row, col=col)
+                filename = params.noflowsources.tilename(row=row, col=col, tileset=tileset)
                 
                 if os.path.exists(filename):
                     with fiona.open(filename) as fs:
@@ -439,7 +465,7 @@ def AggregateNoFlowPixels(tileset='default'):
     click.secho('Found %d not-flowing stream nodes' % count, fg='cyan')
 
 
-def StreamToFeatureFromSources(min_drainage, tileset='default', processes=1):
+def StreamToFeatureFromSources(params, min_drainage, tileset='default', processes=1):
     
     def arguments():
 
@@ -448,6 +474,7 @@ def StreamToFeatureFromSources(min_drainage, tileset='default', processes=1):
             col = tile.col
             yield (
                 StreamToFeatureFromSourcesTile,
+                params,
                 row,
                 col,
                 min_drainage,
@@ -464,7 +491,7 @@ def StreamToFeatureFromSources(min_drainage, tileset='default', processes=1):
             for _ in iterator:
                 pass
             
-def NoFlowPixels(min_drainage, tileset='default', processes=1):
+def NoFlowPixels(params, min_drainage, tileset='default', processes=1):
     
     def arguments():
 
@@ -473,6 +500,7 @@ def NoFlowPixels(min_drainage, tileset='default', processes=1):
             col = tile.col
             yield (
                 NoFlowPixelsTile,
+                params,
                 row,
                 col,
                 min_drainage,

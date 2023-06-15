@@ -30,10 +30,32 @@ params.window=5
 PrepareDEM.MeanFilter(params, overwrite=True, processes=8, tileset='10k')
 PrepareDEM.MeanFilter(params, overwrite=True, processes=8, tileset='10kbis')
 
+# Prepare hydrologic network
+# get parameters
+from fct.drainage import PrepareNetwork
+params = PrepareNetwork.Parameters()
+# network preparation with strahler order and buffer based on strahler
+PrepareNetwork.PrepareStrahlerAndBuffer(params, buffer_factor=50, overwrite=True)
+# create sources from network
+PrepareNetwork.CreateSources(params, overwrite=True)
+
+# Burn DEM resolved with buffered hydro network
+# get parameters
+from fct.drainage import Burn
+params = Burn.Parameters()
+params.elevations = 'smoothed'
+# create buffer around hydro network 
+Burn.HydroBuffer(params=params, overwrite=True)
+
+# Burn resolved DEM with buffer
+Burn.BurnBuffer(params=params, burn_delta = 10, overwrite=True, processes=8)
+Burn.BurnBuffer(params=params, burn_delta = 10, overwrite=True, processes=8, tileset='10kbis')
+
 # Fill sinks
 from fct.drainage import DepressionFill
 params = DepressionFill.Parameters()
-params.elevations = 'smoothed'
+params.elevations = 'burned-dem'
+params.exterior_data = 9000.0
 DepressionFill.LabelWatersheds(params, overwrite=True, processes=8)
 DepressionFill.LabelWatersheds(params, overwrite=True, processes=8, tileset='10kbis')
 
@@ -57,31 +79,11 @@ BorderFlats.DispatchFlatMinimumZ(params=params, overwrite=True, processes=8, til
     
 # FlatMap.DepressionDepthMap is useful if you want to check which flat areas have been resolved
 
-# Prepare hydrologic network
-# get parameters
-from fct.drainage import PrepareNetwork
-params = PrepareNetwork.Parameters()
-# network preparation with strahler order and buffer based on strahler
-PrepareNetwork.PrepareStrahlerAndBuffer(params, buffer_factor=10, overwrite=True)
-# create sources from network
-PrepareNetwork.CreateSources(params, overwrite=True)
-
-# Burn DEM resolved with buffered hydro network
-# get parameters
-from fct.drainage import Burn
-params = Burn.Parameters()
-
-# create buffer around hydro network 
-Burn.HydroBuffer(params=params, overwrite=True)
-
-# Burn resolved DEM with buffer
-Burn.BurnBuffer(params=params, burn_delta = 10, overwrite=True, processes=8)
-Burn.BurnBuffer(params=params, burn_delta = 10, overwrite=True, processes=8, tileset='10kbis')
-
 # Flow direction
 from fct.drainage import FlowDirection
 params = FlowDirection.Parameters()
 params.exterior = 'off'
+params.elevations = 'dem-drainage-resolved'
 FlowDirection.FlowDirection(params=params, overwrite=True, processes=8)
 FlowDirection.FlowDirection(params=params, overwrite=True, processes=8, tileset='10kbis')
 
@@ -116,15 +118,16 @@ buildvrt('10kbis', 'acc')
 
 # Stream Network from sources
 from fct.drainage import StreamSources
+params = StreamSources.Parameters()
 
 StreamSources.InletSources(params)
 StreamSources.InletSources(params, tileset='10kbis')
 
-StreamSources.StreamToFeatureFromSources(min_drainage=500, processes=8)
-StreamSources.StreamToFeatureFromSources(min_drainage=500, processes=8, tileset='10kbis')
+StreamSources.StreamToFeatureFromSources(params, min_drainage=500, processes=8)
+StreamSources.StreamToFeatureFromSources(params, min_drainage=500, processes=8, tileset='10kbis')
 
-StreamSources.AggregateStreamsFromSources()
-StreamSources.AggregateStreamsFromSources(tileset='10kbis')
+StreamSources.AggregateStreamsFromSources(params)
+StreamSources.AggregateStreamsFromSources(params, tileset='10kbis')
 
 # Find NoFlow pixels from RHTS
 from fct.drainage import FixNoFlow
@@ -164,7 +167,7 @@ from fct.drainage import StreamSources
 
 StreamSources.InletSources(params)
 StreamSources.StreamToFeatureFromSources(min_drainage=500, processes=8)
-StreamSources.AggregateStreamsFromSources()
+StreamSources.AggregateStreamsFromSources(params)
 
 # Identify network nodes
 from fct.drainage import IdentifyNetworkNodes
