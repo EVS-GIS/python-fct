@@ -500,3 +500,12 @@ burned-dem:
   status: input
   subdir: GLOBAL/DEM
   filename: 10kbis_tileset.gpkg
+
+  exterior-domain:
+    description: 
+      exterior domain ouside the dem tiles
+    type: polygon
+    group: drainage
+    status: input
+    subdir: GLOBAL/DEM
+    filename: exterior_domain.gpkg

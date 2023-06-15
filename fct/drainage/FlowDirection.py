@@ -13,6 +13,8 @@ import rasterio as rio
 from rasterio.features import rasterize
 import fiona
 import fiona.crs
+from fiona import mapping
+from shapely.geometry import box, shape
 
 from ..config import (
     config,
@@ -48,7 +50,8 @@ class Parameters():
             flow direction raster
     """
 
-    exterior = DatasourceParameter('exterior domain')
+    exterior = DatasetParameter('exterior domain')
+    dem = DatasourceParameter('input dem', type = 'input')
 
     elevations = DatasetParameter('filled-resolved and burned elevation raster (DEM)', type='input')
     flow = DatasetParameter('flow direction raster', type='output')
@@ -59,8 +62,27 @@ class Parameters():
         """
 
         self.exterior = 'exterior-domain'
+        self.dem = 'dem'
         self.elevations = 'burned-dem'
         self.flow = 'flow'
+
+def exterior_mask(params):
+    dem = params.dem.filename()
+    exterior = params.exterior.filename()
+    with rio.open(dem) as src:
+        bounds = src.bounds
+        bounds_polygon = box(*bounds)
+        raster_data, raster_transform = rio.mask.mask(src, src.dataset_mask(), crop=True, nodata = src.nodata)
+        # reduce raster data by one pixel length inside
+        raster_data = raster_data[:, 1:-1]
+        valid_polygon = rio.features.shapes(raster_data, transform = raster_transform)
+        valid_data_polygon = shape(valid_polygon[0][0])
+        difference = bounds_polygon.difference(valid_data_polygon)
+    schema = {'geometry': 'Polygon', 'properties': {'id': 'int'}}
+    with fiona.open(exterior, 'w', 'GPKG', schema=schema, scr=fiona.crs.from_epsg(config.workspace.srid)) as output:
+        output.write({'geometry': mapping(difference),
+                      'properties':{'id':1}})
+
 
 def WallFlats(padded: np.ndarray, nodata: Any) -> int:
     """

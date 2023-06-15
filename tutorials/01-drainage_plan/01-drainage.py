@@ -84,6 +84,8 @@ from fct.drainage import FlowDirection
 params = FlowDirection.Parameters()
 # params.exterior = 'off'
 params.elevations = 'dem-drainage-resolved'
+
+FlowDirection.exterior_mask(params)
 FlowDirection.FlowDirection(params=params, overwrite=True, processes=8)
 FlowDirection.FlowDirection(params=params, overwrite=True, processes=8, tileset='10kbis')
 
