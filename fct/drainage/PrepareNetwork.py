@@ -164,23 +164,24 @@ def PrepareStrahlerAndBuffer(params, buffer_factor=5, overwrite=True):
 
         source_buff_copy = []
 
-        with click.progressbar(source) as processing:
-            for feature in processing:
-                    # Create a new feature with the new field
-                    new_properties = feature['properties']
-                    new_properties[strahler_field_name] = 0  # Set the strahler field value to 0
-                    new_properties[buffer_field_name] = 0 # Set the buffer field value to 0
-                    geom = shape(feature['geometry'])
-                    # copy line coordinates to find head line
-                    line = geom.coords
-                    lines.append(line)
-                    # copy features in new list to update the data before write all
-                    source_buff_copy.append(feature)
+        # with click.progressbar(source) as processing:
+        for feature in source:
+                # Create a new feature with the new field
+                new_properties = feature['properties']
+                new_properties[strahler_field_name] = 0  # Set the strahler field value to 0
+                new_properties[buffer_field_name] = 0 # Set the buffer field value to 0
+                geom = shape(feature['geometry'])
+                # copy line coordinates to find head line
+                line = geom.coords
+                lines.append(line)
+                # copy features in new list to update the data before write all
+                source_buff_copy.append(feature)
 
-            # save head lines index
-            head_idx = find_head_lines(lines)
+        # save head lines index
+        head_idx = find_head_lines(lines)
 
-            for idx in head_idx:
+        with click.progressbar(head_idx) as processing:
+            for idx in processing:
                 curr_idx = idx
                 curr_ord = 1
                 # head lines order = 1

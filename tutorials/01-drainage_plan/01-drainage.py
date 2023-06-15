@@ -82,7 +82,7 @@ BorderFlats.DispatchFlatMinimumZ(params=params, overwrite=True, processes=8, til
 # Flow direction
 from fct.drainage import FlowDirection
 params = FlowDirection.Parameters()
-params.exterior = 'off'
+# params.exterior = 'off'
 params.elevations = 'dem-drainage-resolved'
 FlowDirection.FlowDirection(params=params, overwrite=True, processes=8)
 FlowDirection.FlowDirection(params=params, overwrite=True, processes=8, tileset='10kbis')
@@ -164,9 +164,10 @@ Accumulate.FlowAccumulation(params=params, overwrite=True, processes=8)
 
 # Remake stream Network from sources with NoFlow pixels fixed
 from fct.drainage import StreamSources
+params = StreamSources.Parameters()
 
 StreamSources.InletSources(params)
-StreamSources.StreamToFeatureFromSources(min_drainage=500, processes=8)
+StreamSources.StreamToFeatureFromSources(params, min_drainage=500, processes=8)
 StreamSources.AggregateStreamsFromSources(params)
 
 # Identify network nodes
