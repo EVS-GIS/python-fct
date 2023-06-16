@@ -180,6 +180,10 @@ params = IdentifyNetworkNodes.Parameters()
 IdentifyNetworkNodes.IdentifyNetworkNodes(params)
 
 #7 TODO: Update JoinNetworkAttributes
+# yml global measure
+# preparenetwork source and confluence
+# JoinNetworkAttributes get attribut from sourceconfluence get axis from cours d'eau id
+# AggregateByAxis 
 import os
 if not os.path.isdir('../outputs/GLOBAL/MEASURE'):
     os.mkdir('../outputs/GLOBAL/MEASURE')

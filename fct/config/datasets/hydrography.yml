@@ -176,3 +176,12 @@ hydrography-strahler-fieldbuf-complete:
   status: input
   subdir: GLOBAL/REFHYDRO
   filename: REFERENTIEL_HYDRO_STRAHLER_FIELDBUF_COMPLETE.gpkg
+
+sources-confluences:
+  description: |
+    sources and confluences extracted from hydrologic network input
+  type: point
+  group: hydrography
+  status: input
+  subdir: GLOBAL/REFHYDRO
+  filename: SOURCES_CONFLUENCES.gpkg

@@ -39,7 +39,8 @@ class Parameters:
     """
     hydro_network = DatasourceParameter('reference hydrologic network')
     hydrography_strahler_fieldbuf = DatasetParameter('reference stream network with Strahler order and buffer field to compute buffer before burn DEM', type='input')
-    sources = DatasetParameter('stream sources from the reference hydrologic network', type='input')
+    sources = DatasetParameter('stream sources from the reference hydrologic network', type='output')
+    sources_confluences = DatasetParameter('sources and confluences extracted from hydrologic network input', type='output')
 
     def __init__(self, axis=None):
         """
@@ -48,6 +49,7 @@ class Parameters:
         self.hydro_network = 'hydrography'
         self.hydrography_strahler_fieldbuf = 'hydrography-strahler-fieldbuf'
         self.sources = 'river-network-sources'
+        self.sources_confluences = 'sources-confluences'
 
 # source code https://here.isnew.info/strahler-stream-order-in-python.html
 def PrepareStrahlerAndBuffer(params, buffer_factor=5, overwrite=True):
@@ -276,3 +278,37 @@ def CreateSources(params, overwrite=True):
                         'geometry': mapping(head_point),
                         'properties': properties,
     })
+
+def CreateSourcesAndConfluences(params, overwrite=True):
+    hydrography_strahler_fieldbuf = params.hydrography_strahler_fieldbuf.filename(tileset=None)
+    sources_confluences = params.sources_confluences.filename(tileset=None)
+
+    # check overwrite
+    if os.path.exists(sources_confluences) and not overwrite:
+        click.secho('Output already exists: %s' % sources_confluences, fg='yellow')
+        return
+
+    with fiona.open(hydrography_strahler_fieldbuf, 'r') as hydro:
+
+        # Create output schema
+        schema = hydro.schema.copy()
+        schema['geometry'] = 'Point'
+
+        options = dict(
+            driver=hydro.driver,
+            schema=schema,
+            crs=hydro.crs)
+        
+        with fiona.open(sources_confluences, 'w', **options) as output:
+
+            # extract first point for each line in hydrologic network
+            for feature in hydro:
+                properties = feature['properties']
+                geom = shape(feature['geometry'])
+                head_point = Point(geom.coords[0][:2])
+
+                output.write({
+                    'geometry': mapping(head_point),
+                    'properties': properties,
+    })
+
