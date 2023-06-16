@@ -67,29 +67,46 @@ class Parameters():
         self.elevations = 'burned-dem'
         self.flow = 'flow'
 
-def exterior_mask(params, tileset = 'default'):
-    dem = params.dem.filename(tileset = tileset)
-    exterior = params.exterior.filename(tileset = tileset)
+def exterior_mask(params, tileset='default'):
+    """
+    Generates an exterior mask of the DEM nodata for tileset  with a 1 pixel band wich border all the tileset
+    to avoid noflow outside tilset.
+
+    Args:
+        params (object): An object containing DEM and exterior parameters.
+        tileset (str, optional): The tileset name. Defaults to 'default'.
+
+    Returns:
+        None
+    """
+    # Get file paths for DEM and exterior data
+    dem = params.dem.filename(tileset=tileset)
+    exterior = params.exterior.filename(tileset=tileset)
+
     with rio.open(dem) as src:
         bounds = src.bounds
         bounds_polygon = box(*bounds)
 
+        # Generate a mask from the dataset
         mask = src.dataset_mask()
 
         merged_polygon = []
         # Extract feature shapes and values from the array.
         for geom, val in shapes(mask, transform=src.transform):
             if val == 255:
-                # add buffer cap_style and join_style
-                merged_polygon.append(shape(geom).buffer(-src.res[0]))
+                # Add buffer to the geometry
+                merged_polygon.append(shape(geom).buffer(-src.res[0], cap_style = 'square', join_style = 'mitre'))
+
         mergedPolys = unary_union(merged_polygon)
-        difference = mergedPolys.difference(bounds_polygon)
         difference = bounds_polygon.difference(mergedPolys)
-        # print(difference)
-        schema = {'geometry': 'Polygon', 'properties': {'id': 'int'}}
-    with fiona.open(exterior, 'w', 'GPKG', schema=schema, scr=fiona.crs.from_epsg(config.workspace.srid)) as output:
+
+    # Define the schema for the output file
+    schema = {'geometry': 'Polygon', 'properties': {'id': 'int'}}
+
+    # Write the difference polygon to the output file
+    with fiona.open(exterior, 'w', 'GPKG', schema=schema, crs=fiona.crs.from_epsg(config.workspace.srid)) as output:
         output.write({'geometry': mapping(difference),
-                      'properties':{'id':1}})
+                      'properties': {'id': 1}})
 
 
 def WallFlats(padded: np.ndarray, nodata: Any) -> int:
