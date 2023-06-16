@@ -78,7 +78,7 @@ def exterior_mask(params, tileset='default'):
     Returns:
         None
     """
-    click.secho('Create exterior mask for tileset %d' % (tileset), fg='yellow')
+    click.secho('Create exterior mask for tileset %s' % (tileset), fg='yellow')
     # Get file paths for DEM and exterior data
     dem = params.dem.filename(tileset=tileset)
     exterior = params.exterior.filename(tileset=tileset)

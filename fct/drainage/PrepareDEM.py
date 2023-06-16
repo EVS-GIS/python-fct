@@ -70,10 +70,10 @@ def silent(msg):
 def TileExtendedBoundingBox(row, col, padding=20):
 
     template = config.tileset().filename('dem', row=row, col=col)
-    output = os.path.join(workdir(), 'TILEBOXES.gpkg')
+    output = os.path.join(workdir(), 'TILEBOXES.shp')
 
     crs = fiona.crs.from_epsg(config.srid)
-    driver = 'GPKG'
+    driver = 'ESRI Shapefile'
     schema = {
         'geometry': 'Polygon',
         'properties': [

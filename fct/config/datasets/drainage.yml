@@ -51,11 +51,11 @@ stream-network-draped:
   group: drainage
   status: temporary
   subdir: GLOBAL/DEM
-  filename: DRAPED_HYDROGRAPHY.gpkg
+  filename: DRAPED_HYDROGRAPHY.shp
   tiles:
     tileset: landcover
     template: DRAPED_HYDROGRAPHY_%(row)02d_%(col)02d
-    extension: .gpkg
+    extension: .shp
 
 dem-filled:
   description: |
@@ -256,7 +256,7 @@ outlets:
   tiles:
     tileset: landcover
     template: OUTLETS_%(row)02d_%(col)02d_%(gid)03d
-    extension: .gpkg
+    extension: .geojson
 
 outlets-glob:
   description: |
@@ -269,7 +269,7 @@ outlets-glob:
     tileset: landcover
     template: OUTLETS_%(row)02d_%(col)02d_*
     glob: OUTLETS_%(row)02d_%(col)02d_*
-    extension: .gpkg
+    extension: .geojson
 
 inlets:
   description: |
@@ -278,11 +278,11 @@ inlets:
   group: drainage
   status: temporary
   subdir: GLOBAL/DEM
-  filename: INLETS.gpkg
+  filename: INLETS.shp
   tiles:
     tileset: landcover
     template: INLETS_%(row)02d_%(col)02d
-    extension: .gpkg
+    extension: .shp
 
 inlet-areas:
   description: |
@@ -291,11 +291,11 @@ inlet-areas:
   type: point
   status: temporary
   subdir: GLOBAL/DEM
-  filename: INLET_AREAS.gpkg
+  filename: INLET_AREAS.shp
   tiles:
     tileset: landcover
     template: INLET_AREAS_%(row)02d_%(col)02d
-    extension: .gpkg
+    extension: .shp
 
 inlet-sources:
   description: |
@@ -304,11 +304,11 @@ inlet-sources:
   group: drainage
   status: temporary
   subdir: GLOBAL/DEM
-  filename: SOURCES.gpkg
+  filename: SOURCES.shp
   tiles:
     tileset: landcover
     template: SOURCES_%(row)02d_%(col)02d
-    extension: .gpkg
+    extension: .shp
 
 dem-drainage-network:
   description: |
@@ -317,11 +317,11 @@ dem-drainage-network:
   group: drainage
   status: final
   subdir: GLOBAL/DEM
-  filename: DRAINAGE.gpkg
+  filename: DRAINAGE.shp
   tiles:
     tileset: landcover
     template: DRAINAGE_%(row)02d_%(col)02d
-    extension: .gpkg
+    extension: .shp
 
 # Drainage network preparation
 
@@ -333,11 +333,11 @@ streams-from-sources:
   group: drainage
   status: temporary
   subdir: GLOBAL/DEM
-  filename: RHTS_NOATTR.gpkg
+  filename: RHTS_NOATTR.shp
   tiles:
     tileset: landcover
     template: RHTS_%(row)02d_%(col)02d
-    extension: .gpkg
+    extension: .shp
 
 drainage-raster-from-sources:
   description: |
@@ -360,7 +360,7 @@ sources:
   group: drainage
   status: temporary
   subdir: GLOBAL/DEM
-  filename: RHTS_SOURCES.gpkg
+  filename: RHTS_SOURCES.shp
 
 streams-attr:
   description: |
@@ -370,7 +370,7 @@ streams-attr:
   group: drainage
   status: temporary
   subdir: GLOBAL/DEM
-  filename: RHTS_ATTR.gpkg
+  filename: RHTS_ATTR.shp
 
 streams-attr-sources:
   description: |
@@ -378,7 +378,7 @@ streams-attr-sources:
     with mapped sources attributes
   type: linestring
   subdir: GLOBAL/DEM
-  filename: RHTS_ATTR_JOINED.gpkg
+  filename: RHTS_ATTR_JOINED.shp
 
 streams:
   description: |
@@ -388,7 +388,7 @@ streams:
   group: drainage
   status: final
   subdir: GLOBAL/DEM
-  filename: RHTS.gpkg
+  filename: RHTS.shp
 
 streams-tiled:
   description: |
@@ -406,11 +406,11 @@ noflow:
   group: drainage
   status: temporary
   subdir: GLOBAL/DEM
-  filename: NOFLOW.gpkg
+  filename: NOFLOW.shp
   tiles:
     tileset: landcover
     template: NOFLOW_%(row)02d_%(col)02d
-    extension: .gpkg
+    extension: .shp
 
 noflow-targets:
   description: |
@@ -419,7 +419,7 @@ noflow-targets:
   group: drainage
   status: temporary
   subdir: GLOBAL/DEM
-  filename: NOFLOW_TARGETS.gpkg
+  filename: NOFLOW_TARGETS.shp
 
 noflow-from-sources:
   description: |
@@ -429,11 +429,11 @@ noflow-from-sources:
   group: drainage
   status: temporary
   subdir: GLOBAL/DEM
-  filename: NOFLOW_RHTS.gpkg
+  filename: NOFLOW_RHTS.shp
   tiles:
     tileset: landcover
     template: NOFLOW_RHTS_%(row)02d_%(col)02d
-    extension: .gpkg
+    extension: .shp
 
 noflow-targets-from-sources:
   description: |
@@ -442,7 +442,7 @@ noflow-targets-from-sources:
   group: drainage
   status: temporary
   subdir: GLOBAL/DEM
-  filename: NOFLOW_RHTS_TARGETS.gpkg
+  filename: NOFLOW_RHTS_TARGETS.shp
 
 ax_watershed_raster:
   description: |
@@ -464,11 +464,11 @@ ax_watershed:
   group: drainage
   status: final
   subdir: AXES/AX%(axis)04d
-  filename: WATERSHED.gpkg
+  filename: WATERSHED.shp
   tiles:
     tileset: landcover
     template: WATERSHED_%(row)02d_%(col)02d
-    extension: .gpkg
+    extension: .shp
 
 burned-dem:
   description: |

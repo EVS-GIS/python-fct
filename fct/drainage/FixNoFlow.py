@@ -148,7 +148,7 @@ def NoFlowPixelsTile(row, col, params, tileset='default'):
 
     min_drainage = params.min_drainage
 
-    driver = 'GPKG'
+    driver = 'ESRI Shapefile'
     schema = {
         'geometry': 'Point',
         'properties': [
@@ -195,7 +195,7 @@ def AggregateNoFlowPixels(params, tileset='default'):
     output = params.noflow.filename(tileset=tileset)
     # config.tileset().filename('noflow')
 
-    driver = 'GPKG'
+    driver = 'ESRI Shapefile'
     schema = {
         'geometry': 'Point',
         'properties': [
