@@ -10,11 +10,12 @@ from typing import Any
 
 import click
 import rasterio as rio
-from rasterio.features import rasterize
+from rasterio.features import rasterize, shapes
 import fiona
 import fiona.crs
 from fiona import mapping
-from shapely.geometry import box, shape
+from shapely.geometry import box, shape, mapping
+from shapely.ops import unary_union
 
 from ..config import (
     config,
@@ -50,8 +51,8 @@ class Parameters():
             flow direction raster
     """
 
-    exterior = DatasetParameter('exterior domain')
-    dem = DatasourceParameter('input dem', type = 'input')
+    exterior = DatasetParameter('exterior domain', type='output')
+    dem = DatasetParameter('input dem for tileset', type='input')
 
     elevations = DatasetParameter('filled-resolved and burned elevation raster (DEM)', type='input')
     flow = DatasetParameter('flow direction raster', type='output')
@@ -66,19 +67,26 @@ class Parameters():
         self.elevations = 'burned-dem'
         self.flow = 'flow'
 
-def exterior_mask(params):
-    dem = params.dem.filename()
-    exterior = params.exterior.filename()
+def exterior_mask(params, tileset = 'default'):
+    dem = params.dem.filename(tileset = tileset)
+    exterior = params.exterior.filename(tileset = tileset)
     with rio.open(dem) as src:
         bounds = src.bounds
         bounds_polygon = box(*bounds)
-        raster_data, raster_transform = rio.mask.mask(src, src.dataset_mask(), crop=True, nodata = src.nodata)
-        # reduce raster data by one pixel length inside
-        raster_data = raster_data[:, 1:-1]
-        valid_polygon = rio.features.shapes(raster_data, transform = raster_transform)
-        valid_data_polygon = shape(valid_polygon[0][0])
-        difference = bounds_polygon.difference(valid_data_polygon)
-    schema = {'geometry': 'Polygon', 'properties': {'id': 'int'}}
+
+        mask = src.dataset_mask()
+
+        merged_polygon = []
+        # Extract feature shapes and values from the array.
+        for geom, val in shapes(mask, transform=src.transform):
+            if val == 255:
+                # add buffer cap_style and join_style
+                merged_polygon.append(shape(geom).buffer(-src.res[0]))
+        mergedPolys = unary_union(merged_polygon)
+        difference = mergedPolys.difference(bounds_polygon)
+        difference = bounds_polygon.difference(mergedPolys)
+        # print(difference)
+        schema = {'geometry': 'Polygon', 'properties': {'id': 'int'}}
     with fiona.open(exterior, 'w', 'GPKG', schema=schema, scr=fiona.crs.from_epsg(config.workspace.srid)) as output:
         output.write({'geometry': mapping(difference),
                       'properties':{'id':1}})

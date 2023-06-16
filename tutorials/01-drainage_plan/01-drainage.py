@@ -86,6 +86,7 @@ params = FlowDirection.Parameters()
 params.elevations = 'dem-drainage-resolved'
 
 FlowDirection.exterior_mask(params)
+FlowDirection.exterior_mask(params, tileset='10kbis')
 FlowDirection.FlowDirection(params=params, overwrite=True, processes=8)
 FlowDirection.FlowDirection(params=params, overwrite=True, processes=8, tileset='10kbis')
 
