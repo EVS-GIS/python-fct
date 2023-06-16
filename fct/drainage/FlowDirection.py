@@ -13,7 +13,6 @@ import rasterio as rio
 from rasterio.features import rasterize, shapes
 import fiona
 import fiona.crs
-from fiona import mapping
 from shapely.geometry import box, shape, mapping
 from shapely.ops import unary_union
 
@@ -87,23 +86,21 @@ def exterior_mask(params, tileset='default'):
         bounds = src.bounds
         bounds_polygon = box(*bounds)
 
-        # Generate a mask from the dataset
+        # Generate a nodata mask
         mask = src.dataset_mask()
 
-        merged_polygon = []
-        # Extract feature shapes and values from the array.
+        polygons = []
+        # get polygons from valid data (0 = nodata, 255 = valid data)
         for geom, val in shapes(mask, transform=src.transform):
             if val == 255:
-                # Add buffer to the geometry
-                merged_polygon.append(shape(geom).buffer(-src.res[0], cap_style = 'square', join_style = 'mitre'))
-
-        mergedPolys = unary_union(merged_polygon)
-        difference = bounds_polygon.difference(mergedPolys)
-
-    # Define the schema for the output file
-    schema = {'geometry': 'Polygon', 'properties': {'id': 'int'}}
+                # Add one pixel buffer inside to avoid noflow outside tilset (square buffer to fit with square tile and pixels)
+                polygons.append(shape(geom).buffer(-src.res[0], cap_style = 3, join_style = 2))
+        # merge valid polygon then difference with bounding box
+        merge_poly = unary_union(polygons)
+        difference = bounds_polygon.difference(merge_poly)
 
     # Write the difference polygon to the output file
+    schema = {'geometry': 'Polygon', 'properties': {'id': 'int'}}
     with fiona.open(exterior, 'w', 'GPKG', schema=schema, crs=fiona.crs.from_epsg(config.workspace.srid)) as output:
         output.write({'geometry': mapping(difference),
                       'properties': {'id': 1}})
