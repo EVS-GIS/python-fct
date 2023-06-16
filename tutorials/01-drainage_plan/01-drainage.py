@@ -38,6 +38,8 @@ params = PrepareNetwork.Parameters()
 PrepareNetwork.PrepareStrahlerAndBuffer(params, buffer_factor=50, overwrite=True)
 # create sources from network
 PrepareNetwork.CreateSources(params, overwrite=True)
+# create sources and confluences file from network
+PrepareNetwork.CreateSourcesAndConfluences(params, overwrite=True)
 
 # Burn DEM resolved with buffered hydro network
 # get parameters

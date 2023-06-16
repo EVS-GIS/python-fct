@@ -245,6 +245,7 @@ def CreateSources(params, overwrite=True):
     - None
 
     """
+    click.secho('Create stream sources from reference hydrologic network', fg='yellow')
     # paths to files
     hydrography_strahler_fieldbuf = params.hydrography_strahler_fieldbuf.filename(tileset=None)
     sources = params.sources.filename(tileset=None)
@@ -280,6 +281,21 @@ def CreateSources(params, overwrite=True):
     })
 
 def CreateSourcesAndConfluences(params, overwrite=True):
+    """
+    Create stream sources and confluences from reference hydrologic network : 
+
+    Parameters:
+    - params (object): An object containing the parameters for buffering.
+        - hydrography_strahler_fieldbuf (str): The filename for hydro network pepared.
+        - sources_confluences (str) : stream sources filename path output.
+    - overwrite (bool): Optional. Specifies whether to overwrite existing tiled buffer files. Default is True.
+
+    Returns:
+    - None
+
+    """
+    click.secho('Create stream sources and confluences from reference hydrologic network', fg='yellow')
+    # paths to files
     hydrography_strahler_fieldbuf = params.hydrography_strahler_fieldbuf.filename(tileset=None)
     sources_confluences = params.sources_confluences.filename(tileset=None)
 
