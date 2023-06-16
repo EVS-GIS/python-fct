@@ -401,13 +401,22 @@ network-nodes:
   group: network
   status: temporary
   subdir: GLOBAL/DEM
-  filename: NETWORK_NODES.shp
+  filename: RHTS_NODES.shp
 
 network-identified:
   description: |
-    Stream network with identified nodes
+    Theoric stream network with identified nodes
   type: linestring
   group: network
   status: temporary
   subdir: GLOBAL/DEM
-  filename: NETWORK_IDENTIFIED.shp
+  filename: RHTS_IDENTIFIED.shp
+
+rhts:
+  description: |
+    Theoric stream network with identified nodes and joined data from input network
+  type: linestring
+  group: network
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: RHTS.shp

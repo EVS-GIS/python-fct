@@ -25,10 +25,24 @@ from shapely.ops import linemerge
 
 from ..config import config
 
-def JoinNetworkAttributes(
-        sources_shapefile,
-        network_shapefile,
-        output):
+class Parameters:
+    """
+    Prepare hydrologic network
+    """
+    network_identified = DatasetParameter('Theoric stream network with identified nodes', type='input')
+    sources_confluences = DatasetParameter('sources and confluences extracted from hydrologic network input', type='input')
+    rhts = DatasetParameter('Theoric stream network with identified nodes and joined data from input network', type='output')
+
+
+    def __init__(self, axis=None):
+        """
+        Default parameter values
+        """
+        self.network_identified = 'network-identified'
+        self.sources_confluences = 'sources-confluences'
+        self.rhts = 'rhts'
+
+def JoinNetworkAttributes(params, tileset = 'default'):
     """
     Join source attributes to network segments,
     based on network structure and CDENTITEHY hierarchy.
@@ -65,6 +79,10 @@ def JoinNetworkAttributes(
     # sources_shapefile = config.filename(sourcefile)
     # network_shapefile = config.filename(networkfile)
     # output = config.filename(destination)
+
+    sources_shapefile = params.sources_confluences.filename(tileset=None)
+    network_shapefile = params.network_identified.filename(tileset=tileset)
+    output = params.rhts.filename(tileset=tileset)
 
     graph = dict()
     rgraph = defaultdict(list)

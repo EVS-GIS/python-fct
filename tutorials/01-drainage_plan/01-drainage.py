@@ -191,6 +191,9 @@ if not os.path.isdir('../outputs/GLOBAL/MEASURE'):
     os.mkdir('../outputs/GLOBAL/MEASURE')
 
 from fct.drainage import JoinNetworkAttributes
+params = JoinNetworkAttributes.Parameters()
+JoinNetworkAttributes.JoinNetworkAttributes(params)
+
 JoinNetworkAttributes.JoinNetworkAttributes('../inputs/sources.gpkg', '../outputs/GLOBAL/DEM/NETWORK_IDENTIFIED_10K.shp', '../outputs/GLOBAL/DEM/RHTS.shp')
 # JoinNetworkAttributes.UpdateLengthOrder('../outputs/GLOBAL/DEM/RHTS.shp', '../outputs/GLOBAL/DEM/RHTS.shp')
 JoinNetworkAttributes.AggregateByAxis('../outputs/GLOBAL/DEM/RHTS.shp', '../outputs/GLOBAL/MEASURE/REFAXIS.shp')
