@@ -178,7 +178,7 @@ def TileInletSources(params, tile, keys, areas, tileset='default'):
     output = params.inletsource.tilename(row=row, col=col, tileset=tileset)
 
     crs = fiona.crs.from_epsg(config.srid)
-    driver = 'ESRI Shapefile'
+    driver = 'GPKG'
     schema = {
         'geometry': 'Point',
         'properties': [
@@ -262,7 +262,7 @@ def StreamToFeatureFromSourcesTile(params, row, col, min_drainage, tileset='defa
             fg='yellow')
         return
 
-    driver = 'ESRI Shapefile'
+    driver = 'GPKG'
     schema = {
         'geometry': 'LineString',
         'properties': [
@@ -327,9 +327,9 @@ def AggregateStreamsFromSources(params, tileset='default'):
     """
 
     tile_index = tileindex(tileset)
-    output = params.streamsources.filename(tileset=None)
+    output = params.streamsources.filename(tileset=tileset)
 
-    driver = 'ESRI Shapefile'
+    driver = 'GPKG'
     schema = {
         'geometry': 'LineString',
         'properties': [
@@ -370,7 +370,7 @@ def NoFlowPixelsTile(params, row, col, min_drainage, tileset='default'):
             fg='yellow')
         return
 
-    driver = 'ESRI Shapefile'
+    driver = 'GPKG'
     schema = {
         'geometry': 'Point',
         'properties': [
@@ -433,9 +433,9 @@ def AggregateNoFlowPixels(params, tileset='default'):
     """
 
     tile_index = tileindex(tileset)
-    output = params.noflowsources.filename(tileset=None)
+    output = params.noflowsources.filename(tileset=tileset)
 
-    driver = 'ESRI Shapefile'
+    driver = 'GPKG'
     schema = {
         'geometry': 'Point',
         'properties': [

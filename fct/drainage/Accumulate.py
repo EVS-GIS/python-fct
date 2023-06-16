@@ -88,7 +88,7 @@ def TileOutlets(row, col, params, verbose=False, tileset='default'):
     tile_index = tileindex(tileset)
 
     crs = fiona.crs.from_epsg(config.srid)
-    driver = 'GeoJSON'
+    driver = 'GPKG'
     schema = {
         'geometry': 'Point',
         'properties': [
@@ -101,7 +101,7 @@ def TileOutlets(row, col, params, verbose=False, tileset='default'):
             ('TOZ', 'float')
         ]
     }
-    options = dict(driver='ESRI Shapefile', crs=crs, schema=schema)
+    options = dict(driver='GPKG', crs=crs, schema=schema)
 
     # read_tile_index()
 
@@ -227,13 +227,13 @@ def TileOutlets(row, col, params, verbose=False, tileset='default'):
 def AggregateOutlets(params, tileset='default'):
     """
     Aggregate ROW_COL_INLETS_ORIGIN.geojson files
-    into one ROW_COL_INLETS.shp shapefile
+    into one ROW_COL_INLETS.gpkg
     """
 
     tile_index = tileindex(tileset)
 
     crs = fiona.crs.from_epsg(config.srid)
-    driver = 'ESRI Shapefile'
+    driver = 'GPKG'
     schema = {
         'geometry': 'Point',
         'properties': [
@@ -402,7 +402,7 @@ def InletAreasTile(row, col, gid, params, keys, areas, tileset='default'):
     """
 
     crs = fiona.crs.from_epsg(config.srid)
-    driver = 'ESRI Shapefile'
+    driver = 'GPKG'
     schema = {
         'geometry': 'Point',
         'properties': [
