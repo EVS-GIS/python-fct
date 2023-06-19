@@ -146,7 +146,7 @@ def PrepareStrahlerAndBuffer(params, buffer_factor=5, overwrite=True):
 
         return sibling_idx
 
-    # reak reference network
+    # read reference network
     with fiona.open(hydro_network, 'r') as source:
 
         schema = source.schema.copy()
@@ -307,6 +307,18 @@ def CreateSourcesAndConfluences(params, node_id_field, axis_field, hydro_id_fiel
     if os.path.exists(sources_confluences) and not overwrite:
         click.secho('Output already exists: %s' % sources_confluences, fg='yellow')
         return
+    
+    def remove_chars_and_zeros(input_string):
+        numeric_part = ""
+        found_non_zero = False
+
+        for char in input_string:
+            if char.isdigit():
+                if char != '0' or found_non_zero:
+                    numeric_part += char
+                    found_non_zero = True
+
+        return int(numeric_part)
 
     with fiona.open(hydrography_strahler_fieldbuf, 'r') as hydro:
 
@@ -320,20 +332,31 @@ def CreateSourcesAndConfluences(params, node_id_field, axis_field, hydro_id_fiel
         toponym_name = 'TOPONYME'
         axis_name = 'AXIS'
         hack_name = 'HACK'
+        nodea = 'NODEA'
+        nodeb = 'NODEB'
 
 
         # Add the new field to the schema
         if not schema['properties'][node_id_name] :
             schema['properties'][node_id_name] = 'int'
-        if not schema['properties'][hydro_id_name] :
-                schema['properties'][hydro_id_name] = 'str' 
-        if not schema['properties'][toponym_name] :
-            schema['properties'][toponym_name] = 'str' 
         if not schema['properties'][axis_name] :
             schema['properties'][axis_name] = 'int' 
+        if hydro_id_field:
+            if not schema['properties'][hydro_id_name] :
+                    schema['properties'][hydro_id_name] = 'str' 
+        if toponym_field:
+            if not schema['properties'][toponym_name] :
+                schema['properties'][toponym_name] = 'str' 
         if hack_field:
             if not schema['properties'][hack_field] :
                 schema['properties'][hack_field] = 'int'
+    
+        if schema['properties'][nodea]:
+            click.secho('NODEA field identified, auto-remove', fg='red')
+            del schema['properties'][nodea]
+        if schema['properties'][nodeb]:
+            click.secho('NODEB field identified, auto-remove', fg='red')
+            del schema['properties'][nodeb]
 
         options = dict(
             driver=hydro.driver,
@@ -349,11 +372,18 @@ def CreateSourcesAndConfluences(params, node_id_field, axis_field, hydro_id_fiel
                 head_point = Point(geom.coords[0][:2])
 
                 # update properties with FCT names
-                properties[node_id_name] = properties[node_id_field]
-                properties[hydro_id_name] = properties[hydro_id_field]
-                properties[toponym_name] = properties[toponym_field]
-                properties[axis_name] = properties[axis_field]
-                properties[hack_name] = properties[hydro_id_field]
+                properties[node_id_name] = int(remove_chars_and_zeros(properties[node_id_field]))
+                properties[axis_name] = int(remove_chars_and_zeros(properties[axis_field]))
+                if hydro_id_field:
+                    properties[hydro_id_name] = str(properties[hydro_id_field])
+                if toponym_field:
+                    properties[toponym_name] = str(properties[toponym_field])
+                if hack_field:
+                    properties[hack_name] = int(properties[hydro_id_field])
+                if nodea in properties:
+                    del properties[nodea]
+                if nodeb in properties:
+                    del properties[nodeb]
 
                 output.write({
                     'geometry': mapping(head_point),

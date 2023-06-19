@@ -39,7 +39,7 @@ PrepareNetwork.PrepareStrahlerAndBuffer(params, buffer_factor=50, overwrite=True
 # create sources from network
 PrepareNetwork.CreateSources(params, overwrite=True)
 # create sources and confluences file from network
-PrepareNetwork.CreateSourcesAndConfluences(params, overwrite=True)
+PrepareNetwork.CreateSourcesAndConfluences(params, node_id_field = 'GID', axis_field = 'liens_vers', hydro_id_field='code_hydro', toponym_field='cpx_topony', hack_field=None, overwrite=True)
 
 # Burn DEM resolved with buffered hydro network
 # get parameters
