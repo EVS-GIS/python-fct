@@ -337,25 +337,25 @@ def CreateSourcesAndConfluences(params, node_id_field, axis_field, hydro_id_fiel
 
 
         # Add the new field to the schema
-        if not schema['properties'][node_id_name] :
+        if not node_id_name in schema :
             schema['properties'][node_id_name] = 'int'
-        if not schema['properties'][axis_name] :
+        if not axis_name in schema :
             schema['properties'][axis_name] = 'int' 
         if hydro_id_field:
-            if not schema['properties'][hydro_id_name] :
+            if not hydro_id_name in schema :
                     schema['properties'][hydro_id_name] = 'str' 
         if toponym_field:
-            if not schema['properties'][toponym_name] :
+            if not toponym_name in schema :
                 schema['properties'][toponym_name] = 'str' 
         if hack_field:
-            if not schema['properties'][hack_field] :
+            if not hack_field in schema :
                 schema['properties'][hack_field] = 'int'
     
         if schema['properties'][nodea]:
-            click.secho('NODEA field identified, auto-remove', fg='red')
+            click.secho('NODEA field identified, auto-remove', fg='blue')
             del schema['properties'][nodea]
         if schema['properties'][nodeb]:
-            click.secho('NODEB field identified, auto-remove', fg='red')
+            click.secho('NODEB field identified, auto-remove', fg='blue')
             del schema['properties'][nodeb]
 
         options = dict(
@@ -372,14 +372,31 @@ def CreateSourcesAndConfluences(params, node_id_field, axis_field, hydro_id_fiel
                 head_point = Point(geom.coords[0][:2])
 
                 # update properties with FCT names
-                properties[node_id_name] = int(remove_chars_and_zeros(properties[node_id_field]))
-                properties[axis_name] = int(remove_chars_and_zeros(properties[axis_field]))
+                if type(properties[node_id_field]) == str:
+                    properties[node_id_name] = remove_chars_and_zeros(properties[node_id_field])
+                else:
+                    properties[node_id_name] = properties[node_id_field]
+
+                if type(properties[axis_field]) == str:
+                    properties[axis_name] = remove_chars_and_zeros(properties[axis_field])
+                else:
+                    properties[axis_name] = properties[axis_field]
+
                 if hydro_id_field:
                     properties[hydro_id_name] = str(properties[hydro_id_field])
+                else:
+                    properties[hydro_id_name] = None
+
                 if toponym_field:
                     properties[toponym_name] = str(properties[toponym_field])
+                else:
+                    properties[toponym_name] = None
+
                 if hack_field:
                     properties[hack_name] = int(properties[hydro_id_field])
+                else:
+                    properties[hack_name] = None
+
                 if nodea in properties:
                     del properties[nodea]
                 if nodeb in properties:
