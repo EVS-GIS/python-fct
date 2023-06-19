@@ -280,19 +280,23 @@ def CreateSources(params, overwrite=True):
                         'properties': properties,
     })
 
-def CreateSourcesAndConfluences(params, overwrite=True):
+def CreateSourcesAndConfluences(params, node_id_field, axis_field, hydro_id_field=None, toponym_field=None, hack_field=None, overwrite=True):
     """
-    Create stream sources and confluences from reference hydrologic network : 
+    Create stream sources and confluences from a reference hydrologic network.
 
     Parameters:
     - params (object): An object containing the parameters for buffering.
-        - hydrography_strahler_fieldbuf (str): The filename for hydro network pepared.
-        - sources_confluences (str) : stream sources filename path output.
+        - hydrography_strahler_fieldbuf (str): The filename for the prepared hydro network.
+        - sources_confluences (str): The filename path for the output stream sources.
+    - node_id_field (str): The field name for the node ID.
+    - axis_field (str): The field name for the axis.
+    - hydro_id_field (str): Optional. The field name for the hydro ID.
+    - toponym_field (str): Optional. The field name for the toponym.
+    - hack_field (str): Optional. The field name for the hack. Pass None if not applicable.
     - overwrite (bool): Optional. Specifies whether to overwrite existing tiled buffer files. Default is True.
 
     Returns:
     - None
-
     """
     click.secho('Create stream sources and confluences from reference hydrologic network', fg='yellow')
     # paths to files
@@ -308,7 +312,28 @@ def CreateSourcesAndConfluences(params, overwrite=True):
 
         # Create output schema
         schema = hydro.schema.copy()
+
         schema['geometry'] = 'Point'
+
+        node_id_name = 'NODE'
+        hydro_id_name = 'CDENTITEHY'
+        toponym_name = 'TOPONYME'
+        axis_name = 'AXIS'
+        hack_name = 'HACK'
+
+
+        # Add the new field to the schema
+        if not schema['properties'][node_id_name] :
+            schema['properties'][node_id_name] = 'int'
+        if not schema['properties'][hydro_id_name] :
+                schema['properties'][hydro_id_name] = 'str' 
+        if not schema['properties'][toponym_name] :
+            schema['properties'][toponym_name] = 'str' 
+        if not schema['properties'][axis_name] :
+            schema['properties'][axis_name] = 'int' 
+        if hack_field:
+            if not schema['properties'][hack_field] :
+                schema['properties'][hack_field] = 'int'
 
         options = dict(
             driver=hydro.driver,
@@ -322,6 +347,13 @@ def CreateSourcesAndConfluences(params, overwrite=True):
                 properties = feature['properties']
                 geom = shape(feature['geometry'])
                 head_point = Point(geom.coords[0][:2])
+
+                # update properties with FCT names
+                properties[node_id_name] = properties[node_id_field]
+                properties[hydro_id_name] = properties[hydro_id_field]
+                properties[toponym_name] = properties[toponym_field]
+                properties[axis_name] = properties[axis_field]
+                properties[hack_name] = properties[hydro_id_field]
 
                 output.write({
                     'geometry': mapping(head_point),

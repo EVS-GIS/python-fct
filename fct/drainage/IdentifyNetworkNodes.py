@@ -12,16 +12,11 @@ class Parameters:
     Identify Network Nodes parameters
     """
     
-    network = DatasetParameter(
-        'input network features',
-        type='input')
+    network = DatasetParameter('input network features', type='input')
     quantization = LiteralParameter('Quantization factor for node coordinates')
-    output = DatasetParameter('Output network with identified nodes', type='output')
-    nodes = DatasetParameter(
-        'Output nodes',
-        type='output')
+    network_identified = DatasetParameter('Output network with identified nodes', type='output')
+    nodes = DatasetParameter('Output nodes', type='output')
     
-
     def __init__(self):
         """
         Default parameter values
@@ -29,7 +24,7 @@ class Parameters:
 
         self.network = 'streams-from-sources'
         self.quantization = 1e8
-        self.output = 'network-identified'
+        self.network_identified = 'network-identified'
         self.nodes = 'network-nodes'
         
         

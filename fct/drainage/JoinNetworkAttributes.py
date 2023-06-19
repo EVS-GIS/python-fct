@@ -23,7 +23,7 @@ import fiona.crs
 from shapely.geometry import shape
 from shapely.ops import linemerge
 
-from ..config import config
+from ..config import config, DatasetParameter, LiteralParameter
 
 class Parameters:
     """
@@ -237,7 +237,7 @@ def JoinNetworkAttributes(params, tileset = 'default'):
         crs = fs.crs
 
         schema['properties'].update({
-            'CDENTITEHY': 'str:8',
+            'CDENTITEHY': 'str:254',
             'TOPONYME': 'str:254',
             'AXIS': 'int'
         })
