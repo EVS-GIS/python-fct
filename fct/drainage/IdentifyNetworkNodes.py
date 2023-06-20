@@ -151,7 +151,7 @@ def IdentifyNetworkNodes(params, tileset='default'):
 
         options = dict(driver=driver, crs=crs, schema=schema)
 
-        with fiona.open(params.output.filename(tileset=tileset), 'w', **options) as dst:
+        with fiona.open(params.network_identified.filename(tileset=tileset), 'w', **options) as dst:
             with click.progressbar(fs) as processing:
                 for feature in processing:
                     

@@ -341,15 +341,12 @@ def CreateSourcesAndConfluences(params, node_id_field, axis_field, hydro_id_fiel
             schema['properties'][node_id_name] = 'int'
         if not axis_name in schema :
             schema['properties'][axis_name] = 'int' 
-        if hydro_id_field:
-            if not hydro_id_name in schema :
-                    schema['properties'][hydro_id_name] = 'str' 
-        if toponym_field:
-            if not toponym_name in schema :
-                schema['properties'][toponym_name] = 'str' 
-        if hack_field:
-            if not hack_field in schema :
-                schema['properties'][hack_field] = 'int'
+        if not hydro_id_name in schema :
+                schema['properties'][hydro_id_name] = 'str' 
+        if not toponym_name in schema :
+            schema['properties'][toponym_name] = 'str' 
+        if not hack_name in schema :
+            schema['properties'][hack_name] = 'int'
     
         if schema['properties'][nodea]:
             click.secho('NODEA field identified, auto-remove', fg='blue')
