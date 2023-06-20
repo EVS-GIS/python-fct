@@ -35,6 +35,7 @@ PrepareDEM.MeanFilter(params, overwrite=True, processes=core, tileset='10kbis')
 # Prepare hydrologic network
 from fct.drainage import PrepareNetwork
 params = PrepareNetwork.Parameters()
+PrepareNetwork.CopyRefHydroNetwork(params)
 # Compute Strahler order on input network
 PrepareNetwork.StrahlerOrder(params, overwrite=True)
 # Add buffer field on network based on Strahler order

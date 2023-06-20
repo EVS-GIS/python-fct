@@ -32,12 +32,14 @@ from ..config import (
 )
 
 from ..config import config
+import shutil
 
 class Parameters:
     """
     Prepare hydrologic network
     """
-    hydro_network = DatasourceParameter('reference hydrologic network')
+    hydro_network_input = DatasourceParameter('input reference hydrologic network')
+    hydro_network = DatasetParameter('copy of reference stream network', type='input')
     hydrography_strahler = DatasetParameter('reference stream network with Strahler order', type='input')
     hydrography_strahler_fieldbuf = DatasetParameter('reference stream network with Strahler order and buffer field to compute buffer before burn DEM', type='output')
     sources = DatasetParameter('stream sources from the reference hydrologic network', type='output')
@@ -47,13 +49,36 @@ class Parameters:
         """
         Default parameter values
         """
-        self.hydro_network = 'hydrography'
+        self.hydro_network_input = 'hydrography'
+        self.hydro_network = 'hydrography-copy'
         self.hydrography_strahler = 'hydrography-strahler'
         self.hydrography_strahler_fieldbuf = 'hydrography-strahler-fieldbuf'
         self.sources = 'river-network-sources'
         self.sources_confluences = 'sources-confluences'
 
-# source code https://here.isnew.info/strahler-stream-order-in-python.html
+def CopyRefHydroNetwork(params, overwrite=True):
+    """
+    Calculate Strahler stream order
+    Parameters:
+    - params (object): An object containing the parameters.
+        - hydro_network_input (str): The filename of the input hydro network.
+        - hydro_network (str): The filename of the input hydro network copy.
+    - overwrite (bool): Optional. Specifies whether to overwrite existing tiled buffer files. Default is True.
+
+    Returns:
+    - None
+
+    """
+    click.secho('Copy input reference hydrographic network', fg='yellow')
+    # check overwrite
+    if os.path.exists(hydro_network) and not overwrite:
+        click.secho('Output already exists: %s' % hydro_network, fg='yellow')
+        return
+    
+    hydro_network_input = params.hydro_network.filename()
+    hydro_network = params.hydrography_strahler.filename(tileset=None)
+    shutil.copy(hydro_network_input, hydro_network)
+
 def StrahlerOrder(params, tileset=None, overwrite=True):
     """
     Calculate Strahler stream order
@@ -62,6 +87,7 @@ def StrahlerOrder(params, tileset=None, overwrite=True):
         - hydro_network (str): The filename of the hydro network.
         - hydrography_strahler (str): The filename for hydro network with Strahler order.
     - overwrite (bool): Optional. Specifies whether to overwrite existing tiled buffer files. Default is True.
+    - source code from https://here.isnew.info/strahler-stream-order-in-python.html
 
     Returns:
     - None
@@ -69,7 +95,7 @@ def StrahlerOrder(params, tileset=None, overwrite=True):
     """
     click.secho('Compute Strahler order', fg='yellow')
     # file path definition
-    hydro_network = params.hydro_network.filename()
+    hydro_network = params.hydro_network.filename(tileset=tileset)
     hydrography_strahler = params.hydrography_strahler.filename(tileset=tileset)
 
     # check overwrite

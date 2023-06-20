@@ -159,6 +159,16 @@ river-network-ordered:
   subdir: GLOBAL/REFHYDRO
   filename: REFERENTIEL_HYDRO_ORDERED.shp
 
+hydrography-copy:
+  description: |
+    reference stream network copy
+  type: linestring
+  group: hydrography
+  status: input
+  subdir: GLOBAL/REFHYDRO
+  filename: REFERENTIEL_HYDRO.gpkg
+
+
 hydrography-strahler:
   description: |
     reference stream network with strahler order
