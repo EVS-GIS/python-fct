@@ -38,7 +38,7 @@ class Parameters:
     Prepare hydrologic network
     """
     hydro_network = DatasourceParameter('reference hydrologic network')
-    hydro_network_strahler = DatasetParameter('reference stream network with Strahler order', type='input')
+    hydrography_strahler = DatasetParameter('reference stream network with Strahler order', type='input')
     hydrography_strahler_fieldbuf = DatasetParameter('reference stream network with Strahler order and buffer field to compute buffer before burn DEM', type='output')
     sources = DatasetParameter('stream sources from the reference hydrologic network', type='output')
     sources_confluences = DatasetParameter('sources and confluences extracted from hydrologic network input', type='output')
@@ -48,7 +48,7 @@ class Parameters:
         Default parameter values
         """
         self.hydro_network = 'hydrography'
-        self.hydro_network_strahler = 'hydrography-strahler'
+        self.hydrography_strahler = 'hydrography-strahler'
         self.hydrography_strahler_fieldbuf = 'hydrography-strahler-fieldbuf'
         self.sources = 'river-network-sources'
         self.sources_confluences = 'sources-confluences'
@@ -223,14 +223,14 @@ def StrahlerOrder(params, tileset=None, overwrite=True):
                         modif.write(modified_feature)
 
 
-def BufferFieldOnStrahler(params, buffer_factor=5, overwrite=True):
+def BufferFieldOnStrahler(params, buffer_factor=5, tileset=None, overwrite=True):
     """
     Prepare hydrologic network before burn : 
         - calculate buffer used to burn DEM based on Strahler order (order 1 = buffer_factor meters, 2 = 2*buffer_factor meters, 3*buffer_factor = 4x meters ...)
 
     Parameters:
     - params (object): An object containing the parameters for buffering.
-        - hydro_network_strahler (str): The filename of the hydro network with strahler order.
+        - hydrography_strahler (str): The filename of the hydro network with strahler order.
         - hydrography_strahler_fieldbuf (str): The filename of the hydro network with buffer field based on strahler order.
     - buffer_factor(float): default=5
     - overwrite (bool): Optional. Specifies whether to overwrite existing tiled buffer files. Default is True.
@@ -240,8 +240,8 @@ def BufferFieldOnStrahler(params, buffer_factor=5, overwrite=True):
 
     """
     click.secho('Calculate buffer field on Strahler order', fg='yellow')
-    hydro_network_strahler = params.hydro_network_strahler.filename()
-    hydrography_strahler_fieldbuf = params.hydrography_strahler_fieldbuf.filename(tileset=None)
+    hydrography_strahler = params.hydrography_strahler.filename(tileset=tileset)
+    hydrography_strahler_fieldbuf = params.hydrography_strahler_fieldbuf.filename(tileset=tileset)
 
     # check overwrite
     if os.path.exists(hydrography_strahler_fieldbuf) and not overwrite:
@@ -249,7 +249,7 @@ def BufferFieldOnStrahler(params, buffer_factor=5, overwrite=True):
         return
     
      # read reference network and create new buffer field
-    with fiona.open(hydro_network_strahler, 'r') as strahler:
+    with fiona.open(hydrography_strahler, 'r') as strahler:
 
         schema = strahler.schema.copy()
 
@@ -269,7 +269,7 @@ def BufferFieldOnStrahler(params, buffer_factor=5, overwrite=True):
 
         # edit buffer field and save in new file
         with fiona.open(hydrography_strahler_fieldbuf, 'w', **options) as dst:
-            with click.progressbar(dst) as processing:
+            with click.progressbar(strahler) as processing:
                 for feature in processing:
                         # Create a new feature with the new field
                     feature['properties'][buffer_field_name] = buffer_factor * (2 ** (feature['properties'][strahler_field_name]-1))
@@ -317,18 +317,18 @@ def CreateSources(params, overwrite=True):
             crs=hydro.crs)
         
         with fiona.open(sources, 'w', **options) as output:
-
+            with click.progressbar(hydro) as processing:
             # extract network line with strahler = 1 and create point with first line point coordinates
-            for feature in hydro:
-                if feature['properties']['strahler'] == 1:
-                    properties = feature['properties']
-                    geom = shape(feature['geometry'])
-                    head_point = Point(geom.coords[0][:2])
+                for feature in processing:
+                    if feature['properties']['strahler'] == 1:
+                        properties = feature['properties']
+                        geom = shape(feature['geometry'])
+                        head_point = Point(geom.coords[0][:2])
 
-                    output.write({
-                        'geometry': mapping(head_point),
-                        'properties': properties,
-    })
+                        output.write({
+                            'geometry': mapping(head_point),
+                            'properties': properties,
+                        })
 
 def CreateSourcesAndConfluences(params, node_id_field, axis_field, hydro_id_field=None, toponym_field=None, hack_field=None, overwrite=True):
     """
@@ -411,46 +411,46 @@ def CreateSourcesAndConfluences(params, node_id_field, axis_field, hydro_id_fiel
             crs=hydro.crs)
         
         with fiona.open(sources_confluences, 'w', **options) as output:
-
+            with click.progressbar(hydro) as processing:
             # extract first point for each line in hydrologic network
-            for feature in hydro:
-                properties = feature['properties']
-                geom = shape(feature['geometry'])
-                head_point = Point(geom.coords[0][:2])
+                for feature in processing:
+                    properties = feature['properties']
+                    geom = shape(feature['geometry'])
+                    head_point = Point(geom.coords[0][:2])
 
-                # update properties with FCT names
-                if type(properties[node_id_field]) == str:
-                    properties[node_id_name] = remove_chars_and_zeros(properties[node_id_field])
-                else:
-                    properties[node_id_name] = properties[node_id_field]
+                    # update properties with FCT names
+                    if type(properties[node_id_field]) == str:
+                        properties[node_id_name] = remove_chars_and_zeros(properties[node_id_field])
+                    else:
+                        properties[node_id_name] = properties[node_id_field]
 
-                if type(properties[axis_field]) == str:
-                    properties[axis_name] = remove_chars_and_zeros(properties[axis_field])
-                else:
-                    properties[axis_name] = properties[axis_field]
+                    if type(properties[axis_field]) == str:
+                        properties[axis_name] = remove_chars_and_zeros(properties[axis_field])
+                    else:
+                        properties[axis_name] = properties[axis_field]
 
-                if hydro_id_field:
-                    properties[hydro_id_name] = str(properties[hydro_id_field])
-                else:
-                    properties[hydro_id_name] = None
+                    if hydro_id_field:
+                        properties[hydro_id_name] = str(properties[hydro_id_field])
+                    else:
+                        properties[hydro_id_name] = None
 
-                if toponym_field:
-                    properties[toponym_name] = str(properties[toponym_field])
-                else:
-                    properties[toponym_name] = None
+                    if toponym_field:
+                        properties[toponym_name] = str(properties[toponym_field])
+                    else:
+                        properties[toponym_name] = None
 
-                if hack_field:
-                    properties[hack_name] = int(properties[hydro_id_field])
-                else:
-                    properties[hack_name] = None
+                    if hack_field:
+                        properties[hack_name] = int(properties[hydro_id_field])
+                    else:
+                        properties[hack_name] = None
 
-                if nodea in properties:
-                    del properties[nodea]
-                if nodeb in properties:
-                    del properties[nodeb]
+                    if nodea in properties:
+                        del properties[nodea]
+                    if nodeb in properties:
+                        del properties[nodeb]
 
-                output.write({
-                    'geometry': mapping(head_point),
-                    'properties': properties,
-    })
+                    output.write({
+                        'geometry': mapping(head_point),
+                        'properties': properties,
+                    })
 
