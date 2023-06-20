@@ -70,13 +70,12 @@ def CopyRefHydroNetwork(params, overwrite=True):
 
     """
     click.secho('Copy input reference hydrographic network', fg='yellow')
+    hydro_network_input = params.hydro_network_input.filename()
+    hydro_network = params.hydro_network.filename(tileset=None)
     # check overwrite
     if os.path.exists(hydro_network) and not overwrite:
         click.secho('Output already exists: %s' % hydro_network, fg='yellow')
         return
-    
-    hydro_network_input = params.hydro_network.filename()
-    hydro_network = params.hydrography_strahler.filename(tileset=None)
     shutil.copy(hydro_network_input, hydro_network)
 
 def StrahlerOrder(params, tileset=None, overwrite=True):
@@ -240,13 +239,14 @@ def StrahlerOrder(params, tileset=None, overwrite=True):
                 # write final features from updated features copy
                 with fiona.open(hydrography_strahler, 'w', driver=driver, crs=crs, schema=schema) as modif:
                     for feature in source_copy:
-                        modified_feature = {
-                                'type': 'Feature',
-                                'properties': feature['properties'],
-                                'geometry': feature['geometry'],
-                            }
+                        if feature['properties'][strahler_field_name] > 0:
+                            modified_feature = {
+                                    'type': 'Feature',
+                                    'properties': feature['properties'],
+                                    'geometry': feature['geometry'],
+                                }
 
-                        modif.write(modified_feature)
+                            modif.write(modified_feature)
 
 
 def BufferFieldOnStrahler(params, buffer_factor=5, tileset=None, overwrite=True):

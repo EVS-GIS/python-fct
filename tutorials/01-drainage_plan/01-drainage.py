@@ -35,11 +35,12 @@ PrepareDEM.MeanFilter(params, overwrite=True, processes=core, tileset='10kbis')
 # Prepare hydrologic network
 from fct.drainage import PrepareNetwork
 params = PrepareNetwork.Parameters()
+# Copy input reference network to compute Strahler order with any network
 PrepareNetwork.CopyRefHydroNetwork(params)
 # Compute Strahler order on input network
 PrepareNetwork.StrahlerOrder(params, overwrite=True)
 # Add buffer field on network based on Strahler order
-PrepareNetwork.BufferFieldOnStrahler(params, buffer_factor=100, overwrite=True)
+PrepareNetwork.BufferFieldOnStrahler(params, buffer_factor=50, overwrite=True)
 # create sources from network
 PrepareNetwork.CreateSources(params, overwrite=True)
 # create sources and confluences file from network
@@ -54,8 +55,8 @@ params.elevations = 'smoothed'
 Burn.HydroBuffer(params=params, overwrite=True)
 
 # Burn resolved DEM with buffer
-Burn.BurnBuffer(params=params, burn_delta = 10, overwrite=True, processes=core)
-Burn.BurnBuffer(params=params, burn_delta = 10, overwrite=True, processes=core, tileset='10kbis')
+Burn.BurnBuffer(params=params, burn_delta = 20, overwrite=True, processes=core)
+Burn.BurnBuffer(params=params, burn_delta = 20, overwrite=True, processes=core, tileset='10kbis')
 
 from fct.tileio import buildvrt
 buildvrt('10k', 'burned-dem')
@@ -194,7 +195,7 @@ IdentifyNetworkNodes.IdentifyNetworkNodes(params)
 from fct.drainage import PrepareNetwork
 params = PrepareNetwork.Parameters()
 params.hydro_network = 'network-identified'
-params.hydro_network_strahler= 'network-identified-strahler'
+params.hydrography_strahler= 'network-identified-strahler'
 # Compute Strahler order on input network
 PrepareNetwork.StrahlerOrder(params, tileset='default', overwrite=True)
 
