@@ -30,8 +30,7 @@ class Parameters:
     """
     Prepare hydrologic network
     """
-    network_identified = DatasetParameter('Theoric stream network with identified nodes', type='input')
-    network_nodes = DatasetParameter('Theoric stream network nodes', type='input')
+    network_identified_strahler = DatasetParameter('Theoric stream network with identified nodes', type='input')
     sources_confluences = DatasetParameter('sources and confluences extracted from hydrologic network input', type='input')
     rhts = DatasetParameter('Theoric stream network with identified nodes and joined data from input network', type='output')
 
@@ -40,8 +39,7 @@ class Parameters:
         """
         Default parameter values
         """
-        self.network_identified_strahler = 'network-identified'
-        self.network_nodes = 'network-nodes'
+        self.network_identified_strahler = 'network-identified-strahler'
         self.sources_confluences = 'sources-confluences'
         self.rhts = 'rhts'
 
@@ -51,15 +49,16 @@ def create_index(points_list):
 
     # Insert points into the spatial index
     for i, point in enumerate(points_list):
-        geom = point['geometry']
-        idx.insert(i, geom.bounds)
+        idx.insert(i, point.bounds)
 
     return idx
 
 def find_nearest_point(target_point, idx, points_list):
+    # Create a Shapely point from the target_point
+    target_shapely_point = Point(target_point)
 
     # Find the nearest point using the spatial index
-    nearest_index = min(idx.nearest(target_point.bounds), key=lambda i: target_point.distance(points_list[i]))
+    nearest_index = min(idx.nearest(target_shapely_point.bounds), key=lambda i: target_shapely_point.distance(points_list[i]))
 
     # Return the nearest point
     return points_list[nearest_index]
@@ -68,21 +67,22 @@ def find_nearest_point(target_point, idx, points_list):
 def JoinNetworkAttributes(params, tileset = 'default'):
 
     sources_shapefile = params.sources_confluences.filename(tileset=None)
-    network_identified = params.network_identified.filename(tileset=tileset)
-    network_nodes = params.network_nodes.filename(tileset=tileset)
+    network_identified_strahler = params.network_identified_strahler.filename(tileset=tileset)
     rhts = params.rhts.filename(tileset=tileset)
 
     strahler_field_name = 'strahler'
 
     # get first point coordinates from line with strahler == 1
-    points_strahler_1 = []
+    first_points_strahler_1 = []
 
-    with fiona.open(network_nodes, 'r') as nodes:
-        for point in nodes:
-            if point['properties'][strahler_field_name] == 1:
-                points_strahler_1.append(point)
+    with fiona.open(network_identified_strahler, 'r') as net_identified:
+        for line in net_identified:
+            if line['properties'][strahler_field_name] == 1:
+                geometry = shape(feature['geometry'])
+                first_points_strahler_1 = geometry.coords[0]
+                first_points_strahler_1.append(first_points_strahler_1)
 
-    idx = create_index(points_strahler_1)
+    idx = create_index(first_points_strahler_1)
 
     # # Create an R-tree index
     # idx = index.Index()
@@ -119,13 +119,12 @@ def JoinNetworkAttributes(params, tileset = 'default'):
             schema=schema,
             crs=source.crs)
 
-        # with fiona.open(rhts, 'w', **options) as dst:
+        with fiona.open(rhts, 'w', **options) as dst:
             
-        for feature in source:
-            if feature['properties'][strahler_field_name] == 1:
-                target_point = feature['geometry']
-                nearest_point = find_nearest_point(target_point, idx, points_strahler_1)
-            print(nearest_point)
+            for feature in source:
+                if feature['properties'][strahler_field_name] == 1:
+                    target_point = feature.coords[0]
+                    nearest_point = find_nearest_point(target_point, idx, first_points_strahler_1)
                     
 
 def UpdateLengthOrder(
