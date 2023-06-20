@@ -29,7 +29,7 @@ class Parameters:
     """
     Prepare hydrologic network
     """
-    network_identified = DatasetParameter('Theoric stream network with identified nodes', type='input')
+    network_identified_strahler = DatasetParameter('Theoric stream network with identified nodes', type='input')
     sources_confluences = DatasetParameter('sources and confluences extracted from hydrologic network input', type='input')
     rhts = DatasetParameter('Theoric stream network with identified nodes and joined data from input network', type='output')
 
@@ -38,7 +38,7 @@ class Parameters:
         """
         Default parameter values
         """
-        self.network_identified = 'network-identified'
+        self.network_identified_strahler = 'network-identified-strahler'
         self.sources_confluences = 'sources-confluences'
         self.rhts = 'rhts'
 
@@ -81,7 +81,7 @@ def JoinNetworkAttributes(params, tileset = 'default'):
     # output = config.filename(destination)
 
     sources_shapefile = params.sources_confluences.filename(tileset=None)
-    network_shapefile = params.network_identified.filename(tileset=tileset)
+    network_shapefile = params.network_identified_strahler.filename(tileset=tileset)
     output = params.rhts.filename(tileset=tileset)
 
     graph = dict()

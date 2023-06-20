@@ -38,7 +38,8 @@ class Parameters:
     Prepare hydrologic network
     """
     hydro_network = DatasourceParameter('reference hydrologic network')
-    hydrography_strahler_fieldbuf = DatasetParameter('reference stream network with Strahler order and buffer field to compute buffer before burn DEM', type='input')
+    hydro_network_strahler = DatasetParameter('reference stream network with Strahler order', type='input')
+    hydrography_strahler_fieldbuf = DatasetParameter('reference stream network with Strahler order and buffer field to compute buffer before burn DEM', type='output')
     sources = DatasetParameter('stream sources from the reference hydrologic network', type='output')
     sources_confluences = DatasetParameter('sources and confluences extracted from hydrologic network input', type='output')
 
@@ -47,36 +48,33 @@ class Parameters:
         Default parameter values
         """
         self.hydro_network = 'hydrography'
+        self.hydro_network_strahler = 'hydrography-strahler'
         self.hydrography_strahler_fieldbuf = 'hydrography-strahler-fieldbuf'
         self.sources = 'river-network-sources'
         self.sources_confluences = 'sources-confluences'
 
 # source code https://here.isnew.info/strahler-stream-order-in-python.html
-def PrepareStrahlerAndBuffer(params, buffer_factor=5, overwrite=True):
+def StrahlerOrder(params, tileset=None, overwrite=True):
     """
-    Prepare hydrologic network before burn : 
-        - calculate Strahler stream order
-        - calculate buffer used to burn DEM based on Strahler order (order 1 = buffer_factor meters, 2 = 2*buffer_factor meters, 3*buffer_factor = 4x meters ...)
-
+    Calculate Strahler stream order
     Parameters:
-    - params (object): An object containing the parameters for buffering.
+    - params (object): An object containing the parameters.
         - hydro_network (str): The filename of the hydro network.
-        - hydrography_strahler_fieldbuf (str): The filename for hydro network pepared.
-    - buffer_factor(float): defaut=5
+        - hydrography_strahler (str): The filename for hydro network with Strahler order.
     - overwrite (bool): Optional. Specifies whether to overwrite existing tiled buffer files. Default is True.
 
     Returns:
     - None
 
     """
-    click.secho('Calculate Strahler order and buffer field', fg='yellow')
+    click.secho('Compute Strahler order', fg='yellow')
     # file path definition
     hydro_network = params.hydro_network.filename()
-    hydrography_strahler_fieldbuf = params.hydrography_strahler_fieldbuf.filename(tileset=None)
+    hydrography_strahler = params.hydrography_strahler.filename(tileset=tileset)
 
     # check overwrite
-    if os.path.exists(hydrography_strahler_fieldbuf) and not overwrite:
-        click.secho('Output already exists: %s' % hydrography_strahler_fieldbuf, fg='yellow')
+    if os.path.exists(hydrography_strahler) and not overwrite:
+        click.secho('Output already exists: %s' % hydrography_strahler, fg='yellow')
         return
 
     # function to find head line in network (top upstream)
@@ -154,30 +152,25 @@ def PrepareStrahlerAndBuffer(params, buffer_factor=5, overwrite=True):
         crs=source.crs
 
         # define new fields
-        lines = []
         strahler_field_name = "strahler"
         strahler_field_type = 'int'
-        buffer_field_name = 'buffer'
-        buffer_field_type = 'float'
-
         # Add the new field to the schema
         schema['properties'][strahler_field_name] = strahler_field_type
-        schema['properties'][buffer_field_name] = buffer_field_type
 
-        source_buff_copy = []
+        lines = []
+        source_copy = []
 
-        # with click.progressbar(source) as processing:
+        # copy feature with strahler field in source_copy and the the line coordinates in lines
         for feature in source:
                 # Create a new feature with the new field
                 new_properties = feature['properties']
                 new_properties[strahler_field_name] = 0  # Set the strahler field value to 0
-                new_properties[buffer_field_name] = 0 # Set the buffer field value to 0
                 geom = shape(feature['geometry'])
                 # copy line coordinates to find head line
                 line = geom.coords
                 lines.append(line)
                 # copy features in new list to update the data before write all
-                source_buff_copy.append(feature)
+                source_copy.append(feature)
 
         # save head lines index
         head_idx = find_head_lines(lines)
@@ -187,7 +180,7 @@ def PrepareStrahlerAndBuffer(params, buffer_factor=5, overwrite=True):
                 curr_idx = idx
                 curr_ord = 1
                 # head lines order = 1
-                source_buff_copy[curr_idx]['properties'][strahler_field_name] = curr_ord
+                source_copy[curr_idx]['properties'][strahler_field_name] = curr_ord
                 # go downstream from each head lines
                 while True:
                     # find next line downstream
@@ -196,14 +189,14 @@ def PrepareStrahlerAndBuffer(params, buffer_factor=5, overwrite=True):
                     if not next_idx:
                         break
                     # copy next line feature and order
-                    next_feat = source_buff_copy[next_idx]
+                    next_feat = source_copy[next_idx]
                     next_ord = next_feat['properties'][strahler_field_name]
                     # find sibling line
                     sibl_idx = find_sibling_line(curr_idx, lines)
                     # if sibling line exist
                     if sibl_idx is not None:
                         # copy sibling line feature and order
-                        sibl_feat = source_buff_copy[sibl_idx]
+                        sibl_feat = source_copy[sibl_idx]
                         sibl_ord = sibl_feat['properties'][strahler_field_name]
                         # determinate order base on sibling, next and current line
                         if sibl_ord > curr_ord:
@@ -214,15 +207,13 @@ def PrepareStrahlerAndBuffer(params, buffer_factor=5, overwrite=True):
                         else:
                             curr_ord += 1
                     # update order in feature copy dict
-                    source_buff_copy[next_idx]['properties'][strahler_field_name] = curr_ord
+                    source_copy[next_idx]['properties'][strahler_field_name] = curr_ord
                     # go further downstream
                     curr_idx = next_idx
 
                 # write final features from updated features copy
-                with fiona.open(hydrography_strahler_fieldbuf, 'w', driver=driver, crs=crs, schema=schema) as modif:
-                    for feature in source_buff_copy:
-                        # calculate buffer based on strahler order
-                        feature['properties'][buffer_field_name] = buffer_factor * (2 ** (feature['properties'][strahler_field_name]-1))
+                with fiona.open(hydrography_strahler, 'w', driver=driver, crs=crs, schema=schema) as modif:
+                    for feature in source_copy:
                         modified_feature = {
                                 'type': 'Feature',
                                 'properties': feature['properties'],
@@ -230,6 +221,65 @@ def PrepareStrahlerAndBuffer(params, buffer_factor=5, overwrite=True):
                             }
 
                         modif.write(modified_feature)
+
+
+def BufferFieldOnStrahler(params, buffer_factor=5, overwrite=True):
+    """
+    Prepare hydrologic network before burn : 
+        - calculate buffer used to burn DEM based on Strahler order (order 1 = buffer_factor meters, 2 = 2*buffer_factor meters, 3*buffer_factor = 4x meters ...)
+
+    Parameters:
+    - params (object): An object containing the parameters for buffering.
+        - hydro_network_strahler (str): The filename of the hydro network with strahler order.
+        - hydrography_strahler_fieldbuf (str): The filename of the hydro network with buffer field based on strahler order.
+    - buffer_factor(float): default=5
+    - overwrite (bool): Optional. Specifies whether to overwrite existing tiled buffer files. Default is True.
+
+    Returns:
+    - None
+
+    """
+    click.secho('Calculate buffer field on Strahler order', fg='yellow')
+    hydro_network_strahler = params.hydro_network_strahler.filename()
+    hydrography_strahler_fieldbuf = params.hydrography_strahler_fieldbuf.filename(tileset=None)
+
+    # check overwrite
+    if os.path.exists(hydrography_strahler_fieldbuf) and not overwrite:
+        click.secho('Output already exists: %s' % hydrography_strahler_fieldbuf, fg='yellow')
+        return
+    
+     # read reference network and create new buffer field
+    with fiona.open(hydro_network_strahler, 'r') as strahler:
+
+        schema = strahler.schema.copy()
+
+        # define new fields
+        buffer_field_name = 'buffer'
+        buffer_field_type = 'float'
+        strahler_field_name = 'strahler'
+
+        # Add the new field to the schema
+        schema['properties'][buffer_field_name] = buffer_field_type
+
+        options = dict(
+            schema = schema,
+            driver=strahler.driver,
+            crs=strahler.crs
+        )
+
+        # edit buffer field and save in new file
+        with fiona.open(hydrography_strahler_fieldbuf, 'w', **options) as dst:
+            with click.progressbar(dst) as processing:
+                for feature in processing:
+                        # Create a new feature with the new field
+                    feature['properties'][buffer_field_name] = buffer_factor * (2 ** (feature['properties'][strahler_field_name]-1))
+                    modified_feature = {
+                            'type': 'Feature',
+                            'properties': feature['properties'],
+                            'geometry': feature['geometry'],
+                        }
+
+                    dst.write(modified_feature)
 
 def CreateSources(params, overwrite=True):
     """

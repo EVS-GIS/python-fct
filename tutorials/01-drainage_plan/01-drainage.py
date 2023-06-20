@@ -33,11 +33,12 @@ PrepareDEM.MeanFilter(params, overwrite=True, processes=core, tileset='10k')
 PrepareDEM.MeanFilter(params, overwrite=True, processes=core, tileset='10kbis')
 
 # Prepare hydrologic network
-# get parameters
 from fct.drainage import PrepareNetwork
 params = PrepareNetwork.Parameters()
-# network preparation with strahler order and buffer based on strahler
-PrepareNetwork.PrepareStrahlerAndBuffer(params, buffer_factor=100, overwrite=True)
+# Compute Strahler order on input network
+PrepareNetwork.StrahlerOrder(params, overwrite=True)
+# Add buffer field on network based on Strahler order
+PrepareNetwork.BufferFieldOnStrahler(params, buffer_factor=100, overwrite=True)
 # create sources from network
 PrepareNetwork.CreateSources(params, overwrite=True)
 # create sources and confluences file from network
@@ -186,6 +187,15 @@ from fct.drainage import IdentifyNetworkNodes
 params = IdentifyNetworkNodes.Parameters()
 
 IdentifyNetworkNodes.IdentifyNetworkNodes(params)
+
+
+# compute Strahler order on RHTS
+from fct.drainage import PrepareNetwork
+params = PrepareNetwork.Parameters()
+params.hydro_network = 'network-identified'
+params.hydro_network_strahler= 'network-identified-strahler'
+# Compute Strahler order on input network
+PrepareNetwork.StrahlerOrder(params, tileset='default', overwrite=True)
 
 #7 TODO: Update JoinNetworkAttributes
 # yml global measure
