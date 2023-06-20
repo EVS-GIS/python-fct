@@ -184,20 +184,19 @@ StreamSources.InletSources(params)
 StreamSources.StreamToFeatureFromSources(params, min_drainage=500, processes=core)
 StreamSources.AggregateStreamsFromSources(params)
 
-# compute Strahler order on RHTS
-from fct.drainage import PrepareNetwork
-params = PrepareNetwork.Parameters()
-params.hydro_network = 'streams-from-sources'
-params.hydrography_strahler= 'streams-from-sources-strahler'
-# Compute Strahler order on input network
-PrepareNetwork.StrahlerOrder(params, tileset='default', overwrite=True)
-
 # Identify network nodes
 from fct.drainage import IdentifyNetworkNodes
 params = IdentifyNetworkNodes.Parameters()
-params.network = 'streams-from-sources-strahler'
 
 IdentifyNetworkNodes.IdentifyNetworkNodes(params)
+
+# compute Strahler order on RHTS
+from fct.drainage import PrepareNetwork
+params = PrepareNetwork.Parameters()
+params.hydro_network = 'network-identified'
+params.hydrography_strahler= 'network-identified-strahler'
+# Compute Strahler order on input network
+PrepareNetwork.StrahlerOrder(params, tileset='default', overwrite=True)
 
 #7 TODO: Update JoinNetworkAttributes
 # yml global measure
