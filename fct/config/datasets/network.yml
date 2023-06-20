@@ -412,15 +412,6 @@ network-identified:
   subdir: GLOBAL/DEM
   filename: RHTS_IDENTIFIED.shp
 
-network-identified-strahler:
-  description: |
-    Theoric stream network with strahler order
-  type: linestring
-  group: network
-  status: temporary
-  subdir: GLOBAL/DEM
-  filename: RHTS_IDENTIFIED_STRAHLER.shp
-
 rhts:
   description: |
     Theoric stream network with identified nodes and joined data from input network
