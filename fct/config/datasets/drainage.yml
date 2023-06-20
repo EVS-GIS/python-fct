@@ -339,6 +339,20 @@ streams-from-sources:
     template: RHTS_%(row)02d_%(col)02d
     extension: .shp
 
+streams-from-sources-strahler:
+  description: |
+    Theoretical stream network,
+    derived from DEM and mapped sources
+  type: linestring
+  group: drainage
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: RHTS_NOATTR.shp
+  tiles:
+    tileset: landcover
+    template: RHTS_STRAHLER_%(row)02d_%(col)02d
+    extension: .shp
+
 drainage-raster-from-sources:
   description: |
     Rasterization of streams-from-sources
