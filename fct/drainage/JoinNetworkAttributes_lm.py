@@ -43,88 +43,154 @@ class Parameters:
         self.sources_confluences = 'sources-confluences'
         self.rhts = 'rhts'
 
-def create_index(points_list):
-    # Create a spatial index
-    idx = index.Index()
+# work from python-fct not finish (for memory)
+def JoinNetworkAttributes(params, distance_threshold_strahler1 = 50, distance_threshold_other_strahler = 2000, tileset = 'default'):
 
-    # Insert points into the spatial index
-    for i, point in enumerate(points_list):
-        idx.insert(i, point.bounds)
-
-    return idx
-
-def find_nearest_point(target_point, idx, points_list):
-    # Create a Shapely point from the target_point
-    target_shapely_point = Point(target_point)
-
-    # Find the nearest point using the spatial index
-    nearest_index = min(idx.nearest(target_shapely_point.bounds), key=lambda i: target_shapely_point.distance(points_list[i]))
-
-    # Return the nearest point
-    return points_list[nearest_index]
-
-
-def JoinNetworkAttributes(params, tileset = 'default'):
-
-    sources_shapefile = params.sources_confluences.filename(tileset=None)
+    sources_confluences = params.sources_confluences.filename(tileset=None)
     network_identified_strahler = params.network_identified_strahler.filename(tileset=tileset)
     rhts = params.rhts.filename(tileset=tileset)
 
     strahler_field_name = 'strahler'
+    node_field_name = 'NODE'
+    axis_field_name = 'AXIS'
+    cdidentity_field_name= 'CDENTITEHY'
+    toponyme_field_name = 'TOPONYME'
+    hack_field_name = 'HACK'
 
-    # get first point coordinates from line with strahler == 1
-    first_points_strahler_1 = []
+    # get the fields in the schema from sources_confluences not existing in network_identified_strahler 
+    with fiona.open(sources_confluences, 'r') as source:
+        with fiona.open(network_identified_strahler, 'r') as network:
+            schema_source_prop = source.schema['properties']
+            new_schema_network = network.schema.copy()
+            new_schema_network['properties'][node_field_name] = schema_source_prop[node_field_name]
+            new_schema_network['properties'][axis_field_name] = schema_source_prop[axis_field_name]
+            new_schema_network['properties'][cdidentity_field_name] = schema_source_prop[cdidentity_field_name]
+            new_schema_network['properties'][toponyme_field_name] = schema_source_prop[toponyme_field_name]
+            new_schema_network['properties'][hack_field_name] = schema_source_prop[hack_field_name]
 
-    with fiona.open(network_identified_strahler, 'r') as net_identified:
-        for line in net_identified:
-            if line['properties'][strahler_field_name] == 1:
-                geometry = shape(feature['geometry'])
-                first_points_strahler_1 = geometry.coords[0]
-                first_points_strahler_1.append(first_points_strahler_1)
+            options = dict(
+            schema = new_schema_network,
+            driver = network.driver,
+            crs = network.crs
+            )
 
-    idx = create_index(first_points_strahler_1)
+            max_strahler = max([feature['properties'][strahler_field_name] for feature in network])
+            print(max_strahler)
 
-    # # Create an R-tree index
-    # idx = index.Index()
-    # # populate index
-    # for fid, feature in enumerate(source):
-    #     geom = shape(feature['geometry'])
-    #     idx.insert(fid, geom.bounds)
+    network_update = []
 
-    # select 
-    with fiona.open(sources_shapefile, 'r') as source:
+    for strahler in range(1, max_strahler+1):
+        if strahler == 1:
+            distance_threshold = distance_threshold_strahler1
+        else:
+            distance_threshold = distance_threshold_other_strahler
+        print(strahler)
+        with fiona.open(network_identified_strahler, 'r') as network:
+            print(fiona.model.to_dict(network))
 
-        schema = source.schema.copy
+        # get sources_confluences with strahler == 1
+        with fiona.open(sources_confluences, 'r') as source:
+            strahler1 = [feature for feature in source if feature['properties'][strahler_field_name] == strahler]
+        
+        with fiona.open(network_identified_strahler, 'r') as network:
+            network1 = [feature for feature in network if feature['properties'][strahler_field_name] == strahler]
 
-        node_id_name = 'NODE'
-        hydro_id_name = 'CDENTITEHY'
-        toponym_name = 'TOPONYME'
-        axis_name = 'AXIS'
-        hack_name = 'HACK'
+        # Create an R-tree index
+        strahler1_index = index.Index()
+        # populate index
+        for i, point in enumerate(strahler1):
+            geom = shape(point['geometry'])
+            strahler1_index.insert(i, geom.bounds)
 
-        # Add the new field to the schema
-        if not node_id_name in schema :
-            schema['properties'][node_id_name] = 'int'
-        if not axis_name in schema :
-            schema['properties'][axis_name] = 'int' 
-        if not hydro_id_name in schema :
-                schema['properties'][hydro_id_name] = 'str' 
-        if not toponym_name in schema :
-            schema['properties'][toponym_name] = 'str' 
-        if not hack_name in schema :
-            schema['properties'][hack_name] = 'int'
-
-        options = dict(
-            driver=source.driver,
-            schema=schema,
-            crs=source.crs)
-
-        with fiona.open(rhts, 'w', **options) as dst:
+        for line in network1:
+            # initialisation to get nearest_point
+            nearest_point = None
+            nearest_distance = float('inf')
+            line_properties = line['properties']
+            geometry = shape(line['geometry'])
+            # get line first point coordinates
+            first_point = Point(geometry.coords[0])
+            # create buffer around first point
+            point_buffer = first_point.buffer(distance_threshold)
+            # get all the point from source that intersect with buffer with index
+            potential_matches = [idx for idx in strahler1_index.intersection(point_buffer.bounds)] # store idx of the index
             
-            for feature in source:
-                if feature['properties'][strahler_field_name] == 1:
-                    target_point = feature.coords[0]
-                    nearest_point = find_nearest_point(target_point, idx, first_points_strahler_1)
+            if potential_matches:
+                # seach with index in potential_matches
+                for idx in potential_matches:
+                    source_potential_geom = shape(strahler1[idx]['geometry'])
+                    # iterate through potential_matches strahler1, calculate distance and get the shortest by updating nearest_distance if the current strahler1 is closer
+                    if first_point.distance(source_potential_geom) < nearest_distance:
+                        nearest_point = strahler1[idx]
+                        nearest_distance = first_point.distance(source_potential_geom)
+                nearest_point_properties = nearest_point['properties']
+                line_properties[node_field_name] = nearest_point_properties[node_field_name]
+                line_properties[axis_field_name] = nearest_point_properties[axis_field_name]
+                line_properties[cdidentity_field_name] = nearest_point_properties[cdidentity_field_name]
+                line_properties[toponyme_field_name] = nearest_point_properties[toponyme_field_name]
+                line_properties[hack_field_name] = nearest_point_properties[hack_field_name]
+                rhts_feature = {
+                        'type': 'Feature',
+                        'properties': line_properties,
+                        'geometry': line['geometry'],
+                    }
+                network_update.append(rhts_feature)
+
+    with fiona.open(rhts, 'w', **options) as output:
+        for feature in network_update:
+            output.write(feature)
+
+
+
+
+
+
+
+
+    # with fiona.open(network_identified_strahler, 'r') as network:
+
+    #     options = dict(
+    #         schema = new_schema_network,
+    #         driver = network.driver,
+    #         crs = network.crs
+    #     )
+    #     with fiona.open(rhts, 'w', **options) as output:
+        
+    #         for line in network:
+    #             # initialisation to get nearest_point
+    #             nearest_point = None
+    #             nearest_distance = float('inf')
+    #             line_properties = line['properties']
+    #             # get lione with strahler == 1
+    #             if line['properties'][strahler_field_name] == 1:
+    #                 geometry = shape(line['geometry'])
+    #                 # get line first point coordinates
+    #                 first_point = Point(geometry.coords[0])
+    #                 # create buffer around first point
+    #                 point_buffer = first_point.buffer(distance_threshold_strahler1)
+    #                 # get all the point from source that intersect with buffer with index
+    #                 potential_matches = [idx for idx in strahler1_index.intersection(point_buffer.bounds)] # store idx of the index
+                    
+    #                 if potential_matches:
+    #                     # seach with index in potential_matches
+    #                     for idx in potential_matches:
+    #                         source_potential_geom = shape(strahler1[idx]['geometry'])
+    #                         # iterate through potential_matches strahler1, calculate distance and get the shortest by updating nearest_distance if the current strahler1 is closer
+    #                         if first_point.distance(source_potential_geom) < nearest_distance:
+    #                             nearest_point = strahler1[idx]
+    #                             nearest_distance = first_point.distance(source_potential_geom)
+    #                     nearest_point_properties = nearest_point['properties']
+    #                     line_properties[node_field_name] = nearest_point_properties[node_field_name]
+    #                     line_properties[axis_field_name] = nearest_point_properties[axis_field_name]
+    #                     line_properties[cdidentity_field_name] = nearest_point_properties[cdidentity_field_name]
+    #                     line_properties[toponyme_field_name] = nearest_point_properties[toponyme_field_name]
+    #                     line_properties[hack_field_name] = nearest_point_properties[hack_field_name]
+    #                     rhts_feature = {
+    #                                     'type': 'Feature',
+    #                                     'properties': line_properties,
+    #                                     'geometry': line['geometry'],
+    #                                 }
+    #                     output.write(rhts_feature)
                     
 
 def UpdateLengthOrder(

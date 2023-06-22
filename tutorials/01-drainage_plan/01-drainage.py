@@ -6,7 +6,7 @@ Goals of step 01-drainage :
     - 
 '''
 
-core = 32
+core = 8
 
 # Create your tileset
 
@@ -207,9 +207,9 @@ import os
 if not os.path.isdir('../outputs/GLOBAL/MEASURE'):
     os.mkdir('../outputs/GLOBAL/MEASURE')
 
-from fct.drainage import JoinNetworkAttributes
-params = JoinNetworkAttributes.Parameters()
-JoinNetworkAttributes.JoinNetworkAttributes(params)
+from fct.drainage import JoinNetworkAttributes_lm
+params = JoinNetworkAttributes_lm.Parameters()
+JoinNetworkAttributes_lm.JoinNetworkAttributes(params)
 
 JoinNetworkAttributes.JoinNetworkAttributes('../inputs/sources.gpkg', '../outputs/GLOBAL/DEM/NETWORK_IDENTIFIED_10K.shp', '../outputs/GLOBAL/DEM/RHTS.shp')
 # JoinNetworkAttributes.UpdateLengthOrder('../outputs/GLOBAL/DEM/RHTS.shp', '../outputs/GLOBAL/DEM/RHTS.shp')
