@@ -32,6 +32,10 @@ params.window=5
 PrepareDEM.MeanFilter(params, overwrite=True, processes=core, tileset='10k')
 PrepareDEM.MeanFilter(params, overwrite=True, processes=core, tileset='10kbis')
 
+from fct.tileio import buildvrt
+buildvrt('10k', 'smoothed')
+buildvrt('10kbis', 'smoothed')
+
 # Prepare hydrologic network
 from fct.drainage import PrepareNetwork
 params = PrepareNetwork.Parameters()
@@ -75,6 +79,10 @@ DepressionFill.ResolveWatershedSpillover(params, overwrite=True, tileset='10kbis
 
 DepressionFill.DispatchWatershedMinimumZ(params, overwrite=True, processes=core)
 DepressionFill.DispatchWatershedMinimumZ(params, overwrite=True, processes=core, tileset='10kbis')
+
+from fct.tileio import buildvrt
+buildvrt('10k', 'dem-filled-resolved')
+buildvrt('10kbis', 'dem-filled-resolved')
  
 # Resolve flats
 from fct.drainage import BorderFlats
