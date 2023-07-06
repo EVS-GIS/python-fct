@@ -38,7 +38,7 @@ from ..config import (
 
 from .. import terrain_analysis as ta
 from ..config import config
-from ..rasterize import rasterize_linestringz
+from ..rasterize import rasterize_linestringz, rasterize_linestring
 
 class Parameters:
     """
@@ -325,3 +325,88 @@ def BurnTile(params, row, col, burn_delta=0.0):
 
     return elevations
 
+def BurnLinesTile(params, row, col, burn_delta=50, overwrite=True, tileset='default'):
+    """
+    Burn DEM along the hydrologic network lines by delta, create a new raster that keep the inital DEM data with the burned cells along the lines.
+    Used to fit the flow direction ant the flow accumulation the the input hydrologic network
+
+    Parameters:
+    - params (object): parameters, paths to files.
+    - row (int): The row number of the tile to clip.
+    - col (int): The column number of the tile to clip.
+    - burn_delta (float): Cell reduction value along the lines
+    - overwrite (bool): Optional. Specifies whether to overwrite existing tiled buffer files. Default is True.
+    - tileset (str): Optional. The name of the tileset to use. Default is 'default'.
+
+    Returns:
+    None
+    """
+
+    # paths
+    elevation_raster = params.elevations.tilename(row=row, col=col, tileset=tileset)
+    hydrography = params.hydrography_strahler_fieldbuf.filename(tileset=None)
+    burned = params.burned_dem.tilename(row=row, col=col, tileset=tileset)
+
+    # check overwrite
+    if os.path.exists(burned) and not overwrite:
+        click.secho('Output already exists: %s' % burned, fg='yellow')
+        return
+
+    with rio.open(elevation_raster) as ds:
+
+        elevations = ds.read(1)
+        height, width = elevations.shape
+
+        # New raster with the modified values
+        with rio.open(burned, 'w', **ds.meta) as output:
+            # copy initial data to keep all the data with the burned ones
+            burn_data = elevations.copy()
+
+            with fiona.open(hydrography) as fs:
+                for feature in fs:
+                    
+                    # get the coordinates of the line in a numpy array
+                    geom = np.array(feature['geometry']['coordinates'], dtype=np.float32)
+                    # transform the coordinate of the line in pixel coordinates
+                    geom[:, :2] = np.fliplr(ta.worldtopixel(geom, ds.transform, gdal=False))
+                    # a and b are pixel coordinates couple following along the line features
+                    for a, b in zip(geom[:-1], geom[1:]):
+                        # select the coordinate in geom to draw the line with the minimum of pixels (Bresenham's line algorithm), one data point per intersected cell
+                        for px, py in rasterize_linestring(a, b):
+                            if all([py >= 0, py < height, px >= 0, px < width]):
+                                # burn the pixel selected
+                                burn_data[py, px] = elevations[py, px] - burn_delta
+                    # Write the burn DEM data
+                    output.write(burn_data, 1)
+
+def BurnLines(
+        params,
+        burn_delta,
+        overwrite=True,
+        tileset='default',
+        processes=1):
+    
+    def arguments():
+
+        for tile in config.tileset(tileset).tiles():
+            row = tile.row
+            col = tile.col
+            yield (
+                BurnLinesTile,
+                params,
+                row,
+                col,
+                burn_delta,
+                overwrite,
+                tileset
+            )
+
+    arguments = list(arguments())
+
+    with Pool(processes=processes) as pool:
+
+        pooled = pool.imap_unordered(starcall_nokwargs, arguments)
+
+        with click.progressbar(pooled, length=len(arguments)) as iterator:
+            for _ in iterator:
+                pass

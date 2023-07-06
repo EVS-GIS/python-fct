@@ -62,6 +62,21 @@ Burn.HydroBuffer(params=params, overwrite=True)
 Burn.BurnBuffer(params=params, burn_delta = 20, overwrite=True, processes=core)
 Burn.BurnBuffer(params=params, burn_delta = 20, overwrite=True, processes=core, tileset='10kbis')
 
+
+#######################
+core=8
+from fct.drainage import Burn
+params = Burn.Parameters()
+params.elevations = 'dem'
+Burn.BurnLines(params, burn_delta=50, overwrite=True, processes=core)
+Burn.BurnLines(params, burn_delta=50, overwrite=True, processes=core, tileset='10kbis')
+
+from fct.tileio import buildvrt
+buildvrt('10k', 'burned-dem')
+buildvrt('10kbis', 'burned-dem')
+
+
+#######################
 from fct.tileio import buildvrt
 buildvrt('10k', 'burned-dem')
 buildvrt('10kbis', 'burned-dem')
@@ -183,6 +198,8 @@ Accumulate.Outlets(params=params, processes=core)
 Accumulate.AggregateOutlets(params)
 Accumulate.InletAreas(params=params)
 Accumulate.FlowAccumulation(params=params, overwrite=True, processes=core) 
+
+####### RHTS #######
 
 # Remake stream Network from sources with NoFlow pixels fixed
 from fct.drainage import StreamSources
