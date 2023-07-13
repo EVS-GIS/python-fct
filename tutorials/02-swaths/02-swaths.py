@@ -1,14 +1,25 @@
 # Copy the Hydrographic Reference to outputs/GLOBAL/REFHYDRO
 
-import glob, shutil
+import glob, shutil, os
+
+if not os.path.isdir('../outputs/GLOBAL/REFHYDRO/'):
+    os.mkdir('../outputs/GLOBAL/REFHYDRO/')
+
 for f in glob.glob('../inputs/REFERENTIEL_HYDRO.*'):
     shutil.copy(f, '../outputs/GLOBAL/REFHYDRO/')
 
 # Shortest Height
 from fct.height import ShortestHeight
 params = ShortestHeight.Parameters()
+params.scale_distance = 25.0
+params.mask_height_max = 100.0
+params.height_max = 100.0
+params.distance_min = 20.0
+params.distance_max = 2000.0
+params.jitter = 0.4
 
-ShortestHeight.ShortestHeight(params, processes=8)
+shutil.rmtree('../outputs/NETWORK/HEIGHT/10K/SHORTEST_HEIGHT/')
+ShortestHeight.ShortestHeight(params, processes=16)
 
 from fct.tileio import buildvrt
 buildvrt('10k', 'shortest_height')
@@ -16,8 +27,12 @@ buildvrt('10k', 'shortest_height')
 # Height above nearest drainage
 from fct.height import HeightAboveNearestDrainage
 params = HeightAboveNearestDrainage.Parameters()
+params.mask_height_max = 100.0
+params.buffer_width = 2000
+params.resolution = 25.0
 
-HeightAboveNearestDrainage.HeightAboveNearestDrainage(params, processes=8)
+shutil.rmtree('../outputs/NETWORK/HEIGHT/10K/NEAREST_HEIGHT/')
+HeightAboveNearestDrainage.HeightAboveNearestDrainage(params, processes=16)
 
 from fct.tileio import buildvrt
 buildvrt('10k', 'nearest_height')
@@ -29,7 +44,7 @@ from fct.measure import SwathMeasurement
 params = SwathMeasurement.Parameters()
 params.mdelta = 200.0
 
-swaths = SwathMeasurement.DisaggregateIntoSwaths(params, processes=8)
+swaths = SwathMeasurement.DisaggregateIntoSwaths(params, processes=16)
 swaths_bounds = SwathMeasurement.WriteSwathsBounds(params, attrs=swaths)
 
 from fct.tileio import buildvrt
@@ -42,12 +57,14 @@ buildvrt('10k', 'swaths_refaxis')
 from fct.corridor import SwathDrainage
 params = SwathDrainage.Parameters()
 
-swath_drainage = SwathDrainage.SwathDrainage(params, processes=8)
+swath_drainage = SwathDrainage.SwathDrainage(params, processes=16)
 
 # Valley bottom features
 from fct.corridor import ValleyBottomFeatures
 params = ValleyBottomFeatures.Parameters()
 params.height_max = 20.0
+params.swath_length = 200.0
+params.patch_min_pixels = 100
 
 params.thresholds = [
     # drainage area km², distance min, distance max, max height (depth), max slope (%)
@@ -61,14 +78,24 @@ params.thresholds = [
     ValleyBottomFeatures.ValleyBottomThreshold(45000, 20.0, 7500.0, 10.5, 2.0)
 ]
 
-ValleyBottomFeatures.ClassifyValleyBottomFeatures(params, swath_drainage, processes=8)
+shutil.rmtree('../outputs/NETWORK/TEMP/10K/VALLEY_BOTTOM_FEATURES/')
+ValleyBottomFeatures.ClassifyValleyBottomFeatures(params, swath_drainage, processes=16)
+
+from fct.tileio import buildvrt
+buildvrt('10k', 'valley_bottom_features')
 
 # Connected Valley bottom
 from fct.corridor import ValleyBottomFinal
 params = ValleyBottomFinal.Parameters()
+params.distance_max = 2000
+params.jitter = 0.9
 
-ValleyBottomFinal.ConnectedValleyBottom(params, processes=8)
-ValleyBottomFinal.TrueValleyBottom(params, processes=8)
+shutil.rmtree('../outputs/NETWORK/TEMP/10K/VALLEY_BOTTOM_CONNECTED/')
+shutil.rmtree('../outputs/NETWORK/TEMP/10K/VALLEY_BOTTOM_DISTANCE_CONNECTED/')
+ValleyBottomFinal.ConnectedValleyBottom(params, processes=16)
+
+shutil.rmtree('../outputs/NETWORK/HEIGHT/10K/VALLEY_BOTTOM/')
+ValleyBottomFinal.TrueValleyBottom(params, processes=16)
 
 from fct.tileio import buildvrt
 buildvrt('10k', 'valley_bottom_final')
@@ -77,8 +104,8 @@ buildvrt('10k', 'valley_bottom_final')
 from fct.measure import SwathPolygons
 params = SwathPolygons.Parameters()
 
-swaths = SwathPolygons.Swaths(params, processes=8)
-SwathPolygons.VectorizeSwaths(swaths, swath_drainage, params, processes=8)
+swaths = SwathPolygons.Swaths(params, processes=16)
+SwathPolygons.VectorizeSwaths(swaths, swath_drainage, params, processes=16)
 
 # Calculate medial axes
 from fct.corridor import MedialAxis2
@@ -99,7 +126,7 @@ params.output_swaths_shapefile = 'swaths_medialaxis_polygons'
 params.output_swaths_bounds = 'swaths_medialaxis_bounds'
 params.mdelta = 200.0
 
-swaths = SwathMeasurement.DisaggregateIntoSwaths(params, processes=8)
+swaths = SwathMeasurement.DisaggregateIntoSwaths(params, processes=16)
 swaths_bounds = SwathMeasurement.WriteSwathsBounds(params, attrs=swaths)
 
 from fct.tileio import buildvrt
@@ -109,7 +136,7 @@ buildvrt('10k', 'swaths_medialaxis')
 from fct.corridor import SwathDrainage
 params = SwathDrainage.Parameters()
 
-swath_drainage = SwathDrainage.SwathDrainage(params, processes=8)
+swath_drainage = SwathDrainage.SwathDrainage(params, processes=16)
 
 # Vectorize Medialaxis Swaths
 from fct.measure import SwathPolygons
@@ -117,8 +144,8 @@ params = SwathPolygons.Parameters()
 params.swaths = 'swaths_medialaxis'
 params.polygons = 'swaths_medialaxis_polygons'
 
-swaths = SwathPolygons.Swaths(params, processes=8)
-SwathPolygons.VectorizeSwaths(swaths, swath_drainage, params, processes=8)
+swaths = SwathPolygons.Swaths(params, processes=16)
+SwathPolygons.VectorizeSwaths(swaths, swath_drainage, params, processes=16)
 
 # SimplifySwathsPolygons to get a clean vectorial output
 from fct.measure import SimplifySwathPolygons2
