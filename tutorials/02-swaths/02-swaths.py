@@ -2,42 +2,42 @@
 
 import glob, shutil, os
 
-if not os.path.isdir('../outputs/GLOBAL/REFHYDRO/'):
-    os.mkdir('../outputs/GLOBAL/REFHYDRO/')
+# if not os.path.isdir('/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/REFHYDRO/'):
+#     os.mkdir('/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/REFHYDRO/')
 
-for f in glob.glob('../inputs/REFERENTIEL_HYDRO.*'):
-    shutil.copy(f, '../outputs/GLOBAL/REFHYDRO/')
+# # for f in glob.glob('./data/sdunesme/fct/tests_1m/inputs/hydro_network.gpkg'):
+# #     shutil.copy(f, '/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/REFHYDRO/')
 
-# Shortest Height
-from fct.height import ShortestHeight
-params = ShortestHeight.Parameters()
-params.scale_distance = 25.0
-params.mask_height_max = 100.0
-params.height_max = 100.0
-params.distance_min = 20.0
-params.distance_max = 2000.0
-params.jitter = 0.4
+# # Shortest Height
+# from fct.height import ShortestHeight
+# params = ShortestHeight.Parameters()
+# params.scale_distance = 1.0
+# params.mask_height_max = 100.0
+# params.height_max = 100.0
+# params.distance_min = 20.0
+# params.distance_max = 2000.0
+# params.jitter = 0.4
 
-shutil.rmtree('../outputs/NETWORK/HEIGHT/10K/SHORTEST_HEIGHT/')
-ShortestHeight.ShortestHeight(params, processes=16)
+# shutil.rmtree('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/HEIGHT/10K/SHORTEST_HEIGHT/')
+# ShortestHeight.ShortestHeight(params, processes=16)
 
-from fct.tileio import buildvrt
-buildvrt('10k', 'shortest_height')
+# from fct.tileio import buildvrt
+# buildvrt('10k', 'shortest_height')
 
-# Height above nearest drainage
-from fct.height import HeightAboveNearestDrainage
-params = HeightAboveNearestDrainage.Parameters()
-params.mask_height_max = 100.0
-params.buffer_width = 2000
-params.resolution = 25.0
+# # Height above nearest drainage
+# from fct.height import HeightAboveNearestDrainage
+# params = HeightAboveNearestDrainage.Parameters()
+# params.mask_height_max = 100.0
+# params.buffer_width = 2000
+# params.resolution = 1.0
 
-shutil.rmtree('../outputs/NETWORK/HEIGHT/10K/NEAREST_HEIGHT/')
-HeightAboveNearestDrainage.HeightAboveNearestDrainage(params, processes=16)
+# shutil.rmtree('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/HEIGHT/10K/NEAREST_HEIGHT/')
+# HeightAboveNearestDrainage.HeightAboveNearestDrainage(params, processes=16)
 
-from fct.tileio import buildvrt
-buildvrt('10k', 'nearest_height')
-buildvrt('10k', 'nearest_distance')
-buildvrt('10k', 'nearest_drainage_axis')
+# from fct.tileio import buildvrt
+# buildvrt('10k', 'nearest_height')
+# buildvrt('10k', 'nearest_distance')
+# buildvrt('10k', 'nearest_drainage_axis')
 
 # Disaggregate along refaxis
 from fct.measure import SwathMeasurement
@@ -78,7 +78,7 @@ params.thresholds = [
     ValleyBottomFeatures.ValleyBottomThreshold(45000, 20.0, 7500.0, 10.5, 2.0)
 ]
 
-shutil.rmtree('../outputs/NETWORK/TEMP/10K/VALLEY_BOTTOM_FEATURES/')
+#shutil.rmtree('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/TEMP/10K/VALLEY_BOTTOM_FEATURES/')
 ValleyBottomFeatures.ClassifyValleyBottomFeatures(params, swath_drainage, processes=16)
 
 from fct.tileio import buildvrt
@@ -90,11 +90,11 @@ params = ValleyBottomFinal.Parameters()
 params.distance_max = 2000
 params.jitter = 0.9
 
-shutil.rmtree('../outputs/NETWORK/TEMP/10K/VALLEY_BOTTOM_CONNECTED/')
-shutil.rmtree('../outputs/NETWORK/TEMP/10K/VALLEY_BOTTOM_DISTANCE_CONNECTED/')
+#shutil.rmtree('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/TEMP/10K/VALLEY_BOTTOM_CONNECTED/')
+#shutil.rmtree('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/TEMP/10K/VALLEY_BOTTOM_DISTANCE_CONNECTED/')
 ValleyBottomFinal.ConnectedValleyBottom(params, processes=16)
 
-shutil.rmtree('../outputs/NETWORK/HEIGHT/10K/VALLEY_BOTTOM/')
+#shutil.rmtree('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/HEIGHT/10K/VALLEY_BOTTOM/')
 ValleyBottomFinal.TrueValleyBottom(params, processes=16)
 
 from fct.tileio import buildvrt

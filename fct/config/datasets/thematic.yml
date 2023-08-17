@@ -5,7 +5,7 @@ landcover-default:
     Default LandCover Tileset
   type: raster
   subdir: GLOBAL/LANDCOVER
-  filename: LANDCOVER_2018.vrt
+  filename: LANDCOVER.vrt
   tiles:
     tileset: landcover
     template: LANDCOVER_%(row)02d_%(col)02d
