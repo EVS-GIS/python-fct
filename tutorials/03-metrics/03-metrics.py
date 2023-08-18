@@ -88,7 +88,7 @@ ValleyBottomElevationProfile.ValleyBottomElevationProfile(params)
 
 
 ######
-# LANDCOVER METRICS
+# LANDCOVER AND CONTINUITY ANALYSIS
 # NB: Landcover raster should be perfectly aligned with DEM and nodata value should be set in raster properties
 
 # Prepare the tiles and VRT
@@ -125,15 +125,15 @@ ContinuityAnalysisMax.ContinuityAnalysisMax(params, processes=16)
 # Continuity remapping
 from fct.corridor import ContinuityAnalysisRemap
 params = ContinuityAnalysisRemap.Parameters()
+params.output = 'continuity'
 
 ContinuityAnalysisRemap.RemapContinuityRaster(params, processes=16, tag='MAX')
 
 from fct.tileio import buildvrt
-buildvrt('10k', 'continuity_tagged', tag='MAX') #TODO: fix buildvrt searchpath when tag needed
+buildvrt('10k', 'continuity') 
 
-
-
-
+###
+# LANDCOVER METRICS
 
 # Swath Landcover Profile
 from fct.profiles import SwathProfile
@@ -165,7 +165,51 @@ width_sum = width_landcover.sum(['label', 'side'])
 width_landcover['width_landcover'] = (
     width_landcover.width2 / width_sum.width2 * width_sum.width1
 ) 
+# width1 = area / swath_length
+# width2 = np.sum(data.profile / density_ref, axis=0) * distance_delta
 
 width_landcover.to_netcdf('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/METRICS/WIDTH_LANDCOVER.nc')
 
-#TODO: do the same with continuity
+# Export metrics to csv
+width_landcover.to_dataframe().to_csv('/data/sdunesme/fct/tests_1m/fct_workdir/WIDTH_LANDCOVER.csv')
+
+### 
+# CONTINUITY METRICS
+
+# Swath Continuity Profile
+from fct.profiles import SwathProfile
+params = SwathProfile.Parameters()
+params.swaths = 'swaths_medialaxis'
+params.values = 'continuity'
+params.is_continuous = False
+params.labels = {0: 'Water Channel', 1: 'Active Channel', 10: 'Riparian Buffer', 20: 'Connected Meadows', 30: 'Connected Cultivated', 40: 'Disconnected', 50: 'Built', 255: 'No Data'}
+
+swath_profiles = SwathProfile.SwathProfile(params, processes=16, tag='MAX')
+swath_profiles.to_netcdf('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/METRICS/SWATHS_CONTINUITY.nc')
+
+# Continuity width (TODO: Update CorridorWidth2.py)
+import xarray as xr
+from fct.metrics import DiscreteClassesWidth
+from pathlib import Path
+
+data = (
+    xr.open_dataset('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/METRICS/SWATHS_CONTINUITY.nc')
+    .set_index(sample=('axis', 'measure', 'distance'))
+    .load()
+)
+
+params = DiscreteClassesWidth.Parameters()
+params.resolution = 1.0
+width_continuity = DiscreteClassesWidth.DiscreteClassesWidth(data, params, processes=16)
+width_sum = width_continuity.sum(['label', 'side'])
+
+width_continuity['width_continuity'] = (
+    width_continuity.width2 / width_sum.width2 * width_sum.width1
+) 
+# width1 = area / swath_length
+# width2 = np.sum(data.profile / density_ref, axis=0) * distance_delta
+
+width_continuity.to_netcdf('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/METRICS/WIDTH_CONTINUITY.nc')
+
+# Export metrics to csv
+width_continuity.to_dataframe().to_csv('/data/sdunesme/fct/tests_1m/fct_workdir/WIDTH_CONTINUITY.csv')
