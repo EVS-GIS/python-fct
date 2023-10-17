@@ -58,6 +58,7 @@ from fct.corridor import SwathDrainage
 params = SwathDrainage.Parameters()
 
 swath_drainage = SwathDrainage.SwathDrainage(params, processes=16)
+SwathDrainage.WriteDrainageToDisk(swath_drainage, params)
 
 # Valley bottom features
 from fct.corridor import ValleyBottomFeatures
@@ -83,6 +84,7 @@ ValleyBottomFeatures.ClassifyValleyBottomFeatures(params, swath_drainage, proces
 
 from fct.tileio import buildvrt
 buildvrt('10k', 'valley_bottom_features')
+buildvrt('10k', 'slope')
 
 # Connected Valley bottom
 from fct.corridor import ValleyBottomFinal
@@ -135,6 +137,8 @@ buildvrt('10k', 'swaths_medialaxis')
 # Swath drainage
 from fct.corridor import SwathDrainage
 params = SwathDrainage.Parameters()
+params.measure = 'medialaxis_measure'
+params.swath_length = 200.0
 
 swath_drainage = SwathDrainage.SwathDrainage(params, processes=16)
 
@@ -143,6 +147,8 @@ from fct.measure import SwathPolygons
 params = SwathPolygons.Parameters()
 params.swaths = 'swaths_medialaxis'
 params.polygons = 'swaths_medialaxis_polygons'
+params.measure = 'medialaxis_measure'
+params.swath_length = 200.0
 
 swaths = SwathPolygons.Swaths(params, processes=16)
 SwathPolygons.VectorizeSwaths(swaths, swath_drainage, params, processes=16)

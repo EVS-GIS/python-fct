@@ -48,9 +48,7 @@ def RefaxisSamplePoints(params: Parameters, axis: int = None):
 
     refaxis_params = RefaxisParameters(axis=axis)
     
-    if axis is None:
-        refaxis_params.talweg = 'refaxis'
-    else:
+    if axis is not None:
         refaxis_params.talweg = dict(key='ax_refaxis', axis=axis)
     
     refaxis = RefaxisElevation(refaxis_params)
@@ -122,23 +120,24 @@ def ValleyBottomElevationProfile(params: Parameters):
                 dims=('measure',),
                 coords={'measure': dx.measure[~missing]})
 
-            zvb_smooth = (
-                zvb.sortby('measure')
-                .rolling(measure=3, min_periods=1, center=True)
-                .median()
-                .rolling(measure=5, min_periods=1, center=True)
-                .mean())
+            if len(zvb) > 0:
+                zvb_smooth = (
+                    zvb.sortby('measure')
+                    .rolling(measure=3, min_periods=1, center=True)
+                    .median()
+                    .rolling(measure=5, min_periods=1, center=True)
+                    .mean())
 
-            refx = refaxis.sel(axis=axis)
-            z = np.interp(refx.measure, zvb_smooth.measure, zvb_smooth.values)
+                refx = refaxis.sel(axis=axis)
+                z = np.interp(refx.measure, zvb_smooth.measure, zvb_smooth.values)
 
-            linestringz = LineString(
-                np.column_stack([
-                    refx.x,
-                    refx.y,
-                    z
-                ]))
+                linestringz = LineString(
+                    np.column_stack([
+                        refx.x,
+                        refx.y,
+                        z
+                    ]))
 
-            sink.send((axis, linestringz))
+                sink.send((axis, linestringz))
 
     sink.close()

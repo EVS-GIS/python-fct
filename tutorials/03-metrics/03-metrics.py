@@ -1,3 +1,4 @@
+######
 # Random Poisson Samples
 from fct.measure import RandomPoissonSamples
 params = RandomPoissonSamples.Parameters()
@@ -7,85 +8,68 @@ RandomPoissonSamples.RandomPoissonSamples(params, processes=16)
 from fct.tileio import buildvrt
 buildvrt('10k', 'poisson_samples')
 
-# Talweg Elevation Profile
-from fct.profiles import TalwegElevationProfile
-params = TalwegElevationProfile.Parameters()
-params.talweg = 'refaxis'
-params.nearest = 'axis_nearest'
-params.measure = 'axis_measure'
-
-talweg_points = TalwegElevationProfile.TalwegElevation(params, processes=16)
-talweg_points.to_netcdf('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/METRICS/REFAXIS_POINTS.nc')
-
+######
 # Reload swath bounds dataset
-from fct.measure import SwathMeasurement
-params = SwathMeasurement.Parameters()
-params.output_swaths_bounds = 'swaths_medialaxis_bounds'
-swath_bounds = SwathMeasurement.ReadSwathsBounds(params)
+from fct.measure import SwathBounds
+from fct.config.descriptors import DatasetResolver
+swath_bounds = SwathBounds.SwathBounds(DatasetResolver('swaths_medialaxis_polygons'))
 
-
-
-
-
-
-
-# Valley Bottom Height
-# from fct.profiles import ValleyBottomHeight
-# params = ValleyBottomHeight.Parameters()
-# params.talweg = dict(key='metrics_refaxis_points', tiled=False, subdir='NETWORK/METRICS')
-
-# river_profile = ValleyBottomHeight.ValleyBottomHeight(swath_bounds=swath_bounds, params=params, processes=16)
-# river_profile.to_netcdf('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/METRICS/HEIGHT_FLOODPLAIN.nc')
-
-# # VB Elevation Profile
-# from fct.profiles import ValleyBottomElevationProfile
-# params = ValleyBottomElevationProfile.Parameters()
-
-# ValleyBottomElevationProfile.RefaxisSamplePoints(params)
-# ValleyBottomElevationProfile.ValleyBottomElevationProfile(params)
-
-
+######
 # Swath Elevation Profile
 from fct.profiles import SwathProfile
 params = SwathProfile.Parameters()
 params.swaths = 'swaths_medialaxis'
+params.values = 'dem'
+params.is_continuous = True
+params.polygons = 'swaths_medialaxis_polygons'
 
 swath_profiles = SwathProfile.SwathProfile(params, processes=16)
 swath_profiles.to_netcdf('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/METRICS/SWATHS_ELEVATION.nc')
 
-# # Swath elevation metrics
-# from fct.metrics import TalwegMetrics
-# params = TalwegMetrics.Parameters()
-
-# params.metrics_talweg
-
-
-# Plot swath elevation profiles
-from fct.plotting import PlotElevationSwath2
-fig, ax = PlotElevationSwath2.setup_plot()
-ax = PlotElevationSwath2.plot_profile_quantiles(ax, swath_profiles)
-PlotElevationSwath2.finalize_plot(fig, ax)
-
+######
 # ValleyBottomWidth
 from fct.metrics import ValleyBottomWidth2
 params = ValleyBottomWidth2.Parameters()
 
 vbw = ValleyBottomWidth2.ValleyBottomWidth(swath_profiles.set_index(sample=('axis', 'measure', 'distance')), params, processes=16)
 vbw.to_netcdf('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/METRICS/WIDTH_VALLEY_BOTTOM.nc')
+vbw.to_dataframe().to_csv('/data/sdunesme/fct/tests_1m/fct_workdir/WIDTH_VALLEY_BOTTOM.csv')
 
-
-
-
-
+######
+# Valley Bottom Height
 from fct.profiles import ValleyBottomElevationProfile
-
 params = ValleyBottomElevationProfile.Parameters()
+ValleyBottomElevationProfile.RefaxisSamplePoints(params)
 
-ValleyBottomElevationProfile.ValleyBottomElevationProfile(params)
+from fct.profiles import ValleyBottomHeight
+params = ValleyBottomHeight.Parameters()
+params.talweg = dict(key='metrics_refaxis_points', tiled=False, subdir='NETWORK/METRICS')
+params.measure = 'medialaxis_measure'
 
+river_profile = ValleyBottomHeight.ValleyBottomHeight(swath_bounds=swath_bounds, params=params, processes=16)
+river_profile.to_netcdf('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/METRICS/HEIGHT_FLOODPLAIN.nc')
+river_profile.to_dataframe().to_csv('/data/sdunesme/fct/tests_1m/fct_workdir/HEIGHT_FLOODPLAIN.csv')
 
+######
+# Talweg metrics
 
+# Talweg Elevation Profile
+from fct.profiles import TalwegElevationProfile
+params = TalwegElevationProfile.Parameters()
+# params.talweg = 'refaxis'
+params.measure = 'medialaxis_measure'
+params.nearest = 'medialaxis_nearest'
+params.sample_distance = 10.0
 
+talweg_points = TalwegElevationProfile.TalwegElevation(params, processes=16)
+talweg_points.to_netcdf('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/METRICS/REFAXIS_POINTS.nc')
+
+swath_profiles = TalwegElevationProfile.TalwegElevationProfile(data=talweg_points, 
+                                                                swath_bounds=swath_bounds,
+                                                                params=params,
+                                                                processes=16)
+swath_profiles.to_netcdf('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/METRICS/TALWEG_METRICS.nc')
+swath_profiles.to_dataframe().to_csv('/data/sdunesme/fct/tests_1m/fct_workdir/TALWEG_METRICS.csv')
 
 ######
 # LANDCOVER AND CONTINUITY ANALYSIS
@@ -141,6 +125,7 @@ params = SwathProfile.Parameters()
 params.swaths = 'swaths_medialaxis'
 params.values = 'landcover_valley_bottom'
 params.is_continuous = False
+params.polygons = 'swaths_medialaxis_polygons'
 params.labels = {0: 'Water Channel', 1: 'Gravel Bars', 2: 'Natural Open', 3: 'Forest', 4: 'Grassland', 5: 'Crops', 6: 'Diffuse Urban', 7: 'Dense Urban', 8: 'Infrastructures'}
 
 swath_profiles = SwathProfile.SwathProfile(params, processes=16)
@@ -165,6 +150,7 @@ width_sum = width_landcover.sum(['label', 'side'])
 width_landcover['width_landcover'] = (
     width_landcover.width2 / width_sum.width2 * width_sum.width1
 ) 
+# Pour info :
 # width1 = area / swath_length
 # width2 = np.sum(data.profile / density_ref, axis=0) * distance_delta
 
@@ -182,6 +168,7 @@ params = SwathProfile.Parameters()
 params.swaths = 'swaths_medialaxis'
 params.values = 'continuity'
 params.is_continuous = False
+params.polygons = 'swaths_medialaxis_polygons'
 params.labels = {0: 'Water Channel', 1: 'Active Channel', 10: 'Riparian Buffer', 20: 'Connected Meadows', 30: 'Connected Cultivated', 40: 'Disconnected', 50: 'Built', 255: 'No Data'}
 
 swath_profiles = SwathProfile.SwathProfile(params, processes=16, tag='MAX')

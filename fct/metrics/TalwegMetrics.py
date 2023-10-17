@@ -107,8 +107,8 @@ def TalwegMetrics(params):
 
     estimates = dict()
 
-    with click.progressbar(defs['swath'].values) as iterator:
-        for gid in iterator:
+    with click.progressbar(zip(defs['axis'].values, defs['swath'].values)) as iterator:
+        for axis, gid in iterator:
 
             filename = config.filename('ax_swath_elevation_npz', axis=axis, gid=gid)
 

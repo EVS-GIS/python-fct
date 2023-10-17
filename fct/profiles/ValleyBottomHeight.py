@@ -230,7 +230,7 @@ def axis_loop(talweg, axis, swath_bounds, params: Parameters):
                 talweg,
                 ax,
                 measure,
-                bounds[1],
+                bounds,
                 params)
 
     return xr.concat(values(), 'swath', 'all')
