@@ -25,6 +25,7 @@ params.polygons = 'swaths_medialaxis_polygons'
 
 swath_profiles = SwathProfile.SwathProfile(params, processes=16)
 swath_profiles.to_netcdf('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/METRICS/SWATHS_ELEVATION.nc')
+swath_profiles.to_dataframe().to_csv('/data/sdunesme/fct/tests_1m/fct_workdir/SWATH_ELEVATION_PROFILES.csv')
 
 ######
 # ValleyBottomWidth

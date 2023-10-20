@@ -1,50 +1,51 @@
-# Copy the Hydrographic Reference to outputs/GLOBAL/REFHYDRO
-
 import glob, shutil, os
 
-# if not os.path.isdir('/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/REFHYDRO/'):
-#     os.mkdir('/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/REFHYDRO/')
+# Copy the Hydrographic Reference to outputs/GLOBAL/REFHYDRO
+if not os.path.isdir('/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/REFHYDRO/'):
+    os.mkdir('/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/REFHYDRO/')
 
-# # for f in glob.glob('./data/sdunesme/fct/tests_1m/inputs/hydro_network.gpkg'):
-# #     shutil.copy(f, '/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/REFHYDRO/')
+for f in glob.glob('./data/sdunesme/fct/tests_1m/inputs/REFERENTIEL_HYDRO.*'):
+    shutil.copy(f, '/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/REFHYDRO/')
 
-# # Shortest Height
-# from fct.height import ShortestHeight
-# params = ShortestHeight.Parameters()
-# params.scale_distance = 1.0
-# params.mask_height_max = 100.0
-# params.height_max = 100.0
-# params.distance_min = 20.0
-# params.distance_max = 2000.0
-# params.jitter = 0.4
+# Shortest path exploration
+from fct.height import ShortestHeight
+params = ShortestHeight.Parameters()
+params.scale_distance = 1.0 # scale distance output with given scale factor, corresponding to pixel resolution
+params.mask_height_max = 100.0 # maximum height defining domain mask
+params.height_max = 100.0 # stop at maximum height above reference
+params.distance_min = 20.0 # minimum distance before applying stop criteria, expressed in pixels)
+params.distance_max = 2000.0 # stop at maximum distance, expressed in pixels
+params.jitter = 0.4 # apply jitter on performing shortest path exploration
 
 # shutil.rmtree('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/HEIGHT/10K/SHORTEST_HEIGHT/')
-# ShortestHeight.ShortestHeight(params, processes=16)
+ShortestHeight.ShortestHeight(params, processes=32)
 
-# from fct.tileio import buildvrt
-# buildvrt('10k', 'shortest_height')
+from fct.tileio import buildvrt
+buildvrt('10k', 'shortest_height')
+buildvrt('10k', 'shortest_distance')
+buildvrt('10k', 'shortest_state')
 
-# # Height above nearest drainage
-# from fct.height import HeightAboveNearestDrainage
-# params = HeightAboveNearestDrainage.Parameters()
-# params.mask_height_max = 100.0
-# params.buffer_width = 2000
-# params.resolution = 1.0
+# Height above nearest drainage
+from fct.height import HeightAboveNearestDrainage
+params = HeightAboveNearestDrainage.Parameters()
+params.mask_height_max = 100.0 # maximum height defining domain mask
+params.buffer_width = 2000 # enlarge domain mask by buffer width expressed in real distance unit (eg. meters)
+params.resolution = 1.0 # raster resolution, ie. pixel size, in real distance unit (eg. meters)
 
 # shutil.rmtree('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/HEIGHT/10K/NEAREST_HEIGHT/')
-# HeightAboveNearestDrainage.HeightAboveNearestDrainage(params, processes=16)
+HeightAboveNearestDrainage.HeightAboveNearestDrainage(params, processes=20) # FATRAM NEEDED
 
-# from fct.tileio import buildvrt
-# buildvrt('10k', 'nearest_height')
-# buildvrt('10k', 'nearest_distance')
-# buildvrt('10k', 'nearest_drainage_axis')
+from fct.tileio import buildvrt
+buildvrt('10k', 'nearest_height')
+buildvrt('10k', 'nearest_distance')
+buildvrt('10k', 'nearest_drainage_axis')
 
 # Disaggregate along refaxis
 from fct.measure import SwathMeasurement
 params = SwathMeasurement.Parameters()
 params.mdelta = 200.0
 
-swaths = SwathMeasurement.DisaggregateIntoSwaths(params, processes=16)
+swaths = SwathMeasurement.DisaggregateIntoSwaths(params, processes=20) # FATRAM NEEDED
 swaths_bounds = SwathMeasurement.WriteSwathsBounds(params, attrs=swaths)
 
 from fct.tileio import buildvrt
@@ -128,7 +129,7 @@ params.output_swaths_shapefile = 'swaths_medialaxis_polygons'
 params.output_swaths_bounds = 'swaths_medialaxis_bounds'
 params.mdelta = 200.0
 
-swaths = SwathMeasurement.DisaggregateIntoSwaths(params, processes=16)
+swaths = SwathMeasurement.DisaggregateIntoSwaths(params, processes=20, tileset='default')
 swaths_bounds = SwathMeasurement.WriteSwathsBounds(params, attrs=swaths)
 
 from fct.tileio import buildvrt

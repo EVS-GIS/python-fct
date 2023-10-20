@@ -9,15 +9,15 @@ Goals of step 01-drainage :
 # Create your tileset
 
 from fct.cli import Tiles
-Tiles.CreateTileset('rgealti', 10000.0, 
+Tiles.CreateTileset('dem', 10000.0, 
                     tileset1 = '/data/sdunesme/fct/tests_1m/fct_workdir/10k_tileset.gpkg',
                     tileset2 = '/data/sdunesme/fct/tests_1m/fct_workdir/10kbis_tileset.gpkg')
 
 # Prepare the DEM tiles and VRT
 
 from fct.cli import Tiles
-Tiles.DatasourceToTiles('rgealti', '10k', 'dem', processes=64)
-Tiles.DatasourceToTiles('rgealti', '10kbis', 'dem', processes=64)
+Tiles.DatasourceToTiles('dem', '10k', 'dem', processes=32)
+Tiles.DatasourceToTiles('dem', '10kbis', 'dem', processes=32)
 
 from fct.tileio import buildvrt
 buildvrt('10k', 'dem')
@@ -29,8 +29,8 @@ from fct.drainage import PrepareDEM
 params = PrepareDEM.SmoothingParameters()
 params.window=15
 
-PrepareDEM.MeanFilter(params, overwrite=True, processes=64, tileset='10k')
-PrepareDEM.MeanFilter(params, overwrite=True, processes=64, tileset='10kbis')
+PrepareDEM.MeanFilter(params, overwrite=True, processes=32, tileset='10k')
+PrepareDEM.MeanFilter(params, overwrite=True, processes=32, tileset='10kbis')
 
 # Fill sinks
 from fct.drainage import DepressionFill
@@ -39,49 +39,63 @@ params.elevations = 'smoothed'
 params.offset = -1.0 # burn offset in meters
 params.exterior_data = 9000.0 # exterior value
 
-DepressionFill.LabelWatersheds(params, overwrite=True, processes=64)
-DepressionFill.LabelWatersheds(params, overwrite=True, processes=64, tileset='10kbis')
+DepressionFill.LabelWatersheds(params, overwrite=True, processes=32)
+DepressionFill.LabelWatersheds(params, overwrite=True, processes=32, tileset='10kbis')
+
+from fct.tileio import buildvrt
+buildvrt('10k', 'dem-watershed-labels')
+buildvrt('10kbis', 'dem-watershed-labels')
 
 DepressionFill.ResolveWatershedSpillover(params, overwrite=True)
 DepressionFill.ResolveWatershedSpillover(params, overwrite=True, tileset='10kbis')
 
-DepressionFill.DispatchWatershedMinimumZ(params, overwrite=True, processes=64)
-DepressionFill.DispatchWatershedMinimumZ(params, overwrite=True, processes=64, tileset='10kbis')
- 
+DepressionFill.DispatchWatershedMinimumZ(params, overwrite=True, processes=32)
+DepressionFill.DispatchWatershedMinimumZ(params, overwrite=True, processes=32, tileset='10kbis')
+
+from fct.tileio import buildvrt
+buildvrt('10k', 'dem-filled-resolved')
+buildvrt('10kbis', 'dem-filled-resolved')
+
 # Resolve flats
 from fct.drainage import BorderFlats
 params = BorderFlats.Parameters()
-BorderFlats.LabelBorderFlats(params=params, processes=64) 
-BorderFlats.LabelBorderFlats(params=params, processes=64, tileset='10kbis') 
+BorderFlats.LabelBorderFlats(params=params, processes=32) 
+BorderFlats.LabelBorderFlats(params=params, processes=32, tileset='10kbis') 
+
+from fct.tileio import buildvrt
+buildvrt('10k', 'dem-flat-labels')
+buildvrt('10kbis', 'dem-flat-labels')
     
 BorderFlats.ResolveFlatSpillover(params=params)
 BorderFlats.ResolveFlatSpillover(params=params, tileset='10kbis')
 
-BorderFlats.DispatchFlatMinimumZ(params=params, overwrite=True, processes=64)
-BorderFlats.DispatchFlatMinimumZ(params=params, overwrite=True, processes=64, tileset='10kbis')
-    
+BorderFlats.DispatchFlatMinimumZ(params=params, overwrite=True, processes=32)
+BorderFlats.DispatchFlatMinimumZ(params=params, overwrite=True, processes=32, tileset='10kbis')
+
+from fct.tileio import buildvrt
+buildvrt('10k', 'dem-drainage-resolved')
+buildvrt('10kbis', 'dem-drainage-resolved')
+
 # FlatMap.DepressionDepthMap is useful if you want to check which flat areas have been resolved
 
 # Flow direction
 from fct.drainage import FlowDirection
 params = FlowDirection.Parameters()
 params.exterior = 'off'
-FlowDirection.FlowDirection(params=params, overwrite=True, processes=64)
-FlowDirection.FlowDirection(params=params, overwrite=True, processes=64, tileset='10kbis')
+FlowDirection.FlowDirection(params=params, overwrite=True, processes=32)
+FlowDirection.FlowDirection(params=params, overwrite=True, processes=32, tileset='10kbis')
 
 from fct.tileio import buildvrt
 buildvrt('10k', 'flow')
 buildvrt('10kbis', 'flow')
-buildvrt('10k', 'dem-drainage-resolved')
-buildvrt('10kbis', 'dem-drainage-resolved')
 
 # Flow tiles inlets/outlets graph
 from fct.drainage import Accumulate
 params = Accumulate.Parameters()
 params.elevations = 'dem-drainage-resolved'
 
-Accumulate.Outlets(params=params, processes=64)
-Accumulate.Outlets(params=params, processes=64, tileset='10kbis')
+Accumulate.Outlets(params=params, processes=32)
+Accumulate.Outlets(params=params, processes=32, tileset='10kbis')
 
 Accumulate.AggregateOutlets(params)
 Accumulate.AggregateOutlets(params, tileset='10kbis')
@@ -91,8 +105,8 @@ Accumulate.InletAreas(params=params)
 Accumulate.InletAreas(params=params, tileset='10kbis')
 
 # Flow accumulation
-Accumulate.FlowAccumulation(params=params, overwrite=True, processes=64) 
-Accumulate.FlowAccumulation(params=params, overwrite=True, processes=64, tileset='10kbis')
+Accumulate.FlowAccumulation(params=params, overwrite=True, processes=32) 
+Accumulate.FlowAccumulation(params=params, overwrite=True, processes=32, tileset='10kbis')
 
 from fct.tileio import buildvrt
 buildvrt('10k', 'acc')
@@ -104,8 +118,8 @@ from fct.drainage import StreamSources
 StreamSources.InletSources(params)
 StreamSources.InletSources(params, tileset='10kbis')
 
-StreamSources.StreamToFeatureFromSources(min_drainage=500, processes=64)
-StreamSources.StreamToFeatureFromSources(min_drainage=500, processes=64, tileset='10kbis')
+StreamSources.StreamToFeatureFromSources(min_drainage=500, processes=32)
+StreamSources.StreamToFeatureFromSources(min_drainage=500, processes=32, tileset='10kbis')
 
 StreamSources.AggregateStreamsFromSources()
 StreamSources.AggregateStreamsFromSources(tileset='10kbis')
@@ -117,15 +131,15 @@ params = FixNoFlow.Parameters()
 params.noflow = 'noflow'
 params.fixed = 'noflow-targets'
 
-FixNoFlow.DrainageRaster(params=params, processes=64)
-FixNoFlow.DrainageRaster(params=params, processes=64, tileset='10kbis')
+FixNoFlow.DrainageRaster(params=params, processes=32)
+FixNoFlow.DrainageRaster(params=params, processes=32, tileset='10kbis')
    
 from fct.tileio import buildvrt 
 buildvrt('10k', 'drainage-raster-from-sources')
 buildvrt('10kbis', 'drainage-raster-from-sources')
 
-FixNoFlow.NoFlowPixels(params=params, processes=64)
-FixNoFlow.NoFlowPixels(params=params, processes=64, tileset='10kbis')
+FixNoFlow.NoFlowPixels(params=params, processes=32)
+FixNoFlow.NoFlowPixels(params=params, processes=32, tileset='10kbis')
 
 FixNoFlow.AggregateNoFlowPixels(params)
 FixNoFlow.AggregateNoFlowPixels(params, tileset='10kbis')
@@ -138,16 +152,16 @@ from fct.drainage import Accumulate
 params = Accumulate.Parameters()
 params.elevations = 'dem-drainage-resolved'
 
-Accumulate.Outlets(params=params, processes=64)
+Accumulate.Outlets(params=params, processes=32)
 Accumulate.AggregateOutlets(params)
 Accumulate.InletAreas(params=params)
-Accumulate.FlowAccumulation(params=params, overwrite=True, processes=64) 
+Accumulate.FlowAccumulation(params=params, overwrite=True, processes=32) 
 
 # Remake stream Network from sources with NoFlow pixels fixed
 from fct.drainage import StreamSources
 
 StreamSources.InletSources(params)
-StreamSources.StreamToFeatureFromSources(min_drainage=500, processes=64)
+StreamSources.StreamToFeatureFromSources(min_drainage=500, processes=32)
 StreamSources.AggregateStreamsFromSources()
 
 # Identify network nodes
@@ -155,13 +169,18 @@ from fct.drainage import IdentifyNetworkNodes
 params = IdentifyNetworkNodes.Parameters()
 
 IdentifyNetworkNodes.IdentifyNetworkNodes(params)
+# Aggregate stream segments <= Optionel si Connect ne reproduit pas des liens déjà existants
+# Connect Lines <= Fix pour ne pas avoir de ligne dans les 2 sens a chaque reconnexion
+# Identify network nodes
+# Sur le réseau hydro => rang de Hack => extraction des sources => Créer champ AXIS = 16 derniers caractères de liens_vers_coursd_eau
+# Sur les sources => recherche du node le plus proche pour réécrire les GID => Créer champ AXIS = 16 derniers caractères de liens_vers_coursd_eau
 
-#7 TODO: Update JoinNetworkAttributes
 import os
 if not os.path.isdir('/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/MEASURE'):
     os.mkdir('/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/MEASURE')
 
+# sources = confluences.sort_values('MEASURE', ascending=False).groupby('code_du_co').first()
 from fct.drainage import JoinNetworkAttributes
 JoinNetworkAttributes.JoinNetworkAttributes('/data/sdunesme/fct/tests_1m/inputs/sources.gpkg', '/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/DEM/NETWORK_IDENTIFIED_10K.shp', '/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/DEM/RHTS.shp')
 # JoinNetworkAttributes.UpdateLengthOrder('/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/DEM/RHTS.shp', '/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/DEM/RHTS.shp')
-JoinNetworkAttributes.AggregateByAxis('/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/DEM/RHTS.shp', '/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/MEASURE/REFAXIS.shp')
+JoinNetworkAttributes.AggregateByAxis('/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/DEM/RHTS_SINGLEPART.gpkg', '/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/MEASURE/REFAXIS.shp')
