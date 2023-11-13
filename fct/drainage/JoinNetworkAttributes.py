@@ -143,7 +143,7 @@ def JoinNetworkAttributes(
 
             if node in sources:
 
-                _properties = _properties.copy()
+                # _properties = _properties.copy()
 
                 properties = sources[node]
                 _properties.update({
@@ -180,7 +180,7 @@ def JoinNetworkAttributes(
 
         if node in sources:
 
-            _properties = _properties.copy()
+            # _properties = _properties.copy()
 
             properties = sources[node]
             _properties.update({
@@ -433,6 +433,13 @@ def AggregateByAxis(network_shapefile, output):
                     b = get_nodeb(a, axis)
                     properties.update({'NODEB': b})
 
-                    feature['geometry']['coordinates'] = list(geometry.coords)
+                    if geometry.type == 'MultiLineString':
+                        coords = list()
+                        for geom in geometry.geoms:
+                            coords.append(list(geom.coords))
+                    else:
+                        coords = list(geometry.coords)
+                        
+                    feature['geometry']['coordinates'] = coords
                     
                     dst.write(feature)

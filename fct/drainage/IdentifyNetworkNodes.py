@@ -12,16 +12,13 @@ class Parameters:
     Identify Network Nodes parameters
     """
     
-    network = DatasetParameter(
-        'input network features',
-        type='input')
+    network = DatasetParameter('input network features', type='input')
     quantization = LiteralParameter('Quantization factor for node coordinates')
-    output = DatasetParameter('Output network with identified nodes', type='output')
-    nodes = DatasetParameter(
-        'Output nodes',
-        type='output')
+    identified = DatasetParameter('Output network with identified nodes', type='output')
+    nodes = DatasetParameter('Output nodes', type='output')
     
-
+    sources_identified = DatasetParameter('Output sources with identified nodes GID', type='output')
+    
     def __init__(self):
         """
         Default parameter values
@@ -29,8 +26,10 @@ class Parameters:
 
         self.network = 'streams-from-sources'
         self.quantization = 1e8
-        self.output = 'network-identified'
+        self.identified = 'network-identified'
         self.nodes = 'network-nodes'
+        
+        self.sources_identified = 'sources-identified'
         
         
 def IdentifyNetworkNodes(params, tileset='default'):
@@ -156,7 +155,7 @@ def IdentifyNetworkNodes(params, tileset='default'):
 
         options = dict(driver=driver, crs=crs, schema=schema)
 
-        with fiona.open(params.output.filename(tileset=tileset), 'w', **options) as dst:
+        with fiona.open(params.identified.filename(tileset=tileset), 'w', **options) as dst:
             with click.progressbar(fs) as processing:
                 for feature in processing:
                     
@@ -170,3 +169,33 @@ def IdentifyNetworkNodes(params, tileset='default'):
                     
                     dst.write(output_feature)
                     
+                    
+def JoinSourcesAttributes(params, tileset='default'):
+   
+    nodes_index = dict()
+    with fiona.open(params.nodes.filename(tileset=tileset)) as fs:
+        for feature in fs:
+            nodes_index[feature['properties']['GID']] = Point(feature['geometry']['coordinates'])
+    
+    nodes_list = MultiPoint(list(nodes_index.values()))
+    
+    with fiona.open(config.datasource('sources').filename) as fs:
+        driver = 'ESRI Shapefile'
+        schema = fs.schema
+        crs = fiona.crs.from_epsg(config.srid)
+        options = dict(driver=driver, crs=crs, schema=schema)
+        
+        with fiona.open(params.sources_identified.filename(tileset=tileset), 'w', **options) as dst:
+            
+            with click.progressbar(fs) as processing:
+                for feature in processing:
+                    source_point = Point(feature['geometry']['coordinates'])
+                    
+                    nearest_node = nearest_points(source_point, nodes_list)[1]
+                    for candidate in nodes_index:
+                        if nodes_index[candidate].equals(nearest_node):
+                            nearest_gid = candidate
+                        
+                    output_feature = feature
+                    output_feature['properties']['GID'] = nearest_gid
+                    dst.write(output_feature)

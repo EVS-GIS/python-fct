@@ -169,18 +169,15 @@ from fct.drainage import IdentifyNetworkNodes
 params = IdentifyNetworkNodes.Parameters()
 
 IdentifyNetworkNodes.IdentifyNetworkNodes(params)
-# Aggregate stream segments <= Optionel si Connect ne reproduit pas des liens déjà existants
-# Connect Lines <= Fix pour ne pas avoir de ligne dans les 2 sens a chaque reconnexion
-# Identify network nodes
-# Sur le réseau hydro => rang de Hack => extraction des sources => Créer champ AXIS = 16 derniers caractères de liens_vers_coursd_eau
-# Sur les sources => recherche du node le plus proche pour réécrire les GID => Créer champ AXIS = 16 derniers caractères de liens_vers_coursd_eau
+IdentifyNetworkNodes.JoinSourcesAttributes(params)
+
+# Sur le réseau hydro => rang de Hack => Créer champ AXIS = 16 derniers caractères de liens_vers_coursd_eau => extraction des sources 
 
 import os
 if not os.path.isdir('/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/MEASURE'):
     os.mkdir('/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/MEASURE')
 
-# sources = confluences.sort_values('MEASURE', ascending=False).groupby('code_du_co').first()
 from fct.drainage import JoinNetworkAttributes
-JoinNetworkAttributes.JoinNetworkAttributes('/data/sdunesme/fct/tests_1m/inputs/sources.gpkg', '/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/DEM/NETWORK_IDENTIFIED_10K.shp', '/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/DEM/RHTS.shp')
+JoinNetworkAttributes.JoinNetworkAttributes('/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/DEM/SOURCES_IDENTIFIED_10K.shp', '/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/DEM/NETWORK_IDENTIFIED_10K.shp', '/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/DEM/RHTS.shp')
 # JoinNetworkAttributes.UpdateLengthOrder('/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/DEM/RHTS.shp', '/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/DEM/RHTS.shp')
-JoinNetworkAttributes.AggregateByAxis('/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/DEM/RHTS_SINGLEPART.gpkg', '/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/MEASURE/REFAXIS.shp')
+JoinNetworkAttributes.AggregateByAxis('/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/DEM/RHTS.shp', '/data/sdunesme/fct/tests_1m/fct_workdir/GLOBAL/MEASURE/REFAXIS.shp')

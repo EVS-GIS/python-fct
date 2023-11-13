@@ -411,3 +411,12 @@ network-identified:
   status: temporary
   subdir: GLOBAL/DEM
   filename: NETWORK_IDENTIFIED.shp
+
+sources-identified:
+  description: |
+    Stream sources with identified network nodes GID
+  type: point
+  group: network
+  status: temporary
+  subdir: GLOBAL/DEM
+  filename: SOURCES_IDENTIFIED.shp

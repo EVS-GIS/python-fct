@@ -530,13 +530,13 @@ def FlowAccumulationTile(row, col, params, overwrite, tileset):
 
         # click.secho('Save to %s' % output, fg='green')
 
-        if os.path.exists(inlet_shapefile):
-            with fiona.open(inlet_shapefile) as fs:
-                for feature in fs:
+        # if os.path.exists(inlet_shapefile):
+        #     with fiona.open(inlet_shapefile) as fs:
+        #         for feature in fs:
 
-                    x, y = feature['geometry']['coordinates']
-                    i, j = ds.index(x, y)
-                    out[i, j] = feature['properties']['AREAKM2']
+        #             x, y = feature['geometry']['coordinates']
+        #             i, j = ds.index(x, y)
+        #             out[i, j] = feature['properties']['AREAKM2']
 
         profile = ds.profile.copy()
         profile.update(compress='deflate', nodata=0, dtype=np.float32)

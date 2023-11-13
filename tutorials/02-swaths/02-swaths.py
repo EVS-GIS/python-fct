@@ -17,7 +17,7 @@ params.distance_min = 20.0 # minimum distance before applying stop criteria, exp
 params.distance_max = 2000.0 # stop at maximum distance, expressed in pixels
 params.jitter = 0.4 # apply jitter on performing shortest path exploration
 
-# shutil.rmtree('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/HEIGHT/10K/SHORTEST_HEIGHT/')
+shutil.rmtree('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/HEIGHT/10K/SHORTEST_HEIGHT/')
 ShortestHeight.ShortestHeight(params, processes=32)
 
 from fct.tileio import buildvrt
@@ -32,7 +32,7 @@ params.mask_height_max = 100.0 # maximum height defining domain mask
 params.buffer_width = 2000 # enlarge domain mask by buffer width expressed in real distance unit (eg. meters)
 params.resolution = 1.0 # raster resolution, ie. pixel size, in real distance unit (eg. meters)
 
-# shutil.rmtree('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/HEIGHT/10K/NEAREST_HEIGHT/')
+shutil.rmtree('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/HEIGHT/10K/NEAREST_HEIGHT/')
 HeightAboveNearestDrainage.HeightAboveNearestDrainage(params, processes=20) # FATRAM NEEDED
 
 from fct.tileio import buildvrt
@@ -70,7 +70,8 @@ params.patch_min_pixels = 100
 
 params.thresholds = [
     # drainage area km², distance min, distance max, max height (depth), max slope (%)
-    ValleyBottomFeatures.ValleyBottomThreshold(0, 20.0, 100.0, 2.0, 10.0),
+    ValleyBottomFeatures.ValleyBottomThreshold(0, 1.0, 50.0, 0.5, 12.0),
+    ValleyBottomFeatures.ValleyBottomThreshold(15, 15.0, 200.0, 3.0, 9.0),
     ValleyBottomFeatures.ValleyBottomThreshold(30, 20.0, 400.0, 4.0, 7.0),
     ValleyBottomFeatures.ValleyBottomThreshold(250, 20.0, 1500.0, 5.0, 5.0),
     ValleyBottomFeatures.ValleyBottomThreshold(1000, 20.0, 2000.0, 6.0, 3.5),
@@ -80,7 +81,7 @@ params.thresholds = [
     ValleyBottomFeatures.ValleyBottomThreshold(45000, 20.0, 7500.0, 10.5, 2.0)
 ]
 
-#shutil.rmtree('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/TEMP/10K/VALLEY_BOTTOM_FEATURES/')
+shutil.rmtree('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/TEMP/10K/VALLEY_BOTTOM_FEATURES/')
 ValleyBottomFeatures.ClassifyValleyBottomFeatures(params, swath_drainage, processes=16)
 
 from fct.tileio import buildvrt
@@ -93,11 +94,11 @@ params = ValleyBottomFinal.Parameters()
 params.distance_max = 2000
 params.jitter = 0.9
 
-#shutil.rmtree('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/TEMP/10K/VALLEY_BOTTOM_CONNECTED/')
-#shutil.rmtree('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/TEMP/10K/VALLEY_BOTTOM_DISTANCE_CONNECTED/')
+shutil.rmtree('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/TEMP/10K/VALLEY_BOTTOM_CONNECTED/')
+shutil.rmtree('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/TEMP/10K/VALLEY_BOTTOM_DISTANCE_CONNECTED/')
 ValleyBottomFinal.ConnectedValleyBottom(params, processes=16)
 
-#shutil.rmtree('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/HEIGHT/10K/VALLEY_BOTTOM/')
+shutil.rmtree('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/HEIGHT/10K/VALLEY_BOTTOM/')
 ValleyBottomFinal.TrueValleyBottom(params, processes=16)
 
 from fct.tileio import buildvrt
@@ -142,6 +143,7 @@ params.measure = 'medialaxis_measure'
 params.swath_length = 200.0
 
 swath_drainage = SwathDrainage.SwathDrainage(params, processes=16)
+SwathDrainage.WriteDrainageToDisk(swath_drainage, params)
 
 # Vectorize Medialaxis Swaths
 from fct.measure import SwathPolygons
