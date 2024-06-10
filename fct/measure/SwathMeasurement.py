@@ -32,19 +32,19 @@ import fiona
 import fiona.crs
 from shapely.geometry import shape, Polygon
 
-from ..config import (
+from fct.config import (
     config,
     LiteralParameter,
     DatasetParameter
 )
-# from ..tileio import ReadRasterTile
-from ..tileio import as_window
-from ..rasterize import rasterize_linestring, rasterize_linestringz
-from .. import transform as fct
-from .. import speedup
-from .. import terrain_analysis as ta
-from ..cli import starcall
-from ..metadata import set_metadata
+# from fct.tileio import ReadRasterTile
+from fct.tileio import as_window
+from fct.rasterize import rasterize_linestring, rasterize_linestringz
+from fct import transform as fct
+from fct import speedup
+from fct import terrain_analysis as ta
+from fct.cli import starcall
+from fct.metadata import set_metadata
 
 def nearest_value_and_distance(refpixels, domain, nodata):
     """
@@ -306,7 +306,7 @@ def DisaggregateTileIntoSwaths(row, col, params, **kwargs):
 
         mmin = math.floor(mmin / mdelta) * mdelta
         mmax = math.ceil(mmax / mdelta) * mdelta
-        breaks = np.arange(mmin, mmax + mdelta, mdelta)
+        breaks = np.arange(mmin, mmax + 1.5*mdelta, mdelta)
 
         # click.echo('Calculate Measure & Distance Raster')
 

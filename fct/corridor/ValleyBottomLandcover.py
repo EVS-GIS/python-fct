@@ -16,6 +16,7 @@ Extract Landover Raster within Valley Bottom
 import os
 from multiprocessing import Pool
 import click
+import cv2
 import rasterio as rio
 from ..config import DatasetParameter
 from ..cli import starcall
@@ -89,7 +90,14 @@ def ValleyBottomLandcoverTile(row, col, params):
     with rio.open(mask_tile) as ds:
 
         mask = ds.read(1)
-        data[mask == ds.nodata] = nodata
+
+        if mask.shape != data.shape:
+            mask = cv2.resize(mask, dsize=(data.shape[1], data.shape[0]), interpolation=cv2.INTER_NEAREST)
+
+        if mask.shape == data.shape:
+            data[mask == ds.nodata] = nodata
+        else:
+            print(f'unable to fit mask and {raster_tile}')
 
     with rio.open(output, 'w', **profile) as dst:
         dst.write(data, 1)

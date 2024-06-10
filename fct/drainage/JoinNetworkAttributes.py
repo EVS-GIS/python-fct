@@ -96,7 +96,7 @@ def JoinNetworkAttributes(
 
                 properties = feature['properties']
                 node = properties['GID']
-                axis = properties['AXIS']
+                axis = int(properties['AXIS'])
                 axis_increment = max(axis, axis_increment)
                 sources[node] = properties
 
@@ -442,4 +442,7 @@ def AggregateByAxis(network_shapefile, output):
                         
                     feature['geometry']['coordinates'] = coords
                     
-                    dst.write(feature)
+                    try:
+                        dst.write(feature)
+                    except TypeError as e:
+                        click.secho(f"Error for axis {axis}: {e}", fg = 'yellow')

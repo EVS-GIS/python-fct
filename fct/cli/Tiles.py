@@ -153,11 +153,11 @@ def CreateTileset(datasource: str = 'bdalti',
     
     # Tileset 1
     
-    minx -= resolution/2
-    miny -= resolution/2
+    minx -= (resolution)
+    miny -= (resolution)
     
-    maxx += resolution/2
-    maxy += resolution/2
+    maxx += (resolution)
+    maxy += (resolution)
     
     gx, gy = np.arange(minx, maxx, resolution), np.arange(miny, maxy, resolution)
 
@@ -188,6 +188,7 @@ def CreateTileset(datasource: str = 'bdalti',
     
     minx -= (resolution/2)
     miny -= (resolution/2)
+
     maxx += (resolution/2)
     maxy += (resolution/2)
     

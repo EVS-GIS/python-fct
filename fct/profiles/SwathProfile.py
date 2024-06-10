@@ -5,6 +5,7 @@ Elevation Swath Profile
 """
 
 import logging
+import cv2
 from multiprocessing import Pool
 from typing import Tuple
 
@@ -16,18 +17,18 @@ import rasterio as rio
 import fiona
 from shapely.geometry import asShape
 
-from ..measure.SwathPolygons import measure_to_swath_identifier
-from ..tileio import as_window
-from ..cli import starcall
-from ..metadata import set_metadata
+from fct.measure.SwathPolygons import measure_to_swath_identifier
+from fct.tileio import as_window
+from fct.cli import starcall
+from fct.metadata import set_metadata
 
-from ..config import (
+from fct.config import (
     config,
     DatasetParameter,
     LiteralParameter
 )
 
-from ..measure.SwathBounds import SwathBounds
+from fct.measure.SwathBounds import SwathBounds
 
 class Parameters:
     """
@@ -149,12 +150,20 @@ def SwathProfileUnit(
 
         window = as_window(bounds, ds.transform)
         nearest = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
+
+        if nearest.shape != values.shape:
+            nearest = cv2.resize(nearest.astype('float32'), dsize=(values.shape[1],values.shape[0]), interpolation=cv2.INTER_NEAREST).astype('uint32')
+
         # nearest_nodata = ds.nodata
 
     with rio.open(params.axis_distance.filename(**kwargs)) as ds:
 
         window = as_window(bounds, ds.transform)
         distance = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
+
+        if distance.shape != values.shape:
+            distance = cv2.resize(distance, dsize=(values.shape[1],values.shape[0]), interpolation=cv2.INTER_NEAREST)
+
         # distance_nodata = ds.nodata
 
     with rio.open(params.talweg_distance.filename(**kwargs)) as ds:
@@ -163,12 +172,18 @@ def SwathProfileUnit(
         talweg_distance = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
         talweg_distance_nodata = ds.nodata
 
+        if talweg_distance.shape != values.shape:
+            talweg_distance = cv2.resize(talweg_distance, dsize=(values.shape[1],values.shape[0]), interpolation=cv2.INTER_NEAREST)
+
     with rio.open(params.swaths.filename(**kwargs)) as ds:
 
         window = as_window(bounds, ds.transform)
         swaths = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
         # swaths_nodata = ds.nodata
         swaths = measure_to_swath_identifier(swaths, params.swath_length)
+
+        if swaths.shape != values.shape:
+            swaths = cv2.resize(swaths.astype('float32'), dsize=(values.shape[1],values.shape[0]), interpolation=cv2.INTER_NEAREST).astype('uint32')
     
     try:
 

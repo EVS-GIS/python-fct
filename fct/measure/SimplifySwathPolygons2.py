@@ -126,7 +126,7 @@ def SimplifySwathPolygons(params):
             for geometry, fid in simplified:
 
                 feature = fs.get(fid)
-                feature.update(geometry=geometry.__geo_interface__)
+                feature.update(geometry=fiona.Geometry.from_dict(geometry.__geo_interface__))
                 dst.write(feature)
 
 # def SmoothSwathPolygons(

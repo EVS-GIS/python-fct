@@ -24,12 +24,12 @@ from shapely.geometry import (
 )
 from shapely.ops import linemerge
 
-from ..config import (
+from fct.config import (
     config,
     LiteralParameter,
     DatasetParameter
 )
-from ..corridor.ValleyBottomFeatures import (
+from fct.corridor.ValleyBottomFeatures import (
     MASK_EXTERIOR,
     MASK_FLOOPLAIN_RELIEF,
     MASK_VALLEY_BOTTOM,
@@ -37,8 +37,8 @@ from ..corridor.ValleyBottomFeatures import (
     MASK_SLOPE,
     MASK_HOLE
 )
-from ..simplify import simplify
-from .. import (
+from fct.simplify import simplify
+from fct import (
     transform,
     speedup
 )
@@ -334,8 +334,32 @@ def MedialAxis(params):
                 continue
 
             # lines = list(medial_segments(voronoi, groups[axis]))
-            lines, midpoints, distances = zip(*medial_segments(voronoi, groups[axis]))
             
+            try:
+                tmp_lines, tmp_midpoints, tmp_distances = zip(*medial_segments(voronoi, groups[axis]))
+            except:
+                click.echo(f'Error with axis {axis}. skipping')
+                continue
+            
+            lines = list()
+            midpoints = list()
+            distances = list()
+
+            # 0. remove lines between two axes
+            with rio.open(params.nearest.filename()) as ds:
+                for line, midpoint, distance in zip(tmp_lines, tmp_midpoints, tmp_distances):
+                    line_coords = list(line.coords)
+                    nearest_values = np.array(list(map(int, ds.sample(line_coords, 1))))
+
+                    if np.all(nearest_values == axis) or line.length < (2*params.swath_length):
+                        lines.append(line)
+                        midpoints.append(midpoint)
+                        distances.append(distance)
+
+            lines = tuple(lines)
+            midpoints = tuple(midpoints)
+            distances = tuple(distances)
+                
             # 1. compute medial axis
 
             medialaxis = linemerge(lines)

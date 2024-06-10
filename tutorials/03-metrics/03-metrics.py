@@ -201,3 +201,23 @@ width_continuity.to_netcdf('/data/sdunesme/fct/tests_1m/fct_workdir/NETWORK/METR
 
 # Export metrics to csv
 width_continuity.to_dataframe().to_csv('/data/sdunesme/fct/tests_1m/fct_workdir/WIDTH_CONTINUITY.csv')
+
+### 
+# PLANFORM METRICS
+
+from fct.planform import PlanformAxis
+params = PlanformAxis.Parameters()
+params.planform = 'network-cartography-ready'
+params.inflection_points = 'planform_inflection_points'
+params.segments = 'planform_segments'
+params.amplitude_stems = 'amplitude_stems'
+params.planform_axis_segments = 'planform_axis_segments'
+params.planform_axis = 'planform_axis'
+
+params.amplitude_min = 20.0
+params.distance_max = 1000.0
+params.simplify_distance = 45.0
+params.smooth_iterations = 3
+
+PlanformAxis.PlanformAxis(params)
+

@@ -133,7 +133,7 @@ def LabelWatershedsTile(
         if offset < 0:
             elevations = ds.read(1)
         else:
-            elevations = BurnTile(params, row, col, offset)
+            elevations = BurnTile(params, row, col, tileset=tileset)
 
     step('Label flats')
 

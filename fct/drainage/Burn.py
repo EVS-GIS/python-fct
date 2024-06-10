@@ -50,14 +50,14 @@ from ..rasterize import rasterize_linestringz
 #                 for feature in features:
 #                     fst.write(feature)
 
-def BurnTile(params, row, col, burn_delta=0.0):
+def BurnTile(params, row, col, tileset='default'):
     """
     DOCME
     """
 
-    elevation_raster = params.elevations.tilename(row=row, col=col)
+    elevation_raster = params.elevations.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename(dataset, row=row, col=col)
-    hydrography = params.hydrography.tilename(row=row, col=col)
+    hydrography = params.hydrography.tilename(row=row, col=col, tileset=tileset)
     # config.tileset().tilename('stream-network-draped', row=row, col=col)
 
     with rio.open(elevation_raster) as ds:
@@ -76,7 +76,7 @@ def BurnTile(params, row, col, burn_delta=0.0):
                     for a, b in zip(geom[:-1], geom[1:]):
                         for px, py, z in rasterize_linestringz(a, b):
                             if all([py >= 0, py < height, px >= 0, px < width, not np.isinf(z)]):
-                                elevations[py, px] = z - burn_delta
+                                elevations[py, px] = z - params.offset
         else:
 
             click.secho('File not found: %s' % hydrography, fg='yellow')

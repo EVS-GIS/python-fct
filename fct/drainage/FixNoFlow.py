@@ -416,7 +416,12 @@ def FixNoFlowPoint(x0, y0, tileset1, tileset2, params, fix=False):
             x, y = ds.xy(i, j)
             # row, col = xy2tile(x, y)
             row, col = config.tileset(tileset1).index(x, y)
-            read_tile(row, col)
+
+            try:
+                read_tile(row, col)
+            except rio.RasterioIOError:
+                raise ValueError('No match for (%f, %f)' % (x0, y0))
+
             i, j = ds.index(x, y)
 
     # step3. walk downstream on drainage 2
@@ -440,7 +445,12 @@ def FixNoFlowPoint(x0, y0, tileset1, tileset2, params, fix=False):
             x, y = ds.xy(i, j)
             # row, col = xy2tile(x, y)
             row, col = config.tileset(tileset1).index(x, y)
-            read_tile(row, col)
+
+            try:
+                read_tile(row, col)
+            except rio.RasterioIOError:
+                raise ValueError('No match for (%f, %f)' % (x0, y0))
+            
             i, j = ds.index(x, y)
 
     write_tile(row, col)

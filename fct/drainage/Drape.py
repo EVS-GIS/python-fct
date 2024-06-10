@@ -117,7 +117,8 @@ def DrapeNetworkAndAdjustElevations(params):
                         # Clamp z to upstream elevation
                         coordinates[k, 2] = zmin
 
-                    fst.write(feature)
+                    if not np.isinf(feature['geometry']['coordinates']).any():
+                        fst.write(feature)
                     progress.update(1)
 
                     nodez[b] = zmin
@@ -126,9 +127,9 @@ def DrapeNetworkAndAdjustElevations(params):
                     if indegree[node] == 0:
                         queue.append(node)
 
-def SplitStreamNetworkIntoTiles(params):
+def SplitStreamNetworkIntoTiles(params, tileset='default'):
 
-    tileset = config.tileset()
+    tileset_data = config.tileset(tileset)
     networkfile = params.draped.filename(tileset=None)
     # config.filename('stream-network-draped') # filename ok
 
@@ -146,10 +147,10 @@ def SplitStreamNetworkIntoTiles(params):
 
         options = dict(driver=fs.driver, crs=fs.crs, schema=schema)
 
-        with click.progressbar(tileset.tiles(), length=len(tileset)) as iterator:
+        with click.progressbar(tileset_data.tiles(), length=len(tileset_data)) as iterator:
             for tile in iterator:
 
-                output = params.draped.tilename(row=tile.row, col=tile.col)
+                output = params.draped.tilename(row=tile.row, col=tile.col, tileset=tileset)
                 # config.tileset().tilename('stream-network-draped', row=tile.row, col=tile.col)
                 with fiona.open(output, 'w', **options) as dst:
 
@@ -161,7 +162,7 @@ def SplitStreamNetworkIntoTiles(params):
 
                         if intersection.geometryType() == 'LineString':
 
-                            props = feature['properties'].copy()
+                            props = feature['properties']
                             props.update(ROW=tile.row, COL=tile.col)
                             dst.write({
                                 'geometry': intersection.__geo_interface__,
@@ -173,7 +174,7 @@ def SplitStreamNetworkIntoTiles(params):
                             for geom in intersection.geoms:
                                 if geom.geometryType() == 'LineString':
 
-                                    props = feature['properties'].copy()
+                                    props = feature['properties']
                                     props.update(ROW=tile.row, COL=tile.col)
                                     dst.write({
                                         'geometry': geom.__geo_interface__,

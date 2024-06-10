@@ -13,6 +13,7 @@ build
 /site
 __pycache__
 .DS_Store
+tutorials/**/*.local.py
 tutorials/outputs/*
 tutorials/inputs/DEM_5m.tif
 !tutorials/outputs/project.rs.xml

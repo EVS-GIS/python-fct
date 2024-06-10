@@ -9,6 +9,7 @@ from operator import itemgetter
 from multiprocessing import Pool
 import logging
 
+import fiona.errors
 import numpy as np
 import click
 
@@ -18,20 +19,20 @@ import fiona
 import fiona.crs
 from shapely.geometry import shape, Polygon
 
-from ..config import (
+from fct.config import (
     config,
     LiteralParameter,
     DatasetParameter
 )
-# from ..tileio import ReadRasterTile
-from ..tileio import as_window
+# from fct.tileio import ReadRasterTile
+from fct.tileio import as_window
 
-from .. import transform as fct
-from .. import speedup
-from ..cli import starcall
+from fct import transform as fct
+from fct import speedup
+from fct.cli import starcall
 
-from ..corridor.SwathDrainage import create_interpolate_drainage_fun
-from ..corridor.ValleyBottomFeatures import (
+from fct.corridor.SwathDrainage import create_interpolate_drainage_fun
+from fct.corridor.ValleyBottomFeatures import (
     MASK_FLOOPLAIN_RELIEF,
     MASK_VALLEY_BOTTOM,
     MASK_HOLE
@@ -372,7 +373,7 @@ def VectorizeSwaths(swaths_infos, drainage, params, processes=1, **kwargs):
         'geometry': 'Polygon',
         'properties': [
             ('GID', 'int'),
-            ('AXIS', 'int:4'),
+            ('AXIS', 'int64:10'),
             ('VALUE', 'int:4'),
             # ('ROW', 'int:3'),
             # ('COL', 'int:3'),
@@ -434,8 +435,11 @@ def VectorizeSwaths(swaths_infos, drainage, params, processes=1, **kwargs):
                                 'DRAINAGE': float(drainage_area)
                             }
                         }
-
-                        dst.write(feature)
+                    
+                        try:
+                            dst.write(feature)
+                        except:
+                            click.secho('Invalid swath at M %d for axis %d' % (measure, axis), fg='red')
 
                         for ring in geom.interiors:
 

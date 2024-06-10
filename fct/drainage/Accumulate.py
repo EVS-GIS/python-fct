@@ -327,7 +327,7 @@ def CreateOutletsGraph(params, exterior='exterior-inlets', tileset='default'):
                 # if exterior_flow and os.path.exists(exterior_flow):
                 if not params.exterior_flow.none:
 
-                    exterior_flow = params.exterior_flow.filename(tileset)
+                    exterior_flow = params.exterior_flow.filename()
 
                     with fiona.open(exterior_flow) as fs:
                         for feature in fs:
@@ -336,6 +336,8 @@ def CreateOutletsGraph(params, exterior='exterior-inlets', tileset='default'):
 
                             if not all([loci >= 0, loci < height, locj >= 0, locj < width]):
                                 continue
+
+                            click.echo(f"exterior-inlet with {feature['properties']['AREAKM2']}km2 in tile {row}_{col}")
 
                             # connect exterior->inlet
 

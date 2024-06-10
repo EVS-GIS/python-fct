@@ -184,6 +184,9 @@ def JoinSourcesAttributes(params, tileset='default'):
         schema = fs.schema
         crs = fiona.crs.from_epsg(config.srid)
         options = dict(driver=driver, crs=crs, schema=schema)
+
+        if not 'GID' in schema['properties'].keys():
+            schema['properties']['GID'] = 'int:10'
         
         with fiona.open(params.sources_identified.filename(tileset=tileset), 'w', **options) as dst:
             
