@@ -23,17 +23,17 @@ import rasterio as rio
 import fiona
 import fiona.crs
 
-from ..config import (
+from fct.config import (
     config,
     DatasetParameter,
     LiteralParameter
 )
-from .. import terrain_analysis as ta
-from .. import speedup
-from .Burn import BurnTile
+from fct import terrain_analysis as ta
+from fct import speedup
+from fct.drainage.Burn import BurnTile
 
 from multiprocessing import Pool
-from ..cli import starcall_nokwargs
+from fct.cli import starcall_nokwargs
 
 def tileindex(tileset='default'):
     """
@@ -133,7 +133,7 @@ def LabelWatershedsTile(
         if offset < 0:
             elevations = ds.read(1)
         else:
-            elevations = BurnTile(params, row, col, tileset=tileset)
+            elevations = BurnTile(params, row, col, elevations=None, tileset=tileset)
 
     step('Label flats')
 
@@ -141,6 +141,8 @@ def LabelWatershedsTile(
     labels = np.uint32(labels)
 
     step('Write filled DEM')
+
+    elevations = BurnTile(params, row, col, elevations, tileset=tileset) # Burn again filled elevations to avoid burned zone filling
 
     profile.update(
         compress='deflate',
@@ -167,7 +169,7 @@ def LabelWatershedsTile(
             elevations[0, :],
             elevations[:, -1],
             np.flip(elevations[-1, :], axis=0),
-            np.flip(elevations[:, 0], axis=0)]),
+            np.flip(elevations[:, 0], axis=0)], dtype=object),
         labels=np.array([
             labels[0, :],
             labels[:, -1],

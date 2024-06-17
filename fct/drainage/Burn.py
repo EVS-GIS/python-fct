@@ -26,9 +26,9 @@ from shapely.geometry import (
     box
 )
 
-from .. import terrain_analysis as ta
-from ..config import config
-from ..rasterize import rasterize_linestringz
+from fct  import terrain_analysis as ta
+from fct.config import config
+from fct.rasterize import rasterize_linestringz
 
 # def DispatchHydrographyToTiles():
 
@@ -50,7 +50,7 @@ from ..rasterize import rasterize_linestringz
 #                 for feature in features:
 #                     fst.write(feature)
 
-def BurnTile(params, row, col, tileset='default'):
+def BurnTile(params, row, col, elevations=None, tileset='default'):
     """
     DOCME
     """
@@ -62,7 +62,9 @@ def BurnTile(params, row, col, tileset='default'):
 
     with rio.open(elevation_raster) as ds:
 
-        elevations = ds.read(1)
+        if elevations is None:
+            elevations = ds.read(1)
+
         height, width = elevations.shape
 
         if os.path.exists(hydrography):
