@@ -197,7 +197,7 @@ def SwathProfileUnit(
         logger.error('Window error on swath (%d, %f)', axis, measure)
         return None
 
-    mask = (nearest == float(axis)) & (swaths == float(swath)) & (values != nodata)
+    mask = (nearest.astype('float32') == float(axis)) & (swaths.astype('float32') == float(swath)) & (values != nodata)
 
     if np.sum(mask) == 0:
         return None

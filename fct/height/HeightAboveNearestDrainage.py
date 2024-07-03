@@ -27,18 +27,17 @@ import rasterio as rio
 import fiona
 import fiona.crs
 
-from .. import terrain_analysis as ta
-from .. import speedup
-from ..config import (
-    config,
+from fct import terrain_analysis as ta
+from fct import speedup
+from fct.config import (
     LiteralParameter,
     DatasetParameter
 )
-from ..config.descriptors import DatasetResolver
-from ..rasterize import rasterize_linestringz
-# from ..swath import nearest_value_and_distance
-from ..measure.Measurement import nearest_value_and_distance
-from ..cli import starcall
+from fct.config.descriptors import DatasetResolver
+from fct.rasterize import rasterize_linestringz
+# from fct.swath import nearest_value_and_distance
+from fct.measure.Measurement import nearest_value_and_distance
+from fct.cli import starcall
 
 class Parameters:
     """
@@ -209,7 +208,7 @@ def HeightAboveNearestDrainageTile(
         if refaxis_pixels:
 
             nearest, reference, distance = nearest_value_and_distance(
-                np.array(refaxis_pixels),
+                np.array(refaxis_pixels, dtype='float32'),
                 mask,
                 ds.nodata)
 
