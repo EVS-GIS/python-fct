@@ -10,7 +10,7 @@ from glob import glob
 
 import numpy as np
 import rasterio as rio
-from rasterio.windows import Window
+from rasterio.windows import Window, from_bounds
 from rasterio.warp import Resampling
 
 from .config import config
@@ -43,21 +43,29 @@ def border(height, width):
             yield i, j
         offset = 0
 
+# def as_window(bounds, transform):
+#     """
+#     Convert real world bounds (minx, miny, maxx, maxy)
+#     to raster window using defined RasterIO geo-transform 
+#     """
+
+#     minx, miny, maxx, maxy = bounds
+
+#     row_offset, col_offset = fct.index(minx, maxy, transform)
+#     row_end, col_end = fct.index(maxx, miny, transform)
+
+#     height = row_end - row_offset
+#     width = col_end - col_offset
+
+#     return Window(col_offset, row_offset, width, height)
+
 def as_window(bounds, transform):
     """
     Convert real world bounds (minx, miny, maxx, maxy)
     to raster window using defined RasterIO geo-transform 
     """
 
-    minx, miny, maxx, maxy = bounds
-
-    row_offset, col_offset = fct.index(minx, maxy, transform)
-    row_end, col_end = fct.index(maxx, miny, transform)
-
-    height = row_end - row_offset
-    width = col_end - col_offset
-
-    return Window(col_offset, row_offset, width, height)
+    return from_bounds(*bounds, transform)
 
 def grow_window(window, padding):
     """

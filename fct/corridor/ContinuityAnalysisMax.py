@@ -19,24 +19,24 @@ import itertools
 import logging
 from multiprocessing import Pool
 import numpy as np
+import cv2
 
 import click
 import rasterio as rio
 from rasterio.windows import Window
 
-from .. import speedup
-from ..cli import starcall
-from ..config import (
+from fct import speedup
+from fct.cli import starcall
+from fct.config import (
     config,
     LiteralParameter,
     DatasetParameter
 )
-from .. import transform as fct
-from ..tileio import (
+from fct import transform as fct
+from fct.tileio import (
     PadRaster,
     border
 )
-from .ValleyBottomFeatures import MASK_EXTERIOR
 
 class Parameters:
     """
@@ -154,10 +154,16 @@ def ContinuityTile(row, col, seeds, params, **kwargs):
 
     else:
 
+        if nearest_distance.shape != landcover.shape:
+            nearest_distance = cv2.resize(nearest_distance, landcover.shape, interpolation=cv2.INTER_NEAREST)
+
         out = np.full_like(landcover, nodata)
         distance = np.zeros_like(nearest_distance, dtype='float32')
         state = np.uint8(np.abs(nearest_distance) < 1)
 
+        if state.shape != landcover.shape:
+            click.secho(f'Unable to fit tile {row}_{col}', fg='red')
+        
     state[landcover == nodata] = 255
 
     if seeds:

@@ -152,7 +152,7 @@ def SwathProfileUnit(
         nearest = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
 
         if nearest.shape != values.shape:
-            nearest = cv2.resize(nearest.astype('float32'), dsize=(values.shape[1],values.shape[0]), interpolation=cv2.INTER_NEAREST).astype('uint32')
+            nearest = cv2.resize(nearest.astype('float32'), dsize=(values.shape[1],values.shape[0]), interpolation=cv2.INTER_NEAREST)
 
         # nearest_nodata = ds.nodata
 
@@ -183,7 +183,7 @@ def SwathProfileUnit(
         swaths = measure_to_swath_identifier(swaths, params.swath_length)
 
         if swaths.shape != values.shape:
-            swaths = cv2.resize(swaths.astype('float32'), dsize=(values.shape[1],values.shape[0]), interpolation=cv2.INTER_NEAREST).astype('uint32')
+            swaths = cv2.resize(swaths.astype('float32'), dsize=(values.shape[1],values.shape[0]), interpolation=cv2.INTER_NEAREST)
     
     try:
 
@@ -197,7 +197,7 @@ def SwathProfileUnit(
         logger.error('Window error on swath (%d, %f)', axis, measure)
         return None
 
-    mask = (nearest == axis) & (swaths == swath) & (values != nodata)
+    mask = (nearest == float(axis)) & (swaths == float(swath)) & (values != nodata)
 
     if np.sum(mask) == 0:
         return None

@@ -4,24 +4,17 @@ Valley bottom height above talweg/drainage
 
 from multiprocessing import Pool
 import numpy as np
-from scipy.interpolate import interp1d
-from scipy.linalg import lstsq
 from sklearn.linear_model import HuberRegressor
-from sklearn.preprocessing import StandardScaler
 from sklearn.exceptions import ConvergenceWarning
 
 import click
-import fiona
 import rasterio as rio
-from shapely.geometry import LineString, asShape
 import xarray as xr
 
-from ..cli import starcall
-from ..tileio import as_window
-from ..config import DatasetParameter
-from ..corridor.ValleyBottomFeatures import MASK_VALLEY_BOTTOM
-from ..metadata import set_metadata
-from .. import speedup
+from fct.cli import starcall
+from fct.tileio import as_window
+from fct.config import DatasetParameter
+from fct.corridor.ValleyBottomFeatures import MASK_VALLEY_BOTTOM
 
 class Parameters:
     """
@@ -233,7 +226,13 @@ def axis_loop(talweg, axis, swath_bounds, params: Parameters):
                 bounds,
                 params)
 
-    return xr.concat(values(), 'swath', 'all')
+    try:
+        vals = xr.concat(values(), 'swath', 'all')
+    except ValueError:
+        click.secho(f'No data for axis {axis}', fg='red')
+        vals = None
+
+    return vals
 
 def ValleyBottomHeight(swath_bounds, params: Parameters, processes: int = 1, **kwargs):
 
@@ -286,4 +285,5 @@ def ValleyBottomHeight(swath_bounds, params: Parameters, processes: int = 1, **k
         with click.progressbar(pooled, length=length) as iterator:
             values = list(iterator)
 
+    values = [v for v in values if v is not None]
     return xr.concat(values, 'swath', 'all')

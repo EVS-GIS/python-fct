@@ -19,10 +19,10 @@ import xarray as xr
 
 from shapely.geometry import (
     LineString,
-    MultiLineString,
     shape
 )
 from shapely.ops import linemerge
+from shapelysmooth import chaikin_smooth
 
 from fct.config import (
     config,
@@ -289,6 +289,24 @@ def FixOrientation(medialaxis, params):
 
     return medialaxis
 
+
+def OrderAndMergeLines(geoms, params):
+    """
+    Order list of LineString from upstream to downstream
+    """
+    measure_raster = params.measure.filename()
+
+    coords = [list(l.coords) for l in geoms]
+
+    with rio.open(measure_raster) as ds:
+        heights = [(np.median(list(ds.sample(c))).item(), c) for c in coords]
+        heights = sorted(heights, key=lambda x: x[0], reverse=True)
+        
+        coords = [l[1] for l in heights if l[0] != ds.nodata and l[0] > 0]
+        medialaxis = LineString([i for sublist in coords for i in sublist])
+
+    return medialaxis
+
 def MedialAxis(params):
     """
     Calculate corridor medial axis
@@ -380,7 +398,13 @@ def MedialAxis(params):
                     continue
 
                 lines = sorted(lines, key=lambda line: -line.length)
-                medialaxis = lines[0]
+                # medialaxis = lines[0]
+                filtered = [l for l in lines if l.length > 20*params.swath_length]
+
+                if not filtered:
+                    medialaxis = lines[0]
+                else:
+                    medialaxis = linemerge(filtered)
 
             else:
 
@@ -399,7 +423,8 @@ def MedialAxis(params):
 
                     geoms.append(FixOrientation(geom, params))
 
-                medialaxis = MultiLineString(geoms)
+                medialaxis = OrderAndMergeLines(geoms, params)
+                # medialaxis = MultiLineString(geoms)
 
             else:
 
@@ -551,21 +576,15 @@ def SimplifyMedialAxis(params: Parameters, vbw: xr.Dataset = None):
 
             widths = np.interp(measures, smoothed.measure, smoothed.values)
 
-            # simplified = LineString(
-            #     smooth_chaikin(
-            #         np.array([
-            #             c for c, weight, width
-            #             in zip(coords, weights, widths)
-            #             if filtr(weight, width)
-            #         ])))
-
             simplified = LineString([
                 coord for coord, weight, width
                 in zip(coords, weights, widths)
                 if filtr(weight, width)
             ])
 
+            smoothed = chaikin_smooth(simplified, iters=2)
+
             # print(len(simplified.coords))
-            sink.send((axis, simplified))
+            sink.send((axis, smoothed))
 
     sink.close()

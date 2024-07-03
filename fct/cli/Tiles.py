@@ -18,13 +18,15 @@ from multiprocessing import Pool
 import click
 
 import rasterio as rio
+from rasterio.windows import from_bounds
 import numpy as np
 import fiona
 import fiona.crs
 
-from ..config import config
-from ..tileio import as_window
-from ..cli import starcall
+from fct.config import config
+from fct.config.descriptors import DatasetResolver
+from fct.tileio import as_window
+from fct.cli import starcall
 
 def ExtractTile(datasource, dataset, tile, tileset, overwrite=False):
 
@@ -35,10 +37,13 @@ def ExtractTile(datasource, dataset, tile, tileset, overwrite=False):
         return
 
     with rio.open(raster) as ds:
+        #window = as_window(tile.bounds, ds.transform)
+        window = from_bounds(*tile.bounds, ds.transform)
 
-        window = as_window(tile.bounds, ds.transform)
         data = ds.read(1, window=window, boundless=True, fill_value=ds.nodata)
-        transform = ds.transform * ds.transform.translation(window.col_off, window.row_off)
+        
+        # transform = ds.transform * ds.transform.translation(window.col_off, window.row_off)
+        transform = ds.window_transform(window)
 
         profile = ds.profile.copy()
         profile.update(
