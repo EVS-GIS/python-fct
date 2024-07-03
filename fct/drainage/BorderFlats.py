@@ -109,12 +109,12 @@ def LabelBorderFlatsTile(row, col, params, tileset='default', **kwargs):
                 elevations[0, :],
                 elevations[:, -1],
                 np.flip(elevations[-1, :], axis=0),
-                np.flip(elevations[:, 0], axis=0)], dtype=object),
+                np.flip(elevations[:, 0], axis=0)]),
             labels=np.array([
                 labels[0, :],
                 labels[:, -1],
                 np.flip(labels[-1, :], axis=0),
-                np.flip(labels[:, 0], axis=0)], dtype=object),
+                np.flip(labels[:, 0], axis=0)]),
             flatindex=flatindex,
             graph=np.array(list(graph.items()), dtype=object)
         )

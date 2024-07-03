@@ -142,7 +142,7 @@ def LabelWatershedsTile(
 
     step('Write filled DEM')
 
-    elevations = BurnTile(params, row, col, elevations, tileset=tileset) # Burn again filled elevations to avoid burned zone filling
+    #elevations = BurnTile(params, row, col, elevations, tileset=tileset) # Burn again filled elevations to avoid burned zone filling
 
     profile.update(
         compress='deflate',
@@ -169,7 +169,7 @@ def LabelWatershedsTile(
             elevations[0, :],
             elevations[:, -1],
             np.flip(elevations[-1, :], axis=0),
-            np.flip(elevations[:, 0], axis=0)], dtype=object),
+            np.flip(elevations[:, 0], axis=0)]),
         labels=np.array([
             labels[0, :],
             labels[:, -1],
