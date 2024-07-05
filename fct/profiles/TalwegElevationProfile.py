@@ -15,15 +15,15 @@ import rasterio as rio
 from shapely.geometry import LineString, asShape
 import xarray as xr
 
-from ..cli import starcall
-from ..tileio import as_window
-from ..config import (
+from fct.cli import starcall
+from fct.tileio import as_window
+from fct.config import (
     DatasetParameter,
     LiteralParameter
 )
-from ..corridor.ValleyBottomFeatures import MASK_VALLEY_BOTTOM
-from ..metadata import set_metadata
-# from ..plotting.PlotCorridor import (
+from fct.corridor.ValleyBottomFeatures import MASK_VALLEY_BOTTOM
+from fct.metadata import set_metadata
+# from fct.plotting.PlotCorridor import (
 #     SetupPlot,
 #     SetupMeasureAxis,
 #     FinalizePlot
@@ -152,7 +152,7 @@ def talweg_elevation_mp(params: Parameters, processes: int = 6, **kwargs) -> xr.
         with fiona.open(talweg_shapefile) as fs:
             for feature in fs:
 
-                axis = feature['properties']['AXIS']
+                axis = int(feature['properties']['AXIS'])
                 talweg = np.asarray(feature['geometry']['coordinates'])
 
                 yield (
@@ -187,7 +187,7 @@ def TalwegElevation(params: Parameters, processes: int = 6, **kwargs) -> xr.Data
             with click.progressbar(fs) as iterator:
                 for feature in iterator:
 
-                    axis = feature['properties']['AXIS']
+                    axis = int(feature['properties']['AXIS'])
                     talweg = np.asarray(feature['geometry']['coordinates'])
                     axis_values = extract_talweg_data(axis, talweg, params)
                     values.append(axis_values)

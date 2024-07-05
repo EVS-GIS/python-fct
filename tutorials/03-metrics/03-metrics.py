@@ -56,6 +56,7 @@ from fct.profiles import ValleyBottomHeight
 params = ValleyBottomHeight.Parameters()
 params.talweg = dict(key='metrics_refaxis_points', tiled=False, subdir='NETWORK/METRICS')
 params.measure = 'medialaxis_measure'
+params.nearest = 'medialaxis_nearest'
 
 river_profile = ValleyBottomHeight.ValleyBottomHeight(swath_bounds=swath_bounds, params=params, processes=p)
 river_profile.to_netcdf(f'{config.workdir}/NETWORK/METRICS/HEIGHT_FLOODPLAIN.nc')

@@ -10,8 +10,8 @@ import fiona.crs
 from shapely.geometry import LineString
 import xarray as xr
 
-from ..config import config, DatasetParameter
-from .TalwegElevationProfile import (
+from fct.config import config, DatasetParameter
+from fct.profiles.TalwegElevationProfile import (
     Parameters as RefaxisParameters,
     TalwegElevation as RefaxisElevation
 )
